@@ -15,7 +15,7 @@ dependencies and concurrency constraints.
 
 from threading import Lock
 from typing import Iterator, TypeVar
-from src.types import JobQueue, Task, Dependency
+from zahir.types import JobQueue, Task, Dependency
 
 
 ArgsType = TypeVar("ArgsType", bound=dict)

@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Generic, Iterator, TypeVar
 
-from exception import DependencyMissingException
+from zahir.exception import DependencyMissingException
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Dependency +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

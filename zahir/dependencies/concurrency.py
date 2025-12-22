@@ -1,5 +1,5 @@
 from types import TracebackType
-from src.types import Dependency
+from zahir.types import Dependency
 
 
 class ConcurrencyLimit(Dependency):

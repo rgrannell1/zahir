@@ -1,9 +1,9 @@
 """Workflow execution engine"""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
-from src.queues.local import JobQueue, MemoryJobQueue
-from src.exception import TimeoutException, UnrecoverableJobException
-from src.types import Task, ArgsType, DependencyType
+from zahir.queues.local import JobQueue, MemoryJobQueue
+from zahir.exception import TimeoutException, UnrecoverableJobException
+from zahir.types import Task, ArgsType, DependencyType
 
 
 def recover_workflow(

@@ -26,4 +26,4 @@ dependencies = []
 Repository = "https://github.com/rgrannell1/zahir"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/zahir"]
+packages = ["zahir"]
