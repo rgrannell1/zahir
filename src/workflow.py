@@ -1,25 +1,54 @@
 """Workflow execution engine"""
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from typing import TypeVar
-from queues.local import JobQueue, MemoryJobQueue
-from src.types import Task, Dependency, ArgsType, DependencyType
+from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
+from src.queues.local import JobQueue, MemoryJobQueue
+from src.exception import TimeoutException, UnrecoverableJobException
+from src.types import Task, ArgsType, DependencyType
 
 
 def recover_workflow(
     current_job: Task[ArgsType, DependencyType], queue: JobQueue, err: Exception
 ):
-    """Attempt to recover from a failed job by invoking its recovery method."""
+    """Attempt to recover from a failed job by invoking its recovery method"""
+
+    timeout = current_job.RECOVER_TIMEOUT
 
     try:
-        exc_jobs = current_job.recover(err)
+        if timeout is None:
+            _run_recovery(current_job, err, queue)
+            return
 
-        for exc_job in exc_jobs:
-            queue.add(exc_job)
+        # hacky method to allow timeouts
+        with ThreadPoolExecutor(max_workers=1) as executor:
+            future = executor.submit(_run_recovery, current_job, err, queue)
+            try:
+                future.result(timeout=timeout)
+            except TimeoutError:
+                raise TimeoutException(
+                    f"Recovery for job {type(current_job).__name__} timed out after {timeout}s"
+                )
+
+    except TimeoutException:
+        raise
     except Exception as recovery_err:
-        # Oh dear! Even the recovery failed.
+        # Oh dear! Even the recovery failed. I guess we need to bail to the workflow engine.
 
-        print(f"Recovery from job {type(current_job).__name__} failed: {recovery_err}")
+        raise UnrecoverableJobException(
+            f"Recovery for job {type(current_job).__name__} failed"
+        ) from recovery_err
+
+
+def _run_recovery(current_job: Task, err: Exception, queue: JobQueue) -> None:
+    """Execute the recovery process for a failed job.
+
+    @param current_job: The job that failed
+    @param err: The exception that caused the failure
+    @param queue: The job queue to add recovery jobs to
+    """
+    exc_jobs = current_job.recover(err)
+
+    for exc_job in exc_jobs:
+        queue.add(exc_job)
 
 
 def execute_job(job_id: int, current_job: Task, queue: JobQueue) -> None:
@@ -29,13 +58,10 @@ def execute_job(job_id: int, current_job: Task, queue: JobQueue) -> None:
     @param current_job: The task to execute
     @param queue: The job queue to add subjobs to
     """
-    try:
-        for subjob in current_job.run():
-            queue.add(subjob)
-        queue.complete(job_id)
-    except Exception:
-        # Re-raise to be caught by the future.result() call
-        raise
+
+    for subjob in current_job.run():
+        queue.add(subjob)
+    queue.complete(job_id)
 
 
 def execute_batch(
@@ -50,21 +76,29 @@ def execute_batch(
     @param queue: The job queue to add subjobs to
     """
     # Submit all runnable jobs to the executor
-    futures = {}
+    job_futures = {}
     for job_id, current_job in runnable_jobs:
         future = executor.submit(execute_job, job_id, current_job, queue)
-        futures[future] = (job_id, current_job)
+        job_futures[future] = (job_id, current_job)
 
     # Wait for all submitted jobs to complete
-    for future in as_completed(futures):
-        job_id, current_job = futures[future]
+    for future in as_completed(job_futures):
+        job_id, current_job = job_futures[future]
+        timeout = current_job.TASK_TIMEOUT
         try:
-            future.result()
+            future.result(timeout=timeout)
+        except TimeoutError:
+            timeout_err = TimeoutError(
+                f"Task {type(current_job).__name__} timed out after {timeout}s"
+            )
+            recover_workflow(current_job, queue, timeout_err)
         except Exception as job_err:
             recover_workflow(current_job, queue, job_err)
 
 
 class Workflow:
+    """A workflow execution engine"""
+
     DEFAULT_MAX_WORKERS = 4
 
     def __init__(

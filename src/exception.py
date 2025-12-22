@@ -17,3 +17,9 @@ class TimeoutException(ZahirException):
     """A task or recovery has exceeded its allowed time limit."""
 
     ...
+
+
+class UnrecoverableJobException(ZahirException):
+    """A job has failed and cannot be recovered."""
+
+    ...
