@@ -1,6 +1,7 @@
 """Queue management for workflow execution."""
 
-from typing import Any, Iterator, TypeVar
+from threading import Lock
+from typing import Iterator, TypeVar
 from src.types import JobQueue, Task, Dependency
 
 
@@ -11,10 +12,11 @@ DependencyType = TypeVar("DependencyType", bound=Dependency)
 class MemoryJobQueue(JobQueue):
     """An in-memory registry of jobs."""
 
-    job_counter: int = 0
-
-    pending_jobs: dict[int, Task] = {}
-    completed_jobs: dict[int, Task] = {}
+    def __init__(self) -> None:
+        self.job_counter: int = 0
+        self.pending_jobs: dict[int, Task] = {}
+        self.completed_jobs: dict[int, Task] = {}
+        self._lock = Lock()
 
     def add(self, task: "Task[ArgsType, DependencyType]") -> int:
         """Register a task with the job queue, returning a job ID
@@ -23,9 +25,10 @@ class MemoryJobQueue(JobQueue):
         @return: The job ID assigned to the task
         """
 
-        self.job_counter += 1
-        job_id = self.job_counter
-        self.pending_jobs[job_id] = task
+        with self._lock:
+            self.job_counter += 1
+            job_id = self.job_counter
+            self.pending_jobs[job_id] = task
 
         return job_id
 
@@ -36,10 +39,11 @@ class MemoryJobQueue(JobQueue):
         @return: The ID of the completed job
         """
 
-        if job_id in self.pending_jobs:
-            task = self.pending_jobs[job_id]
-            self.completed_jobs[job_id] = task
-            del self.pending_jobs[job_id]
+        with self._lock:
+            if job_id in self.pending_jobs:
+                task = self.pending_jobs[job_id]
+                self.completed_jobs[job_id] = task
+                del self.pending_jobs[job_id]
 
         return job_id
 
@@ -49,7 +53,8 @@ class MemoryJobQueue(JobQueue):
         @return: True if there are pending jobs, False otherwise
         """
 
-        return bool(self.pending_jobs)
+        with self._lock:
+            return bool(self.pending_jobs)
 
     def runnable(self) -> Iterator[tuple[int, "Task"]]:
         """Yield all runnable jobs from the queue.
@@ -57,6 +62,7 @@ class MemoryJobQueue(JobQueue):
         @return: An iterator of (job ID, task) tuples for runnable jobs
         """
 
-        for job_id, job in self.pending_jobs.items():
-            if job.ready():
-                yield job_id, job
+        with self._lock:
+            for job_id, job in list(self.pending_jobs.items()):
+                if job.ready():
+                    yield job_id, job

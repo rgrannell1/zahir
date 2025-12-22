@@ -1,38 +1,9 @@
 """Workflow execution engine"""
 
-from typing import Iterator, TypeVar
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import TypeVar
 from queues.local import JobQueue, MemoryJobQueue
-from src.types import Task, Dependency
-
-ArgsType = TypeVar("ArgsType", bound=dict)
-DependencyType = TypeVar("DependencyType", bound=Dependency)
-
-
-def find_runnable_jobs(
-    jobs: list[Task[ArgsType, DependencyType]],
-) -> Iterator[Task[ArgsType, DependencyType]]:
-    """Which jobs can be run? Check, in series, which jobs have all their dependencies.
-
-    For the moment, let's do this is a single-threaded scan to minimise
-    race-conditions.
-    """
-
-    for job in jobs:
-        if isinstance(job.dependencies, dict):
-            ready_to_go = all(dep.satisfied() for dep in job.dependencies.values())
-        elif hasattr(job.dependencies, "__dict__"):
-            # Handle dataclass dependencies
-            ready_to_go = all(
-                dep.satisfied()
-                for dep in vars(job.dependencies).values()
-                if hasattr(dep, "satisfied")
-            )
-        else:
-            # Assume it's an iterable of dependencies
-            ready_to_go = True
-
-        if ready_to_go:
-            yield job
+from src.types import Task, Dependency, ArgsType, DependencyType
 
 
 def recover_workflow(
@@ -48,41 +19,81 @@ def recover_workflow(
     except Exception as recovery_err:
         # Oh dear! Even the recovery failed.
 
-        print(
-            f"Recovery from job {type(current_job).__name__} failed: {recovery_err}"
-        )
+        print(f"Recovery from job {type(current_job).__name__} failed: {recovery_err}")
 
 
+def execute_job(job_id: int, current_job: Task, queue: JobQueue) -> None:
+    """Execute a single job and handle its subjobs
 
-def execute_workflow(start: Task[ArgsType, DependencyType]) -> None:
-    """Execute each step of the workflow, persist state centrally. Jobs
-    are run in parallel but scheduled synchronously to avoid race-conditions in
-    dependencies"""
+    @param job_id: The ID of the job to execute
+    @param current_job: The task to execute
+    @param queue: The job queue to add subjobs to
+    """
+    try:
+        for subjob in current_job.run():
+            queue.add(subjob)
+        queue.complete(job_id)
+    except Exception:
+        # Re-raise to be caught by the future.result() call
+        raise
 
-    queue = MemoryJobQueue()
-    queue.add(start)
 
-    while not queue.pending():
-        runnable_jobs = queue.runnable()
+def execute_batch(
+    executor: ThreadPoolExecutor,
+    runnable_jobs: list[tuple[int, Task]],
+    queue: JobQueue,
+) -> None:
+    """Execute a batch of runnable jobs in parallel
 
-        for job_id, current_job in runnable_jobs:
-            try:
-                for subjob in current_job.run():
-                    queue.add(subjob)
-                queue.complete(job_id)
-            except Exception as job_err:
-                recover_workflow(current_job, queue, job_err)
+    @param executor: The thread pool executor to use
+    @param runnable_jobs: List of (job_id, task) tuples to execute
+    @param queue: The job queue to add subjobs to
+    """
+    # Submit all runnable jobs to the executor
+    futures = {}
+    for job_id, current_job in runnable_jobs:
+        future = executor.submit(execute_job, job_id, current_job, queue)
+        futures[future] = (job_id, current_job)
+
+    # Wait for all submitted jobs to complete
+    for future in as_completed(futures):
+        job_id, current_job = futures[future]
+        try:
+            future.result()
+        except Exception as job_err:
+            recover_workflow(current_job, queue, job_err)
 
 
 class Workflow:
-    def __init__(self) -> None:
-        """Initialize a workflow execution engine"""
-        pass
+    DEFAULT_MAX_WORKERS = 4
 
-    def run(self, start: Task[ArgsType, DependencyType]) -> None:
+    def __init__(
+        self, queue: JobQueue | None = None, max_workers: int | None = None
+    ) -> None:
+        """Initialize a workflow execution engine
+
+        @param queue: The job queue to use for managing jobs
+        @param max_workers: Maximum number of parallel workers (default: DEFAULT_MAX_WORKERS)
+        """
+
+        self.queue = queue if queue is not None else MemoryJobQueue()
+        self.max_workers = (
+            max_workers if max_workers is not None else self.DEFAULT_MAX_WORKERS
+        )
+
+    def run(self, start: Task) -> None:
         """Run a workflow from the starting task
 
         @param start: The starting task of the workflow
         """
 
-        execute_workflow(start)
+        self.queue.add(start)
+
+        with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
+            while self.queue.pending():
+                runnable_jobs = list(self.queue.runnable())
+
+                if not runnable_jobs:
+                    break
+
+                execute_batch(exec, runnable_jobs, self.queue)

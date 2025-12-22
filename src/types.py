@@ -40,6 +40,18 @@ class JobQueue(ABC):
 
         raise NotImplementedError
 
+    @abstractmethod
+    def pending(self) -> bool:
+        """Check whether any jobs still need to be run."""
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def runnable(self) -> Iterator[tuple[int, "Task"]]:
+        """Get an iterator of runnable jobs (ID, Task)"""
+
+        raise NotImplementedError
+
 
 # +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Tasks ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
