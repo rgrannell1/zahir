@@ -1,7 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "zahir"
 version = "0.1.0"
-description = "Add your description here"
+description = "A parallel workflow execution engine with dependency management"
 readme = "README.md"
 requires-python = ">=3.13"
+authors = [
+    { name = "Róisín Grannell" }
+]
+license = { text = "MIT" }
+keywords = ["workflow", "task", "execution", "parallel", "dependency"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+]
 dependencies = []
+
+[project.urls]
+Repository = "https://github.com/rgrannell1/zahir"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/zahir"]

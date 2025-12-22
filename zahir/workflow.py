@@ -9,7 +9,12 @@ from src.types import Task, ArgsType, DependencyType
 def recover_workflow(
     current_job: Task[ArgsType, DependencyType], queue: JobQueue, err: Exception
 ):
-    """Attempt to recover from a failed job by invoking its recovery method"""
+    """Attempt to recover from a failed job by invoking its recovery method
+
+    @param current_job: The job that failed
+    @param queue: The job queue to add recovery jobs to
+    @param err: The exception that caused the failure
+    """
 
     timeout = current_job.RECOVER_TIMEOUT
 
@@ -21,6 +26,7 @@ def recover_workflow(
         # hacky method to allow timeouts
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(_run_recovery, current_job, err, queue)
+
             try:
                 future.result(timeout=timeout)
             except TimeoutError:
