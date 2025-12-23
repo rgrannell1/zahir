@@ -67,7 +67,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def job_state(self, job_id: int) -> JobState:
+    def get_state(self, job_id: int) -> JobState:
         """Get the state of a job by ID"""
 
         raise NotImplementedError

@@ -45,10 +45,24 @@ class MemoryJobRegistry(JobRegistry):
 
         return job_id
 
+    def get_state(self, job_id: int) -> JobState:
+        """Get the state of a job by ID
+
+        @param job_id: The ID of the job to get the state of
+
+        @return: The state of the job
+        """
+
+        with self._lock:
+            if job_id in self.jobs:
+                return self.jobs[job_id].state
+            else:
+                raise KeyError(f"Job ID {job_id} not found in registry")
+
     def set_state(self, job_id: int, state: JobState) -> int:
         """Set the state of a job by ID
 
-        @param job_id: The ID of the job to mark as complete
+        @param job_id: The ID of the job to update
         @param state: The new state of the job
 
         @return: The ID of the job
