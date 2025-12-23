@@ -20,14 +20,57 @@ class WorkflowCompleteEvent(ZahirEvent):
 
 
 @dataclass
-class JobRunnable(ZahirEvent):
+class JobRunnableEvent(ZahirEvent):
     """Indicates that a job is runnable"""
 
     job: "Task"
 
 
 @dataclass
-class JobCompleted(ZahirEvent):
+class JobCompletedEvent(ZahirEvent):
     """Indicates that a job has completed successfully"""
 
+    job: "Task"
+
+
+@dataclass
+class JobStartedEvent(ZahirEvent):
+    """Indicates that a job has started execution"""
+
+    job: "Task"
+
+
+@dataclass
+class JobTimeoutEvent(ZahirEvent):
+    """Indicates that a job has timed out"""
+
+    job: "Task"
+
+
+@dataclass
+class JobRecoveryStarted(ZahirEvent):
+    """Indicates that a job recovery has started"""
+
+    job: "Task"
+
+
+@dataclass
+class JobRecoveryCompleted(ZahirEvent):
+    """Indicates that a job recovery has completed"""
+
+    job: "Task"
+
+
+@dataclass
+class JobRecoveryTimeout(ZahirEvent):
+    """Indicates that a job recovery has timed out"""
+
+    job: "Task"
+
+
+@dataclass
+class JobIrrecoverableEvent(ZahirEvent):
+    """Indicates that a job recovery has failed irrecoverably"""
+
+    error: Exception
     job: "Task"

@@ -5,15 +5,25 @@ from datetime import datetime, timezone
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed, TimeoutError
 from typing import Iterator
 
-from zahir.events import JobCompleted, JobRunnable, WorkflowCompleteEvent, ZahirEvent
+from zahir.events import (
+    JobCompletedEvent,
+    JobIrrecoverableEvent,
+    JobRecoveryCompleted,
+    JobRecoveryStarted,
+    JobRecoveryTimeout,
+    JobRunnableEvent,
+    JobStartedEvent,
+    JobTimeoutEvent,
+    WorkflowCompleteEvent,
+    ZahirEvent,
+)
 from zahir.queues.local import JobRegistry, MemoryJobRegistry
-from zahir.exception import TimeoutException, UnrecoverableJobException
 from zahir.types import Task, ArgsType, DependencyType
 
 
 def recover_workflow(
     current_job: Task[ArgsType, DependencyType], queue: JobRegistry, err: Exception
-):
+) -> Iterator[ZahirEvent]:
     """Attempt to recover from a failed job by invoking its recovery method
 
     @param current_job: The job that failed
@@ -21,32 +31,22 @@ def recover_workflow(
     @param err: The exception that caused the failure
     """
 
-    timeout = current_job.RECOVER_TIMEOUT
+    recovery_timeout = current_job.RECOVER_TIMEOUT
 
     try:
-        if timeout is None:
-            _run_recovery(current_job, err, queue)
-            return
-
-        # hacky method to allow timeouts
+        # hacky method to handle recovery timeouts
         with ThreadPoolExecutor(max_workers=1) as executor:
             future = executor.submit(_run_recovery, current_job, err, queue)
 
             try:
-                future.result(timeout=timeout)
+                yield JobRecoveryStarted(current_job)
+                future.result(timeout=recovery_timeout)
+                yield JobRecoveryCompleted(current_job)
             except TimeoutError:
-                raise TimeoutException(
-                    f"Recovery for job {type(current_job).__name__} timed out after {timeout}s"
-                )
-
-    except TimeoutException:
-        raise
+                yield JobRecoveryTimeout(current_job)
     except Exception as recovery_err:
-        # Oh dear! Even the recovery failed. I guess we need to bail to the workflow engine.
-
-        raise UnrecoverableJobException(
-            f"Recovery for job {type(current_job).__name__} failed"
-        ) from recovery_err
+        # Oh dear! Even the recovery failed.
+        yield JobIrrecoverableEvent(recovery_err, current_job)
 
 
 def _run_recovery(current_job: Task, err: Exception, queue: JobRegistry) -> None:
@@ -57,13 +57,11 @@ def _run_recovery(current_job: Task, err: Exception, queue: JobRegistry) -> None
     @param queue: The job queue to add recovery jobs to
     """
 
-    exc_jobs = current_job.recover(err)
-
-    for exc_job in exc_jobs:
+    for exc_job in current_job.recover(err):
         queue.add(exc_job)
 
 
-def execute_job(job_id: int, current_job: Task, queue: JobRegistry) -> None:
+def execute_single_job(job_id: int, current_job: Task, queue: JobRegistry) -> None:
     """Execute a single job and handle its subjobs
 
     @param job_id: The ID of the job to execute
@@ -76,7 +74,7 @@ def execute_job(job_id: int, current_job: Task, queue: JobRegistry) -> None:
     queue.complete(job_id)
 
 
-def execute_batch(
+def execute_workflow_batch(
     executor: ThreadPoolExecutor,
     runnable_jobs: list[tuple[int, Task]],
     queue: JobRegistry,
@@ -87,11 +85,11 @@ def execute_batch(
     @param runnable_jobs: List of (job_id, task) tuples to execute
     @param queue: The job queue to add subjobs to
     """
-    # Submit all runnable jobs to the executor
     job_futures: dict[Future, tuple[int, Task]] = {}
 
+    # submit all runnable jobs to the executor
     for job_id, current_job in runnable_jobs:
-        future = executor.submit(execute_job, job_id, current_job, queue)
+        future = executor.submit(execute_single_job, job_id, current_job, queue)
         job_futures[future] = (job_id, current_job)
 
     # Wait for all submitted jobs to complete
@@ -99,12 +97,14 @@ def execute_batch(
         job_id, current_job = job_futures[future]
         timeout = current_job.TASK_TIMEOUT
         try:
+            yield JobStartedEvent(current_job)
             future.result(timeout=timeout)
-            yield JobCompleted(current_job)
+            yield JobCompletedEvent(current_job)
         except TimeoutError:
             timeout_err = TimeoutError(
                 f"Task {type(current_job).__name__} timed out after {timeout}s"
             )
+            yield JobTimeoutEvent(current_job)
             recover_workflow(current_job, queue, timeout_err)
         except Exception as job_err:
             recover_workflow(current_job, queue, job_err)
@@ -128,6 +128,8 @@ class Workflow:
 
         @param queue: The job queue to use for managing jobs
         @param max_workers: Maximum number of parallel workers (default: DEFAULT_MAX_WORKERS)
+        @param stall_time: Time to wait between workflow phases. Wait times may be larger,
+            as this includes the length the jobs themselves run for (default: STALL_TIME)
         """
 
         self.queue = queue if queue is not None else MemoryJobRegistry()
@@ -146,17 +148,21 @@ class Workflow:
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
             while self.queue.pending():
+                # Note: this is a bit memory-inefficient.
                 runnable_jobs = list(self.queue.runnable())
 
+                # Yield information on each job we currently consider runnable.
                 for _, runnable in runnable_jobs:
-                    yield JobRunnable(runnable)
+                    yield JobRunnableEvent(runnable)
 
+                # We're finished
                 if not runnable_jobs:
                     yield WorkflowCompleteEvent()
                     break
 
+                # Run the batch of jobs that are unblocked across `max_workers` threads.
                 batch_start_time = datetime.now(tz=timezone.utc)
-                execute_batch(exec, runnable_jobs, self.queue)
+                yield from execute_workflow_batch(exec, runnable_jobs, self.queue)
                 batch_end_time = datetime.now(tz=timezone.utc)
                 batch_duration = (batch_end_time - batch_start_time).total_seconds()
 
