@@ -22,11 +22,12 @@ from zahir.types import Job, ArgsType, DependencyType
 
 
 def recover_workflow(
-    current_job: Job[ArgsType, DependencyType], registry: JobRegistry, err: Exception
+    current_job: Job[ArgsType, DependencyType], job_id: int, registry: JobRegistry, err: Exception
 ) -> Iterator[ZahirEvent]:
     """Attempt to recover from a failed job by invoking its recovery method
 
     @param current_job: The job that failed
+    @param job_id: The ID of the job that failed
     @param registry: The job registry to add recovery jobs to
     @param err: The exception that caused the failure
     """
@@ -39,14 +40,14 @@ def recover_workflow(
             future = executor.submit(_run_recovery, current_job, err, registry)
 
             try:
-                yield JobRecoveryStarted(current_job)
+                yield JobRecoveryStarted(current_job, job_id)
                 future.result(timeout=recovery_timeout)
-                yield JobRecoveryCompleted(current_job)
+                yield JobRecoveryCompleted(current_job, job_id)
             except TimeoutError:
-                yield JobRecoveryTimeout(current_job)
+                yield JobRecoveryTimeout(current_job, job_id)
     except Exception as recovery_err:
         # Oh dear! Even the recovery failed.
-        yield JobIrrecoverableEvent(recovery_err, current_job)
+        yield JobIrrecoverableEvent(recovery_err, current_job, job_id)
 
 
 def _run_recovery(current_job: Job, err: Exception, registry: JobRegistry) -> None:
@@ -97,17 +98,17 @@ def execute_workflow_batch(
         job_id, current_job = job_futures[future]
         timeout = current_job.JOB_TIMEOUT
         try:
-            yield JobStartedEvent(current_job)
+            yield JobStartedEvent(current_job, job_id)
             future.result(timeout=timeout)
-            yield JobCompletedEvent(current_job)
+            yield JobCompletedEvent(current_job, job_id)
         except TimeoutError:
             timeout_err = TimeoutError(
                 f"Job {type(current_job).__name__} timed out after {timeout}s"
             )
-            yield JobTimeoutEvent(current_job)
-            recover_workflow(current_job, registry, timeout_err)
+            yield JobTimeoutEvent(current_job, job_id)
+            yield from recover_workflow(current_job, job_id, registry, timeout_err)
         except Exception as job_err:
-            recover_workflow(current_job, registry, job_err)
+            yield from recover_workflow(current_job, job_id, registry, job_err)
 
 
 class Workflow:
@@ -152,8 +153,8 @@ class Workflow:
                 runnable_jobs = list(self.registry.runnable())
 
                 # Yield information on each job we currently consider runnable.
-                for _, runnable in runnable_jobs:
-                    yield JobRunnableEvent(runnable)
+                for runnable_job_id, runnable in runnable_jobs:
+                    yield JobRunnableEvent(runnable, runnable_job_id)
 
                 # We're finished
                 if not runnable_jobs:
