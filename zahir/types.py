@@ -35,12 +35,40 @@ class Dependency(ABC):
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
+class JobState(str, Enum):
+    """Track the state jobs can be in"""
+    # Still to be run
+    PENDING = "pending"
+    # Currently running
+    RUNNING = "running"
+    # Completed successfully
+    COMPLETED = "completed"
+    # Recovery running
+    RECOVERING = "recovering"
+    # Recovered successfully
+    RECOVERED = "recovered"
+    # Execution timed out
+    TIMED_OUT = "timed_out"
+    # Recovery timed out
+    RECOVERY_TIMED_OUT = "recovery_timed_out"
+    # Even rollback failed; this job is irrecoverable
+    IRRECOVERABLE = "irrecoverable"
+    # Dependencies can never be satisfied, so
+    # this job is impossible to run
+    IMPOSSIBLE = "impossible"
+
 class JobRegistry(ABC):
     """Keeps track of jobs to be run."""
 
     @abstractmethod
     def add(self, job: "Job") -> int:
         """Register a job with the job registry, returning a job ID"""
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def job_state(self, job_id: int) -> JobState:
+        """Get the state of a job by ID"""
 
         raise NotImplementedError
 
