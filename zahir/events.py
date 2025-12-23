@@ -86,3 +86,12 @@ class JobIrrecoverableEvent(ZahirEvent):
     error: Exception
     job: "Job"
     job_id: int
+
+
+@dataclass
+class JobPrecheckFailedEvent(ZahirEvent):
+    """Indicates that a job's precheck validation failed"""
+
+    job: "Job"
+    job_id: int
+    errors: list[str]

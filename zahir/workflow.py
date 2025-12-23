@@ -8,6 +8,7 @@ from typing import Iterator
 from zahir.events import (
     JobCompletedEvent,
     JobIrrecoverableEvent,
+    JobPrecheckFailedEvent,
     JobRecoveryCompleted,
     JobRecoveryStarted,
     JobRecoveryTimeout,
@@ -108,6 +109,13 @@ def execute_workflow_batch(
 
     # submit all runnable jobs to the executor
     for job_id, current_job in runnable_jobs:
+        # First, let's precheck for errors
+        precheck_errors = current_job.precheck(current_job.input)
+        if precheck_errors:
+            yield JobPrecheckFailedEvent(current_job, job_id, precheck_errors)
+            registry.complete(job_id)
+            continue
+
         future = executor.submit(
             execute_single_job, job_id, current_job, registry, timing_info
         )
