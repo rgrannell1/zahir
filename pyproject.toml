@@ -20,7 +20,9 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.13",
 ]
-dependencies = []
+dependencies = [
+    "croniter>=2.0.0",
+]
 
 [project.urls]
 Repository = "https://github.com/rgrannell1/zahir"

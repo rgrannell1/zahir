@@ -5,5 +5,6 @@ job execution, including concurrency limits and other resource constraints.
 """
 
 from zahir.dependencies.concurrency import ConcurrencyLimit
+from zahir.dependencies.time import TimeDependency
 
-__all__ = ["ConcurrencyLimit"]
+__all__ = ["ConcurrencyLimit", "TimeDependency"]
