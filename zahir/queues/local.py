@@ -1,25 +1,12 @@
-"""Queue management for workflow execution.
-
-This module provides local, in-memory implementations of job queues for managing
-workflow task execution. These queues track pending and completed jobs, enforce
-dependency constraints, and provide thread-safe operations for concurrent workflow
-execution.
-
-Classes:
-    MemoryJobQueue: Thread-safe in-memory job queue implementation
-
-The queues in this module are designed to work with the workflow execution engine,
-managing task lifecycle from registration through completion while respecting task
-dependencies and concurrency constraints.
-"""
+"""Queue management for workflow execution."""
 
 from threading import Lock
 from typing import Iterator
 from zahir.types import JobRegistry, Task, ArgsType, DependencyType
 
+
 class MemoryJobRegistry(JobRegistry):
-    """Thread-safe job registry
-    """
+    """Thread-safe job registry"""
 
     def __init__(self) -> None:
         self.job_counter: int = 0

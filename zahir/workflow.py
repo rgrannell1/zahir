@@ -2,8 +2,10 @@
 
 import time
 from datetime import datetime, timezone
-from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
+from concurrent.futures import Future, ThreadPoolExecutor, as_completed, TimeoutError
+from typing import Iterator
 
+from zahir.events import JobCompleted, JobRunnable, WorkflowCompleteEvent, ZahirEvent
 from zahir.queues.local import JobRegistry, MemoryJobRegistry
 from zahir.exception import TimeoutException, UnrecoverableJobException
 from zahir.types import Task, ArgsType, DependencyType
@@ -54,6 +56,7 @@ def _run_recovery(current_job: Task, err: Exception, queue: JobRegistry) -> None
     @param err: The exception that caused the failure
     @param queue: The job queue to add recovery jobs to
     """
+
     exc_jobs = current_job.recover(err)
 
     for exc_job in exc_jobs:
@@ -77,7 +80,7 @@ def execute_batch(
     executor: ThreadPoolExecutor,
     runnable_jobs: list[tuple[int, Task]],
     queue: JobRegistry,
-) -> None:
+) -> Iterator[ZahirEvent]:
     """Execute a batch of runnable jobs in parallel
 
     @param executor: The thread pool executor to use
@@ -85,7 +88,8 @@ def execute_batch(
     @param queue: The job queue to add subjobs to
     """
     # Submit all runnable jobs to the executor
-    job_futures = {}
+    job_futures: dict[Future, tuple[int, Task]] = {}
+
     for job_id, current_job in runnable_jobs:
         future = executor.submit(execute_job, job_id, current_job, queue)
         job_futures[future] = (job_id, current_job)
@@ -96,6 +100,7 @@ def execute_batch(
         timeout = current_job.TASK_TIMEOUT
         try:
             future.result(timeout=timeout)
+            yield JobCompleted(current_job)
         except TimeoutError:
             timeout_err = TimeoutError(
                 f"Task {type(current_job).__name__} timed out after {timeout}s"
@@ -129,10 +134,9 @@ class Workflow:
         self.max_workers = (
             max_workers if max_workers is not None else self.DEFAULT_MAX_WORKERS
         )
-        self.stall_time = (
-            stall_time if stall_time is not None else self.STALL_TIME)
+        self.stall_time = stall_time if stall_time is not None else self.STALL_TIME
 
-    def run(self, start: Task) -> None:
+    def run(self, start: Task) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting task
 
         @param start: The starting task of the workflow
@@ -144,8 +148,11 @@ class Workflow:
             while self.queue.pending():
                 runnable_jobs = list(self.queue.runnable())
 
+                for _, runnable in runnable_jobs:
+                    yield JobRunnable(runnable)
+
                 if not runnable_jobs:
-                    # we're done.
+                    yield WorkflowCompleteEvent()
                     break
 
                 batch_start_time = datetime.now(tz=timezone.utc)
