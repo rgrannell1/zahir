@@ -8,7 +8,9 @@ class TimeDependency(Dependency):
     Once `before` is passed, the dependency is now considered impossible.
     """
 
+    # What date must this job run before?
     before: datetime | None
+    # What date must this job run after?
     after: datetime | None
 
     def __init__(self, before: datetime | None, after: datetime | None) -> None:
