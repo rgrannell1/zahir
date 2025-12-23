@@ -10,14 +10,14 @@ I'm writing a self-hosted digital library website, and I need a way of coordinat
 ```
 src/
     dependencies/
-        concurrency.py
-        time.py
+        concurrency.py     await a free concurrency slot before starting a job
+        time.py            await a particular time-range before starting a job
     registries/
-        local.py
-    events.py
-    exception.py
-    types.py
-    workflow.py
+        local.py           register jobs & events locally
+    events.py              events describing workflow state-updates
+    exception.py           exceptions thrown by Zahir
+    types.py               abstract types for key Zahir abstractions
+    workflow.py            run the workflows
 ```
 
 ## Constructs
