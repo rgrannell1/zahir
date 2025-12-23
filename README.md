@@ -11,6 +11,13 @@ I'm writing a self-hosted digital library website, and I need a way of coordinat
 src/
     dependencies/
         concurrency.py
+        time.py
+    registries/
+        local.py
+    events.py
+    exception.py
+    types.py
+    workflow.py
 ```
 
 ## Constructs

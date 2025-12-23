@@ -60,15 +60,24 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            for job_id, job in list(self.pending_jobs.items()):
-                if job.ready():
-                    yield job_id, job
+            runnable_list = [
+                (job_id, job)
+                for job_id, job in self.pending_jobs.items()
+                if job.ready()
+            ]
+
+        # Yield outside the lock to avoid holding it during iteration
+        for job_id, job in runnable_list:
+            yield job_id, job
 
 
 class MemoryEventRegistry(EventRegistry):
     """Keep track of workflow events in memory."""
 
     events: list[ZahirEvent]
+
+    def __init__(self) -> None:
+        self.events = []
 
     def register(self, event: ZahirEvent) -> None:
         """Register an event in the event registry."""

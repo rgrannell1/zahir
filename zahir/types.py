@@ -129,7 +129,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         @return True if all dependencies are satisfied, False otherwise
         """
 
-        return all(dep.satisfied() for dep in self.dependencies.values())
+        return all(dep.satisfied() == DependencyState.SATISFIED for dep in self.dependencies.values())
 
     @abstractmethod
     def run(self) -> Iterator["Job"]:

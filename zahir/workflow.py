@@ -70,16 +70,25 @@ def _run_recovery(current_job: Job, err: Exception, registry: JobRegistry) -> No
         registry.add(exc_job)
 
 
-def execute_single_job(job_id: int, current_job: Job, registry: JobRegistry) -> None:
+def execute_single_job(
+    job_id: int,
+    current_job: Job,
+    registry: JobRegistry,
+    timing_info: dict[int, tuple[datetime, datetime]],
+) -> None:
     """Execute a single job and handle its subjobs
 
     @param job_id: The ID of the job to execute
     @param current_job: The job to execute
     @param registry: The job registry to add subjobs to
+    @param timing_info: Dictionary to store (start_time, end_time) tuples by job_id
     """
 
+    start_time = datetime.now(tz=timezone.utc)
     for subjob in current_job.run():
         registry.add(subjob)
+    end_time = datetime.now(tz=timezone.utc)
+    timing_info[job_id] = (start_time, end_time)
     registry.complete(job_id)
 
 
@@ -95,26 +104,29 @@ def execute_workflow_batch(
     @param registry: The job registry to add subjobs to
     """
     job_futures: dict[Future, tuple[int, Job]] = {}
+    timing_info: dict[int, tuple[datetime, datetime]] = {}
 
     # submit all runnable jobs to the executor
     for job_id, current_job in runnable_jobs:
-        future = executor.submit(execute_single_job, job_id, current_job, registry)
+        future = executor.submit(
+            execute_single_job, job_id, current_job, registry, timing_info
+        )
         job_futures[future] = (job_id, current_job)
 
     # Wait for all submitted jobs to complete
     for future in as_completed(job_futures):
         job_id, current_job = job_futures[future]
         timeout = current_job.JOB_TIMEOUT
-        job_start_time = datetime.now(tz=timezone.utc)
         try:
             yield JobStartedEvent(current_job, job_id)
             future.result(timeout=timeout)
-            job_end_time = datetime.now(tz=timezone.utc)
-            duration = (job_end_time - job_start_time).total_seconds()
+            # Get actual execution timing from the worker thread
+            start_time, end_time = timing_info[job_id]
+            duration = (end_time - start_time).total_seconds()
             yield JobCompletedEvent(current_job, job_id, duration)
         except TimeoutError:
-            job_end_time = datetime.now(tz=timezone.utc)
-            duration = (job_end_time - job_start_time).total_seconds()
+            # Job timed out - use timeout value as duration if available
+            duration = float(timeout) if timeout is not None else 0.0
             timeout_err = TimeoutError(
                 f"Job {type(current_job).__name__} timed out after {timeout}s"
             )
