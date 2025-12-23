@@ -149,14 +149,18 @@ class Workflow:
         )
         self.stall_time = stall_time if stall_time is not None else self.STALL_TIME
 
-    def _run(self, start: Job) -> Iterator[ZahirEvent]:
+    def _run(self, start: Job | None = None) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job
 
         @param start: The starting job of the workflow
         """
 
         workflow_start_time = datetime.now(tz=timezone.utc)
-        self.job_registry.add(start)
+
+        # if desired, seed the workflow with an initial job. Otherwise we'll just
+        # process jobs currently in the workflow registry.
+        if start is not None:
+            self.job_registry.add(start)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
             while self.job_registry.pending():
@@ -186,7 +190,7 @@ class Workflow:
                     sleep_time = self.stall_time - batch_duration
                     time.sleep(sleep_time)
 
-    def run(self, start: Job):
+    def run(self, start: Job | None = None):
         """Run a workflow from the starting job
 
         @param start: The starting job of the workflow
