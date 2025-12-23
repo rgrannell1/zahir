@@ -1,4 +1,4 @@
-"""Queue management for workflow execution."""
+"""Registry management for workflow execution."""
 
 from threading import Lock
 from typing import Iterator
@@ -15,7 +15,7 @@ class MemoryJobRegistry(JobRegistry):
         self._lock = Lock()
 
     def add(self, job: "Job[ArgsType, DependencyType]") -> int:
-        """Register a job with the job queue, returning a job ID
+        """Register a job with the job registry, returning a job ID
 
         @param job: The job to register
         @return: The job ID assigned to the job
@@ -29,7 +29,7 @@ class MemoryJobRegistry(JobRegistry):
         return job_id
 
     def complete(self, job_id: int) -> int:
-        """Mark a job as complete, removing it from the queue.
+        """Mark a job as complete, removing it from the registry.
 
         @param job_id: The ID of the job to mark as complete
         @return: The ID of the completed job
@@ -53,7 +53,7 @@ class MemoryJobRegistry(JobRegistry):
             return bool(self.pending_jobs)
 
     def runnable(self) -> Iterator[tuple[int, "Job"]]:
-        """Yield all runnable jobs from the queue.
+        """Yield all runnable jobs from the registry.
 
         @return: An iterator of (job ID, job) tuples for runnable jobs
         """

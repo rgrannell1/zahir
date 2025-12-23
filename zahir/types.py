@@ -21,7 +21,7 @@ class Dependency(ABC):
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-# ++++++++++++++++++++++ Job Queue +++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++ Job Registry +++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
@@ -30,13 +30,13 @@ class JobRegistry(ABC):
 
     @abstractmethod
     def add(self, job: "Job") -> int:
-        """Register a job with the job queue, returning a job ID"""
+        """Register a job with the job registry, returning a job ID"""
 
         raise NotImplementedError
 
     @abstractmethod
     def complete(self, job_id: int) -> int:
-        """Remove a job from the job queue by ID"""
+        """Remove a job from the job registry by ID"""
 
         raise NotImplementedError
 

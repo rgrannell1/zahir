@@ -1,6 +1,6 @@
-"""Job queue implementations for workflow execution.
+"""Job registry implementations for workflow execution.
 
-This package provides various job queue implementations for managing job
+This package provides various job registry implementations for managing job
 execution in workflows.
 """
 

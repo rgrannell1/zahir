@@ -22,12 +22,12 @@ from zahir.types import Job, ArgsType, DependencyType
 
 
 def recover_workflow(
-    current_job: Job[ArgsType, DependencyType], queue: JobRegistry, err: Exception
+    current_job: Job[ArgsType, DependencyType], registry: JobRegistry, err: Exception
 ) -> Iterator[ZahirEvent]:
     """Attempt to recover from a failed job by invoking its recovery method
 
     @param current_job: The job that failed
-    @param queue: The job queue to add recovery jobs to
+    @param registry: The job registry to add recovery jobs to
     @param err: The exception that caused the failure
     """
 
@@ -36,7 +36,7 @@ def recover_workflow(
     try:
         # hacky method to handle recovery timeouts
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_run_recovery, current_job, err, queue)
+            future = executor.submit(_run_recovery, current_job, err, registry)
 
             try:
                 yield JobRecoveryStarted(current_job)
@@ -49,47 +49,47 @@ def recover_workflow(
         yield JobIrrecoverableEvent(recovery_err, current_job)
 
 
-def _run_recovery(current_job: Job, err: Exception, queue: JobRegistry) -> None:
+def _run_recovery(current_job: Job, err: Exception, registry: JobRegistry) -> None:
     """Execute the recovery process for a failed job.
 
     @param current_job: The job that failed
     @param err: The exception that caused the failure
-    @param queue: The job queue to add recovery jobs to
+    @param registry: The job registry to add recovery jobs to
     """
 
     for exc_job in current_job.recover(err):
-        queue.add(exc_job)
+        registry.add(exc_job)
 
 
-def execute_single_job(job_id: int, current_job: Job, queue: JobRegistry) -> None:
+def execute_single_job(job_id: int, current_job: Job, registry: JobRegistry) -> None:
     """Execute a single job and handle its subjobs
 
     @param job_id: The ID of the job to execute
     @param current_job: The job to execute
-    @param queue: The job queue to add subjobs to
+    @param registry: The job registry to add subjobs to
     """
 
     for subjob in current_job.run():
-        queue.add(subjob)
-    queue.complete(job_id)
+        registry.add(subjob)
+    registry.complete(job_id)
 
 
 def execute_workflow_batch(
     executor: ThreadPoolExecutor,
     runnable_jobs: list[tuple[int, Job]],
-    queue: JobRegistry,
+    registry: JobRegistry,
 ) -> Iterator[ZahirEvent]:
     """Execute a batch of runnable jobs in parallel
 
     @param executor: The thread pool executor to use
     @param runnable_jobs: List of (job_id, job) tuples to execute
-    @param queue: The job queue to add subjobs to
+    @param registry: The job registry to add subjobs to
     """
     job_futures: dict[Future, tuple[int, Job]] = {}
 
     # submit all runnable jobs to the executor
     for job_id, current_job in runnable_jobs:
-        future = executor.submit(execute_single_job, job_id, current_job, queue)
+        future = executor.submit(execute_single_job, job_id, current_job, registry)
         job_futures[future] = (job_id, current_job)
 
     # Wait for all submitted jobs to complete
@@ -105,9 +105,9 @@ def execute_workflow_batch(
                 f"Job {type(current_job).__name__} timed out after {timeout}s"
             )
             yield JobTimeoutEvent(current_job)
-            recover_workflow(current_job, queue, timeout_err)
+            recover_workflow(current_job, registry, timeout_err)
         except Exception as job_err:
-            recover_workflow(current_job, queue, job_err)
+            recover_workflow(current_job, registry, job_err)
 
 
 class Workflow:
@@ -120,19 +120,19 @@ class Workflow:
 
     def __init__(
         self,
-        queue: JobRegistry | None = None,
+        registry: JobRegistry | None = None,
         max_workers: int | None = None,
         stall_time: int | None = None,
     ) -> None:
         """Initialize a workflow execution engine
 
-        @param queue: The job queue to use for managing jobs
+        @param registry: The job registry to use for managing jobs
         @param max_workers: Maximum number of parallel workers (default: DEFAULT_MAX_WORKERS)
         @param stall_time: Time to wait between workflow phases. Wait times may be larger,
             as this includes the length the jobs themselves run for (default: STALL_TIME)
         """
 
-        self.queue = queue if queue is not None else MemoryJobRegistry()
+        self.registry = registry if registry is not None else MemoryJobRegistry()
         self.max_workers = (
             max_workers if max_workers is not None else self.DEFAULT_MAX_WORKERS
         )
@@ -144,12 +144,12 @@ class Workflow:
         @param start: The starting job of the workflow
         """
 
-        self.queue.add(start)
+        self.registry.add(start)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
-            while self.queue.pending():
+            while self.registry.pending():
                 # Note: this is a bit memory-inefficient.
-                runnable_jobs = list(self.queue.runnable())
+                runnable_jobs = list(self.registry.runnable())
 
                 # Yield information on each job we currently consider runnable.
                 for _, runnable in runnable_jobs:
@@ -162,7 +162,7 @@ class Workflow:
 
                 # Run the batch of jobs that are unblocked across `max_workers` threads.
                 batch_start_time = datetime.now(tz=timezone.utc)
-                yield from execute_workflow_batch(exec, runnable_jobs, self.queue)
+                yield from execute_workflow_batch(exec, runnable_jobs, self.registry)
                 batch_end_time = datetime.now(tz=timezone.utc)
                 batch_duration = (batch_end_time - batch_start_time).total_seconds()
 
