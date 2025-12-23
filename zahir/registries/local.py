@@ -3,7 +3,7 @@
 from threading import Lock
 from typing import Iterator
 from zahir.events import ZahirEvent
-from zahir.types import EventRegistry, JobRegistry, Job, ArgsType, DependencyType
+from zahir.types import DependencyState, EventRegistry, JobRegistry, Job, ArgsType, DependencyType
 
 
 class MemoryJobRegistry(JobRegistry):
@@ -60,11 +60,20 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            runnable_list = [
-                (job_id, job)
-                for job_id, job in self.pending_jobs.items()
-                if job.ready()
-            ]
+            runnable_list = []
+
+            for job_id, job in self.pending_jobs.items():
+                status = job.ready()
+
+                if status == DependencyState.SATISFIED:
+                    runnable_list.append((job_id, job))
+                elif status == DependencyState.IMPOSSIBLE:
+                    # If any dependency is impossible, we can no longer run this job
+                    # TODO this should yield an event in some way
+                    self.completed_jobs[job_id] = job
+                    del self.pending_jobs[job_id]
+
+
 
         # Yield outside the lock to avoid holding it during iteration
         for job_id, job in runnable_list:

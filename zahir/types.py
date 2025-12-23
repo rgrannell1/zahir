@@ -123,13 +123,20 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         except KeyError:
             raise DependencyMissingException(f"Dependency '{name}' not found")
 
-    def ready(self) -> bool:
+    def ready(self) -> DependencyState:
         """Are all dependencies satisfied?
 
         @return True if all dependencies are satisfied, False otherwise
         """
 
-        return all(dep.satisfied() == DependencyState.SATISFIED for dep in self.dependencies.values())
+        states = {dep.satisfied() for dep in self.dependencies.values()}
+        if DependencyState.IMPOSSIBLE in states:
+            return DependencyState.IMPOSSIBLE
+
+        if DependencyState.UNSATISFIED in states:
+            return DependencyState.UNSATISFIED
+
+        return DependencyState.SATISFIED
 
     @abstractmethod
     def run(self) -> Iterator["Job"]:
