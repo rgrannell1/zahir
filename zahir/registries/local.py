@@ -1,5 +1,6 @@
 """Registry management for workflow execution."""
 
+from dataclasses import dataclass
 from threading import Lock
 from typing import Iterator
 from zahir.events import ZahirEvent
@@ -10,7 +11,16 @@ from zahir.types import (
     Job,
     ArgsType,
     DependencyType,
+    JobState,
 )
+
+
+@dataclass
+class JobEntry:
+    """Entry in the job registry containing job and its state"""
+
+    job: Job
+    state: JobState
 
 
 class MemoryJobRegistry(JobRegistry):
@@ -18,8 +28,7 @@ class MemoryJobRegistry(JobRegistry):
 
     def __init__(self) -> None:
         self.job_counter: int = 0
-        self.pending_jobs: dict[int, Job] = {}
-        self.completed_jobs: dict[int, Job] = {}
+        self.jobs: dict[int, JobEntry] = {}
         self._lock = Lock()
 
     def add(self, job: "Job[ArgsType, DependencyType]") -> int:
@@ -32,22 +41,22 @@ class MemoryJobRegistry(JobRegistry):
         with self._lock:
             self.job_counter += 1
             job_id = self.job_counter
-            self.pending_jobs[job_id] = job
+            self.jobs[job_id] = JobEntry(job=job, state=JobState.PENDING)
 
         return job_id
 
-    def complete(self, job_id: int) -> int:
-        """Mark a job as complete, removing it from the registry.
+    def set_state(self, job_id: int, state: JobState) -> int:
+        """Set the state of a job by ID
 
         @param job_id: The ID of the job to mark as complete
-        @return: The ID of the completed job
+        @param state: The new state of the job
+
+        @return: The ID of the job
         """
 
         with self._lock:
-            if job_id in self.pending_jobs:
-                job = self.pending_jobs[job_id]
-                self.completed_jobs[job_id] = job
-                del self.pending_jobs[job_id]
+            if job_id in self.jobs:
+                self.jobs[job_id].state = state
 
         return job_id
 
@@ -58,7 +67,9 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            return bool(self.pending_jobs)
+            return any(
+                entry.state == JobState.PENDING for entry in self.jobs.values()
+            )
 
     def runnable(self) -> Iterator[tuple[int, "Job"]]:
         """Yield all runnable jobs from the registry.
@@ -69,16 +80,18 @@ class MemoryJobRegistry(JobRegistry):
         with self._lock:
             runnable_list = []
 
-            for job_id, job in self.pending_jobs.items():
-                status = job.ready()
+            for job_id, entry in self.jobs.items():
+                if entry.state != JobState.PENDING:
+                    continue
+
+                status = entry.job.ready()
 
                 if status == DependencyState.SATISFIED:
-                    runnable_list.append((job_id, job))
+                    runnable_list.append((job_id, entry.job))
                 elif status == DependencyState.IMPOSSIBLE:
                     # If any dependency is impossible, we can no longer run this job
                     # TODO this should yield an event in some way
-                    self.completed_jobs[job_id] = job
-                    del self.pending_jobs[job_id]
+                    entry.state = JobState.IMPOSSIBLE
 
         # Yield outside the lock to avoid holding it during iteration
         for job_id, job in runnable_list:

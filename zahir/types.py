@@ -73,8 +73,8 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def complete(self, job_id: int) -> int:
-        """Remove a job from the job registry by ID"""
+    def set_state(self, job_id: int, state: JobState) -> int:
+        """Set the state of a job by ID"""
 
         raise NotImplementedError
 
