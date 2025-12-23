@@ -20,6 +20,7 @@ from zahir.events import (
 )
 from zahir.registries.local import JobRegistry, MemoryEventRegistry, MemoryJobRegistry
 from zahir.types import Job, ArgsType, DependencyType, JobState
+import uuid
 
 
 def recover_workflow(
@@ -27,6 +28,7 @@ def recover_workflow(
     job_id: int,
     registry: JobRegistry,
     err: Exception,
+    workflow_id: str,
 ) -> Iterator[ZahirEvent]:
     """Attempt to recover from a failed job by invoking its recovery method
 
@@ -34,6 +36,7 @@ def recover_workflow(
     @param job_id: The ID of the job that failed
     @param registry: The job registry to add recovery jobs to
     @param err: The exception that caused the failure
+    @param workflow_id: The ID of the workflow
     """
 
     recovery_timeout = current_job.RECOVER_TIMEOUT
@@ -46,21 +49,21 @@ def recover_workflow(
             try:
                 recovery_start_time = datetime.now(tz=timezone.utc)
                 registry.set_state(job_id, JobState.RECOVERING)
-                yield JobRecoveryStarted(current_job, job_id)
+                yield JobRecoveryStarted(workflow_id, current_job, job_id)
                 future.result(timeout=recovery_timeout)
                 recovery_end_time = datetime.now(tz=timezone.utc)
                 recovery_duration = (
                     recovery_end_time - recovery_start_time
                 ).total_seconds()
                 registry.set_state(job_id, JobState.RECOVERED)
-                yield JobRecoveryCompleted(current_job, job_id, recovery_duration)
+                yield JobRecoveryCompleted(workflow_id, current_job, job_id, recovery_duration)
             except TimeoutError:
                 registry.set_state(job_id, JobState.RECOVERY_TIMED_OUT)
-                yield JobRecoveryTimeout(current_job, job_id)
+                yield JobRecoveryTimeout(workflow_id, current_job, job_id)
     except Exception as recovery_err:
         # Oh dear! Even the recovery failed.
         registry.set_state(job_id, JobState.IRRECOVERABLE)
-        yield JobIrrecoverableEvent(recovery_err, current_job, job_id)
+        yield JobIrrecoverableEvent(workflow_id, recovery_err, current_job, job_id)
 
 
 def _run_recovery(current_job: Job, err: Exception, registry: JobRegistry) -> None:
@@ -103,12 +106,14 @@ def execute_workflow_batch(
     executor: ThreadPoolExecutor,
     runnable_jobs: list[tuple[int, Job]],
     registry: JobRegistry,
+    workflow_id: str,
 ) -> Iterator[ZahirEvent]:
     """Execute a batch of runnable jobs in parallel
 
     @param executor: The thread pool executor to use
     @param runnable_jobs: List of (job_id, job) tuples to execute
     @param registry: The job registry to add subjobs to
+    @param workflow_id: The ID of the workflow
     """
     job_futures: dict[Future, tuple[int, Job]] = {}
     timing_info: dict[int, tuple[datetime, datetime]] = {}
@@ -118,7 +123,7 @@ def execute_workflow_batch(
         # First, let's precheck for errors
         precheck_errors = current_job.precheck(current_job.input)
         if precheck_errors:
-            yield JobPrecheckFailedEvent(current_job, job_id, precheck_errors)
+            yield JobPrecheckFailedEvent(workflow_id, current_job, job_id, precheck_errors)
             registry.set_state(job_id, JobState.COMPLETED)
             continue
 
@@ -133,13 +138,13 @@ def execute_workflow_batch(
         timeout = current_job.JOB_TIMEOUT
         try:
             registry.set_state(job_id, JobState.RUNNING)
-            yield JobStartedEvent(current_job, job_id)
+            yield JobStartedEvent(workflow_id, current_job, job_id)
             future.result(timeout=timeout)
             # Get actual execution timing from the worker thread
             start_time, end_time = timing_info[job_id]
             duration = (end_time - start_time).total_seconds()
             # State already set to COMPLETED in execute_single_job
-            yield JobCompletedEvent(current_job, job_id, duration)
+            yield JobCompletedEvent(workflow_id, current_job, job_id, duration)
         except TimeoutError:
             # Job timed out - use timeout value as duration if available
             duration = float(timeout) if timeout is not None else 0.0
@@ -147,10 +152,10 @@ def execute_workflow_batch(
                 f"Job {type(current_job).__name__} timed out after {timeout}s"
             )
             registry.set_state(job_id, JobState.TIMED_OUT)
-            yield JobTimeoutEvent(current_job, job_id, duration)
-            yield from recover_workflow(current_job, job_id, registry, timeout_err)
+            yield JobTimeoutEvent(workflow_id, current_job, job_id, duration)
+            yield from recover_workflow(current_job, job_id, registry, timeout_err, workflow_id)
         except Exception as job_err:
-            yield from recover_workflow(current_job, job_id, registry, job_err)
+            yield from recover_workflow(current_job, job_id, registry, job_err, workflow_id)
 
 
 class Workflow:
@@ -187,12 +192,18 @@ class Workflow:
         )
         self.stall_time = stall_time if stall_time is not None else self.STALL_TIME
 
+    def _workflow_id(self) -> str:
+        """Generate a unique workflow ID based on the current time"""
+
+        return str(uuid.uuid4())
+
     def _run(self, start: Job | None = None) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job
 
         @param start: The starting job of the workflow
         """
 
+        workflow_id = self._workflow_id()
         workflow_start_time = datetime.now(tz=timezone.utc)
 
         # if desired, seed the workflow with an initial job. Otherwise we'll just
@@ -207,7 +218,7 @@ class Workflow:
 
                 # Yield information on each job we currently consider runnable.
                 for runnable_job_id, runnable in runnable_jobs:
-                    yield JobRunnableEvent(runnable, runnable_job_id)
+                    yield JobRunnableEvent(workflow_id, runnable, runnable_job_id)
 
                 # We're finished
                 if not runnable_jobs:
@@ -215,13 +226,13 @@ class Workflow:
                     workflow_duration = (
                         workflow_end_time - workflow_start_time
                     ).total_seconds()
-                    yield WorkflowCompleteEvent(workflow_duration)
+                    yield WorkflowCompleteEvent(workflow_id, workflow_duration)
                     break
 
                 # Run the batch of jobs that are unblocked across `max_workers` threads.
                 batch_start_time = datetime.now(tz=timezone.utc)
                 yield from execute_workflow_batch(
-                    exec, runnable_jobs, self.job_registry
+                    exec, runnable_jobs, self.job_registry, workflow_id
                 )
                 batch_end_time = datetime.now(tz=timezone.utc)
                 batch_duration = (batch_end_time - batch_start_time).total_seconds()

@@ -26,9 +26,11 @@ Workflows can be modelled with a few primitives
 
 ### Jobs
 
-Jobs run an atomic workflow step. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled.
+Jobs run an atomic workflow step based on an input. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled. If a more general rollback pattern is desired, detect the failure condition from some task and schedule a tidyup workflow.
 
-Jobs may schedule other jobs
+Data is passed unidirectionally from an initial job to subjobs.
+
+Jobs may yield other jobs they wish to complete after the current one. This can be done with conditional logic (so conditional workflows are of course supported). No guarantee is given on job execution order (everything that can be run in parallel, is run in parallel), but yielding to a `Job` that depends on other jobs will preserve ordering. This allows patterns such as "process each item, await completion & update a database".
 
 ### Dependencies
 
@@ -38,7 +40,32 @@ Tasks may have preconditions before running.
 - `JobDependency`: this dependency is satisfied when another job reaches a requested state.
 - `TimeDependency`: this dependency is satisfied when the workflow is in a certain time range.
 
-Dependencies can be flagged as impossible to fulfill; jobs with impossible dependencies are removed from the `pending` queue
+Dependencies can be flagged as impossible to fulfill; jobs with impossible dependencies are removed from the `pending` queue and flagged in the event registry.
+
+Dependency implementations must be serialisable to JSON.
+
+### Events
+
+Zahir communicates changes in workflow state as a stream of events emitted by `workflow.run`. These events include metadata, the list is currently:
+
+- `WorkflowCompleteEvent`: workflow complete
+- `JobRunnableEvent`
+- `JobCompletedEvent`
+- `JobStartedEvent`
+- `JobTimeoutEvent`
+- `JobRecoveryStarted`
+- `JobRecoveryCompleted`
+- `JobRecoveryTimeout`
+- `JobIrrecoverableEvent`
+- `JobPrecheckFailedEvent`
+
+## Registries
+
+Workflow orchestrators need to store some operational data.
+
+`JobRegistry` keeps track of which jobs exist, and what state they are in.
+
+`EventRegistry` stores the events of a workflow execution.
 
 ## License
 

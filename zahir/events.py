@@ -17,6 +17,7 @@ class ZahirEvent:
 class WorkflowCompleteEvent(ZahirEvent):
     """Indicates that the workflow has completed"""
 
+    workflow_id: str
     duration_seconds: float
 
 
@@ -24,6 +25,7 @@ class WorkflowCompleteEvent(ZahirEvent):
 class JobRunnableEvent(ZahirEvent):
     """Indicates that a job is runnable"""
 
+    workflow_id: str
     job: "Job"
     job_id: int
 
@@ -32,6 +34,7 @@ class JobRunnableEvent(ZahirEvent):
 class JobCompletedEvent(ZahirEvent):
     """Indicates that a job has completed successfully"""
 
+    workflow_id: str
     job: "Job"
     job_id: int
     duration_seconds: float
@@ -41,6 +44,7 @@ class JobCompletedEvent(ZahirEvent):
 class JobStartedEvent(ZahirEvent):
     """Indicates that a job has started execution"""
 
+    workflow_id: str
     job: "Job"
     job_id: int
 
@@ -49,6 +53,7 @@ class JobStartedEvent(ZahirEvent):
 class JobTimeoutEvent(ZahirEvent):
     """Indicates that a job has timed out"""
 
+    workflow_id: str
     job: "Job"
     job_id: int
     duration_seconds: float
@@ -58,6 +63,7 @@ class JobTimeoutEvent(ZahirEvent):
 class JobRecoveryStarted(ZahirEvent):
     """Indicates that a job recovery has started"""
 
+    workflow_id: str
     job: "Job"
     job_id: int
 
@@ -66,6 +72,7 @@ class JobRecoveryStarted(ZahirEvent):
 class JobRecoveryCompleted(ZahirEvent):
     """Indicates that a job recovery has completed"""
 
+    workflow_id: str
     job: "Job"
     job_id: int
     duration_seconds: float
@@ -75,6 +82,7 @@ class JobRecoveryCompleted(ZahirEvent):
 class JobRecoveryTimeout(ZahirEvent):
     """Indicates that a job recovery has timed out"""
 
+    workflow_id: str
     job: "Job"
     job_id: int
 
@@ -83,6 +91,7 @@ class JobRecoveryTimeout(ZahirEvent):
 class JobIrrecoverableEvent(ZahirEvent):
     """Indicates that a job recovery has failed irrecoverably"""
 
+    workflow_id: str
     error: Exception
     job: "Job"
     job_id: int
@@ -92,6 +101,7 @@ class JobIrrecoverableEvent(ZahirEvent):
 class JobPrecheckFailedEvent(ZahirEvent):
     """Indicates that a job's precheck validation failed"""
 
+    workflow_id: str
     job: "Job"
     job_id: int
     errors: list[str]
