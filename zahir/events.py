@@ -13,10 +13,11 @@ class ZahirEvent:
     pass
 
 
+@dataclass
 class WorkflowCompleteEvent(ZahirEvent):
     """Indicates that the workflow has completed"""
 
-    pass
+    duration_seconds: float
 
 
 @dataclass
@@ -33,6 +34,7 @@ class JobCompletedEvent(ZahirEvent):
 
     job: "Job"
     job_id: int
+    duration_seconds: float
 
 
 @dataclass
@@ -49,6 +51,7 @@ class JobTimeoutEvent(ZahirEvent):
 
     job: "Job"
     job_id: int
+    duration_seconds: float
 
 
 @dataclass
@@ -65,6 +68,7 @@ class JobRecoveryCompleted(ZahirEvent):
 
     job: "Job"
     job_id: int
+    duration_seconds: float
 
 
 @dataclass

@@ -40,9 +40,12 @@ def recover_workflow(
             future = executor.submit(_run_recovery, current_job, err, registry)
 
             try:
+                recovery_start_time = datetime.now(tz=timezone.utc)
                 yield JobRecoveryStarted(current_job, job_id)
                 future.result(timeout=recovery_timeout)
-                yield JobRecoveryCompleted(current_job, job_id)
+                recovery_end_time = datetime.now(tz=timezone.utc)
+                recovery_duration = (recovery_end_time - recovery_start_time).total_seconds()
+                yield JobRecoveryCompleted(current_job, job_id, recovery_duration)
             except TimeoutError:
                 yield JobRecoveryTimeout(current_job, job_id)
     except Exception as recovery_err:
@@ -97,15 +100,20 @@ def execute_workflow_batch(
     for future in as_completed(job_futures):
         job_id, current_job = job_futures[future]
         timeout = current_job.JOB_TIMEOUT
+        job_start_time = datetime.now(tz=timezone.utc)
         try:
             yield JobStartedEvent(current_job, job_id)
             future.result(timeout=timeout)
-            yield JobCompletedEvent(current_job, job_id)
+            job_end_time = datetime.now(tz=timezone.utc)
+            duration = (job_end_time - job_start_time).total_seconds()
+            yield JobCompletedEvent(current_job, job_id, duration)
         except TimeoutError:
+            job_end_time = datetime.now(tz=timezone.utc)
+            duration = (job_end_time - job_start_time).total_seconds()
             timeout_err = TimeoutError(
                 f"Job {type(current_job).__name__} timed out after {timeout}s"
             )
-            yield JobTimeoutEvent(current_job, job_id)
+            yield JobTimeoutEvent(current_job, job_id, duration)
             yield from recover_workflow(current_job, job_id, registry, timeout_err)
         except Exception as job_err:
             yield from recover_workflow(current_job, job_id, registry, job_err)
@@ -145,6 +153,7 @@ class Workflow:
         @param start: The starting job of the workflow
         """
 
+        workflow_start_time = datetime.now(tz=timezone.utc)
         self.registry.add(start)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
@@ -158,7 +167,9 @@ class Workflow:
 
                 # We're finished
                 if not runnable_jobs:
-                    yield WorkflowCompleteEvent()
+                    workflow_end_time = datetime.now(tz=timezone.utc)
+                    workflow_duration = (workflow_end_time - workflow_start_time).total_seconds()
+                    yield WorkflowCompleteEvent(workflow_duration)
                     break
 
                 # Run the batch of jobs that are unblocked across `max_workers` threads.
