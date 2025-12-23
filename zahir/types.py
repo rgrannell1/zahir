@@ -137,6 +137,10 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
     # The dependencies on which the job depends
     dependencies: dict[str, DependencyType]
 
+    def __init__(self, input: ArgsType, dependencies: dict[str, DependencyType]) -> None:
+        self.input = input
+        self.dependencies = dependencies
+
     @staticmethod
     def precheck(input: ArgsType) -> list[str]:
         """Check that the inputs are as desired before running the job.
@@ -195,3 +199,26 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         """
 
         return iter([])
+
+    def save(self) -> dict:
+        """Serialize the job to a dictionary.
+
+        @return: The serialized job
+        """
+
+        return {
+            "input": self.input,
+            "dependencies": {
+                name: dep.save() for name, dep in self.dependencies.items()
+            }
+        }
+
+    def load(cls, data: dict) -> Self:
+        """Deserialize the job from a dictionary.
+
+        @param data: The serialized job data
+
+        @return: The deserialized job
+        """
+
+        raise NotImplementedError
