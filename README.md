@@ -24,20 +24,21 @@ src/
 
 Workflows can be modelled with a few primitives
 
-### Tasks
+### Jobs
 
-We stitch tasks together into a workflow. Tasks typically await tasks before beginning. Tasks may request other tasks start (though these two may depend on their own tasks).
+Jobs run an atomic workflow step. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled.
 
-Tasks define:
-- A namespaced state-label, denoting what type of task this is
-- Pre-conditions and post-conditions they expect to be true (optional)
-- Signals required for the task to start (optional)
-- Downstream tasks this task might invoke. This is requires, so we can statically check
-    that the types line up in advance.
+Jobs may schedule other jobs
 
-### Limits
+### Dependencies
 
-We need to coordinate simited central-state across a workflow; things like locking, rate-limits.
+Tasks may have preconditions before running.
+
+- `ConcurrencyLimit`: this dependency is satisfied when the concurrency limit is beneath a cap. Jobs are responsible for acquiring / freeing the concurrency limit when the job starts.
+- `JobDependency`: this dependency is satisfied when another job reaches a requested state.
+- `TimeDependency`: this dependency is satisfied when the workflow is in a certain time range.
+
+Dependencies can be flagged as impossible to fulfill; jobs with impossible dependencies are removed from the `pending` queue
 
 ## License
 
