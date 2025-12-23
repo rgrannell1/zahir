@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Generic, Iterator, TypeVar
 
+from zahir.events import ZahirEvent
 from zahir.exception import DependencyMissingException
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -51,6 +52,22 @@ class JobRegistry(ABC):
         """Get an iterator of runnable jobs (ID, Job)"""
 
         raise NotImplementedError
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++ Event Registry ++++++++++++++++++++++++++++
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+class EventRegistry(ABC):
+    """Keeps track of events occurring during workflow execution."""
+
+    @abstractmethod
+    def register(self, event: "ZahirEvent") -> None:
+        """Register an event in the event registry."""
+
+        raise NotImplementedError
+
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

@@ -2,7 +2,8 @@
 
 from threading import Lock
 from typing import Iterator
-from zahir.types import JobRegistry, Job, ArgsType, DependencyType
+from zahir.events import ZahirEvent
+from zahir.types import EventRegistry, JobRegistry, Job, ArgsType, DependencyType
 
 
 class MemoryJobRegistry(JobRegistry):
@@ -62,3 +63,14 @@ class MemoryJobRegistry(JobRegistry):
             for job_id, job in list(self.pending_jobs.items()):
                 if job.ready():
                     yield job_id, job
+
+
+class MemoryEventRegistry(EventRegistry):
+    """Keep track of workflow events in memory."""
+
+    events: list[ZahirEvent]
+
+    def register(self, event: ZahirEvent) -> None:
+        """Register an event in the event registry."""
+
+        self.events.append(event)

@@ -17,7 +17,7 @@ from zahir.events import (
     WorkflowCompleteEvent,
     ZahirEvent,
 )
-from zahir.registries.local import JobRegistry, MemoryJobRegistry
+from zahir.registries.local import JobRegistry, MemoryEventRegistry, MemoryJobRegistry
 from zahir.types import Job, ArgsType, DependencyType
 
 
@@ -129,7 +129,8 @@ class Workflow:
 
     def __init__(
         self,
-        registry: JobRegistry | None = None,
+        job_registry: JobRegistry | None = None,
+        event_registry: MemoryEventRegistry | None = None,
         max_workers: int | None = None,
         stall_time: int | None = None,
     ) -> None:
@@ -141,25 +142,26 @@ class Workflow:
             as this includes the length the jobs themselves run for (default: STALL_TIME)
         """
 
-        self.registry = registry if registry is not None else MemoryJobRegistry()
+        self.job_registry = job_registry if job_registry is not None else MemoryJobRegistry()
+        self.event_registry = event_registry if event_registry is not None else MemoryEventRegistry()
         self.max_workers = (
             max_workers if max_workers is not None else self.DEFAULT_MAX_WORKERS
         )
         self.stall_time = stall_time if stall_time is not None else self.STALL_TIME
 
-    def run(self, start: Job) -> Iterator[ZahirEvent]:
+    def _run(self, start: Job) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job
 
         @param start: The starting job of the workflow
         """
 
         workflow_start_time = datetime.now(tz=timezone.utc)
-        self.registry.add(start)
+        self.job_registry.add(start)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
-            while self.registry.pending():
+            while self.job_registry.pending():
                 # Note: this is a bit memory-inefficient.
-                runnable_jobs = list(self.registry.runnable())
+                runnable_jobs = list(self.job_registry.runnable())
 
                 # Yield information on each job we currently consider runnable.
                 for runnable_job_id, runnable in runnable_jobs:
@@ -174,7 +176,7 @@ class Workflow:
 
                 # Run the batch of jobs that are unblocked across `max_workers` threads.
                 batch_start_time = datetime.now(tz=timezone.utc)
-                yield from execute_workflow_batch(exec, runnable_jobs, self.registry)
+                yield from execute_workflow_batch(exec, runnable_jobs, self.job_registry)
                 batch_end_time = datetime.now(tz=timezone.utc)
                 batch_duration = (batch_end_time - batch_start_time).total_seconds()
 
@@ -183,3 +185,12 @@ class Workflow:
                 if batch_duration < self.stall_time:
                     sleep_time = self.stall_time - batch_duration
                     time.sleep(sleep_time)
+
+    def run(self, start: Job):
+        """Run a workflow from the starting job
+
+        @param start: The starting job of the workflow
+        """
+
+        for event in self._run(start):
+            self.event_registry.register(event)
