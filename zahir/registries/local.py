@@ -3,7 +3,14 @@
 from threading import Lock
 from typing import Iterator
 from zahir.events import ZahirEvent
-from zahir.types import DependencyState, EventRegistry, JobRegistry, Job, ArgsType, DependencyType
+from zahir.types import (
+    DependencyState,
+    EventRegistry,
+    JobRegistry,
+    Job,
+    ArgsType,
+    DependencyType,
+)
 
 
 class MemoryJobRegistry(JobRegistry):
@@ -72,8 +79,6 @@ class MemoryJobRegistry(JobRegistry):
                     # TODO this should yield an event in some way
                     self.completed_jobs[job_id] = job
                     del self.pending_jobs[job_id]
-
-
 
         # Yield outside the lock to avoid holding it during iteration
         for job_id, job in runnable_list:

@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Generic, Iterator, TypeVar
+from typing import Generic, Iterator, Self, TypeVar
 
 from zahir.events import ZahirEvent
 from zahir.exception import DependencyMissingException
@@ -90,6 +90,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
     """Jobs can depend on other jobs."""
 
     input: ArgsType
+    parent: Self | None = None
 
     # Upper-limit on how long the job should run for
     JOB_TIMEOUT: int | None = None

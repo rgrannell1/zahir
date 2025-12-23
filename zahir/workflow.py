@@ -87,7 +87,9 @@ def execute_single_job(
 
     start_time = datetime.now(tz=timezone.utc)
     for subjob in current_job.run():
+        subjob.parent = current_job
         registry.add(subjob)
+
     end_time = datetime.now(tz=timezone.utc)
     timing_info[job_id] = (start_time, end_time)
     registry.complete(job_id)
