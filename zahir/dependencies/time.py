@@ -38,3 +38,16 @@ class TimeDependency(Dependency):
                 return DependencyState.UNSATISFIED
 
         return DependencyState.SATISFIED
+
+    def save(self) -> dict:
+        return {
+            "before": self.before.isoformat() if self.before else None,
+            "after": self.after.isoformat() if self.after else None,
+        }
+
+    @classmethod
+    def load(cls, data: dict) -> "TimeDependency":
+        before = datetime.fromisoformat(data["before"]) if data["before"] else None
+        after = datetime.fromisoformat(data["after"]) if data["after"] else None
+
+        return cls(before=before, after=after)

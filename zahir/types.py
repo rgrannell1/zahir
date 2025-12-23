@@ -29,6 +29,14 @@ class Dependency(ABC):
 
         raise NotImplementedError
 
+    @abstractmethod
+    def save(self) -> dict:
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def load(cls, data: dict) -> Self:
+        raise NotImplementedError
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Job Registry +++++++++++++++++++++++++++++++

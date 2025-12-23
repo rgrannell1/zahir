@@ -32,3 +32,21 @@ class JobDependency(Dependency):
             return DependencyState.SATISFIED
         else:
             return DependencyState.UNSATISFIED
+
+    def save(self) -> dict:
+        """Save the job dependency to a dictionary."""
+
+        return {
+            "job_id": self.job_id,
+            "states": [state.value for state in self.states],
+        }
+
+    # TODO: a registry ID, not a full copy
+    @classmethod
+    def load(cls, data: dict) -> "JobDependency":
+        """Load the job dependency from a dictionary."""
+
+        job_id = data["job_id"]
+        states = {JobState(state) for state in data["states"]}
+        # Note: job_registry must be set separately after loading
+        return cls(job_id=job_id, job_registry=None, states=states)

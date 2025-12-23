@@ -1,5 +1,6 @@
 from threading import Lock
 from types import TracebackType
+from typing import Self
 from zahir.types import Dependency, DependencyState
 
 
@@ -35,6 +36,21 @@ class ConcurrencyLimit(Dependency):
                 if self.claimed < self.limit
                 else DependencyState.UNSATISFIED
             )
+
+    def save(self) -> dict:
+        """Save the concurrency limit to a dictionary."""
+
+        return {
+            "limit": self.limit,
+            # This will be reset between serialisations
+            "claimed": 0,
+        }
+
+    @classmethod
+    def load(cls, data: dict) -> Self:
+        """Load the concurrency limit from a dictionary."""
+
+        return cls(limit=data["limit"])
 
     def __enter__(self) -> "ConcurrencyLimit":
         """Enter the context manager by claiming a slot."""
