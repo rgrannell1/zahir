@@ -17,12 +17,12 @@ from zahir.events import (
     WorkflowCompleteEvent,
     ZahirEvent,
 )
-from zahir.queues.local import JobRegistry, MemoryJobRegistry
-from zahir.types import Task, ArgsType, DependencyType
+from zahir.registries.local import JobRegistry, MemoryJobRegistry
+from zahir.types import Job, ArgsType, DependencyType
 
 
 def recover_workflow(
-    current_job: Task[ArgsType, DependencyType], queue: JobRegistry, err: Exception
+    current_job: Job[ArgsType, DependencyType], queue: JobRegistry, err: Exception
 ) -> Iterator[ZahirEvent]:
     """Attempt to recover from a failed job by invoking its recovery method
 
@@ -49,7 +49,7 @@ def recover_workflow(
         yield JobIrrecoverableEvent(recovery_err, current_job)
 
 
-def _run_recovery(current_job: Task, err: Exception, queue: JobRegistry) -> None:
+def _run_recovery(current_job: Job, err: Exception, queue: JobRegistry) -> None:
     """Execute the recovery process for a failed job.
 
     @param current_job: The job that failed
@@ -61,11 +61,11 @@ def _run_recovery(current_job: Task, err: Exception, queue: JobRegistry) -> None
         queue.add(exc_job)
 
 
-def execute_single_job(job_id: int, current_job: Task, queue: JobRegistry) -> None:
+def execute_single_job(job_id: int, current_job: Job, queue: JobRegistry) -> None:
     """Execute a single job and handle its subjobs
 
     @param job_id: The ID of the job to execute
-    @param current_job: The task to execute
+    @param current_job: The job to execute
     @param queue: The job queue to add subjobs to
     """
 
@@ -76,16 +76,16 @@ def execute_single_job(job_id: int, current_job: Task, queue: JobRegistry) -> No
 
 def execute_workflow_batch(
     executor: ThreadPoolExecutor,
-    runnable_jobs: list[tuple[int, Task]],
+    runnable_jobs: list[tuple[int, Job]],
     queue: JobRegistry,
 ) -> Iterator[ZahirEvent]:
     """Execute a batch of runnable jobs in parallel
 
     @param executor: The thread pool executor to use
-    @param runnable_jobs: List of (job_id, task) tuples to execute
+    @param runnable_jobs: List of (job_id, job) tuples to execute
     @param queue: The job queue to add subjobs to
     """
-    job_futures: dict[Future, tuple[int, Task]] = {}
+    job_futures: dict[Future, tuple[int, Job]] = {}
 
     # submit all runnable jobs to the executor
     for job_id, current_job in runnable_jobs:
@@ -95,14 +95,14 @@ def execute_workflow_batch(
     # Wait for all submitted jobs to complete
     for future in as_completed(job_futures):
         job_id, current_job = job_futures[future]
-        timeout = current_job.TASK_TIMEOUT
+        timeout = current_job.JOB_TIMEOUT
         try:
             yield JobStartedEvent(current_job)
             future.result(timeout=timeout)
             yield JobCompletedEvent(current_job)
         except TimeoutError:
             timeout_err = TimeoutError(
-                f"Task {type(current_job).__name__} timed out after {timeout}s"
+                f"Job {type(current_job).__name__} timed out after {timeout}s"
             )
             yield JobTimeoutEvent(current_job)
             recover_workflow(current_job, queue, timeout_err)
@@ -138,10 +138,10 @@ class Workflow:
         )
         self.stall_time = stall_time if stall_time is not None else self.STALL_TIME
 
-    def run(self, start: Task) -> Iterator[ZahirEvent]:
-        """Run a workflow from the starting task
+    def run(self, start: Job) -> Iterator[ZahirEvent]:
+        """Run a workflow from the starting job
 
-        @param start: The starting task of the workflow
+        @param start: The starting job of the workflow
         """
 
         self.queue.add(start)

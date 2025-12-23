@@ -8,13 +8,13 @@ class ZahirException(Exception):
 
 
 class DependencyMissingException(ZahirException):
-    """A dependency required by a task is missing."""
+    """A dependency required by a job is missing."""
 
     ...
 
 
 class TimeoutException(ZahirException):
-    """A task or recovery has exceeded its allowed time limit."""
+    """A job or recovery has exceeded its allowed time limit."""
 
     ...
 

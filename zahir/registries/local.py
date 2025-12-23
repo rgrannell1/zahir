@@ -2,7 +2,7 @@
 
 from threading import Lock
 from typing import Iterator
-from zahir.types import JobRegistry, Task, ArgsType, DependencyType
+from zahir.types import JobRegistry, Job, ArgsType, DependencyType
 
 
 class MemoryJobRegistry(JobRegistry):
@@ -10,21 +10,21 @@ class MemoryJobRegistry(JobRegistry):
 
     def __init__(self) -> None:
         self.job_counter: int = 0
-        self.pending_jobs: dict[int, Task] = {}
-        self.completed_jobs: dict[int, Task] = {}
+        self.pending_jobs: dict[int, Job] = {}
+        self.completed_jobs: dict[int, Job] = {}
         self._lock = Lock()
 
-    def add(self, task: "Task[ArgsType, DependencyType]") -> int:
-        """Register a task with the job queue, returning a job ID
+    def add(self, job: "Job[ArgsType, DependencyType]") -> int:
+        """Register a job with the job queue, returning a job ID
 
-        @param task: The task to register
-        @return: The job ID assigned to the task
+        @param job: The job to register
+        @return: The job ID assigned to the job
         """
 
         with self._lock:
             self.job_counter += 1
             job_id = self.job_counter
-            self.pending_jobs[job_id] = task
+            self.pending_jobs[job_id] = job
 
         return job_id
 
@@ -37,8 +37,8 @@ class MemoryJobRegistry(JobRegistry):
 
         with self._lock:
             if job_id in self.pending_jobs:
-                task = self.pending_jobs[job_id]
-                self.completed_jobs[job_id] = task
+                job = self.pending_jobs[job_id]
+                self.completed_jobs[job_id] = job
                 del self.pending_jobs[job_id]
 
         return job_id
@@ -52,10 +52,10 @@ class MemoryJobRegistry(JobRegistry):
         with self._lock:
             return bool(self.pending_jobs)
 
-    def runnable(self) -> Iterator[tuple[int, "Task"]]:
+    def runnable(self) -> Iterator[tuple[int, "Job"]]:
         """Yield all runnable jobs from the queue.
 
-        @return: An iterator of (job ID, task) tuples for runnable jobs
+        @return: An iterator of (job ID, job) tuples for runnable jobs
         """
 
         with self._lock:

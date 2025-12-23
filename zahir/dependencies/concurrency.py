@@ -3,7 +3,7 @@ from zahir.types import Dependency
 
 
 class ConcurrencyLimit(Dependency):
-    """Limit the number of tasks doing something concurrently at once."""
+    """Limit the number of jobs doing something concurrently at once."""
 
     limit: int
     claimed: int = 0

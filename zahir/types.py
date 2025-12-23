@@ -11,7 +11,7 @@ from zahir.exception import DependencyMissingException
 
 
 class Dependency(ABC):
-    """A dependency, on which a task can depend"""
+    """A dependency, on which a job can depend"""
 
     @abstractmethod
     def satisfied(self) -> bool:
@@ -29,8 +29,8 @@ class JobRegistry(ABC):
     """Keeps track of jobs to be run."""
 
     @abstractmethod
-    def add(self, task: "Task") -> int:
-        """Register a task with the job queue, returning a job ID"""
+    def add(self, job: "Job") -> int:
+        """Register a job with the job queue, returning a job ID"""
 
         raise NotImplementedError
 
@@ -47,40 +47,39 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def runnable(self) -> Iterator[tuple[int, "Task"]]:
-        """Get an iterator of runnable jobs (ID, Task)"""
+    def runnable(self) -> Iterator[tuple[int, "Job"]]:
+        """Get an iterator of runnable jobs (ID, Job)"""
 
         raise NotImplementedError
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-# ++++++++++++++++++++++ Tasks +++++++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++ Job +++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ArgsType = TypeVar("ArgsType", bound=dict)
 DependencyType = TypeVar("DependencyType", bound=Dependency)
 
 
-class Task(ABC, Generic[ArgsType, DependencyType]):
-    """Tasks can depend on other jobs."""
+class Job(ABC, Generic[ArgsType, DependencyType]):
+    """Jobs can depend on other jobs."""
 
     input: ArgsType
 
-    # Upper-limit on how long the task should run for
-    TASK_TIMEOUT: int | None = None
+    # Upper-limit on how long the job should run for
+    JOB_TIMEOUT: int | None = None
 
     # Upper-limit on how long the recovery should run for
     RECOVER_TIMEOUT: int | None = None
 
-    # The dependencies on which the task depends
+    # The dependencies on which the job depends
     dependencies: dict[str, DependencyType]
 
     @staticmethod
     def precheck(input: ArgsType) -> list[str]:
-        """Check that the inputs are as desired before running the task.
+        """Check that the inputs are as desired before running the job.
 
-        @param input: The input arguments to this particular task
-
+        @param input: The input arguments to this particular job
         @return: A list of error messages, if any
         """
 
@@ -108,22 +107,22 @@ class Task(ABC, Generic[ArgsType, DependencyType]):
         return all(dep.satisfied() for dep in self.dependencies.values())
 
     @abstractmethod
-    def run(self) -> Iterator["Task"]:
-        """Run the task itself. Unhandled exceptions will be caught
+    def run(self) -> Iterator["Job"]:
+        """Run the job itself. Unhandled exceptions will be caught
         by the workflow executor, and routed to the `recover` method.
 
-        @return: An iterator of sub-tasks to run after this one
+        @return: An iterator of sub-jobs to run after this one
         """
 
         return iter([])
 
-    def recover(self, err: Exception) -> Iterator["Task"]:
-        """The task failed with an unhandled exception. The task
+    def recover(self, err: Exception) -> Iterator["Job"]:
+        """The job failed with an unhandled exception. The job
         can define a particular way of handling the exception.
 
         @param err: The exception that was raised
 
-        @return: An iterator of tasks to run to recover from the error
+        @return: An iterator of jobs to run to recover from the error
         """
 
         return iter([])
