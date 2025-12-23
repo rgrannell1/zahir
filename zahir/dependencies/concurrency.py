@@ -1,5 +1,5 @@
 from types import TracebackType
-from zahir.types import Dependency
+from zahir.types import Dependency, DependencyState
 
 
 class ConcurrencyLimit(Dependency):
@@ -22,10 +22,14 @@ class ConcurrencyLimit(Dependency):
         self.claimed -= 1
         self.claimed = max(0, self.claimed)
 
-    def satisfied(self) -> bool:
+    def satisfied(self) -> DependencyState:
         """Check whether the concurrency limit is satisfied."""
 
-        return self.claimed < self.limit
+        return (
+            DependencyState.SATISFIED
+            if self.claimed < self.limit
+            else DependencyState.UNSATISFIED
+        )
 
     def __enter__(self) -> "ConcurrencyLimit":
         """Enter the context manager by claiming a slot."""

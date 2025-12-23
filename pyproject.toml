@@ -29,3 +29,8 @@ Repository = "https://github.com/rgrannell1/zahir"
 
 [tool.hatch.build.targets.wheel]
 packages = ["zahir"]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.14.10",
+]

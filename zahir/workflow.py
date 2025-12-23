@@ -22,7 +22,10 @@ from zahir.types import Job, ArgsType, DependencyType
 
 
 def recover_workflow(
-    current_job: Job[ArgsType, DependencyType], job_id: int, registry: JobRegistry, err: Exception
+    current_job: Job[ArgsType, DependencyType],
+    job_id: int,
+    registry: JobRegistry,
+    err: Exception,
 ) -> Iterator[ZahirEvent]:
     """Attempt to recover from a failed job by invoking its recovery method
 
@@ -44,7 +47,9 @@ def recover_workflow(
                 yield JobRecoveryStarted(current_job, job_id)
                 future.result(timeout=recovery_timeout)
                 recovery_end_time = datetime.now(tz=timezone.utc)
-                recovery_duration = (recovery_end_time - recovery_start_time).total_seconds()
+                recovery_duration = (
+                    recovery_end_time - recovery_start_time
+                ).total_seconds()
                 yield JobRecoveryCompleted(current_job, job_id, recovery_duration)
             except TimeoutError:
                 yield JobRecoveryTimeout(current_job, job_id)
@@ -142,8 +147,12 @@ class Workflow:
             as this includes the length the jobs themselves run for (default: STALL_TIME)
         """
 
-        self.job_registry = job_registry if job_registry is not None else MemoryJobRegistry()
-        self.event_registry = event_registry if event_registry is not None else MemoryEventRegistry()
+        self.job_registry = (
+            job_registry if job_registry is not None else MemoryJobRegistry()
+        )
+        self.event_registry = (
+            event_registry if event_registry is not None else MemoryEventRegistry()
+        )
         self.max_workers = (
             max_workers if max_workers is not None else self.DEFAULT_MAX_WORKERS
         )
@@ -174,13 +183,17 @@ class Workflow:
                 # We're finished
                 if not runnable_jobs:
                     workflow_end_time = datetime.now(tz=timezone.utc)
-                    workflow_duration = (workflow_end_time - workflow_start_time).total_seconds()
+                    workflow_duration = (
+                        workflow_end_time - workflow_start_time
+                    ).total_seconds()
                     yield WorkflowCompleteEvent(workflow_duration)
                     break
 
                 # Run the batch of jobs that are unblocked across `max_workers` threads.
                 batch_start_time = datetime.now(tz=timezone.utc)
-                yield from execute_workflow_batch(exec, runnable_jobs, self.job_registry)
+                yield from execute_workflow_batch(
+                    exec, runnable_jobs, self.job_registry
+                )
                 batch_end_time = datetime.now(tz=timezone.utc)
                 batch_duration = (batch_end_time - batch_start_time).total_seconds()
 

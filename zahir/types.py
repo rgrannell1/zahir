@@ -1,6 +1,7 @@
 """Core type definitions used throughout Zahir."""
 
 from abc import ABC, abstractmethod
+from enum import Enum
 from typing import Generic, Iterator, TypeVar
 
 from zahir.events import ZahirEvent
@@ -11,11 +12,19 @@ from zahir.exception import DependencyMissingException
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
+class DependencyState(str, Enum):
+    """The state of a dependency."""
+
+    SATISFIED = "satisfied"
+    UNSATISFIED = "unsatisfied"
+    IMPOSSIBLE = "impossible"
+
+
 class Dependency(ABC):
     """A dependency, on which a job can depend"""
 
     @abstractmethod
-    def satisfied(self) -> bool:
+    def satisfied(self) -> DependencyState:
         """Is the dependency satisfied?"""
 
         raise NotImplementedError
@@ -67,7 +76,6 @@ class EventRegistry(ABC):
         """Register an event in the event registry."""
 
         raise NotImplementedError
-
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
