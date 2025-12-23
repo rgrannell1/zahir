@@ -95,6 +95,7 @@ class MemoryJobRegistry(JobRegistry):
             runnable_list = []
 
             for job_id, entry in self.jobs.items():
+                # Must be in pending to be checked
                 if entry.state != JobState.PENDING:
                     continue
 
@@ -104,7 +105,6 @@ class MemoryJobRegistry(JobRegistry):
                     runnable_list.append((job_id, entry.job))
                 elif status == DependencyState.IMPOSSIBLE:
                     # If any dependency is impossible, we can no longer run this job
-                    # TODO this should yield an event in some way
                     entry.state = JobState.IMPOSSIBLE
 
         # Yield outside the lock to avoid holding it during iteration
