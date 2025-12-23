@@ -1,13 +1,16 @@
 """Workflow execution engine"""
 
+import time
+from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed, TimeoutError
-from zahir.queues.local import JobQueue, MemoryJobQueue
+
+from zahir.queues.local import JobRegistry, MemoryJobRegistry
 from zahir.exception import TimeoutException, UnrecoverableJobException
 from zahir.types import Task, ArgsType, DependencyType
 
 
 def recover_workflow(
-    current_job: Task[ArgsType, DependencyType], queue: JobQueue, err: Exception
+    current_job: Task[ArgsType, DependencyType], queue: JobRegistry, err: Exception
 ):
     """Attempt to recover from a failed job by invoking its recovery method
 
@@ -44,7 +47,7 @@ def recover_workflow(
         ) from recovery_err
 
 
-def _run_recovery(current_job: Task, err: Exception, queue: JobQueue) -> None:
+def _run_recovery(current_job: Task, err: Exception, queue: JobRegistry) -> None:
     """Execute the recovery process for a failed job.
 
     @param current_job: The job that failed
@@ -57,7 +60,7 @@ def _run_recovery(current_job: Task, err: Exception, queue: JobQueue) -> None:
         queue.add(exc_job)
 
 
-def execute_job(job_id: int, current_job: Task, queue: JobQueue) -> None:
+def execute_job(job_id: int, current_job: Task, queue: JobRegistry) -> None:
     """Execute a single job and handle its subjobs
 
     @param job_id: The ID of the job to execute
@@ -73,7 +76,7 @@ def execute_job(job_id: int, current_job: Task, queue: JobQueue) -> None:
 def execute_batch(
     executor: ThreadPoolExecutor,
     runnable_jobs: list[tuple[int, Task]],
-    queue: JobQueue,
+    queue: JobRegistry,
 ) -> None:
     """Execute a batch of runnable jobs in parallel
 
@@ -106,9 +109,15 @@ class Workflow:
     """A workflow execution engine"""
 
     DEFAULT_MAX_WORKERS = 4
+    # How long should we wait between workflow phases? (in seconds)
+    # By default, we wait five seconds before rechecking for runnable jobs.s
+    STALL_TIME = 5
 
     def __init__(
-        self, queue: JobQueue | None = None, max_workers: int | None = None
+        self,
+        queue: JobRegistry | None = None,
+        max_workers: int | None = None,
+        stall_time: int | None = None,
     ) -> None:
         """Initialize a workflow execution engine
 
@@ -116,10 +125,12 @@ class Workflow:
         @param max_workers: Maximum number of parallel workers (default: DEFAULT_MAX_WORKERS)
         """
 
-        self.queue = queue if queue is not None else MemoryJobQueue()
+        self.queue = queue if queue is not None else MemoryJobRegistry()
         self.max_workers = (
             max_workers if max_workers is not None else self.DEFAULT_MAX_WORKERS
         )
+        self.stall_time = (
+            stall_time if stall_time is not None else self.STALL_TIME)
 
     def run(self, start: Task) -> None:
         """Run a workflow from the starting task
@@ -134,6 +145,16 @@ class Workflow:
                 runnable_jobs = list(self.queue.runnable())
 
                 if not runnable_jobs:
+                    # we're done.
                     break
 
+                batch_start_time = datetime.now(tz=timezone.utc)
                 execute_batch(exec, runnable_jobs, self.queue)
+                batch_end_time = datetime.now(tz=timezone.utc)
+                batch_duration = (batch_end_time - batch_start_time).total_seconds()
+
+                # for IO-bound workflows, we're unlikely to need this. But
+                # for shorter workflows throttling might be needed.
+                if batch_duration < self.stall_time:
+                    sleep_time = self.stall_time - batch_duration
+                    time.sleep(sleep_time)

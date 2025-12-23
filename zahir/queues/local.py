@@ -14,32 +14,11 @@ dependencies and concurrency constraints.
 """
 
 from threading import Lock
-from typing import Iterator, TypeVar
-from zahir.types import JobQueue, Task, Dependency
+from typing import Iterator
+from zahir.types import JobRegistry, Task, ArgsType, DependencyType
 
-
-ArgsType = TypeVar("ArgsType", bound=dict)
-DependencyType = TypeVar("DependencyType", bound=Dependency)
-
-
-class MemoryJobQueue(JobQueue):
-    """An in-memory, thread-safe registry of jobs for local workflow execution.
-
-    This queue manages the lifecycle of tasks in a workflow, tracking which jobs
-    are pending, which are ready to run (dependencies satisfied), and which have
-    completed. All operations are thread-safe to support parallel task execution.
-
-    The queue assigns unique sequential IDs to each task and maintains separate
-    collections for pending and completed jobs. Tasks are only returned as runnable
-    when their dependencies are satisfied (via task.ready()).
-
-    Attributes:
-        job_counter: Monotonically increasing counter for assigning job IDs
-        pending_jobs: Dictionary mapping job IDs to tasks awaiting execution
-        completed_jobs: Dictionary mapping job IDs to finished tasks
-
-    Thread Safety:
-        All public methods use a lock to ensure thread-safe access to shared state.
+class MemoryJobRegistry(JobRegistry):
+    """Thread-safe job registry
     """
 
     def __init__(self) -> None:
