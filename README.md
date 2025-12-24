@@ -29,6 +29,8 @@ src/
 
 ## Constructs
 
+![](./zahir.png)
+
 Workflows can be modelled with a few primitives:
 
 ### Jobs
