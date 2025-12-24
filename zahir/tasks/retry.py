@@ -4,14 +4,22 @@ A task for retrying another task under certain conditions.
 """
 
 from datetime import datetime, timedelta
-from typing import Iterable, Iterator
+from typing import Iterable, Iterator, TypedDict
 from zahir.dependencies.job import JobDependency
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.time import TimeDependency
 from zahir.types import Context, Dependency, JobState, Job
 
 
-def create_backoff_delay(retry_opts: dict, retry_count: int) -> TimeDependency:
+class RetryOptions(TypedDict, total=False):
+    """Configuration options for retry behavior."""#
+
+    max_retries: int
+    backoff_factor: float
+    initial_delay: float
+
+
+def create_backoff_delay(retry_opts: RetryOptions, retry_count: int) -> TimeDependency:
     """Create a TimeDependency with exponential backoff delay.
 
     Args:
@@ -94,7 +102,7 @@ class RetryTask(Job):
 def retryable(
     context: Context,
     task: Job,
-    retry_opts: dict | None = None,
+    retry_opts: RetryOptions | None = None,
     retry_states: set[JobState] = {
         JobState.TIMED_OUT,
         JobState.RECOVERY_TIMED_OUT,
