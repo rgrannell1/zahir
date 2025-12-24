@@ -1,4 +1,4 @@
-from zahir.types import Dependency, DependencyState, JobRegistry, JobState
+from zahir.types import Context, Dependency, DependencyState, JobRegistry, JobState
 
 
 class JobDependency(Dependency):
@@ -49,7 +49,7 @@ class JobDependency(Dependency):
         }
 
     @classmethod
-    def load(cls, context, data: dict) -> "JobDependency":
+    def load(cls, context: Context, data: dict) -> "JobDependency":
         """Load the job dependency from a dictionary."""
 
         job_id = data["job_id"]
@@ -65,3 +65,8 @@ class JobDependency(Dependency):
             satisfied_states=satisfied_states if satisfied_states else None,
             impossible_states=impossible_states if impossible_states else None,
         )
+
+    def output(self, context: Context) -> dict | None:
+        """Get the output of the job, if available, from the registry"""
+
+        return context.job_registry.get_output(self.job_id)

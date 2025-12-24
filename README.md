@@ -31,11 +31,11 @@ Workflows can be modelled with a few primitives:
 
 ### Jobs
 
-Jobs do something, based on an input. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled. If a more general rollback pattern is desired, detect the failure condition in some task and schedule a tidyup task.
+Jobs do something, based on an input. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled. If a more general rollback pattern is desired, detect the failure condition in some job and schedule a tidyup job.
 
 Jobs may yield other jobs they wish to complete after the current one. This can be done with conditional logic (so conditional workflows are of course supported). No automatic guarantee is given on job execution order (everything that can be run in parallel, is run in parallel), but yielding to a `Job` that depends on other jobs will preserve ordering. This allows patterns such as "process each item, await completion & update a database".
 
-Data is passed unidirectionally from an initial job to subjobs, by the parent job simply yielding the new instantiated task. Jobs may, ultimately, yield an output dictionary. This allows a promise-style call pattern:
+Data is passed unidirectionally from an initial job to subjobs, by the parent job simply yielding the new instantiated job. Jobs may, ultimately, yield an output dictionary. This allows a promise-style call pattern:
 
 - Job A spawns N batch jobs
 - Job b awaits this jobs via a list of job-dependencies
@@ -45,7 +45,7 @@ This is the most idiomatic way of implementing the "fan-out, then aggregate" pat
 
 ### Dependencies
 
-Tasks may have preconditions before running.
+Jobs may have preconditions before running.
 
 - `ConcurrencyLimit`: this dependency is satisfied when the concurrency limit is beneath a cap. Jobs are responsible for acquiring / freeing the concurrency limit when the job starts.
 - `JobDependency`: this dependency is satisfied when another job reaches a requested state.
@@ -81,7 +81,7 @@ Workflow orchestrators need to store some operational data.
 
 ## Scope
 
-We serialise tasks and dependencies to our registries for storage. We need to translate this data back to the associated Python classes. `Scope` implementations handle this translation. Tasks and Dependencies have to be explicitly registered with a scope for a non-local workflow to run.
+We serialise jobs and dependencies to our registries for storage. We need to translate this data back to the associated Python classes. `Scope` implementations handle this translation. Jobs and Dependencies have to be explicitly registered with a scope for a non-local workflow to run.
 
 ## Context
 
