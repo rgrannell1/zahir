@@ -1,4 +1,3 @@
-
 from zahir.types import Dependency, DependencyState, JobRegistry, JobState
 
 
@@ -54,8 +53,12 @@ class JobDependency(Dependency):
         """Load the job dependency from a dictionary."""
 
         job_id = data["job_id"]
-        satisfied_states = {JobState(state) for state in data.get("satisfied_states", [])}
-        impossible_states = {JobState(state) for state in data.get("impossible_states", [])}
+        satisfied_states = {
+            JobState(state) for state in data.get("satisfied_states", [])
+        }
+        impossible_states = {
+            JobState(state) for state in data.get("impossible_states", [])
+        }
         return cls(
             job_id=job_id,
             job_registry=context.job_registry,

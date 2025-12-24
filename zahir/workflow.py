@@ -20,7 +20,15 @@ from zahir.events import (
     ZahirEvent,
 )
 from zahir.registries.local import JobRegistry, MemoryEventRegistry, MemoryJobRegistry
-from zahir.types import Context, EventRegistry, Job, ArgsType, DependencyType, JobState, Scope
+from zahir.types import (
+    Context,
+    EventRegistry,
+    Job,
+    ArgsType,
+    DependencyType,
+    JobState,
+    Scope,
+)
 import uuid
 
 
@@ -73,7 +81,9 @@ def recover_workflow(
         yield JobIrrecoverableEvent(workflow_id, recovery_err, current_job, job_id)
 
 
-def _run_recovery(current_job: Job, err: Exception, registry: JobRegistry, context: Context) -> None:
+def _run_recovery(
+    current_job: Job, err: Exception, registry: JobRegistry, context: Context
+) -> None:
     """Execute the recovery process for a failed job.
 
     @param current_job: The job that failed
@@ -82,10 +92,16 @@ def _run_recovery(current_job: Job, err: Exception, registry: JobRegistry, conte
     @param context: The context containing scope and registries
     """
 
-    for exc_job in type(current_job).recover(
+    for item in type(current_job).recover(
         context, current_job.input, current_job.dependencies, err
     ):
-        registry.add(exc_job)
+        if isinstance(item, dict):
+            # Output dict - store it and stop processing
+            registry.set_output(current_job.job_id, item)
+            break
+        else:
+            # It's a Job - add as recovery job
+            registry.add(item)
 
 
 def execute_single_job(
@@ -105,11 +121,17 @@ def execute_single_job(
     """
 
     start_time = datetime.now(tz=timezone.utc)
-    for subjob in type(current_job).run(
+    for item in type(current_job).run(
         context, current_job.input, current_job.dependencies
     ):
-        subjob.parent_id = current_job.job_id
-        registry.add(subjob)
+        if isinstance(item, dict):
+            # Output dict - store it and stop processing
+            registry.set_output(job_id, item)
+            break
+        else:
+            # It's a Job - add as subjob
+            item.parent_id = current_job.job_id
+            registry.add(item)
 
     end_time = datetime.now(tz=timezone.utc)
     timing_info[job_id] = (start_time, end_time)
@@ -216,11 +238,9 @@ class Workflow:
             max_workers if max_workers is not None else self.DEFAULT_MAX_WORKERS
         )
         self.context = (
-            context if context is not None else LocalContext(
-                self.scope,
-                self.job_registry,
-                self.event_registry
-            )
+            context
+            if context is not None
+            else LocalContext(self.scope, self.job_registry, self.event_registry)
         )
         self.stall_time = stall_time if stall_time is not None else self.STALL_TIME
 

@@ -12,7 +12,7 @@ from zahir.types import (
     ArgsType,
     DependencyType,
     JobState,
-    Scope
+    Scope,
 )
 
 
@@ -29,6 +29,7 @@ class MemoryJobRegistry(JobRegistry):
 
     def __init__(self, scope: Scope | None = None) -> None:
         self.jobs: dict[str, JobEntry] = {}
+        self.outputs: dict[str, dict] = {}
         self._lock = Lock()
         # for consistency, we should probably accept a scope.
         # but I don't think we actually use it given we don't need to serialise and deserialise.
@@ -75,6 +76,26 @@ class MemoryJobRegistry(JobRegistry):
                 self.jobs[job_id].state = state
 
         return job_id
+
+    def set_output(self, job_id: str, output: dict) -> None:
+        """Store the output of a completed job
+
+        @param job_id: The ID of the job
+        @param output: The output dictionary produced by the job
+        """
+
+        with self._lock:
+            self.outputs[job_id] = output
+
+    def get_output(self, job_id: str) -> dict | None:
+        """Retrieve the output of a completed job
+
+        @param job_id: The ID of the job
+        @return: The output dictionary, or None if no output was set
+        """
+
+        with self._lock:
+            return self.outputs.get(job_id)
 
     def pending(self) -> bool:
         """Check whether any jobs still need to be run.

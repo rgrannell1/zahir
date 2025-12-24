@@ -26,7 +26,7 @@ Workflows can be modelled with a few primitives
 
 ### Jobs
 
-Jobs run an atomic workflow step based on an input. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled. If a more general rollback pattern is desired, detect the failure condition from some task and schedule a tidyup workflow.
+Jobs run an atomic workflow step based on an input. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled. If a more general rollback pattern is desired, detect the failure condition in some task and schedule a tidyup workflow.
 
 Data is passed unidirectionally from an initial job to subjobs.
 
@@ -66,6 +66,14 @@ Workflow orchestrators need to store some operational data.
 `JobRegistry` keeps track of which jobs exist, and what state they are in.
 
 `EventRegistry` stores the events of a workflow execution.
+
+## Scope
+
+We serialise tasks and dependencies to our registries for storage. We need to translate this data back to the associated Python classes. `Scope` implementations handle this translation. Tasks and Dependencies have to be explicitly registered with a scope for a non-local workflow to run.
+
+## Context
+
+We expose internals like the job-registry and scope to dependencies and jobs as a runtime-only value using a `Context` object. This allows us to implement control-flow operations like retries.
 
 ## License
 
