@@ -1,7 +1,7 @@
 
 # Zahir
 
-![tests](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)
+![tests](https://github.com/rgrannell1/zahir/actions/workflows/ci.yml/badge.svg)
 
 ## Motivation
 
