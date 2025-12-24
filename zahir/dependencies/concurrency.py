@@ -47,7 +47,7 @@ class ConcurrencyLimit(Dependency):
         }
 
     @classmethod
-    def load(cls, data: dict) -> Self:
+    def load(cls, context, data: dict) -> Self:
         """Load the concurrency limit from a dictionary."""
 
         return cls(limit=data["limit"])

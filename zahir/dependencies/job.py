@@ -5,13 +5,13 @@ from zahir.types import Dependency, DependencyState, JobRegistry, JobState
 class JobDependency(Dependency):
     """A dependency on another job's completion."""
 
-    job_id: int
-    job_registry: "JobRegistry"
+    job_id: str
+    job_registry: JobRegistry
 
     def __init__(
         self,
-        job_id: int,
-        job_registry: "JobRegistry",
+        job_id: str,
+        job_registry: JobRegistry,
         states: set["JobState"] | None = None,
     ) -> None:
         if states is None:
@@ -39,14 +39,10 @@ class JobDependency(Dependency):
             "states": [state.value for state in self.states],
         }
 
-    # TODO: a registry ID, not a full copy
     @classmethod
-    def load(cls, data: dict) -> "JobDependency":
+    def load(cls, context, data: dict) -> "JobDependency":
         """Load the job dependency from a dictionary."""
-
-        # Note: job_registry must be set separately after loading
-        # This is bad and needs reimplementation.
 
         job_id = data["job_id"]
         states = {JobState(state) for state in data["states"]}
-        return cls(job_id=job_id, job_registry=None, states=states)
+        return cls(job_id=job_id, job_registry=context.job_registry, states=states)

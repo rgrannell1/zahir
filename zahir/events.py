@@ -27,7 +27,7 @@ class JobRunnableEvent(ZahirEvent):
 
     workflow_id: str
     job: "Job"
-    job_id: int
+    job_id: str
 
 
 @dataclass
@@ -36,7 +36,7 @@ class JobCompletedEvent(ZahirEvent):
 
     workflow_id: str
     job: "Job"
-    job_id: int
+    job_id: str
     duration_seconds: float
 
 
@@ -46,7 +46,7 @@ class JobStartedEvent(ZahirEvent):
 
     workflow_id: str
     job: "Job"
-    job_id: int
+    job_id: str
 
 
 @dataclass
@@ -55,7 +55,7 @@ class JobTimeoutEvent(ZahirEvent):
 
     workflow_id: str
     job: "Job"
-    job_id: int
+    job_id: str
     duration_seconds: float
 
 
@@ -65,7 +65,7 @@ class JobRecoveryStarted(ZahirEvent):
 
     workflow_id: str
     job: "Job"
-    job_id: int
+    job_id: str
 
 
 @dataclass
@@ -74,7 +74,7 @@ class JobRecoveryCompleted(ZahirEvent):
 
     workflow_id: str
     job: "Job"
-    job_id: int
+    job_id: str
     duration_seconds: float
 
 
@@ -84,7 +84,7 @@ class JobRecoveryTimeout(ZahirEvent):
 
     workflow_id: str
     job: "Job"
-    job_id: int
+    job_id: str
 
 
 @dataclass
@@ -94,7 +94,7 @@ class JobIrrecoverableEvent(ZahirEvent):
     workflow_id: str
     error: Exception
     job: "Job"
-    job_id: int
+    job_id: str
 
 
 @dataclass
@@ -103,5 +103,5 @@ class JobPrecheckFailedEvent(ZahirEvent):
 
     workflow_id: str
     job: "Job"
-    job_id: int
+    job_id: str
     errors: list[str]

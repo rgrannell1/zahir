@@ -45,10 +45,9 @@ class DependencyGroup(Dependency):
         return {"type": "DependencyGroup", "dependencies": dependencies}
 
     @classmethod
-    def load(cls, data: dict) -> "DependencyGroup":
+    def load(cls, context, data: dict) -> "DependencyGroup":
         """Load all subdependencies from a dictionary."""
 
-        # we need to determine the correct subclass to call load on, which
-        # will require scope-lookup.
+        # Use context.scope to determine the correct subclass to call load on
 
         raise NotImplementedError("Loading DependencyGroup is not implemented yet.")

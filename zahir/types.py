@@ -36,7 +36,7 @@ class Dependency(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, data: dict, scope: "Scope") -> Self:
+    def load(cls, context: 'Context', data: dict) -> Self:
         raise NotImplementedError
 
 
@@ -81,19 +81,19 @@ class JobRegistry(ABC):
     """Keeps track of jobs to be run."""
 
     @abstractmethod
-    def add(self, job: "Job") -> int:
+    def add(self, job: "Job") -> str:
         """Register a job with the job registry, returning a job ID"""
 
         raise NotImplementedError
 
     @abstractmethod
-    def get_state(self, job_id: int) -> JobState:
+    def get_state(self, job_id: str) -> JobState:
         """Get the state of a job by ID"""
 
         raise NotImplementedError
 
     @abstractmethod
-    def set_state(self, job_id: int, state: JobState) -> int:
+    def set_state(self, job_id: str, state: JobState) -> str:
         """Set the state of a job by ID"""
 
         raise NotImplementedError
@@ -105,7 +105,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def runnable(self) -> Iterator[tuple[int, "Job"]]:
+    def runnable(self) -> Iterator[tuple[str, "Job"]]:
         """Get an iterator of runnable jobs (ID, Job)"""
 
         raise NotImplementedError
@@ -234,10 +234,13 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
 
     @classmethod
     @abstractmethod
-    def run(cls, input: ArgsType, dependencies: DependencyGroup) -> Iterator["Job"]:
+    def run(
+        cls, context: "Context", input: ArgsType, dependencies: DependencyGroup
+    ) -> Iterator["Job"]:
         """Run the job itself. Unhandled exceptions will be caught
         by the workflow executor, and routed to the `recover` method.
 
+        @param context: The context containing scope and registries
         @param input: The input arguments to this job
         @param dependencies: The dependencies for this job
         @return: An iterator of sub-jobs to run after this one
@@ -250,11 +253,12 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
 
     @classmethod
     def recover(
-        cls, input: ArgsType, dependencies: DependencyGroup, err: Exception
+        cls, context: "Context", input: ArgsType, dependencies: DependencyGroup, err: Exception
     ) -> Iterator["Job"]:
         """The job failed with an unhandled exception. The job
         can define a particular way of handling the exception.
 
+        @param context: The context containing scope and registries
         @param input: The input arguments to this job
         @param dependencies: The dependencies for this job
         @param err: The exception that was raised
@@ -280,11 +284,11 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         }
 
     @classmethod
-    def load(cls, data: SerialisedJob, scope: "Scope") -> Self:
+    def load(cls, context: 'Context', data: SerialisedJob) -> Self:
         """Deserialize the job from a dictionary.
 
+        @param context: The context containing scope and registries
         @param data: The serialized job data
-        @param scope: The scope for looking up dependency and job classes
 
         @return: The deserialized job
         """
@@ -322,3 +326,26 @@ class Scope(ABC):
     @abstractmethod
     def get_dependency_class(self, type_name: str) -> type[Dependency]:
         ...
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++ Context +++++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+class Context:
+    """Context such as scope, the job registry, and event registry
+    needs to be communicated to Jobs and Dependencies.
+    """
+
+    scope: Scope
+    job_registry: JobRegistry
+    event_registry: EventRegistry
+
+    def __init__(
+        self,
+        scope: Scope,
+        job_registry: JobRegistry,
+        event_registry: EventRegistry,
+    ) -> None:
+        self.scope = scope
+        self.job_registry = job_registry
+        self.event_registry = event_registry

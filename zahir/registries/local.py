@@ -27,15 +27,14 @@ class JobEntry:
 class MemoryJobRegistry(JobRegistry):
     """Thread-safe job registry"""
 
-    def __init__(self, scope: Scope) -> None:
-        self.job_counter: int = 0
-        self.jobs: dict[int, JobEntry] = {}
+    def __init__(self, scope: Scope | None = None) -> None:
+        self.jobs: dict[str, JobEntry] = {}
         self._lock = Lock()
         # for consistency, we should probably accept a scope.
         # but I don't think we actually use it given we don't need to serialise and deserialise.
         self.scope = scope
 
-    def add(self, job: "Job[ArgsType, DependencyType]") -> int:
+    def add(self, job: "Job[ArgsType, DependencyType]") -> str:
         """Register a job with the job registry, returning a job ID
 
         @param job: The job to register
@@ -43,13 +42,12 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            self.job_counter += 1
-            job_id = self.job_counter
+            job_id = job.job_id
             self.jobs[job_id] = JobEntry(job=job, state=JobState.PENDING)
 
         return job_id
 
-    def get_state(self, job_id: int) -> JobState:
+    def get_state(self, job_id: str) -> JobState:
         """Get the state of a job by ID
 
         @param job_id: The ID of the job to get the state of
@@ -63,7 +61,7 @@ class MemoryJobRegistry(JobRegistry):
             else:
                 raise KeyError(f"Job ID {job_id} not found in registry")
 
-    def set_state(self, job_id: int, state: JobState) -> int:
+    def set_state(self, job_id: str, state: JobState) -> str:
         """Set the state of a job by ID
 
         @param job_id: The ID of the job to update
@@ -87,7 +85,7 @@ class MemoryJobRegistry(JobRegistry):
         with self._lock:
             return any(entry.state == JobState.PENDING for entry in self.jobs.values())
 
-    def runnable(self) -> Iterator[tuple[int, "Job"]]:
+    def runnable(self) -> Iterator[tuple[str, "Job"]]:
         """Yield all runnable jobs from the registry.
 
         @return: An iterator of (job ID, job) tuples for runnable jobs

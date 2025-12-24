@@ -46,7 +46,7 @@ class TimeDependency(Dependency):
         }
 
     @classmethod
-    def load(cls, data: dict) -> "TimeDependency":
+    def load(cls, context, data: dict) -> "TimeDependency":
         before = datetime.fromisoformat(data["before"]) if data["before"] else None
         after = datetime.fromisoformat(data["after"]) if data["after"] else None
 
