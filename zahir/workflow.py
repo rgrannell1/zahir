@@ -39,7 +39,9 @@ def recover_workflow(
     @param workflow_id: The ID of the workflow
     """
 
-    recovery_timeout = current_job.RECOVER_TIMEOUT
+    recovery_timeout = (
+        current_job.options.recover_timeout if current_job.options else None
+    )
 
     try:
         # hacky method to handle recovery timeouts
@@ -56,7 +58,9 @@ def recover_workflow(
                     recovery_end_time - recovery_start_time
                 ).total_seconds()
                 registry.set_state(job_id, JobState.RECOVERED)
-                yield JobRecoveryCompleted(workflow_id, current_job, job_id, recovery_duration)
+                yield JobRecoveryCompleted(
+                    workflow_id, current_job, job_id, recovery_duration
+                )
             except TimeoutError:
                 registry.set_state(job_id, JobState.RECOVERY_TIMED_OUT)
                 yield JobRecoveryTimeout(workflow_id, current_job, job_id)
@@ -123,7 +127,9 @@ def execute_workflow_batch(
         # First, let's precheck for errors
         precheck_errors = current_job.precheck(current_job.input)
         if precheck_errors:
-            yield JobPrecheckFailedEvent(workflow_id, current_job, job_id, precheck_errors)
+            yield JobPrecheckFailedEvent(
+                workflow_id, current_job, job_id, precheck_errors
+            )
             registry.set_state(job_id, JobState.COMPLETED)
             continue
 
@@ -135,7 +141,7 @@ def execute_workflow_batch(
     # Wait for all submitted jobs to complete
     for future in as_completed(job_futures):
         job_id, current_job = job_futures[future]
-        timeout = current_job.JOB_TIMEOUT
+        timeout = current_job.options.job_timeout if current_job.options else None
         try:
             registry.set_state(job_id, JobState.RUNNING)
             yield JobStartedEvent(workflow_id, current_job, job_id)
@@ -153,9 +159,13 @@ def execute_workflow_batch(
             )
             registry.set_state(job_id, JobState.TIMED_OUT)
             yield JobTimeoutEvent(workflow_id, current_job, job_id, duration)
-            yield from recover_workflow(current_job, job_id, registry, timeout_err, workflow_id)
+            yield from recover_workflow(
+                current_job, job_id, registry, timeout_err, workflow_id
+            )
         except Exception as job_err:
-            yield from recover_workflow(current_job, job_id, registry, job_err, workflow_id)
+            yield from recover_workflow(
+                current_job, job_id, registry, job_err, workflow_id
+            )
 
 
 class Workflow:

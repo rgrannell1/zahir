@@ -81,9 +81,7 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            return any(
-                entry.state == JobState.PENDING for entry in self.jobs.values()
-            )
+            return any(entry.state == JobState.PENDING for entry in self.jobs.values())
 
     def runnable(self) -> Iterator[tuple[int, "Job"]]:
         """Yield all runnable jobs from the registry.

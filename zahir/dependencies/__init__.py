@@ -9,9 +9,5 @@ from zahir.dependencies.concurrency import ConcurrencyLimit
 from zahir.dependencies.time import TimeDependency
 from zahir.dependencies.job import JobDependency
 
-__all__ = [
-  "DependencyGroup",
-  "ConcurrencyLimit",
-  "TimeDependency",
-  "JobDependency"
-]
+
+__all__ = ["DependencyGroup", "ConcurrencyLimit", "TimeDependency", "JobDependency"]

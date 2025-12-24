@@ -1,36 +1,54 @@
-
-
+from typing import Mapping, TypeVar, cast
 
 from zahir.types import Dependency, DependencyState
 
+_DT = TypeVar("_DT", bound=Dependency)
+
 
 class DependencyGroup(Dependency):
-  """Await a list of dependencies to be satisfied."""
+    """Await a all subdependencies."""
 
-  dependencies: list[Dependency]
+    dependencies: dict[str, Dependency | list[Dependency]]
 
-  def __init__(self, dependencies: list[Dependency]) -> None:
-      self.dependencies = dependencies
+    def __init__(self, dependencies: Mapping[str, _DT | list[_DT]]) -> None:
+        # Cast is safe because _DT is bound to Dependency
+        self.dependencies = cast(
+            dict[str, Dependency | list[Dependency]], dict(dependencies)
+        )
 
-  def satisfied(self) -> DependencyState:
-    for dependency in self.dependencies:
-      state = dependency.satisfied()
+    def satisfied(self) -> DependencyState:
+        """Are all subdependencies satisfied?"""
 
-      if state == DependencyState.UNSATISFIED:
-        return DependencyState.UNSATISFIED
-      elif state == DependencyState.IMPOSSIBLE:
-        return DependencyState.IMPOSSIBLE
+        for dependency in self.dependencies.values():
+            dep_list = dependency if isinstance(dependency, list) else [dependency]
 
-    return DependencyState.SATISFIED
+            for subdep in dep_list:
+                state = subdep.satisfied()
 
-  def save(self) -> dict:
-    return {
-      "dependencies": [dependency.save() for dependency in self.dependencies],
-    }
+                if state == DependencyState.UNSATISFIED:
+                    return DependencyState.UNSATISFIED
+                elif state == DependencyState.IMPOSSIBLE:
+                    return DependencyState.IMPOSSIBLE
 
-  @classmethod
-  def load(cls, data: dict) -> "DependencyGroup":
-    # we need to determine the correct subclass to call load on, which
-    # will require scope-lookup.
+        return DependencyState.SATISFIED
 
-    raise NotImplementedError("Loading DependencyGroup is not implemented yet.")
+    def save(self) -> dict:
+        """Save all subdependencies to a dictionary."""
+
+        dependencies = {}
+        for name, deps in self.dependencies.items():
+            if isinstance(deps, list):
+                dependencies[name] = [dep.save() for dep in deps]
+            else:
+                dependencies[name] = [deps.save()]
+
+        return {"type": "DependencyGroup", "dependencies": dependencies}
+
+    @classmethod
+    def load(cls, data: dict) -> "DependencyGroup":
+        """Load all subdependencies from a dictionary."""
+
+        # we need to determine the correct subclass to call load on, which
+        # will require scope-lookup.
+
+        raise NotImplementedError("Loading DependencyGroup is not implemented yet.")

@@ -1,4 +1,3 @@
-
 from enum import Enum
 
 from zahir.types import Dependency, DependencyState, JobRegistry, JobState
@@ -11,11 +10,11 @@ class JobDependency(Dependency):
     job_registry: "JobRegistry"
 
     def __init__(
-            self,
-            job_id: int,
-            job_registry: "JobRegistry",
-            states: set["JobState"] | None = None) -> None:
-
+        self,
+        job_id: int,
+        job_registry: "JobRegistry",
+        states: set["JobState"] | None = None,
+    ) -> None:
         if states is None:
             self.states = {JobState.COMPLETED}
         else:
@@ -46,7 +45,9 @@ class JobDependency(Dependency):
     def load(cls, data: dict) -> "JobDependency":
         """Load the job dependency from a dictionary."""
 
+        # Note: job_registry must be set separately after loading
+        # This is bad and needs reimplementation.
+
         job_id = data["job_id"]
         states = {JobState(state) for state in data["states"]}
-        # Note: job_registry must be set separately after loading
         return cls(job_id=job_id, job_registry=None, states=states)

@@ -2,8 +2,9 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Generic, Iterator, Self, TypeVar
+from typing import Generic, Iterator, Mapping, Self, TypeVar
 
+from zahir.dependencies.group import DependencyGroup
 from zahir.events import ZahirEvent
 from zahir.exception import DependencyMissingException
 
@@ -38,6 +39,7 @@ class Dependency(ABC):
     def load(cls, data: dict) -> Self:
         raise NotImplementedError
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Job Registry +++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -45,25 +47,35 @@ class Dependency(ABC):
 
 class JobState(str, Enum):
     """Track the state jobs can be in"""
+
     # Still to be run
     PENDING = "pending"
+
     # Currently running
     RUNNING = "running"
+
     # Completed successfully
     COMPLETED = "completed"
+
     # Recovery running
     RECOVERING = "recovering"
+
     # Recovered successfully
     RECOVERED = "recovered"
+
     # Execution timed out
     TIMED_OUT = "timed_out"
+
     # Recovery timed out
     RECOVERY_TIMED_OUT = "recovery_timed_out"
+
     # Even rollback failed; this job is irrecoverable
     IRRECOVERABLE = "irrecoverable"
+
     # Dependencies can never be satisfied, so
     # this job is impossible to run
     IMPOSSIBLE = "impossible"
+
 
 class JobRegistry(ABC):
     """Keeps track of jobs to be run."""
@@ -122,24 +134,39 @@ ArgsType = TypeVar("ArgsType", bound=dict)
 DependencyType = TypeVar("DependencyType", bound=Dependency)
 
 
+class JobOptions:
+    """General purpose options for a job"""
+
+    # For traceability
+    parent_id: str | None = None
+
+    # Upper-limit on how long the job should run for
+    job_timeout: int | None = None
+
+    # Upper-limit on how long the recovery should run for
+    recover_timeout: int | None = None
+
+
 class Job(ABC, Generic[ArgsType, DependencyType]):
     """Jobs can depend on other jobs."""
 
-    input: ArgsType
     parent: Self | None = None
 
-    # Upper-limit on how long the job should run for
-    JOB_TIMEOUT: int | None = None
-
-    # Upper-limit on how long the recovery should run for
-    RECOVER_TIMEOUT: int | None = None
+    # The input that the run function actually uses
+    input: ArgsType
 
     # The dependencies on which the job depends
-    dependencies: dict[str, DependencyType]
+    dependencies: DependencyGroup
 
-    def __init__(self, input: ArgsType, dependencies: dict[str, DependencyType]) -> None:
+    def __init__(
+        self,
+        input: ArgsType,
+        dependencies: Mapping[str, DependencyType | list[DependencyType]],
+        options: JobOptions | None = None,
+    ) -> None:
         self.input = input
-        self.dependencies = dependencies
+        self.dependencies = DependencyGroup(dependencies)
+        self.options = options
 
     @staticmethod
     def precheck(input: ArgsType) -> list[str]:
@@ -151,33 +178,13 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
 
         return []
 
-    def get_dependency(self, name: str) -> Dependency:
-        """Get a particular dependency by name.
-
-        @param name: The name of the dependency to get
-
-        @return: The dependency object
-        """
-
-        try:
-            return self.dependencies[name]
-        except KeyError:
-            raise DependencyMissingException(f"Dependency '{name}' not found")
-
     def ready(self) -> DependencyState:
         """Are all dependencies satisfied?
 
-        @return True if all dependencies are satisfied, False otherwise
+        @return: The state of the dependencies
         """
 
-        states = {dep.satisfied() for dep in self.dependencies.values()}
-        if DependencyState.IMPOSSIBLE in states:
-            return DependencyState.IMPOSSIBLE
-
-        if DependencyState.UNSATISFIED in states:
-            return DependencyState.UNSATISFIED
-
-        return DependencyState.SATISFIED
+        return self.dependencies.satisfied()
 
     @abstractmethod
     def run(self) -> Iterator["Job"]:
@@ -206,13 +213,9 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         @return: The serialized job
         """
 
-        return {
-            "input": self.input,
-            "dependencies": {
-                name: dep.save() for name, dep in self.dependencies.items()
-            }
-        }
+        return {"input": self.input, "dependencies": self.dependencies.save()}
 
+    @classmethod
     def load(cls, data: dict) -> Self:
         """Deserialize the job from a dictionary.
 
@@ -220,5 +223,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
 
         @return: The deserialized job
         """
+
+        # requires a scope lookup
 
         raise NotImplementedError
