@@ -1,7 +1,7 @@
 
 # Zahir
 
-![coverage](https://rgrannell1.github.io/zahir/badges/coverage.svg)
+![tests](https://github.com/OWNER/REPO/actions/workflows/ci.yml/badge.svg)
 
 ## Motivation
 
