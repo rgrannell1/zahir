@@ -22,15 +22,21 @@ src/
 
 ## Constructs
 
-Workflows can be modelled with a few primitives
+Workflows can be modelled with a few primitives:
 
 ### Jobs
 
-Jobs run an atomic workflow step based on an input. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled. If a more general rollback pattern is desired, detect the failure condition in some task and schedule a tidyup workflow.
+Jobs do something, based on an input. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled. If a more general rollback pattern is desired, detect the failure condition in some task and schedule a tidyup task.
 
-Data is passed unidirectionally from an initial job to subjobs.
+Jobs may yield other jobs they wish to complete after the current one. This can be done with conditional logic (so conditional workflows are of course supported). No automatic guarantee is given on job execution order (everything that can be run in parallel, is run in parallel), but yielding to a `Job` that depends on other jobs will preserve ordering. This allows patterns such as "process each item, await completion & update a database".
 
-Jobs may yield other jobs they wish to complete after the current one. This can be done with conditional logic (so conditional workflows are of course supported). No guarantee is given on job execution order (everything that can be run in parallel, is run in parallel), but yielding to a `Job` that depends on other jobs will preserve ordering. This allows patterns such as "process each item, await completion & update a database".
+Data is passed unidirectionally from an initial job to subjobs, by the parent job simply yielding the new instantiated task. Jobs may, ultimately, yield an output dictionary. This allows a promise-style call pattern:
+
+- Job A spawns N batch jobs
+- Job b awaits this jobs via a list of job-dependencies
+- On completion, Job b can access the output data from this array of jobs
+
+This is the most idiomatic way of implementing the "fan-out, then aggregate" pattern in Zahir.
 
 ### Dependencies
 
@@ -39,6 +45,7 @@ Tasks may have preconditions before running.
 - `ConcurrencyLimit`: this dependency is satisfied when the concurrency limit is beneath a cap. Jobs are responsible for acquiring / freeing the concurrency limit when the job starts.
 - `JobDependency`: this dependency is satisfied when another job reaches a requested state.
 - `TimeDependency`: this dependency is satisfied when the workflow is in a certain time range.
+- `GroupDependency`: used to consolidate several dependencies into a single aggregate dependency
 
 Dependencies can be flagged as impossible to fulfill; jobs with impossible dependencies are removed from the `pending` queue and flagged in the event registry.
 
@@ -63,7 +70,7 @@ Zahir communicates changes in workflow state as a stream of events emitted by `w
 
 Workflow orchestrators need to store some operational data.
 
-`JobRegistry` keeps track of which jobs exist, and what state they are in.
+`JobRegistry` keeps track of which jobs exist, their outputs, and what state they are in.
 
 `EventRegistry` stores the events of a workflow execution.
 
@@ -73,7 +80,7 @@ We serialise tasks and dependencies to our registries for storage. We need to tr
 
 ## Context
 
-We expose internals like the job-registry and scope to dependencies and jobs as a runtime-only value using a `Context` object. This allows us to implement control-flow operations like retries.
+We expose internals like the job-registry and scope to dependencies and jobs as a runtime-only value using a `Context` object. This allows us to implement control-flow operations like retries using Jobs directly. This prevents structural lock-in to the control-flow operators shipped with Zahir.
 
 ## License
 
