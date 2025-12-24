@@ -12,10 +12,15 @@ src/
     dependencies/
         concurrency.py     await a free concurrency slot before starting a job
         time.py            await a particular time-range before starting a job
+        group.py           await a group of dependencies
+        job.py             await a particular job-state
     registries/
         local.py           register jobs & events locally
+        sqlite.py          TODO :)
+    context.py             communicates workflow internals with dependencies and jobs
     events.py              events describing workflow state-updates
     exception.py           exceptions thrown by Zahir
+    scope.py               handle translation from serialised data to instances
     types.py               abstract types for key Zahir abstractions
     workflow.py            run the workflows
 ```
