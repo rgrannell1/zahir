@@ -245,7 +245,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
     input: ArgsType
 
     # The dependencies on which the job depends
-    dependencies: DependencyGroup
+    dependencies: "DependencyGroup"
 
     def __init__(
         self,
@@ -285,7 +285,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
     @classmethod
     @abstractmethod
     def run(
-        cls, context: "Context", input: ArgsType, dependencies: DependencyGroup
+        cls, context: "Context", input: ArgsType, dependencies: "DependencyGroup"
     ) -> Iterator["Job | dict"]:
         """Run the job itself. Unhandled exceptions will be caught
         by the workflow executor, and routed to the `recover` method.
@@ -306,7 +306,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         cls,
         context: "Context",
         input: ArgsType,
-        dependencies: DependencyGroup,
+        dependencies: "DependencyGroup",
         err: Exception,
     ) -> Iterator["Job | dict"]:
         """The job failed with an unhandled exception. The job

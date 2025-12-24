@@ -5,6 +5,7 @@ import pytest
 
 def test_imports():
     """Test importing all zahir modules."""
+
     import zahir
     import zahir.types
     import zahir.events

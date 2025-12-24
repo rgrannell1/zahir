@@ -4,21 +4,16 @@ from typing import Any, Self, TypedDict
 from zahir.types import Dependency, DependencyState
 
 
-class ConcurrencyLimitData(TypedDict):
-    """Serialized structure for ConcurrencyLimit."""
-
-    limit: int
-    claimed: int
-
-
 class ConcurrencyLimit(Dependency):
     """Limit the number of jobs doing something concurrently at once."""
 
     limit: int
     claimed: int = 0
+    slots: int = 1
 
-    def __init__(self, limit: int) -> None:
+    def __init__(self, limit: int, slots: int) -> None:
         self.limit = limit
+        self.slots = slots
         self._lock = Lock()
 
     def claim(self) -> None:
@@ -40,7 +35,7 @@ class ConcurrencyLimit(Dependency):
         with self._lock:
             return (
                 DependencyState.SATISFIED
-                if self.claimed < self.limit
+                if self.claimed <= (self.limit - self.slots)
                 else DependencyState.UNSATISFIED
             )
 
@@ -52,13 +47,14 @@ class ConcurrencyLimit(Dependency):
             "limit": self.limit,
             # This will be reset between serialisations
             "claimed": 0,
+            "slots": self.slots,
         }
 
     @classmethod
     def load(cls, context, data: dict[str, Any]) -> Self:
         """Load the concurrency limit from a dictionary."""
 
-        return cls(limit=data["limit"])
+        return cls(limit=data["limit"], slots=data["slots"])
 
     def __enter__(self) -> "ConcurrencyLimit":
         """Enter the context manager by claiming a slot."""
