@@ -11,7 +11,9 @@ class SimpleJob(Job):
     """Simple test job for registry tests."""
 
     @classmethod
-    def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | dict]:
+    def run(
+        cls, context: Context, input: dict, dependencies: DependencyGroup
+    ) -> Iterator[Job | dict]:
         yield {"result": "done"}
 
 
@@ -172,7 +174,7 @@ def test_memory_job_registry_runnable():
     job_id = registry.add(job)
 
     mock_context = Mock()
-    runnable = list(registry.runnable(mock_context))
+    runnable = list(registry.running(mock_context))
 
     assert len(runnable) == 1
     assert runnable[0][0] == job_id
@@ -193,7 +195,7 @@ def test_memory_job_registry_runnable_excludes_non_pending():
     registry.set_state(job_id1, JobState.COMPLETED)
 
     mock_context = Mock()
-    runnable = list(registry.runnable(mock_context))
+    runnable = list(registry.running(mock_context))
 
     # Only job2 should be runnable
     assert len(runnable) == 1
@@ -210,7 +212,7 @@ def test_memory_job_registry_runnable_marks_impossible():
     job_id = registry.add(job)
 
     mock_context = Mock()
-    runnable = list(registry.runnable(mock_context))
+    runnable = list(registry.running(mock_context))
 
     # Job should not be runnable
     assert len(runnable) == 0
@@ -228,7 +230,7 @@ def test_memory_job_registry_runnable_skips_unsatisfied():
     registry.add(job)
 
     mock_context = Mock()
-    runnable = list(registry.runnable(mock_context))
+    runnable = list(registry.running(mock_context))
 
     # Job should not be runnable
     assert len(runnable) == 0

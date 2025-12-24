@@ -9,7 +9,7 @@ class LocalScope(Scope):
         self.jobs: dict[str, type[Job]] = {}
         self.dependencies: dict[str, type[Dependency]] = {}
 
-    def add_task_class(self, TaskClass: type[Job]) -> None:
+    def add_job_class(self, TaskClass: type[Job]) -> None:
         self.jobs[TaskClass.__name__] = TaskClass
 
     def get_task_class(self, type_name: str) -> type[Job]:

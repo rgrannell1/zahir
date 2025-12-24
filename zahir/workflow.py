@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed, TimeoutError
 from typing import Iterator
 
-from zahir.context import LocalContext
 from zahir.events import (
     JobCompletedEvent,
     JobIrrecoverableEvent,
@@ -19,15 +18,13 @@ from zahir.events import (
     WorkflowCompleteEvent,
     ZahirEvent,
 )
-from zahir.registries.local import JobRegistry, MemoryEventRegistry, MemoryJobRegistry
+from zahir.registries.local import JobRegistry
 from zahir.types import (
     Context,
-    EventRegistry,
     Job,
     ArgsType,
     DependencyType,
     JobState,
-    Scope,
 )
 import uuid
 
@@ -141,7 +138,6 @@ def execute_single_job(
 def execute_workflow_batch(
     executor: ThreadPoolExecutor,
     runnable_jobs: list[tuple[str, Job]],
-    registry: JobRegistry,
     workflow_id: str,
     context: Context,
 ) -> Iterator[ZahirEvent]:
@@ -164,11 +160,11 @@ def execute_workflow_batch(
             yield JobPrecheckFailedEvent(
                 workflow_id, current_job, job_id, precheck_errors
             )
-            registry.set_state(job_id, JobState.COMPLETED)
+            context.job_registry.set_state(job_id, JobState.COMPLETED)
             continue
 
         future = executor.submit(
-            execute_single_job, job_id, current_job, registry, context, timing_info
+            execute_single_job, job_id, current_job, context.job_registry, context, timing_info
         )
         job_futures[future] = (job_id, current_job)
 
@@ -178,7 +174,7 @@ def execute_workflow_batch(
         timeout = current_job.options.job_timeout if current_job.options else None
         try:
             yield JobStartedEvent(workflow_id, current_job, job_id)
-            registry.set_state(job_id, JobState.RUNNING)
+            context.job_registry.set_state(job_id, JobState.RUNNING)
             future.result(timeout=timeout)
             # Get actual execution timing from the worker thread
             start_time, end_time = timing_info[job_id]
@@ -191,14 +187,14 @@ def execute_workflow_batch(
             timeout_err = TimeoutError(
                 f"Job {type(current_job).__name__} timed out after {timeout}s"
             )
-            registry.set_state(job_id, JobState.TIMED_OUT)
+            context.job_registry.set_state(job_id, JobState.TIMED_OUT)
             yield JobTimeoutEvent(workflow_id, current_job, job_id, duration)
             yield from recover_workflow(
-                current_job, job_id, registry, timeout_err, workflow_id, context
+                current_job, job_id, context.job_registry, timeout_err, workflow_id, context
             )
         except Exception as job_err:
             yield from recover_workflow(
-                current_job, job_id, registry, job_err, workflow_id, context
+                current_job, job_id, context.job_registry, job_err, workflow_id, context
             )
 
 
@@ -212,35 +208,21 @@ class Workflow:
 
     def __init__(
         self,
-        scope: Scope,
-        job_registry: JobRegistry | None = None,
-        event_registry: EventRegistry | None = None,
-        context: Context | None = None,
+        context: Context,
         max_workers: int | None = None,
         stall_time: int | None = None,
     ) -> None:
         """Initialize a workflow execution engine
 
-        @param registry: The job registry to use for managing jobs
+        @param context: The context containing scope, job registry, and event registry
         @param max_workers: Maximum number of parallel workers (default: DEFAULT_MAX_WORKERS)
         @param stall_time: Time to wait between workflow phases. Wait times may be larger,
             as this includes the length the jobs themselves run for (default: STALL_TIME)
         """
 
-        self.scope = scope
-        self.job_registry = (
-            job_registry if job_registry is not None else MemoryJobRegistry(scope)
-        )
-        self.event_registry = (
-            event_registry if event_registry is not None else MemoryEventRegistry()
-        )
+        self.context = context
         self.max_workers = (
             max_workers if max_workers is not None else self.DEFAULT_MAX_WORKERS
-        )
-        self.context = (
-            context
-            if context is not None
-            else LocalContext(self.scope, self.job_registry, self.event_registry)
         )
         self.stall_time = stall_time if stall_time is not None else self.STALL_TIME
 
@@ -249,10 +231,14 @@ class Workflow:
 
         return str(uuid.uuid4())
 
-    def _run(self, start: Job | None = None) -> Iterator[ZahirEvent]:
+    def is_workflow_running(self) -> bool:
+        return self.context.job_registry.running()
+
+    def _run(self, start: Job | None = None, context: Context | None = None) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job
 
         @param start: The starting job of the workflow
+        @param context: The context to use for job execution (created from scope/registries if not provided)
         """
 
         workflow_id = self._workflow_id()
@@ -261,19 +247,23 @@ class Workflow:
         # if desired, seed the workflow with an initial job. Otherwise we'll just
         # process jobs currently in the workflow registry.
         if start is not None:
-            self.job_registry.add(start)
+            self.context.job_registry.add(start)
+
+        runnable_fails = 0
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
-            while self.job_registry.pending():
+            while self.context.job_registry.pending():
                 # Note: this is a bit memory-inefficient.
-                runnable_jobs = list(self.job_registry.runnable(self.context))
+                runnable_jobs = list(self.context.job_registry.runnable(self.context))
 
                 # Yield information on each job we currently consider runnable.
                 for runnable_job_id, runnable in runnable_jobs:
                     yield JobRunnableEvent(workflow_id, runnable, runnable_job_id)
 
+                workflow_running = self.is_workflow_running()
+
                 # We're finished; record we're done and exit.
-                if not runnable_jobs:
+                if not runnable_jobs and not workflow_running:
                     workflow_end_time = datetime.now(tz=timezone.utc)
                     workflow_duration = (
                         workflow_end_time - workflow_start_time
@@ -284,8 +274,9 @@ class Workflow:
                 # Run the batch of jobs that are unblocked across `max_workers` threads.
                 batch_start_time = datetime.now(tz=timezone.utc)
                 yield from execute_workflow_batch(
-                    exec, runnable_jobs, self.job_registry, workflow_id, self.context
+                    exec, runnable_jobs, workflow_id, self.context
                 )
+
                 batch_end_time = datetime.now(tz=timezone.utc)
                 batch_duration = (batch_end_time - batch_start_time).total_seconds()
 
@@ -295,11 +286,12 @@ class Workflow:
                     sleep_time = self.stall_time - batch_duration
                     time.sleep(sleep_time)
 
-    def run(self, start: Job | None = None):
+    def run(self, start: Job | None = None) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job
 
         @param start: The starting job of the workflow
         """
 
         for event in self._run(start):
-            self.event_registry.register(event)
+            self.context.event_registry.register(event)
+            yield event

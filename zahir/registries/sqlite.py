@@ -159,6 +159,20 @@ class SQLiteJobRegistry(JobRegistry):
                 count = cursor.fetchone()[0]
                 return count > 0
 
+    def running(self) -> bool:
+        """Check whether any jobs are currently running.
+
+        @return: True if there are running jobs, False otherwise
+        """
+        with self._lock:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute(
+                    "SELECT COUNT(*) FROM jobs WHERE state IN (?, ?)",
+                    (JobState.RUNNING.value, JobState.RECOVERING.value),
+                )
+                count = cursor.fetchone()[0]
+                return count > 0
+
     def runnable(self, context: Context) -> Iterator[tuple[str, Job]]:
         """Yield all runnable jobs from the registry.
 

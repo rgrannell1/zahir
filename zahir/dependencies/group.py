@@ -59,3 +59,12 @@ class DependencyGroup(Dependency):
                 dependencies[name] = context.scope.get_dependency_class(deps)
 
         return cls(dependencies)
+
+
+    def get(self, name: str) -> _DT | list[_DT]:
+        """Get a subdependency by name.
+
+        @param name: The name of the subdependency
+        @return: The subdependency or list of subdependencies
+        """
+        return self.dependencies[name]

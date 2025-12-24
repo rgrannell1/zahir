@@ -107,6 +107,20 @@ class MemoryJobRegistry(JobRegistry):
         with self._lock:
             return any(entry.state == JobState.PENDING for entry in self.jobs.values())
 
+    def running(self) -> bool:
+        """Check whether any jobs are currently running.
+
+        @return: True if there are running jobs, False otherwise
+        """
+
+        running_states = {
+            JobState.RUNNING,
+            JobState.RECOVERING,
+        }
+
+        with self._lock:
+            return any(entry.state in running_states for entry in self.jobs.values())
+
     def runnable(self, context: Context) -> Iterator[tuple[str, "Job"]]:
         """Yield all runnable jobs from the registry.
 

@@ -157,6 +157,12 @@ class JobRegistry(ABC):
 
         raise NotImplementedError
 
+    @abstractmethod
+    def running(self) -> bool:
+        """Check whether any jobs are currently running."""
+
+        raise NotImplementedError
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Event Registry ++++++++++++++++++++++++++++
@@ -385,7 +391,7 @@ class Scope(ABC):
     """
 
     @abstractmethod
-    def add_task_class(self, TaskClass: type["Job"]) -> None: ...
+    def add_job_class(self, TaskClass: type["Job"]) -> None: ...
 
     @abstractmethod
     def get_task_class(self, type_name: str) -> type["Job"]: ...

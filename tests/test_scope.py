@@ -29,7 +29,7 @@ def test_scope_add_and_get_task_class():
     """Test adding and retrieving task classes."""
     scope = LocalScope()
 
-    scope.add_task_class(SampleJob)
+    scope.add_job_class(SampleJob)
 
     retrieved = scope.get_task_class("SampleJob")
     assert retrieved == SampleJob
@@ -40,8 +40,8 @@ def test_scope_add_multiple_task_classes():
     """Test adding and retrieving multiple task classes."""
     scope = LocalScope()
 
-    scope.add_task_class(SampleJob)
-    scope.add_task_class(AnotherSampleJob)
+    scope.add_job_class(SampleJob)
+    scope.add_job_class(AnotherSampleJob)
 
     assert scope.get_task_class("SampleJob") == SampleJob
     assert scope.get_task_class("AnotherSampleJob") == AnotherSampleJob
@@ -97,7 +97,7 @@ def test_scope_task_and_dependency_classes_separate():
     """Test that task and dependency classes are stored separately."""
     scope = LocalScope()
 
-    scope.add_task_class(SampleJob)
+    scope.add_job_class(SampleJob)
     scope.add_dependency_class(TimeDependency)
 
     # Should be able to retrieve both independently
@@ -122,11 +122,11 @@ def test_scope_overwrite_task_class():
     """Test that adding a task class with the same name overwrites the previous one."""
     scope = LocalScope()
 
-    scope.add_task_class(SampleJob)
+    scope.add_job_class(SampleJob)
     original = scope.get_task_class("SampleJob")
 
     # Add again (same class)
-    scope.add_task_class(SampleJob)
+    scope.add_job_class(SampleJob)
     retrieved = scope.get_task_class("SampleJob")
 
     assert retrieved == original
