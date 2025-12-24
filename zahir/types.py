@@ -23,10 +23,10 @@ class DependencyState(str, Enum):
 
 class DependencyData(TypedDict, total=False):
     """Base structure for serialized dependency data.
-    
+
     Specific dependency types may add additional fields.
     """
-    
+
     type: str
 
 
@@ -42,7 +42,7 @@ class Dependency(ABC):
     @abstractmethod
     def save(self) -> dict[str, Any]:
         """Serialize the dependency to a dictionary.
-        
+
         @return: The serialized dependency data
         """
         raise NotImplementedError
@@ -167,6 +167,13 @@ ArgsType = TypeVar("ArgsType", bound=dict)
 DependencyType = TypeVar("DependencyType", bound=Dependency)
 
 
+class JobOptionsData(TypedDict, total=False):
+    """Serialized structure for job options."""
+
+    job_timeout: int | None
+    recover_timeout: int | None
+
+
 class SerialisedJob(TypedDict):
     """Serialized representation of a Job"""
 
@@ -186,13 +193,6 @@ class SerialisedJob(TypedDict):
 
     # The serialised options for the job
     options: JobOptionsData | None
-
-
-class JobOptionsData(TypedDict, total=False):
-    """Serialized structure for job options."""
-    
-    job_timeout: int | None
-    recover_timeout: int | None
 
 
 class JobOptions:
