@@ -138,24 +138,53 @@ class SerialisedJob(TypedDict):
     """Serialized representation of a Job"""
 
     type: str
+
+    # Unique job identifier
+    job_id: str
+
+    # Optional parent job identifier
+    parent_id: str | None
+
     # The input parameters to the job. Must be JSON-serialisable
     input: dict[str, Any]
 
     # The serialised dependencies for the job
     dependencies: dict[str, Any]
 
+    # The serialised options for the job
+    options: dict[str, Any] | None
+
 
 class JobOptions:
     """General purpose options for a job"""
-
-    # For traceability
-    parent_id: str | None = None
 
     # Upper-limit on how long the job should run for
     job_timeout: int | None = None
 
     # Upper-limit on how long the recovery should run for
     recover_timeout: int | None = None
+
+    def save(self) -> dict[str, Any]:
+        """Serialize the job options to a dictionary.
+
+        @return: The serialized options
+        """
+        return {
+            "job_timeout": self.job_timeout,
+            "recover_timeout": self.recover_timeout,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobOptions":
+        """Deserialize the job options from a dictionary.
+
+        @param data: The serialized options data
+        @return: The deserialized options
+        """
+        options = cls()
+        options.job_timeout = data.get("job_timeout")
+        options.recover_timeout = data.get("recover_timeout")
+        return options
 
 
 class Job(ABC, Generic[ArgsType, DependencyType]):
@@ -243,8 +272,11 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
 
         return {
             "type": self.__class__.__name__,
+            "job_id": self.job_id,
+            "parent_id": self.parent_id,
             "input": self.input,
             "dependencies": self.dependencies.save(),
+            "options": self.options.save() if self.options else None,
         }
 
     @classmethod
