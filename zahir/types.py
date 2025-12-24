@@ -327,7 +327,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         }
 
     @classmethod
-    def load(cls, context: "Context", data: SerialisedJob) -> Self:
+    def load(cls, context: "Context", data: SerialisedJob) -> "Job[Any, Any]":
         """Deserialize the job from a dictionary.
 
         @param context: The context containing scope and registries
@@ -336,10 +336,14 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         @return: The deserialized job
         """
 
-        # requires a scope lookup to find the correct class to construct things.
+        job_type = cls.__name__
+        JobClass = context.scope.get_task_class(job_type)
 
-        raise NotImplementedError
-
+        return JobClass(
+            input=data["input"],
+            dependencies=data["dependencies"],
+            options=JobOptions.load(data["options"]) if data["options"] else None,
+        )
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Scope +++++++++++++++++++++++++++++++++++++

@@ -48,6 +48,14 @@ class DependencyGroup(Dependency):
     def load(cls, context, data: dict) -> "DependencyGroup":
         """Load all subdependencies from a dictionary."""
 
-        # Use context.scope to determine the correct subclass to call load on
+        dependencies = {}
 
-        raise NotImplementedError("Loading DependencyGroup is not implemented yet.")
+        for name, deps in data["dependencies"].items():
+            if isinstance(deps, list):
+                dependencies[name] = [
+                    context.scope.get_dependency_class(dep_data) for dep_data in deps
+                ]
+            else:
+                dependencies[name] = context.scope.get_dependency_class(deps)
+
+        return cls(dependencies)

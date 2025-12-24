@@ -177,8 +177,8 @@ def execute_workflow_batch(
         job_id, current_job = job_futures[future]
         timeout = current_job.options.job_timeout if current_job.options else None
         try:
-            registry.set_state(job_id, JobState.RUNNING)
             yield JobStartedEvent(workflow_id, current_job, job_id)
+            registry.set_state(job_id, JobState.RUNNING)
             future.result(timeout=timeout)
             # Get actual execution timing from the worker thread
             start_time, end_time = timing_info[job_id]
