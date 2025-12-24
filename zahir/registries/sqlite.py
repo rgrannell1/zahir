@@ -14,7 +14,7 @@ from zahir.types import (
     EventRegistry,
     Job,
     JobRegistry,
-    JobState
+    JobState,
 )
 
 
@@ -257,7 +257,9 @@ class SQLiteEventRegistry(EventRegistry):
         """
         with self._lock:
             with sqlite3.connect(self.db_path) as conn:
-                query = "SELECT event_type, event_data, created_at FROM events WHERE 1=1"
+                query = (
+                    "SELECT event_type, event_data, created_at FROM events WHERE 1=1"
+                )
                 params = []
 
                 if event_type:
@@ -282,7 +284,7 @@ class SQLiteEventRegistry(EventRegistry):
                     # Deserialise event using the appropriate class
                     # These are prevended, so no need to use a scope object
                     event_class = getattr(event_module, event_type_name, None)
-                    if event_class and hasattr(event_class, 'load'):
+                    if event_class and hasattr(event_class, "load"):
                         event = event_class.load(data)
                         events.append(event)
 

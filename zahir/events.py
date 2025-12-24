@@ -44,15 +44,14 @@ class WorkflowCompleteEvent(ZahirEvent):
 
     def save(self) -> dict[str, Any]:
         return {
-            'workflow_id': self.workflow_id,
-            'duration_seconds': self.duration_seconds,
+            "workflow_id": self.workflow_id,
+            "duration_seconds": self.duration_seconds,
         }
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> "WorkflowCompleteEvent":
         return cls(
-            workflow_id=data['workflow_id'],
-            duration_seconds=data['duration_seconds']
+            workflow_id=data["workflow_id"], duration_seconds=data["duration_seconds"]
         )
 
 
@@ -66,18 +65,18 @@ class JobRunnableEvent(ZahirEvent):
 
     def save(self) -> dict[str, Any]:
         return {
-            'workflow_id': self.workflow_id,
-            'job_id': self.job_id,
-            'job_type': type(self.job).__name__,
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "job_type": type(self.job).__name__,
         }
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> "JobRunnableEvent":
         # Job is not deserialized from events - set to None
         return cls(
-            workflow_id=data['workflow_id'],
+            workflow_id=data["workflow_id"],
             job=None,  # type: ignore
-            job_id=data['job_id']
+            job_id=data["job_id"],
         )
 
 
@@ -92,19 +91,19 @@ class JobCompletedEvent(ZahirEvent):
 
     def save(self) -> dict[str, Any]:
         return {
-            'workflow_id': self.workflow_id,
-            'job_id': self.job_id,
-            'job_type': type(self.job).__name__,
-            'duration_seconds': self.duration_seconds,
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "job_type": type(self.job).__name__,
+            "duration_seconds": self.duration_seconds,
         }
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> "JobCompletedEvent":
         return cls(
-            workflow_id=data['workflow_id'],
+            workflow_id=data["workflow_id"],
             job=None,  # type: ignore
-            job_id=data['job_id'],
-            duration_seconds=data['duration_seconds']
+            job_id=data["job_id"],
+            duration_seconds=data["duration_seconds"],
         )
 
 
@@ -118,17 +117,17 @@ class JobStartedEvent(ZahirEvent):
 
     def save(self) -> dict[str, Any]:
         return {
-            'workflow_id': self.workflow_id,
-            'job_id': self.job_id,
-            'job_type': type(self.job).__name__,
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "job_type": type(self.job).__name__,
         }
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> "JobStartedEvent":
         return cls(
-            workflow_id=data['workflow_id'],
+            workflow_id=data["workflow_id"],
             job=None,  # type: ignore
-            job_id=data['job_id']
+            job_id=data["job_id"],
         )
 
 
@@ -143,19 +142,19 @@ class JobTimeoutEvent(ZahirEvent):
 
     def save(self) -> dict[str, Any]:
         return {
-            'workflow_id': self.workflow_id,
-            'job_id': self.job_id,
-            'job_type': type(self.job).__name__,
-            'duration_seconds': self.duration_seconds,
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "job_type": type(self.job).__name__,
+            "duration_seconds": self.duration_seconds,
         }
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> "JobTimeoutEvent":
         return cls(
-            workflow_id=data['workflow_id'],
+            workflow_id=data["workflow_id"],
             job=None,  # type: ignore
-            job_id=data['job_id'],
-            duration_seconds=data['duration_seconds']
+            job_id=data["job_id"],
+            duration_seconds=data["duration_seconds"],
         )
 
 
@@ -169,17 +168,17 @@ class JobRecoveryStarted(ZahirEvent):
 
     def save(self) -> dict[str, Any]:
         return {
-            'workflow_id': self.workflow_id,
-            'job_id': self.job_id,
-            'job_type': type(self.job).__name__,
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "job_type": type(self.job).__name__,
         }
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> "JobRecoveryStarted":
         return cls(
-            workflow_id=data['workflow_id'],
+            workflow_id=data["workflow_id"],
             job=None,  # type: ignore
-            job_id=data['job_id']
+            job_id=data["job_id"],
         )
 
 
@@ -194,19 +193,19 @@ class JobRecoveryCompleted(ZahirEvent):
 
     def save(self) -> dict[str, Any]:
         return {
-            'workflow_id': self.workflow_id,
-            'job_id': self.job_id,
-            'job_type': type(self.job).__name__,
-            'duration_seconds': self.duration_seconds,
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "job_type": type(self.job).__name__,
+            "duration_seconds": self.duration_seconds,
         }
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> "JobRecoveryCompleted":
         return cls(
-            workflow_id=data['workflow_id'],
+            workflow_id=data["workflow_id"],
             job=None,  # type: ignore
-            job_id=data['job_id'],
-            duration_seconds=data['duration_seconds']
+            job_id=data["job_id"],
+            duration_seconds=data["duration_seconds"],
         )
 
 
@@ -220,17 +219,17 @@ class JobRecoveryTimeout(ZahirEvent):
 
     def save(self) -> dict[str, Any]:
         return {
-            'workflow_id': self.workflow_id,
-            'job_id': self.job_id,
-            'job_type': type(self.job).__name__,
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "job_type": type(self.job).__name__,
         }
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> "JobRecoveryTimeout":
         return cls(
-            workflow_id=data['workflow_id'],
+            workflow_id=data["workflow_id"],
             job=None,  # type: ignore
-            job_id=data['job_id']
+            job_id=data["job_id"],
         )
 
 
@@ -245,22 +244,22 @@ class JobIrrecoverableEvent(ZahirEvent):
 
     def save(self) -> dict[str, Any]:
         return {
-            'workflow_id': self.workflow_id,
-            'job_id': self.job_id,
-            'job_type': type(self.job).__name__,
-            'error': str(self.error),
-            'error_type': type(self.error).__name__,
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "job_type": type(self.job).__name__,
+            "error": str(self.error),
+            "error_type": type(self.error).__name__,
         }
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> "JobIrrecoverableEvent":
         # Recreate a generic exception from the error string
-        error_msg = data.get('error', 'Unknown error')
+        error_msg = data.get("error", "Unknown error")
         return cls(
-            workflow_id=data['workflow_id'],
+            workflow_id=data["workflow_id"],
             error=Exception(error_msg),
             job=None,  # type: ignore
-            job_id=data['job_id']
+            job_id=data["job_id"],
         )
 
 
@@ -275,17 +274,17 @@ class JobPrecheckFailedEvent(ZahirEvent):
 
     def save(self) -> dict[str, Any]:
         return {
-            'workflow_id': self.workflow_id,
-            'job_id': self.job_id,
-            'job_type': type(self.job).__name__,
-            'errors': self.errors,
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "job_type": type(self.job).__name__,
+            "errors": self.errors,
         }
 
     @classmethod
     def load(cls, data: dict[str, Any]) -> "JobPrecheckFailedEvent":
         return cls(
-            workflow_id=data['workflow_id'],
+            workflow_id=data["workflow_id"],
             job=None,  # type: ignore
-            job_id=data['job_id'],
-            errors=data['errors']
+            job_id=data["job_id"],
+            errors=data["errors"],
         )

@@ -46,7 +46,7 @@ def create_backoff_delay(retry_opts: RetryOptions, retry_count: int) -> TimeDepe
     backoff_factor = retry_opts.get("backoff_factor", 2)
 
     # Exponential backoff: delay = initial_delay * (backoff_factor ^ retry_count)
-    delay_seconds = initial_delay * (backoff_factor ** retry_count)
+    delay_seconds = initial_delay * (backoff_factor**retry_count)
 
     now = datetime.now(tz=timezone.utc)
     after_time = now + timedelta(seconds=delay_seconds)
@@ -58,7 +58,9 @@ class RetryTask(Job):
     """Retry a task upon failure"""
 
     def __init__(
-        self, input: RetryTaskInput, dependencies: dict[str, Dependency | list[Dependency]]
+        self,
+        input: RetryTaskInput,
+        dependencies: dict[str, Dependency | list[Dependency]],
     ):
         super().__init__(input, dependencies)
 
@@ -69,14 +71,17 @@ class RetryTask(Job):
         """Run the retry task."""
 
         # Reconstruct the task from serialized data
-        task = Job.load(context, {
-            "type": input["type"],
-            "job_id": "",  # Will be regenerated
-            "parent_id": None,
-            "input": input["input"],
-            "dependencies": input["dependencies"],
-            "options": input["options"].save() if input["options"] else None,
-        })
+        task = Job.load(
+            context,
+            {
+                "type": input["type"],
+                "job_id": "",  # Will be regenerated
+                "parent_id": None,
+                "input": input["input"],
+                "dependencies": input["dependencies"],
+                "options": input["options"].save() if input["options"] else None,
+            },
+        )
 
         failure_sensor = JobDependency(
             task.job_id,
@@ -113,8 +118,8 @@ class RetryTask(Job):
             {
                 "failure_sensor": failure_sensor,
                 "success_sensor": success_sensor,
-                "delay_sensor": delay_sensor
-            }
+                "delay_sensor": delay_sensor,
+            },
         )
 
 
@@ -134,9 +139,9 @@ def retryable(
     yield task
 
     retry_opts = retry_opts or {
-        'max_retries': 3,
-        'backoff_factor': 2,
-        'initial_delay': 5
+        "max_retries": 3,
+        "backoff_factor": 2,
+        "initial_delay": 5,
     }
 
     failure_sensor = JobDependency(
@@ -174,6 +179,6 @@ def retryable(
             # * bail if the upstream job is successful (TODO)
             "failure_sensor": failure_sensor,
             "success_sensor": success_sensor,
-            "delay_sensor": delay_sensor
+            "delay_sensor": delay_sensor,
         },
     )

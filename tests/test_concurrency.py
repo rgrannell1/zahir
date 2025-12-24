@@ -111,12 +111,7 @@ def test_concurrency_limit_save():
 
 def test_concurrency_limit_load():
     """Test that load() reconstructs the limit correctly."""
-    data = {
-        "type": "ConcurrencyLimit",
-        "limit": 5,
-        "slots": 2,
-        "claimed": 0
-    }
+    data = {"type": "ConcurrencyLimit", "limit": 5, "slots": 2, "claimed": 0}
 
     limit = ConcurrencyLimit.load(None, data)
 

@@ -2,7 +2,16 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Generic, Iterator, Mapping, Self, TypedDict, TypeVar
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Generic,
+    Iterator,
+    Mapping,
+    Self,
+    TypedDict,
+    TypeVar,
+)
 from uuid import uuid4
 
 from zahir.events import ZahirEvent
@@ -358,6 +367,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         )
 
         return job
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Scope +++++++++++++++++++++++++++++++++++++
