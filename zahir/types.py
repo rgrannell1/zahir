@@ -186,22 +186,34 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
 
         return self.dependencies.satisfied()
 
+    @classmethod
     @abstractmethod
-    def run(self) -> Iterator["Job"]:
+    def run(
+        cls, input: ArgsType, dependencies: DependencyGroup
+    ) -> Iterator["Job"]:
         """Run the job itself. Unhandled exceptions will be caught
         by the workflow executor, and routed to the `recover` method.
 
+        @param input: The input arguments to this job
+        @param dependencies: The dependencies for this job
         @return: An iterator of sub-jobs to run after this one
         """
 
+        # These are class-methods to avoid self-dependencies that will impact
+        # serialisation.
+
         return iter([])
 
-    def recover(self, err: Exception) -> Iterator["Job"]:
+    @classmethod
+    def recover(
+        cls, input: ArgsType, dependencies: DependencyGroup, err: Exception
+    ) -> Iterator["Job"]:
         """The job failed with an unhandled exception. The job
         can define a particular way of handling the exception.
 
+        @param input: The input arguments to this job
+        @param dependencies: The dependencies for this job
         @param err: The exception that was raised
-
         @return: An iterator of jobs to run to recover from the error
         """
 
@@ -224,6 +236,6 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         @return: The deserialized job
         """
 
-        # requires a scope lookup
+        # requires a scope lookup to find the correct class to construct things.
 
         raise NotImplementedError

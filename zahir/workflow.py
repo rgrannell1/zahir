@@ -78,7 +78,9 @@ def _run_recovery(current_job: Job, err: Exception, registry: JobRegistry) -> No
     @param registry: The job registry to add recovery jobs to
     """
 
-    for exc_job in current_job.recover(err):
+    for exc_job in type(current_job).recover(
+        current_job.input, current_job.dependencies, err
+    ):
         registry.add(exc_job)
 
 
@@ -97,7 +99,7 @@ def execute_single_job(
     """
 
     start_time = datetime.now(tz=timezone.utc)
-    for subjob in current_job.run():
+    for subjob in type(current_job).run(current_job.input, current_job.dependencies):
         subjob.parent = current_job
         registry.add(subjob)
 
