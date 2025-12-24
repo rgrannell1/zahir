@@ -127,7 +127,7 @@ class EventRegistry(ABC):
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-# ++++++++++++++++++++++ Job +++++++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++ Job +++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ArgsType = TypeVar("ArgsType", bound=dict)
@@ -291,3 +291,33 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         # requires a scope lookup to find the correct class to construct things.
 
         raise NotImplementedError
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++ Scope +++++++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+class Scope(ABC):
+    """We persist serialised dependency and job information to
+    various stores. These ultimately need to be deserialized back into
+    their correct Python classes.
+
+    So, we'll explicitly register jobs and dependencies with a scope, to
+    aid with this translation. The alternatives is decorators registering
+    tasks at import-time, which is too side-effectful. Explicit > implicit.
+    """
+
+    @abstractmethod
+    def add_task_class(self, TaskClass: type["Job"]) -> None:
+        ...
+
+    @abstractmethod
+    def get_task_class(self, type_name: str) -> type["Job"]:
+        ...
+
+    @abstractmethod
+    def add_dependency_class(self, DependencyClass: type[Dependency]) -> None:
+        ...
+
+    @abstractmethod
+    def get_dependency_class(self, type_name: str) -> type[Dependency]:
+        ...
