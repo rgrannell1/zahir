@@ -38,7 +38,7 @@ Jobs may yield other jobs they wish to complete after the current one. This can 
 Data is passed unidirectionally from an initial job to subjobs, by the parent job simply yielding the new instantiated job. Jobs may, ultimately, yield an output dictionary. This allows a promise-style call pattern:
 
 - Job A spawns N batch jobs
-- Job b awaits this jobs via a list of job-dependencies
+- Job B awaits this jobs via a list of job-dependencies
 - On completion, Job b can access the output data from this array of jobs
 
 This is the most idiomatic way of implementing the "fan-out, then aggregate" pattern in Zahir.
