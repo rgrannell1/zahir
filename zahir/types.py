@@ -2,11 +2,10 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Generic, Iterator, Mapping, Self, TypeVar
+from typing import Any, Generic, Iterator, Mapping, Self, TypedDict, TypeVar
 
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import ZahirEvent
-from zahir.exception import DependencyMissingException
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Dependency ++++++++++++++++++++++++++++++++
@@ -134,6 +133,17 @@ ArgsType = TypeVar("ArgsType", bound=dict)
 DependencyType = TypeVar("DependencyType", bound=Dependency)
 
 
+class SerialisedJob(TypedDict):
+    """Serialized representation of a Job"""
+
+    type: str
+    # The input parameters to the job. Must be JSON-serialisable
+    input: dict[str, Any]
+
+    # The serialised dependencies for the job
+    dependencies: dict[str, Any]
+
+
 class JobOptions:
     """General purpose options for a job"""
 
@@ -217,18 +227,23 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         @return: An iterator of jobs to run to recover from the error
         """
 
+        # TODO yield to an error-reporter task.
         return iter([])
 
-    def save(self) -> dict:
+    def save(self) -> SerialisedJob:
         """Serialize the job to a dictionary.
 
         @return: The serialized job
         """
 
-        return {"input": self.input, "dependencies": self.dependencies.save()}
+        return {
+            "type": self.__class__.__name__,
+            "input": self.input,
+            "dependencies": self.dependencies.save()
+        }
 
     @classmethod
-    def load(cls, data: dict) -> Self:
+    def load(cls, data: SerialisedJob) -> Self:
         """Deserialize the job from a dictionary.
 
         @param data: The serialized job data
