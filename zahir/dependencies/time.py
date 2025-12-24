@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, TypedDict
 from zahir.types import Dependency, DependencyState
 
@@ -32,7 +32,7 @@ class TimeDependency(Dependency):
             # trivially true.
             return DependencyState.SATISFIED
 
-        now = datetime.now()
+        now = datetime.now(tz=timezone.utc)
 
         if self.before:
             # time moves forward, this dependency can now never be met.

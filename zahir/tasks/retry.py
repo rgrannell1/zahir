@@ -3,7 +3,7 @@
 A task for retrying another task under certain conditions.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable, Iterator, TypedDict
 from zahir.dependencies.job import JobDependency
 from zahir.dependencies.group import DependencyGroup
@@ -48,7 +48,7 @@ def create_backoff_delay(retry_opts: RetryOptions, retry_count: int) -> TimeDepe
     # Exponential backoff: delay = initial_delay * (backoff_factor ^ retry_count)
     delay_seconds = initial_delay * (backoff_factor ** retry_count)
 
-    now = datetime.now()
+    now = datetime.now(tz=timezone.utc)
     after_time = now + timedelta(seconds=delay_seconds)
 
     return TimeDependency(before=None, after=after_time)
@@ -68,11 +68,15 @@ class RetryTask(Job):
     ) -> Iterator[Job]:
         """Run the retry task."""
 
-        job_type = input["type"]
-        job_class = context.scope.get_task_class(job_type)
-        task = job_class(
-            input=input["input"], dependencies=input["dependencies"], options=input["options"]
-        )
+        # Reconstruct the task from serialized data
+        task = Job.load(context, {
+            "type": input["type"],
+            "job_id": "",  # Will be regenerated
+            "parent_id": None,
+            "input": input["input"],
+            "dependencies": input["dependencies"],
+            "options": input["options"].save() if input["options"] else None,
+        })
 
         failure_sensor = JobDependency(
             task.job_id,
