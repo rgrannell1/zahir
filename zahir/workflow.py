@@ -32,7 +32,6 @@ import uuid
 def recover_workflow(
     current_job: Job[ArgsType, DependencyType],
     job_id: str,
-    registry: JobRegistry,
     err: Exception,
     workflow_id: str,
     context: Context,
@@ -54,32 +53,32 @@ def recover_workflow(
     try:
         # hacky method to handle recovery timeouts
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_run_recovery, current_job, err, registry, context)
+            future = executor.submit(_run_recovery, current_job, err, context)
 
             try:
                 recovery_start_time = datetime.now(tz=timezone.utc)
-                registry.set_state(job_id, JobState.RECOVERING)
+                context.job_registry.set_state(job_id, JobState.RECOVERING)
                 yield JobRecoveryStarted(workflow_id, current_job, job_id)
                 future.result(timeout=recovery_timeout)
                 recovery_end_time = datetime.now(tz=timezone.utc)
                 recovery_duration = (
                     recovery_end_time - recovery_start_time
                 ).total_seconds()
-                registry.set_state(job_id, JobState.RECOVERED)
+                context.job_registry.set_state(job_id, JobState.RECOVERED)
                 yield JobRecoveryCompleted(
                     workflow_id, current_job, job_id, recovery_duration
                 )
             except TimeoutError:
-                registry.set_state(job_id, JobState.RECOVERY_TIMED_OUT)
+                context.job_registry.set_state(job_id, JobState.RECOVERY_TIMED_OUT)
                 yield JobRecoveryTimeout(workflow_id, current_job, job_id)
     except Exception as recovery_err:
         # Oh dear! Even the recovery failed.
-        registry.set_state(job_id, JobState.IRRECOVERABLE)
+        context.job_registry.set_state(job_id, JobState.IRRECOVERABLE)
         yield JobIrrecoverableEvent(workflow_id, recovery_err, current_job, job_id)
 
 
 def _run_recovery(
-    current_job: Job, err: Exception, registry: JobRegistry, context: Context
+    current_job: Job, err: Exception, context: Context
 ) -> None:
     """Execute the recovery process for a failed job.
 
@@ -94,17 +93,15 @@ def _run_recovery(
     ):
         if isinstance(item, dict):
             # Output dict - store it and stop processing
-            registry.set_output(current_job.job_id, item)
+            context.job_registry.set_output(current_job.job_id, item)
             break
         else:
             # It's a Job - add as recovery job
-            registry.add(item)
-
+            context.job_registry.add(item)
 
 def execute_single_job(
     job_id: str,
     current_job: Job,
-    registry: JobRegistry,
     context: Context,
     timing_info: dict[str, tuple[datetime, datetime]],
 ) -> None:
@@ -112,7 +109,6 @@ def execute_single_job(
 
     @param job_id: The ID of the job to execute
     @param current_job: The job to execute
-    @param registry: The job registry to add subjobs to
     @param context: The context containing scope and registries
     @param timing_info: Dictionary to store (start_time, end_time) tuples by job_id
     """
@@ -123,17 +119,16 @@ def execute_single_job(
     ):
         if isinstance(item, dict):
             # Output dict - store it and stop processing
-            registry.set_output(job_id, item)
+            context.job_registry.set_output(job_id, item)
             break
         else:
             # It's a Job - add as subjob
             item.parent_id = current_job.job_id
-            registry.add(item)
+            context.job_registry.add(item)
 
     end_time = datetime.now(tz=timezone.utc)
     timing_info[job_id] = (start_time, end_time)
-    registry.set_state(job_id, JobState.COMPLETED)
-
+    context.job_registry.set_state(job_id, JobState.COMPLETED)
 
 def execute_workflow_batch(
     executor: ThreadPoolExecutor,
@@ -164,7 +159,7 @@ def execute_workflow_batch(
             continue
 
         future = executor.submit(
-            execute_single_job, job_id, current_job, context.job_registry, context, timing_info
+            execute_single_job, job_id, current_job, context, timing_info
         )
         job_futures[future] = (job_id, current_job)
 
@@ -190,11 +185,11 @@ def execute_workflow_batch(
             context.job_registry.set_state(job_id, JobState.TIMED_OUT)
             yield JobTimeoutEvent(workflow_id, current_job, job_id, duration)
             yield from recover_workflow(
-                current_job, job_id, context.job_registry, timeout_err, workflow_id, context
+                current_job, job_id, timeout_err, workflow_id, context
             )
         except Exception as job_err:
             yield from recover_workflow(
-                current_job, job_id, context.job_registry, job_err, workflow_id, context
+                current_job, job_id, job_err, workflow_id, context
             )
 
 
