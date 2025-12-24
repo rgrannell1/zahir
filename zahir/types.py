@@ -289,8 +289,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         @return: An iterator of recovery jobs or a final output dict. When a dict is yielded, it becomes the job's output and no further items are processed.
         """
 
-        # TODO yield to an error-reporter task.
-        return iter([])
+        raise err
 
     def save(self) -> SerialisedJob:
         """Serialize the job to a dictionary.
