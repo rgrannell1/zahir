@@ -16,7 +16,7 @@ src/
         job.py             await a particular job-state
     registries/
         local.py           register jobs & events locally
-        sqlite.py          TODO :)
+        sqlite.py          register jobs & events in SQLite
     context.py             communicates workflow internals with dependencies and jobs
     events.py              events describing workflow state-updates
     exception.py           exceptions thrown by Zahir
