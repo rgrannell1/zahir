@@ -4,7 +4,7 @@ from zahir.types import Context, Dependency, DependencyState, JobRegistry, JobSt
 
 class JobDependencyData(TypedDict, total=False):
     """Serialized structure for JobDependency."""
-    
+
     job_id: str
     satisfied_states: list[str]
     impossible_states: list[str]
@@ -52,6 +52,7 @@ class JobDependency(Dependency):
         """Save the job dependency to a dictionary."""
 
         return {
+            "type": "JobDependency",
             "job_id": self.job_id,
             "satisfied_states": [state.value for state in self.satisfied_states],
             "impossible_states": [state.value for state in self.impossible_states],

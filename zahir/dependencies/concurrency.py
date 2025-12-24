@@ -6,7 +6,7 @@ from zahir.types import Dependency, DependencyState
 
 class ConcurrencyLimitData(TypedDict):
     """Serialized structure for ConcurrencyLimit."""
-    
+
     limit: int
     claimed: int
 
@@ -48,6 +48,7 @@ class ConcurrencyLimit(Dependency):
         """Save the concurrency limit to a dictionary."""
 
         return {
+            "type": "ConcurrencyLimit",
             "limit": self.limit,
             # This will be reset between serialisations
             "claimed": 0,

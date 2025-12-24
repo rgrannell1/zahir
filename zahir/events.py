@@ -3,14 +3,32 @@
 Workflows should be observable. So we'll yield events describing the state of the workflow engine over time. The runner can dispatch these events as desired.
 """
 
+from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
 from zahir.types import Job
 
 
-class ZahirEvent:
+class ZahirEvent(ABC):
     """Base class for all Zahir events"""
 
-    pass
+    @abstractmethod
+    def save(self) -> dict[str, Any]:
+        """Serialize the event to a dictionary.
+
+        @return: The serialized event data
+        """
+        raise NotImplementedError
+
+    @classmethod
+    @abstractmethod
+    def load(cls, data: dict[str, Any]) -> "ZahirEvent":
+        """Deserialize the event from a dictionary.
+
+        @param data: The serialized event data
+        @return: The deserialized event
+        """
+        raise NotImplementedError
 
 
 @dataclass
@@ -20,6 +38,19 @@ class WorkflowCompleteEvent(ZahirEvent):
     workflow_id: str
     duration_seconds: float
 
+    def save(self) -> dict[str, Any]:
+        return {
+            'workflow_id': self.workflow_id,
+            'duration_seconds': self.duration_seconds,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "WorkflowCompleteEvent":
+        return cls(
+            workflow_id=data['workflow_id'],
+            duration_seconds=data['duration_seconds']
+        )
+
 
 @dataclass
 class JobRunnableEvent(ZahirEvent):
@@ -28,6 +59,22 @@ class JobRunnableEvent(ZahirEvent):
     workflow_id: str
     job: "Job"
     job_id: str
+
+    def save(self) -> dict[str, Any]:
+        return {
+            'workflow_id': self.workflow_id,
+            'job_id': self.job_id,
+            'job_type': type(self.job).__name__,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobRunnableEvent":
+        # Job is not deserialized from events - set to None
+        return cls(
+            workflow_id=data['workflow_id'],
+            job=None,  # type: ignore
+            job_id=data['job_id']
+        )
 
 
 @dataclass
@@ -39,6 +86,23 @@ class JobCompletedEvent(ZahirEvent):
     job_id: str
     duration_seconds: float
 
+    def save(self) -> dict[str, Any]:
+        return {
+            'workflow_id': self.workflow_id,
+            'job_id': self.job_id,
+            'job_type': type(self.job).__name__,
+            'duration_seconds': self.duration_seconds,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobCompletedEvent":
+        return cls(
+            workflow_id=data['workflow_id'],
+            job=None,  # type: ignore
+            job_id=data['job_id'],
+            duration_seconds=data['duration_seconds']
+        )
+
 
 @dataclass
 class JobStartedEvent(ZahirEvent):
@@ -47,6 +111,21 @@ class JobStartedEvent(ZahirEvent):
     workflow_id: str
     job: "Job"
     job_id: str
+
+    def save(self) -> dict[str, Any]:
+        return {
+            'workflow_id': self.workflow_id,
+            'job_id': self.job_id,
+            'job_type': type(self.job).__name__,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobStartedEvent":
+        return cls(
+            workflow_id=data['workflow_id'],
+            job=None,  # type: ignore
+            job_id=data['job_id']
+        )
 
 
 @dataclass
@@ -58,6 +137,23 @@ class JobTimeoutEvent(ZahirEvent):
     job_id: str
     duration_seconds: float
 
+    def save(self) -> dict[str, Any]:
+        return {
+            'workflow_id': self.workflow_id,
+            'job_id': self.job_id,
+            'job_type': type(self.job).__name__,
+            'duration_seconds': self.duration_seconds,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobTimeoutEvent":
+        return cls(
+            workflow_id=data['workflow_id'],
+            job=None,  # type: ignore
+            job_id=data['job_id'],
+            duration_seconds=data['duration_seconds']
+        )
+
 
 @dataclass
 class JobRecoveryStarted(ZahirEvent):
@@ -66,6 +162,21 @@ class JobRecoveryStarted(ZahirEvent):
     workflow_id: str
     job: "Job"
     job_id: str
+
+    def save(self) -> dict[str, Any]:
+        return {
+            'workflow_id': self.workflow_id,
+            'job_id': self.job_id,
+            'job_type': type(self.job).__name__,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobRecoveryStarted":
+        return cls(
+            workflow_id=data['workflow_id'],
+            job=None,  # type: ignore
+            job_id=data['job_id']
+        )
 
 
 @dataclass
@@ -77,6 +188,23 @@ class JobRecoveryCompleted(ZahirEvent):
     job_id: str
     duration_seconds: float
 
+    def save(self) -> dict[str, Any]:
+        return {
+            'workflow_id': self.workflow_id,
+            'job_id': self.job_id,
+            'job_type': type(self.job).__name__,
+            'duration_seconds': self.duration_seconds,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobRecoveryCompleted":
+        return cls(
+            workflow_id=data['workflow_id'],
+            job=None,  # type: ignore
+            job_id=data['job_id'],
+            duration_seconds=data['duration_seconds']
+        )
+
 
 @dataclass
 class JobRecoveryTimeout(ZahirEvent):
@@ -85,6 +213,21 @@ class JobRecoveryTimeout(ZahirEvent):
     workflow_id: str
     job: "Job"
     job_id: str
+
+    def save(self) -> dict[str, Any]:
+        return {
+            'workflow_id': self.workflow_id,
+            'job_id': self.job_id,
+            'job_type': type(self.job).__name__,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobRecoveryTimeout":
+        return cls(
+            workflow_id=data['workflow_id'],
+            job=None,  # type: ignore
+            job_id=data['job_id']
+        )
 
 
 @dataclass
@@ -96,6 +239,26 @@ class JobIrrecoverableEvent(ZahirEvent):
     job: "Job"
     job_id: str
 
+    def save(self) -> dict[str, Any]:
+        return {
+            'workflow_id': self.workflow_id,
+            'job_id': self.job_id,
+            'job_type': type(self.job).__name__,
+            'error': str(self.error),
+            'error_type': type(self.error).__name__,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobIrrecoverableEvent":
+        # Recreate a generic exception from the error string
+        error_msg = data.get('error', 'Unknown error')
+        return cls(
+            workflow_id=data['workflow_id'],
+            error=Exception(error_msg),
+            job=None,  # type: ignore
+            job_id=data['job_id']
+        )
+
 
 @dataclass
 class JobPrecheckFailedEvent(ZahirEvent):
@@ -105,3 +268,20 @@ class JobPrecheckFailedEvent(ZahirEvent):
     job: "Job"
     job_id: str
     errors: list[str]
+
+    def save(self) -> dict[str, Any]:
+        return {
+            'workflow_id': self.workflow_id,
+            'job_id': self.job_id,
+            'job_type': type(self.job).__name__,
+            'errors': self.errors,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobPrecheckFailedEvent":
+        return cls(
+            workflow_id=data['workflow_id'],
+            job=None,  # type: ignore
+            job_id=data['job_id'],
+            errors=data['errors']
+        )

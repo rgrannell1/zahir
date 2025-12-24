@@ -49,6 +49,7 @@ class TimeDependency(Dependency):
 
     def save(self) -> dict[str, Any]:
         return {
+            "type": "TimeDependency",
             "before": self.before.isoformat() if self.before else None,
             "after": self.after.isoformat() if self.after else None,
         }
