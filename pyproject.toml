@@ -33,4 +33,5 @@ packages = ["zahir"]
 [dependency-groups]
 dev = [
     "ruff>=0.14.10",
+    "pytest>=8.0.0",
 ]

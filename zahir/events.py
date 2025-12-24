@@ -3,10 +3,14 @@
 Workflows should be observable. So we'll yield events describing the state of the workflow engine over time. The runner can dispatch these events as desired.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
-from zahir.types import Job
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from zahir.types import Job
 
 
 class ZahirEvent(ABC):

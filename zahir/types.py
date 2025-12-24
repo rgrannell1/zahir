@@ -2,11 +2,13 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Any, Generic, Iterator, Mapping, Self, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Iterator, Mapping, Self, TypedDict, TypeVar
 from uuid import uuid4
 
-from zahir.dependencies.group import DependencyGroup
 from zahir.events import ZahirEvent
+
+if TYPE_CHECKING:
+    from zahir.dependencies.group import DependencyGroup
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Dependency ++++++++++++++++++++++++++++++++
@@ -250,9 +252,14 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         input: ArgsType,
         dependencies: Mapping[str, DependencyType | list[DependencyType]],
         options: JobOptions | None = None,
+        job_id: str | None = None,
+        parent_id: str | None = None,
     ) -> None:
-        self.parent_id = None
-        self.job_id = str(uuid4())
+        # Import here to avoid circular dependency, this is so dumb.
+        from zahir.dependencies.group import DependencyGroup
+
+        self.parent_id = parent_id
+        self.job_id = job_id if job_id is not None else str(uuid4())
         self.input = input
         self.dependencies = DependencyGroup(dependencies)
         self.options = options
@@ -346,11 +353,9 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
             input=data["input"],
             dependencies=data["dependencies"],
             options=JobOptions.load(data["options"]) if data["options"] else None,
+            job_id=data["job_id"],
+            parent_id=data.get("parent_id"),
         )
-
-        # Restore the original job_id and parent_id
-        job.job_id = data["job_id"]
-        job.parent_id = data.get("parent_id")
 
         return job
 
