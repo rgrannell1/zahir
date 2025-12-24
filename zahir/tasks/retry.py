@@ -47,14 +47,19 @@ def retryable(
       JobState.IRRECOVERABLE,
       JobState.IMPOSSIBLE
     },
+    impossible_states: set[JobState] = {
+      JobState.COMPLETED
+    }
   ) -> Iterable[Job]:
+  """Retry a job if it enters a failure state. """
   yield task
 
   # JobDependency needs job_registry as second parameter, states as third
   failure_sensor = JobDependency(
-      task.job_id,  # This is a string (UUID), but JobDependency expects int
+      task.job_id,
       context.job_registry,
-      retry_states
+      satisfied_states=retry_states,
+      impossible_states=impossible_states
   )
 
   # TODO add a time-dependency that backs off
