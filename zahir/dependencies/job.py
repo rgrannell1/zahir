@@ -1,4 +1,3 @@
-from enum import Enum
 
 from zahir.types import Dependency, DependencyState, JobRegistry, JobState
 

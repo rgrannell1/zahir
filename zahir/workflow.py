@@ -100,7 +100,7 @@ def execute_single_job(
 
     start_time = datetime.now(tz=timezone.utc)
     for subjob in type(current_job).run(current_job.input, current_job.dependencies):
-        subjob.parent = current_job
+        subjob.parent_id = current_job.job_id
         registry.add(subjob)
 
     end_time = datetime.now(tz=timezone.utc)

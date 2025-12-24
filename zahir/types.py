@@ -3,6 +3,7 @@
 from abc import ABC, abstractmethod
 from enum import Enum
 from typing import Any, Generic, Iterator, Mapping, Self, TypedDict, TypeVar
+from uuid import uuid4
 
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import ZahirEvent
@@ -160,7 +161,11 @@ class JobOptions:
 class Job(ABC, Generic[ArgsType, DependencyType]):
     """Jobs can depend on other jobs."""
 
-    parent: Self | None = None
+    # Optional parent job ID for traceability
+    parent_id: str | None
+
+    # Unique identifier for this job instance
+    job_id: str
 
     # The input that the run function actually uses
     input: ArgsType
@@ -174,6 +179,8 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         dependencies: Mapping[str, DependencyType | list[DependencyType]],
         options: JobOptions | None = None,
     ) -> None:
+        self.parent_id = None
+        self.job_id = str(uuid4())
         self.input = input
         self.dependencies = DependencyGroup(dependencies)
         self.options = options
@@ -198,9 +205,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
 
     @classmethod
     @abstractmethod
-    def run(
-        cls, input: ArgsType, dependencies: DependencyGroup
-    ) -> Iterator["Job"]:
+    def run(cls, input: ArgsType, dependencies: DependencyGroup) -> Iterator["Job"]:
         """Run the job itself. Unhandled exceptions will be caught
         by the workflow executor, and routed to the `recover` method.
 
@@ -239,7 +244,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         return {
             "type": self.__class__.__name__,
             "input": self.input,
-            "dependencies": self.dependencies.save()
+            "dependencies": self.dependencies.save(),
         }
 
     @classmethod
