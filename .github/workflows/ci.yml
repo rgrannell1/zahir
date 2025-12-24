@@ -1,0 +1,44 @@
+name: tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  test-and-badge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install
+        run: |
+          python -m pip install -U pip
+          pip install pytest pytest-cov genbadge
+
+      - name: Tests + coverage.xml
+        run: |
+          pytest --cov=yourpkg --cov-report=xml
+
+      - name: Make coverage badge
+        run: |
+          genbadge coverage -i coverage.xml -o coverage.svg --local
+
+      - name: Publish badge to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: .
+          destination_dir: badges
+          keep_files: true
+          publish_branch: gh-pages
+          exclude_assets: |
+            **/*
+            !coverage.svg

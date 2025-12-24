@@ -1,6 +1,8 @@
 
 # Zahir
 
+![coverage](https://rgrannell1.github.io/zahir/badges/coverage.svg)
+
 ## Motivation
 
 I'm writing a self-hosted digital library website, and I need a way of coordinating data-processing. My last workflow engine was written in PowerShell, so I'm not using that...
