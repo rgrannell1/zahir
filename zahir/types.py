@@ -36,7 +36,7 @@ class Dependency(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, data: dict) -> Self:
+    def load(cls, data: dict, scope: "Scope") -> Self:
         raise NotImplementedError
 
 
@@ -280,10 +280,11 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         }
 
     @classmethod
-    def load(cls, data: SerialisedJob) -> Self:
+    def load(cls, data: SerialisedJob, scope: "Scope") -> Self:
         """Deserialize the job from a dictionary.
 
         @param data: The serialized job data
+        @param scope: The scope for looking up dependency and job classes
 
         @return: The deserialized job
         """

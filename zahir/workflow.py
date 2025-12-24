@@ -19,7 +19,7 @@ from zahir.events import (
     ZahirEvent,
 )
 from zahir.registries.local import JobRegistry, MemoryEventRegistry, MemoryJobRegistry
-from zahir.types import Job, ArgsType, DependencyType, JobState
+from zahir.types import Job, ArgsType, DependencyType, JobState, Scope
 import uuid
 
 
@@ -180,6 +180,7 @@ class Workflow:
 
     def __init__(
         self,
+        scope: Scope,
         job_registry: JobRegistry | None = None,
         event_registry: MemoryEventRegistry | None = None,
         max_workers: int | None = None,
@@ -193,8 +194,9 @@ class Workflow:
             as this includes the length the jobs themselves run for (default: STALL_TIME)
         """
 
+        self.scope = scope
         self.job_registry = (
-            job_registry if job_registry is not None else MemoryJobRegistry()
+            job_registry if job_registry is not None else MemoryJobRegistry(scope)
         )
         self.event_registry = (
             event_registry if event_registry is not None else MemoryEventRegistry()

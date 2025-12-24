@@ -12,6 +12,7 @@ from zahir.types import (
     ArgsType,
     DependencyType,
     JobState,
+    Scope
 )
 
 
@@ -26,10 +27,13 @@ class JobEntry:
 class MemoryJobRegistry(JobRegistry):
     """Thread-safe job registry"""
 
-    def __init__(self) -> None:
+    def __init__(self, scope: Scope) -> None:
         self.job_counter: int = 0
         self.jobs: dict[int, JobEntry] = {}
         self._lock = Lock()
+        # for consistency, we should probably accept a scope.
+        # but I don't think we actually use it given we don't need to serialise and deserialise.
+        self.scope = scope
 
     def add(self, job: "Job[ArgsType, DependencyType]") -> int:
         """Register a job with the job registry, returning a job ID
@@ -97,10 +101,11 @@ class MemoryJobRegistry(JobRegistry):
                 if entry.state != JobState.PENDING:
                     continue
 
-                status = entry.job.ready()
+                job = entry.job
+                status = job.ready()
 
                 if status == DependencyState.SATISFIED:
-                    runnable_list.append((job_id, entry.job))
+                    runnable_list.append((job_id, job))
                 elif status == DependencyState.IMPOSSIBLE:
                     # If any dependency is impossible, we can no longer run this job
                     entry.state = JobState.IMPOSSIBLE
