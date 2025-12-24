@@ -38,3 +38,10 @@ dev = [
     "pytest-cov>=4.0.0",
     "coverage>=7.2.7",
 ]
+
+[project.optional-dependencies]
+test = [
+  "pytest",
+  "pytest-cov",
+  "freezegun",
+]
