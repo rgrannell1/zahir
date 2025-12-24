@@ -1,6 +1,6 @@
 from threading import Lock
 from types import TracebackType
-from typing import Any, Self, TypedDict
+from typing import Any, Self
 from zahir.types import Dependency, DependencyState
 
 

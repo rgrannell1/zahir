@@ -154,7 +154,7 @@ def test_memory_job_registry_pending_mixed_states():
 
     job_id1 = registry.add(job1)
     job_id2 = registry.add(job2)
-    job_id3 = registry.add(job3)
+    registry.add(job3)
 
     registry.set_state(job_id1, JobState.COMPLETED)
     registry.set_state(job_id2, JobState.RUNNING)

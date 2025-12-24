@@ -1,6 +1,5 @@
 """Test ConcurrencyLimit dependency."""
 
-import pytest
 from zahir.dependencies.concurrency import ConcurrencyLimit
 from zahir.types import DependencyState
 
