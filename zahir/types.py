@@ -21,6 +21,15 @@ class DependencyState(str, Enum):
     IMPOSSIBLE = "impossible"
 
 
+class DependencyData(TypedDict, total=False):
+    """Base structure for serialized dependency data.
+    
+    Specific dependency types may add additional fields.
+    """
+    
+    type: str
+
+
 class Dependency(ABC):
     """A dependency, on which a job can depend"""
 
@@ -31,12 +40,16 @@ class Dependency(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def save(self) -> dict:
+    def save(self) -> dict[str, Any]:
+        """Serialize the dependency to a dictionary.
+        
+        @return: The serialized dependency data
+        """
         raise NotImplementedError
 
     @classmethod
     @abstractmethod
-    def load(cls, context: "Context", data: dict) -> Self:
+    def load(cls, context: "Context", data: dict[str, Any]) -> Self:
         raise NotImplementedError
 
 
@@ -172,7 +185,14 @@ class SerialisedJob(TypedDict):
     dependencies: dict[str, Any]
 
     # The serialised options for the job
-    options: dict[str, Any] | None
+    options: JobOptionsData | None
+
+
+class JobOptionsData(TypedDict, total=False):
+    """Serialized structure for job options."""
+    
+    job_timeout: int | None
+    recover_timeout: int | None
 
 
 class JobOptions:
@@ -184,7 +204,7 @@ class JobOptions:
     # Upper-limit on how long the recovery should run for
     recover_timeout: int | None = None
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> JobOptionsData:
         """Serialize the job options to a dictionary.
 
         @return: The serialized options
@@ -195,7 +215,7 @@ class JobOptions:
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobOptions":
+    def load(cls, data: JobOptionsData) -> "JobOptions":
         """Deserialize the job options from a dictionary.
 
         @param data: The serialized options data

@@ -4,19 +4,32 @@ A task for retrying another task under certain conditions.
 """
 
 from datetime import datetime, timedelta
-from typing import Iterable, Iterator, TypedDict
+from typing import Any, Iterable, Iterator, TypedDict
 from zahir.dependencies.job import JobDependency
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.time import TimeDependency
-from zahir.types import Context, Dependency, JobState, Job
+from zahir.types import Context, Dependency, JobOptions, JobState, Job
 
 
 class RetryOptions(TypedDict, total=False):
-    """Configuration options for retry behavior."""#
+    """Configuration options for retry behavior."""
 
     max_retries: int
     backoff_factor: float
     initial_delay: float
+
+
+class RetryTaskInput(TypedDict):
+    """Input structure for RetryTask."""
+
+    type: str
+    input: dict[str, Any]
+    dependencies: Any
+    options: JobOptions | None
+    retry_options: RetryOptions
+    retry_count: int
+    retry_states: set[JobState]
+    impossible_states: set[JobState]
 
 
 def create_backoff_delay(retry_opts: RetryOptions, retry_count: int) -> TimeDependency:
@@ -45,13 +58,13 @@ class RetryTask(Job):
     """Retry a task upon failure"""
 
     def __init__(
-        self, input: dict, dependencies: dict[str, Dependency | list[Dependency]]
+        self, input: RetryTaskInput, dependencies: dict[str, Dependency | list[Dependency]]
     ):
         super().__init__(input, dependencies)
 
     @classmethod
     def run(
-        cls, context: Context, input: dict, dependencies: DependencyGroup
+        cls, context: Context, input: RetryTaskInput, dependencies: DependencyGroup
     ) -> Iterator[Job]:
         """Run the retry task."""
 
@@ -89,7 +102,9 @@ class RetryTask(Job):
                 "dependencies": task.dependencies,
                 "options": task.options,
                 "retry_options": input["retry_options"],
-                "retry_count": input["retry_count"] + 1
+                "retry_count": input["retry_count"] + 1,
+                "retry_states": input["retry_states"],
+                "impossible_states": input["impossible_states"],
             },
             {
                 "failure_sensor": failure_sensor,

@@ -1,5 +1,13 @@
 from datetime import datetime
+from typing import Any, TypedDict
 from zahir.types import Dependency, DependencyState
+
+
+class TimeDependencyData(TypedDict, total=False):
+    """Serialized structure for TimeDependency."""
+
+    before: str | None
+    after: str | None
 
 
 class TimeDependency(Dependency):
@@ -39,14 +47,14 @@ class TimeDependency(Dependency):
 
         return DependencyState.SATISFIED
 
-    def save(self) -> dict:
+    def save(self) -> dict[str, Any]:
         return {
             "before": self.before.isoformat() if self.before else None,
             "after": self.after.isoformat() if self.after else None,
         }
 
     @classmethod
-    def load(cls, context, data: dict) -> "TimeDependency":
+    def load(cls, context, data: dict[str, Any]) -> "TimeDependency":
         before = datetime.fromisoformat(data["before"]) if data["before"] else None
         after = datetime.fromisoformat(data["after"]) if data["after"] else None
 

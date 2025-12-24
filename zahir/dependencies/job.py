@@ -1,4 +1,13 @@
+from typing import Any, TypedDict
 from zahir.types import Context, Dependency, DependencyState, JobRegistry, JobState
+
+
+class JobDependencyData(TypedDict, total=False):
+    """Serialized structure for JobDependency."""
+    
+    job_id: str
+    satisfied_states: list[str]
+    impossible_states: list[str]
 
 
 class JobDependency(Dependency):
@@ -39,7 +48,7 @@ class JobDependency(Dependency):
         else:
             return DependencyState.UNSATISFIED
 
-    def save(self) -> dict:
+    def save(self) -> dict[str, Any]:
         """Save the job dependency to a dictionary."""
 
         return {
@@ -49,7 +58,7 @@ class JobDependency(Dependency):
         }
 
     @classmethod
-    def load(cls, context: Context, data: dict) -> "JobDependency":
+    def load(cls, context: Context, data: dict[str, Any]) -> "JobDependency":
         """Load the job dependency from a dictionary."""
 
         job_id = data["job_id"]
