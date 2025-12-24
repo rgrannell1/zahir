@@ -138,8 +138,11 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def runnable(self) -> Iterator[tuple[str, "Job"]]:
-        """Get an iterator of runnable jobs (ID, Job)"""
+    def runnable(self, context: "Context") -> Iterator[tuple[str, "Job"]]:
+        """Get an iterator of runnable jobs (ID, Job)
+
+        @param context: The context containing scope and registries for deserialization
+        """
 
         raise NotImplementedError
 
@@ -336,14 +339,20 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         @return: The deserialized job
         """
 
-        job_type = cls.__name__
+        job_type = data["type"]
         JobClass = context.scope.get_task_class(job_type)
 
-        return JobClass(
+        job = JobClass(
             input=data["input"],
             dependencies=data["dependencies"],
             options=JobOptions.load(data["options"]) if data["options"] else None,
         )
+
+        # Restore the original job_id and parent_id
+        job.job_id = data["job_id"]
+        job.parent_id = data.get("parent_id")
+
+        return job
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Scope +++++++++++++++++++++++++++++++++++++

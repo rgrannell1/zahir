@@ -5,6 +5,7 @@ from threading import Lock
 from typing import Iterator
 from zahir.events import ZahirEvent
 from zahir.types import (
+    Context,
     DependencyState,
     EventRegistry,
     JobRegistry,
@@ -106,9 +107,10 @@ class MemoryJobRegistry(JobRegistry):
         with self._lock:
             return any(entry.state == JobState.PENDING for entry in self.jobs.values())
 
-    def runnable(self) -> Iterator[tuple[str, "Job"]]:
+    def runnable(self, context: Context) -> Iterator[tuple[str, "Job"]]:
         """Yield all runnable jobs from the registry.
 
+        @param context: The context containing scope and registries (unused for in-memory registry)
         @return: An iterator of (job ID, job) tuples for runnable jobs
         """
 

@@ -21,14 +21,12 @@ from zahir.types import (
 class SQLiteJobRegistry(JobRegistry):
     """Thread-safe SQLite-backed job registry for persistent workflow state."""
 
-    def __init__(self, db_path: str | Path, context: Context) -> None:
+    def __init__(self, db_path: str | Path) -> None:
         """Initialize SQLite job registry.
 
         @param db_path: Path to the SQLite database file
-        @param context: Context containing scope and registries for deserialization
         """
         self.db_path = Path(db_path)
-        self.context = context
         self._lock = Lock()
         self._init_db()
 
@@ -161,9 +159,10 @@ class SQLiteJobRegistry(JobRegistry):
                 count = cursor.fetchone()[0]
                 return count > 0
 
-    def runnable(self) -> Iterator[tuple[str, Job]]:
+    def runnable(self, context: Context) -> Iterator[tuple[str, Job]]:
         """Yield all runnable jobs from the registry.
 
+        @param context: The context containing scope and registries for deserialization
         @return: An iterator of (job ID, job) tuples for runnable jobs
         """
         with self._lock:
@@ -180,9 +179,9 @@ class SQLiteJobRegistry(JobRegistry):
                     job_data = json.loads(serialised_job)
 
                     job_type = job_data["type"]
-                    JobClass = self.context.scope.get_task_class(job_type)
+                    JobClass = context.scope.get_task_class(job_type)
 
-                    job = JobClass.load(self.context, job_data)
+                    job = JobClass.load(context, job_data)
                     status = job.ready()
 
                     if status == DependencyState.SATISFIED:
@@ -266,8 +265,10 @@ class SQLiteEventRegistry(EventRegistry):
                     params.append(event_type)
 
                 if workflow_id:
-                    query += " AND event_data LIKE ?"
-                    params.append(f'%"workflow_id": "{workflow_id}"%')
+                    # Use JSON extraction to safely filter by workflow_id
+                    # This avoids LIKE pattern injection vulnerabilities
+                    query += " AND json_extract(event_data, '$.workflow_id') = ?"
+                    params.append(workflow_id)
 
                 query += " ORDER BY created_at"
 

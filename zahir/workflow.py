@@ -266,7 +266,7 @@ class Workflow:
         with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
             while self.job_registry.pending():
                 # Note: this is a bit memory-inefficient.
-                runnable_jobs = list(self.job_registry.runnable())
+                runnable_jobs = list(self.job_registry.runnable(self.context))
 
                 # Yield information on each job we currently consider runnable.
                 for runnable_job_id, runnable in runnable_jobs:
