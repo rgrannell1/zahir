@@ -52,7 +52,9 @@ def test_memory_event_registry_preserves_order():
     mock_job.__class__.__name__ = "TestJob"
 
     event1 = JobStartedEvent(workflow_id="wf-1", job=mock_job, job_id="job-1")
-    event2 = JobCompletedEvent(workflow_id="wf-1", job=mock_job, job_id="job-1", duration_seconds=5.0)
+    event2 = JobCompletedEvent(
+        workflow_id="wf-1", job=mock_job, job_id="job-1", duration_seconds=5.0
+    )
     event3 = JobStartedEvent(workflow_id="wf-1", job=mock_job, job_id="job-2")
 
     registry.register(event1)
@@ -73,7 +75,9 @@ def test_memory_event_registry_different_event_types():
 
     event1 = WorkflowCompleteEvent(workflow_id="wf-1", duration_seconds=10.0)
     event2 = JobStartedEvent(workflow_id="wf-1", job=mock_job, job_id="job-1")
-    event3 = JobCompletedEvent(workflow_id="wf-1", job=mock_job, job_id="job-1", duration_seconds=5.0)
+    event3 = JobCompletedEvent(
+        workflow_id="wf-1", job=mock_job, job_id="job-1", duration_seconds=5.0
+    )
 
     registry.register(event1)
     registry.register(event2)

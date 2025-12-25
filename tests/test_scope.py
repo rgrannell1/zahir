@@ -13,7 +13,9 @@ class SampleJob(Job):
     """Simple test job for scope tests."""
 
     @classmethod
-    def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | dict]:
+    def run(
+        cls, context: Context, input: dict, dependencies: DependencyGroup
+    ) -> Iterator[Job | dict]:
         yield {"result": "test"}
 
 
@@ -21,7 +23,9 @@ class AnotherSampleJob(Job):
     """Another test job for scope tests."""
 
     @classmethod
-    def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | dict]:
+    def run(
+        cls, context: Context, input: dict, dependencies: DependencyGroup
+    ) -> Iterator[Job | dict]:
         yield {"result": "another"}
 
 

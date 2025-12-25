@@ -155,9 +155,7 @@ class SQLiteJobRegistry(JobRegistry):
         output_dict = {}
         with self._lock:
             with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    "SELECT job_id, output FROM job_outputs"
-                )
+                cursor = conn.execute("SELECT job_id, output FROM job_outputs")
                 rows = cursor.fetchall()
 
         for job_id, serialised_output in rows:

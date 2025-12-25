@@ -57,7 +57,9 @@ def recover_workflow(
     try:
         # hacky method to handle recovery timeouts
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_run_recovery, current_job, err, context, workflow_id)
+            future = executor.submit(
+                _run_recovery, current_job, err, context, workflow_id
+            )
 
             try:
                 recovery_start_time = datetime.now(tz=timezone.utc)
@@ -104,9 +106,14 @@ def _run_recovery(
             item.job_id = current_job.job_id
             yield item
             break
+        elif isinstance(item, WorkflowOutputEvent):
+            # Yield workflow output event directly
+            item.workflow_id = workflow_id
+            yield item
         else:
             # It's a Job - add as recovery job
             context.job_registry.add(item)
+
 
 def execute_single_job(
     job_id: str,
@@ -137,6 +144,10 @@ def execute_single_job(
 
             yield item
             break
+        elif isinstance(item, WorkflowOutputEvent):
+            # Yield workflow output event directly
+            item.workflow_id = workflow_id
+            yield item
         else:
             # The current job yielded a subjob; add it to the registry.
 
@@ -146,6 +157,7 @@ def execute_single_job(
     end_time = datetime.now(tz=timezone.utc)
     timing_info[job_id] = (start_time, end_time)
     context.job_registry.set_state(job_id, JobState.COMPLETED)
+
 
 def handle_workflow_stall(
     batch_duration: float,
@@ -226,7 +238,7 @@ def execute_workflow_batch(
             future.cancel()
             completion_time = datetime.now(tz=timezone.utc)
             elapsed = (completion_time - submit_time).total_seconds()
-            
+
             timeout_err = TimeoutError(
                 f"Job {type(current_job).__name__} exceeded timeout of {timeout}s"
             )
@@ -275,7 +287,9 @@ class Workflow:
 
         return str(uuid.uuid4())
 
-    def _run(self, start: Job | None = None, context: Context | None = None) -> Iterator[ZahirEvent]:
+    def _run(
+        self, start: Job | None = None, context: Context | None = None
+    ) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job
 
         @param start: The starting job of the workflow

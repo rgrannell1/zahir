@@ -60,7 +60,6 @@ class DependencyGroup(Dependency):
 
         return cls(dependencies)
 
-
     def get(self, name: str) -> _DT | list[_DT]:
         """Get a subdependency by name.
 

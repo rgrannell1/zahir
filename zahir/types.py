@@ -239,10 +239,8 @@ class JobOptions:
     recover_timeout: int | None = None
 
     def __init__(
-            self,
-            job_timeout: int | None = None,
-            recover_timeout: int | None = None) -> None:
-
+        self, job_timeout: int | None = None, recover_timeout: int | None = None
+    ) -> None:
         self.job_timeout = job_timeout
         self.recover_timeout = recover_timeout
 
@@ -323,14 +321,14 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
     @abstractmethod
     def run(
         cls, context: "Context", input: ArgsType, dependencies: "DependencyGroup"
-    ) -> Iterator["Job | JobOutputEvent"]:
+    ) -> Iterator["Job | JobOutputEvent | WorkflowOutputEvent"]:
         """Run the job itself. Unhandled exceptions will be caught
         by the workflow executor, and routed to the `recover` method.
 
         @param context: The context containing scope and registries
         @param input: The input arguments to this job
         @param dependencies: The dependencies for this job
-        @return: An iterator of sub-jobs or a JobOutputEvent. When a JobOutputEvent is yielded, it becomes the job's output and no further items are processed.
+        @return: An iterator of sub-jobs, JobOutputEvent, or WorkflowOutputEvent. When a JobOutputEvent is yielded, it becomes the job's output and no further items are processed. WorkflowOutputEvent can be yielded to emit workflow-level outputs.
         """
 
         # These are class-methods to avoid self-dependencies that will impact
@@ -345,7 +343,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         input: ArgsType,
         dependencies: "DependencyGroup",
         err: Exception,
-    ) -> Iterator["Job | JobOutputEvent"]:
+    ) -> Iterator["Job | JobOutputEvent | WorkflowOutputEvent"]:
         """The job failed with an unhandled exception. The job
         can define a particular way of handling the exception.
 
@@ -353,7 +351,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         @param input: The input arguments to this job
         @param dependencies: The dependencies for this job
         @param err: The exception that was raised
-        @return: An iterator of recovery jobs or a JobOutputEvent. When a JobOutputEvent is yielded, it becomes the job's output and no further items are processed.
+        @return: An iterator of recovery jobs, JobOutputEvent, or WorkflowOutputEvent. When a JobOutputEvent is yielded, it becomes the job's output and no further items are processed. WorkflowOutputEvent can be yielded to emit workflow-level outputs.
         """
 
         raise err

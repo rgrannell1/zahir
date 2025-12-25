@@ -59,8 +59,12 @@ class WorkflowCompleteEvent(ZahirEvent):
 class WorkflowOutputEvent(ZahirEvent):
     """Indicates that the workflow has produced output"""
 
-    workflow_id: str
     outputs: dict[str, Any]
+    workflow_id: str | None = None
+
+    def __init__(self, outputs: dict[str, Any], workflow_id: str | None = None) -> None:
+        self.outputs = outputs
+        self.workflow_id = workflow_id
 
     def save(self) -> dict[str, Any]:
         return {

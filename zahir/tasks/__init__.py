@@ -6,9 +6,4 @@ execution in workflows.
 
 from zahir.tasks.retry import RetryOptions, RetryTaskInput, RetryTask, retryable
 
-__all__ = [
-    "RetryOptions",
-    "RetryTaskInput",
-    "RetryTask",
-    "retryable"
-]
+__all__ = ["RetryOptions", "RetryTaskInput", "RetryTask", "retryable"]

@@ -52,10 +52,7 @@ def test_job_completed_event_roundtrip():
     mock_job.__class__.__name__ = "CompletedJob"
 
     event = JobCompletedEvent(
-        workflow_id="wf-111",
-        job=mock_job,
-        job_id="job-222",
-        duration_seconds=15.3
+        workflow_id="wf-111", job=mock_job, job_id="job-222", duration_seconds=15.3
     )
 
     saved = event.save()
@@ -92,10 +89,7 @@ def test_job_timeout_event_roundtrip():
     mock_job.__class__.__name__ = "TimeoutJob"
 
     event = JobTimeoutEvent(
-        workflow_id="wf-555",
-        job=mock_job,
-        job_id="job-666",
-        duration_seconds=30.0
+        workflow_id="wf-555", job=mock_job, job_id="job-666", duration_seconds=30.0
     )
 
     saved = event.save()
@@ -128,10 +122,7 @@ def test_job_recovery_completed_roundtrip():
     mock_job.__class__.__name__ = "RecoveredJob"
 
     event = JobRecoveryCompleted(
-        workflow_id="wf-999",
-        job=mock_job,
-        job_id="job-000",
-        duration_seconds=5.7
+        workflow_id="wf-999", job=mock_job, job_id="job-000", duration_seconds=5.7
     )
 
     saved = event.save()
@@ -165,10 +156,7 @@ def test_job_irrecoverable_event_roundtrip():
     error = ValueError("Something went wrong")
 
     event = JobIrrecoverableEvent(
-        workflow_id="wf-ccc",
-        error=error,
-        job=mock_job,
-        job_id="job-ddd"
+        workflow_id="wf-ccc", error=error, job=mock_job, job_id="job-ddd"
     )
 
     saved = event.save()
@@ -193,7 +181,7 @@ def test_job_precheck_failed_event_roundtrip():
         workflow_id="wf-eee",
         job=mock_job,
         job_id="job-fff",
-        errors=["Error 1", "Error 2", "Error 3"]
+        errors=["Error 1", "Error 2", "Error 3"],
     )
 
     saved = event.save()

@@ -19,6 +19,10 @@ class LocalContext(Context):
         """
         super().__init__(
             scope=scope,
-            job_registry=job_registry if job_registry is not None else MemoryJobRegistry(scope),
-            event_registry=event_registry if event_registry is not None else MemoryEventRegistry(),
+            job_registry=job_registry
+            if job_registry is not None
+            else MemoryJobRegistry(scope),
+            event_registry=event_registry
+            if event_registry is not None
+            else MemoryEventRegistry(),
         )
