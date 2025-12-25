@@ -104,6 +104,10 @@ We serialise jobs and dependencies to our registries for storage. We need to tra
 
 We expose internals like the job-registry and scope to dependencies and jobs as a runtime-only value using a `Context` object. This allows us to implement control-flow operations like retries using Jobs directly. This prevents structural lock-in to the control-flow operators shipped with Zahir.
 
+## Logger - Communicate Job State
+
+Workflows run a long time, so we need to communicate how the workflow is proceeding.
+
 ## Development
 
 ```
