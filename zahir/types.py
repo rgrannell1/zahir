@@ -109,15 +109,22 @@ class JobState(str, Enum):
 class JobInformation:
     """Holds information about a job stored in the job registry."""
 
+    # The job's ID
     job_id: str
+    # The job instance
     job: "Job"
+    # The job's current state
     state: JobState
+    # The output of the job, if there is one
     output: dict[str, Any] | None
 
-    # Timing information
+    # When did the job start?
     started_at: datetime | None = None
+    # When did the job complete?
     completed_at: datetime | None = None
+    # How long did the job take to run?
     duration_seconds: float | None = None
+    # How long did recovery take, if any?
     recovery_duration_seconds: float | None = None
 
 
@@ -261,7 +268,9 @@ DependencyType = TypeVar("DependencyType", bound=Dependency)
 class JobOptionsData(TypedDict, total=False):
     """Serialized structure for job options."""
 
+    # Upper-limit on how long the job should run for
     job_timeout: float | None
+    # Upper-limit on how long the recovery should run for
     recover_timeout: float | None
 
 
@@ -470,19 +479,29 @@ class Scope(ABC):
     """
 
     @abstractmethod
-    def add_job_class(self, TaskClass: type["Job"]) -> None: ...
+    def add_job_class(self, TaskClass: type["Job"]) -> None:
+        """Add a job class to the scope."""
+        ...
 
     @abstractmethod
-    def add_job_classes(self, TaskClasses: list[type["Job"]]) -> None: ...
+    def add_job_classes(self, TaskClasses: list[type["Job"]]) -> None:
+        """Add multiple job classes to the scope."""
+        ...
 
     @abstractmethod
-    def get_task_class(self, type_name: str) -> type["Job"]: ...
+    def get_task_class(self, type_name: str) -> type["Job"]:
+        """Get a job class by its type name."""
+        ...
 
     @abstractmethod
-    def add_dependency_class(self, DependencyClass: type[Dependency]) -> None: ...
+    def add_dependency_class(self, DependencyClass: type[Dependency]) -> None:
+        """Add a dependency class to the scope."""
+        ...
 
     @abstractmethod
-    def get_dependency_class(self, type_name: str) -> type[Dependency]: ...
+    def get_dependency_class(self, type_name: str) -> type[Dependency]:
+        """Get a dependency class by its type name."""
+        ...
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -495,9 +514,13 @@ class Context:
     needs to be communicated to Jobs and Dependencies.
     """
 
+    # The scope containing registered job and dependency classes
     scope: Scope
+    # Keep track of jobs
     job_registry: JobRegistry
+    # Keep track of events
     event_registry: EventRegistry
+    # Log the progress of the workflow
     logger: "ZahirLogger"
 
     def __init__(

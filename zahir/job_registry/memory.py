@@ -22,11 +22,17 @@ from zahir.types import (
 class JobEntry:
     """Entry in the job registry containing job and its state"""
 
+    # The job itself
     job: Job
+    # The state of the job
     state: JobState
+    # When did the job start?
     started_at: datetime | None = None
+    # When did the job complete?
     completed_at: datetime | None = None
+    # How long did the job take to run?
     duration_seconds: float | None = None
+    # How long did recovery take, if any?
     recovery_duration_seconds: float | None = None
 
 

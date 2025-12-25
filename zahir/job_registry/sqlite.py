@@ -4,7 +4,7 @@ import json
 import sqlite3
 from pathlib import Path
 from threading import Lock
-from typing import Any, Iterator, cast
+from typing import Iterator, cast
 from datetime import datetime
 
 from zahir.events import WorkflowOutputEvent
@@ -316,7 +316,18 @@ class SQLiteJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            job_list: list[tuple[str, str, str, str | None, str | None, str | None, float | None, float | None]] = []
+            job_list: list[
+                tuple[
+                    str,
+                    str,
+                    str,
+                    str | None,
+                    str | None,
+                    str | None,
+                    float | None,
+                    float | None,
+                ]
+            ] = []
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.execute("""
                     SELECT j.job_id, j.serialised_job, j.state, o.output,
