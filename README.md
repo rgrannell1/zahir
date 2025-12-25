@@ -37,7 +37,7 @@ src/
 
 Workflows can be modelled with a few primitives:
 
-### Jobs
+### Jobs - Do things & arrange for more things to be done
 
 Jobs do something, based on an input. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled (essentially a "catch" handler).
 
@@ -53,7 +53,7 @@ Data is passed unidirectionally from an initial job to subjobs by the parent job
 
 This is the most idiomatic way of implementing the "fan-out, then aggregate" pattern in Zahir. In a similar way, workflow-level output can be yielded with `WorkflowOutputEvent`
 
-### Dependencies
+### Dependencies - Await some precondition before doing things
 
 Jobs may have preconditions before running.
 
@@ -66,7 +66,7 @@ Dependencies can be flagged as impossible to fulfill; jobs with impossible depen
 
 Dependency implementations must be serialisable to JSON.
 
-### Events
+### Events - Communicate how the workflow is going
 
 Zahir communicates changes in workflow state as a stream of events emitted by `workflow.run`. These events include metadata. The list is currently:
 
@@ -88,7 +88,7 @@ A few can be used by jobs to communicate with the workflow engine:
 - `WorkflowOutputEvent`: yield output from the workflow. Workflows yield a stream of outputs; since many workflows are long-running it's better to yield results as we go
 - `JobOutputEvent`: return output from a job. Treated as a singular return; the task is dropped after this event is yielded.
 
-## Registries
+## Registries - Store workflow state
 
 Workflow orchestrators need to store some operational data.
 
@@ -96,11 +96,11 @@ Workflow orchestrators need to store some operational data.
 
 `EventRegistry` stores the events of a workflow execution.
 
-## Scope
+## Scope - Convert from data to classes
 
 We serialise jobs and dependencies to our registries for storage. We need to translate this data back to the associated Python classes. `Scope` implementations handle this translation. Jobs and Dependencies have to be explicitly registered with a scope for a non-local workflow to run.
 
-## Context
+## Context - Bundles Zahir internals
 
 We expose internals like the job-registry and scope to dependencies and jobs as a runtime-only value using a `Context` object. This allows us to implement control-flow operations like retries using Jobs directly. This prevents structural lock-in to the control-flow operators shipped with Zahir.
 
