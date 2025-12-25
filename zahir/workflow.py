@@ -222,7 +222,8 @@ def execute_workflow_batch(
 
     # Wait for all submitted jobs to complete
     for future in as_completed(job_futures):
-        job_id, current_job, timeout, submit_time = job_futures[future]
+        result_tuple = job_futures[future]
+        job_id, current_job, timeout, submit_time = result_tuple
 
         try:
             # Actually enforce the timeout by passing it to result()

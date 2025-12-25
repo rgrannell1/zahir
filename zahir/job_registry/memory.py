@@ -182,7 +182,7 @@ class MemoryJobRegistry(JobRegistry):
             output_dict = self._outputs.copy()
 
         if output_dict:
-            yield WorkflowOutputEvent(workflow_id, output_dict)
+            yield WorkflowOutputEvent(output_dict, workflow_id)
 
     def runnable(self, context: Context) -> Iterator[tuple[str, "Job"]]:
         """Yield all runnable jobs from the registry.

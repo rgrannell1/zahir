@@ -14,8 +14,8 @@ from typing import (
     TypedDict,
     TypeVar,
 )
-from coolname import generate_slug
 
+from coolname import generate_slug
 from zahir.events import ZahirEvent
 
 if TYPE_CHECKING:
@@ -261,8 +261,8 @@ DependencyType = TypeVar("DependencyType", bound=Dependency)
 class JobOptionsData(TypedDict, total=False):
     """Serialized structure for job options."""
 
-    job_timeout: int | None
-    recover_timeout: int | None
+    job_timeout: float | None
+    recover_timeout: float | None
 
 
 class SerialisedJob(TypedDict):
@@ -290,13 +290,13 @@ class JobOptions:
     """General purpose options for a job"""
 
     # Upper-limit on how long the job should run for
-    job_timeout: int | None = None
+    job_timeout: float | None = None
 
     # Upper-limit on how long the recovery should run for
-    recover_timeout: int | None = None
+    recover_timeout: float | None = None
 
     def __init__(
-        self, job_timeout: int | None = None, recover_timeout: int | None = None
+        self, job_timeout: float | None = None, recover_timeout: float | None = None
     ) -> None:
         self.job_timeout = job_timeout
         self.recover_timeout = recover_timeout
@@ -408,7 +408,9 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         @param input: The input arguments to this job
         @param dependencies: The dependencies for this job
         @param err: The exception that was raised
-        @return: An iterator of recovery jobs, JobOutputEvent, or WorkflowOutputEvent. When a JobOutputEvent is yielded, it becomes the job's output and no further items are processed. WorkflowOutputEvent can be yielded to emit workflow-level outputs.
+
+        @return: An iterator of recovery jobs, JobOutputEvent, or WorkflowOutputEvent. When a JobOutputEvent is yielded, it becomes the job's output and no further items are processed.
+         WorkflowOutputEvent can be yielded to emit workflow-level outputs.
         """
 
         raise err

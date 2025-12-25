@@ -147,8 +147,8 @@ class SQLiteJobRegistry(JobRegistry):
         """
         with self._lock:
             with sqlite3.connect(self.db_path) as conn:
-                updates = []
-                params = []
+                updates: list[str] = []
+                params: list[str | float] = []
 
                 if started_at is not None:
                     updates.append("started_at = ?")
@@ -225,7 +225,7 @@ class SQLiteJobRegistry(JobRegistry):
             output_dict[job_id] = json.loads(serialised_output)
 
         if output_dict:
-            yield WorkflowOutputEvent(workflow_id, output_dict)
+            yield WorkflowOutputEvent(output_dict, workflow_id)
 
     def pending(self) -> bool:
         """Check whether any jobs still need to be run.
@@ -362,13 +362,13 @@ class SQLiteJobRegistry(JobRegistry):
         ) in job_list:
             job_data = json.loads(serialised_job)
             job_type = job_data["type"]
+
             JobClass = context.scope.get_task_class(job_type)
             job = JobClass.load(context, job_data)
 
             state = JobState(state_str)
             output = json.loads(output_str) if output_str else None
 
-            # Parse datetime strings if present
             started_at = (
                 datetime.fromisoformat(started_at_str) if started_at_str else None
             )
