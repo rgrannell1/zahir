@@ -8,6 +8,7 @@ from typing import Iterator
 from zahir.events import (
     JobCompletedEvent,
     JobIrrecoverableEvent,
+    JobOutputEvent,
     JobPrecheckFailedEvent,
     JobRecoveryCompleted,
     JobRecoveryStarted,
@@ -17,11 +18,11 @@ from zahir.events import (
     JobStartedEvent,
     JobTimeoutEvent,
     WorkflowCompleteEvent,
+    WorkflowOutputEvent,
     WorkflowStallStartEvent,
     WorkflowStallEndEvent,
     ZahirEvent,
 )
-from zahir.registries.local import JobRegistry
 from zahir.types import (
     Context,
     Job,
@@ -56,13 +57,15 @@ def recover_workflow(
     try:
         # hacky method to handle recovery timeouts
         with ThreadPoolExecutor(max_workers=1) as executor:
-            future = executor.submit(_run_recovery, current_job, err, context)
+            future = executor.submit(_run_recovery, current_job, err, context, workflow_id)
 
             try:
                 recovery_start_time = datetime.now(tz=timezone.utc)
                 context.job_registry.set_state(job_id, JobState.RECOVERING)
                 yield JobRecoveryStarted(workflow_id, current_job, job_id)
-                future.result(timeout=recovery_timeout)
+                # Get recovery events from the future
+                for event in future.result(timeout=recovery_timeout):
+                    yield event
                 recovery_end_time = datetime.now(tz=timezone.utc)
                 recovery_duration = (
                     recovery_end_time - recovery_start_time
@@ -81,22 +84,25 @@ def recover_workflow(
 
 
 def _run_recovery(
-    current_job: Job, err: Exception, context: Context
-) -> None:
+    current_job: Job, err: Exception, context: Context, workflow_id: str
+) -> Iterator[ZahirEvent]:
     """Execute the recovery process for a failed job.
 
     @param current_job: The job that failed
     @param err: The exception that caused the failure
-    @param registry: The job registry to add recovery jobs to
     @param context: The context containing scope and registries
+    @param workflow_id: The ID of the workflow
     """
 
     for item in type(current_job).recover(
         context, current_job.input, current_job.dependencies, err
     ):
-        if isinstance(item, dict):
-            # Output dict - store it and stop processing
-            context.job_registry.set_output(current_job.job_id, item)
+        if isinstance(item, JobOutputEvent):
+            # Output event - store it and stop processing
+            context.job_registry.set_output(current_job.job_id, item.output)
+            item.workflow_id = workflow_id
+            item.job_id = current_job.job_id
+            yield item
             break
         else:
             # It's a Job - add as recovery job
@@ -107,25 +113,33 @@ def execute_single_job(
     current_job: Job,
     context: Context,
     timing_info: dict[str, tuple[datetime, datetime]],
-) -> None:
+    workflow_id: str,
+) -> Iterator[ZahirEvent]:
     """Execute a single job and handle its subjobs
 
     @param job_id: The ID of the job to execute
     @param current_job: The job to execute
     @param context: The context containing scope and registries
     @param timing_info: Dictionary to store (start_time, end_time) tuples by job_id
+    @param workflow_id: The ID of the workflow
     """
 
     start_time = datetime.now(tz=timezone.utc)
     for item in type(current_job).run(
         context, current_job.input, current_job.dependencies
     ):
-        if isinstance(item, dict):
-            # Output dict - store it and stop processing
-            context.job_registry.set_output(job_id, item)
+        if isinstance(item, JobOutputEvent):
+            # Store the job output, and stop processing the iterator.
+
+            context.job_registry.set_output(job_id, item.output)
+            item.workflow_id = workflow_id
+            item.job_id = job_id
+
+            yield item
             break
         else:
-            # It's a Job - add as subjob
+            # The current job yielded a subjob; add it to the registry.
+
             item.parent_id = current_job.job_id
             context.job_registry.add(item)
 
@@ -145,6 +159,7 @@ def handle_workflow_stall(
     @param workflow_id: The ID of the workflow
     @return: Iterator of stall events
     """
+
     if batch_duration < stall_time:
         sleep_time = stall_time - batch_duration
         yield WorkflowStallStartEvent(workflow_id, sleep_time)
@@ -187,7 +202,7 @@ def execute_workflow_batch(
         timeout = current_job.options.job_timeout if current_job.options else None
         submit_time = datetime.now(tz=timezone.utc)
         future = executor.submit(
-            execute_single_job, job_id, current_job, context, timing_info
+            execute_single_job, job_id, current_job, context, timing_info, workflow_id
         )
         job_futures[future] = (job_id, current_job, timeout, submit_time)
 
@@ -200,7 +215,9 @@ def execute_workflow_batch(
         elapsed = (completion_time - submit_time).total_seconds()
 
         try:
-            future.result()  # Get result or exception
+            # Get result and yield any events from execute_single_job
+            for event in future.result():
+                yield event
 
             # Check if it timed out based on actual execution time
             if timeout is not None and elapsed > timeout:
@@ -293,6 +310,10 @@ class Workflow:
                     workflow_duration = (
                         workflow_end_time - workflow_start_time
                     ).total_seconds()
+
+                    # Yield workflow output event
+                    yield from self.context.job_registry.outputs(workflow_id)
+
                     yield WorkflowCompleteEvent(workflow_id, workflow_duration)
                     break
 

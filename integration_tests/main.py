@@ -2,6 +2,7 @@
 from typing import Iterator
 from zahir.context import LocalContext
 from zahir.dependencies.job import JobDependency
+from zahir.events import JobOutputEvent, WorkflowOutputEvent
 from zahir.scope import LocalScope
 from zahir.types import Context, Job, JobOptions
 from zahir.workflow import Workflow
@@ -12,22 +13,17 @@ class BookProcessor(Job):
       cls,
       context: Context,
       input,
-      dependencies) -> Iterator[Job|dict]:
+      dependencies) -> Iterator[Job|JobOutputEvent]:
 
     pids = []
     chapter_lines: list[str] = []
 
     with open(input["file_path"], "r") as file:
       for line in file:
-        opts = JobOptions(
-          job_timeout=1,
-          recover_timeout=1,
-        )
-
         if "CHAPTER" in line:
           chapter_job = ChapterProcessor({
             "lines": chapter_lines.copy()
-          }, {}, opts)
+          }, {})
           yield chapter_job
           pids.append(chapter_job.job_id)
 
@@ -47,7 +43,7 @@ class ChapterProcessor(Job):
       cls,
       context: Context,
       input,
-      dependencies) -> Iterator[Job|dict]:
+      dependencies) -> Iterator[Job|JobOutputEvent]:
 
     longest_word = ""
 
@@ -56,9 +52,7 @@ class ChapterProcessor(Job):
         if len(word) > len(longest_word):
           longest_word = word
 
-    yield {
-      "top_shelf_word": longest_word
-    }
+    yield JobOutputEvent({"top_shelf_word": longest_word})
 
 
 class LongestWordAssembly(Job):
@@ -67,17 +61,15 @@ class LongestWordAssembly(Job):
       cls,
       context: Context,
       input,
-      dependencies) -> Iterator[Job|dict]:
+      dependencies) -> Iterator[Job|JobOutputEvent]:
 
-    chapters = []
+    long_words = []
 
     for dep in dependencies.get("chapters"):
       summary = dep.output(context)
-      chapters.append(summary)
+      long_words.append(summary["top_shelf_word"])
 
-    yield {
-      "chapters": chapters
-    }
+    yield JobOutputEvent({"long_words": sorted(long_words)})
 
 scope = LocalScope()
 scope.add_job_class(BookProcessor)
@@ -93,4 +85,5 @@ workflow = Workflow(
 for event in workflow.run(BookProcessor({
   "file_path": "/home/rg/Code/zahir/integration_tests/data.txt"
 }, {})):
-  print(event)
+  if isinstance(event, WorkflowOutputEvent):
+    ...

@@ -18,6 +18,7 @@ from zahir.events import ZahirEvent
 
 if TYPE_CHECKING:
     from zahir.dependencies.group import DependencyGroup
+    from zahir.events import JobOutputEvent, WorkflowOutputEvent
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Dependency ++++++++++++++++++++++++++++++++
@@ -162,6 +163,16 @@ class JobRegistry(ABC):
         """Get an iterator of currently running jobs (ID, Job).
 
         @param context: The context containing scope and registries for deserialization
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def outputs(self, workflow_id: str) -> Iterator["WorkflowOutputEvent"]:
+        """Get workflow output event containing all job outputs.
+
+        @param workflow_id: The ID of the workflow
+        @return: An iterator yielding a WorkflowOutputEvent with all outputs
         """
 
         raise NotImplementedError
@@ -312,14 +323,14 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
     @abstractmethod
     def run(
         cls, context: "Context", input: ArgsType, dependencies: "DependencyGroup"
-    ) -> Iterator["Job | dict"]:
+    ) -> Iterator["Job | JobOutputEvent"]:
         """Run the job itself. Unhandled exceptions will be caught
         by the workflow executor, and routed to the `recover` method.
 
         @param context: The context containing scope and registries
         @param input: The input arguments to this job
         @param dependencies: The dependencies for this job
-        @return: An iterator of sub-jobs or a final output dict. When a dict is yielded, it becomes the job's output and no further items are processed.
+        @return: An iterator of sub-jobs or a JobOutputEvent. When a JobOutputEvent is yielded, it becomes the job's output and no further items are processed.
         """
 
         # These are class-methods to avoid self-dependencies that will impact
@@ -334,7 +345,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         input: ArgsType,
         dependencies: "DependencyGroup",
         err: Exception,
-    ) -> Iterator["Job | dict"]:
+    ) -> Iterator["Job | JobOutputEvent"]:
         """The job failed with an unhandled exception. The job
         can define a particular way of handling the exception.
 
@@ -342,7 +353,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         @param input: The input arguments to this job
         @param dependencies: The dependencies for this job
         @param err: The exception that was raised
-        @return: An iterator of recovery jobs or a final output dict. When a dict is yielded, it becomes the job's output and no further items are processed.
+        @return: An iterator of recovery jobs or a JobOutputEvent. When a JobOutputEvent is yielded, it becomes the job's output and no further items are processed.
         """
 
         raise err

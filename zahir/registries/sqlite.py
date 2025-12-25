@@ -7,7 +7,7 @@ from threading import Lock
 from typing import Iterator
 
 from zahir import events as event_module
-from zahir.events import ZahirEvent
+from zahir.events import ZahirEvent, WorkflowOutputEvent
 from zahir.types import (
     Context,
     DependencyState,
@@ -144,6 +144,27 @@ class SQLiteJobRegistry(JobRegistry):
                     return None
 
                 return json.loads(row[0])
+
+    def outputs(self, workflow_id: str) -> Iterator["WorkflowOutputEvent"]:
+        """Get workflow output event containing all job outputs.
+
+        @param workflow_id: The ID of the workflow
+        @return: An iterator yielding a WorkflowOutputEvent with all outputs
+        """
+
+        output_dict = {}
+        with self._lock:
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute(
+                    "SELECT job_id, output FROM job_outputs"
+                )
+                rows = cursor.fetchall()
+
+        for job_id, serialised_output in rows:
+            output_dict[job_id] = json.loads(serialised_output)
+
+        if output_dict:
+            yield WorkflowOutputEvent(workflow_id, output_dict)
 
     def pending(self) -> bool:
         """Check whether any jobs still need to be run.

@@ -56,6 +56,27 @@ class WorkflowCompleteEvent(ZahirEvent):
 
 
 @dataclass
+class WorkflowOutputEvent(ZahirEvent):
+    """Indicates that the workflow has produced output"""
+
+    workflow_id: str
+    outputs: dict[str, Any]
+
+    def save(self) -> dict[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+            "outputs": self.outputs,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "WorkflowOutputEvent":
+        return cls(
+            workflow_id=data["workflow_id"],
+            outputs=data["outputs"],
+        )
+
+
+@dataclass
 class WorkflowStallStartEvent(ZahirEvent):
     """Indicates that the workflow is starting a stall period"""
 
@@ -171,6 +192,30 @@ class JobCompletedEvent(ZahirEvent):
             job=None,  # type: ignore
             job_id=data["job_id"],
             duration_seconds=data["duration_seconds"],
+        )
+
+
+@dataclass
+class JobOutputEvent(ZahirEvent):
+    """Indicates that a job has produced output"""
+
+    output: dict[str, Any]
+    workflow_id: str | None = None
+    job_id: str | None = None
+
+    def save(self) -> dict[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "output": self.output,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobOutputEvent":
+        return cls(
+            output=data["output"],
+            workflow_id=data["workflow_id"],
+            job_id=data["job_id"],
         )
 
 

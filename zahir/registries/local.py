@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from threading import Lock
 from typing import Iterator
-from zahir.events import ZahirEvent
+from zahir.events import ZahirEvent, WorkflowOutputEvent
 from zahir.types import (
     Context,
     DependencyState,
@@ -30,7 +30,7 @@ class MemoryJobRegistry(JobRegistry):
 
     def __init__(self, scope: Scope | None = None) -> None:
         self.jobs: dict[str, JobEntry] = {}
-        self.outputs: dict[str, dict] = {}
+        self._outputs: dict[str, dict] = {}
         self._lock = Lock()
         # for consistency, we should probably accept a scope.
         # but I don't think we actually use it given we don't need to serialise and deserialise.
@@ -86,7 +86,7 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            self.outputs[job_id] = output
+            self._outputs[job_id] = output
 
     def get_output(self, job_id: str) -> dict | None:
         """Retrieve the output of a completed job
@@ -96,7 +96,7 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            return self.outputs.get(job_id)
+            return self._outputs.get(job_id)
 
     def pending(self) -> bool:
         """Check whether any jobs still need to be run.
@@ -127,6 +127,19 @@ class MemoryJobRegistry(JobRegistry):
 
         for job_id, job in running_list:
             yield job_id, job
+
+    def outputs(self, workflow_id: str) -> Iterator["WorkflowOutputEvent"]:
+        """Get workflow output event containing all job outputs.
+
+        @param workflow_id: The ID of the workflow
+        @return: An iterator yielding a WorkflowOutputEvent with all outputs
+        """
+
+        with self._lock:
+            output_dict = self._outputs.copy()
+
+        if output_dict:
+            yield WorkflowOutputEvent(workflow_id, output_dict)
 
     def runnable(self, context: Context) -> Iterator[tuple[str, "Job"]]:
         """Yield all runnable jobs from the registry.
