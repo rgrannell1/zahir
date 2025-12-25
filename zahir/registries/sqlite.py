@@ -159,19 +159,31 @@ class SQLiteJobRegistry(JobRegistry):
                 count = cursor.fetchone()[0]
                 return count > 0
 
-    def running(self) -> bool:
-        """Check whether any jobs are currently running.
+    def running(self, context: Context) -> Iterator[tuple[str, Job]]:
+        """Get an iterator of currently running jobs.
 
-        @return: True if there are running jobs, False otherwise
+        @param context: The context containing scope and registries for deserialization
+        @return: An iterator of (job ID, job) tuples for running jobs
         """
         with self._lock:
+            running_list = []
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.execute(
-                    "SELECT COUNT(*) FROM jobs WHERE state IN (?, ?)",
+                    "SELECT job_id, serialised_job FROM jobs WHERE state IN (?, ?)",
                     (JobState.RUNNING.value, JobState.RECOVERING.value),
                 )
-                count = cursor.fetchone()[0]
-                return count > 0
+
+                for row in cursor:
+                    job_id, serialised_job = row
+                    running_list.append((job_id, serialised_job))
+
+        # Deserialize and yield outside the lock
+        for job_id, serialised_job in running_list:
+            job_data = json.loads(serialised_job)
+            job_type = job_data["type"]
+            JobClass = context.scope.get_task_class(job_type)
+            job = JobClass.load(context, job_data)
+            yield job_id, job
 
     def runnable(self, context: Context) -> Iterator[tuple[str, Job]]:
         """Yield all runnable jobs from the registry.

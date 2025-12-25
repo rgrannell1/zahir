@@ -107,10 +107,11 @@ class MemoryJobRegistry(JobRegistry):
         with self._lock:
             return any(entry.state == JobState.PENDING for entry in self.jobs.values())
 
-    def running(self) -> bool:
-        """Check whether any jobs are currently running.
+    def running(self, context: Context) -> Iterator[tuple[str, "Job"]]:
+        """Get an iterator of currently running jobs.
 
-        @return: True if there are running jobs, False otherwise
+        @param context: The context containing scope and registries (unused for in-memory registry)
+        @return: An iterator of (job ID, job) tuples for running jobs
         """
 
         running_states = {
@@ -118,8 +119,14 @@ class MemoryJobRegistry(JobRegistry):
             JobState.RECOVERING,
         }
 
+        running_list = []
         with self._lock:
-            return any(entry.state in running_states for entry in self.jobs.values())
+            for job_id, entry in self.jobs.items():
+                if entry.state in running_states:
+                    running_list.append((job_id, entry.job))
+
+        for job_id, job in running_list:
+            yield job_id, job
 
     def runnable(self, context: Context) -> Iterator[tuple[str, "Job"]]:
         """Yield all runnable jobs from the registry.

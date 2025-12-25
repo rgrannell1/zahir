@@ -13,6 +13,7 @@ from zahir.events import (
     JobRecoveryStarted,
     JobRecoveryTimeout,
     JobRunnableEvent,
+    JobRunningEvent,
     JobStartedEvent,
     JobTimeoutEvent,
     WorkflowCompleteEvent,
@@ -165,7 +166,7 @@ def execute_workflow_batch(
     @param workflow_id: The ID of the workflow
     @param context: The context containing scope and registries
     """
-    job_futures: dict[Future, tuple[str, Job]] = {}
+    job_futures: dict[Future, tuple[str, Job, float | None, datetime]] = {}
     timing_info: dict[str, tuple[datetime, datetime]] = {}
 
     # submit all runnable jobs to the executor
@@ -179,35 +180,44 @@ def execute_workflow_batch(
             context.job_registry.set_state(job_id, JobState.COMPLETED)
             continue
 
+        # Yield started event and set state before submitting
+        yield JobStartedEvent(workflow_id, current_job, job_id)
+        context.job_registry.set_state(job_id, JobState.RUNNING)
+
+        timeout = current_job.options.job_timeout if current_job.options else None
+        submit_time = datetime.now(tz=timezone.utc)
         future = executor.submit(
             execute_single_job, job_id, current_job, context, timing_info
         )
-        job_futures[future] = (job_id, current_job)
+        job_futures[future] = (job_id, current_job, timeout, submit_time)
 
     # Wait for all submitted jobs to complete
     for future in as_completed(job_futures):
-        job_id, current_job = job_futures[future]
-        timeout = current_job.options.job_timeout if current_job.options else None
+        job_id, current_job, timeout, submit_time = job_futures[future]
+
+        # Check if job exceeded timeout based on actual execution time
+        completion_time = datetime.now(tz=timezone.utc)
+        elapsed = (completion_time - submit_time).total_seconds()
+
         try:
-            yield JobStartedEvent(workflow_id, current_job, job_id)
-            context.job_registry.set_state(job_id, JobState.RUNNING)
-            future.result(timeout=timeout)
-            # Get actual execution timing from the worker thread
-            start_time, end_time = timing_info[job_id]
-            duration = (end_time - start_time).total_seconds()
-            # State already set to COMPLETED in execute_single_job
-            yield JobCompletedEvent(workflow_id, current_job, job_id, duration)
-        except TimeoutError:
-            # Job timed out - use timeout value as duration if available
-            duration = float(timeout) if timeout is not None else 0.0
-            timeout_err = TimeoutError(
-                f"Job {type(current_job).__name__} timed out after {timeout}s"
-            )
-            context.job_registry.set_state(job_id, JobState.TIMED_OUT)
-            yield JobTimeoutEvent(workflow_id, current_job, job_id, duration)
-            yield from recover_workflow(
-                current_job, job_id, timeout_err, workflow_id, context
-            )
+            future.result()  # Get result or exception
+
+            # Check if it timed out based on actual execution time
+            if timeout is not None and elapsed > timeout:
+                timeout_err = TimeoutError(
+                    f"Job {type(current_job).__name__} exceeded timeout of {timeout}s (took {elapsed:.2f}s)"
+                )
+                context.job_registry.set_state(job_id, JobState.TIMED_OUT)
+                yield JobTimeoutEvent(workflow_id, current_job, job_id, elapsed)
+                yield from recover_workflow(
+                    current_job, job_id, timeout_err, workflow_id, context
+                )
+            else:
+                # Get actual execution timing from the worker thread
+                start_time, end_time = timing_info[job_id]
+                duration = (end_time - start_time).total_seconds()
+                # State already set to COMPLETED in execute_single_job
+                yield JobCompletedEvent(workflow_id, current_job, job_id, duration)
         except Exception as job_err:
             yield from recover_workflow(
                 current_job, job_id, job_err, workflow_id, context
@@ -247,9 +257,6 @@ class Workflow:
 
         return str(uuid.uuid4())
 
-    def is_workflow_running(self) -> bool:
-        return self.context.job_registry.running()
-
     def _run(self, start: Job | None = None, context: Context | None = None) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job
 
@@ -274,10 +281,14 @@ class Workflow:
                 for runnable_job_id, runnable in runnable_jobs:
                     yield JobRunnableEvent(workflow_id, runnable, runnable_job_id)
 
-                workflow_running = self.is_workflow_running()
+                running_jobs = list(self.context.job_registry.running(self.context))
+
+                # Yield information on each job currently running.
+                for running_job_id, running in running_jobs:
+                    yield JobRunningEvent(workflow_id, running, running_job_id)
 
                 # We're finished; record we're done and exit.
-                if not runnable_jobs and not workflow_running:
+                if not runnable_jobs and not running_jobs:
                     workflow_end_time = datetime.now(tz=timezone.utc)
                     workflow_duration = (
                         workflow_end_time - workflow_start_time
@@ -299,7 +310,6 @@ class Workflow:
                 yield from handle_workflow_stall(
                     batch_duration, self.stall_time, workflow_id
                 )
-                print('next loop')
 
     def run(self, start: Job | None = None) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job

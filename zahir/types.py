@@ -158,8 +158,11 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def running(self) -> bool:
-        """Check whether any jobs are currently running."""
+    def running(self, context: "Context") -> Iterator[tuple[str, "Job"]]:
+        """Get an iterator of currently running jobs (ID, Job).
+
+        @param context: The context containing scope and registries for deserialization
+        """
 
         raise NotImplementedError
 
@@ -223,6 +226,14 @@ class JobOptions:
 
     # Upper-limit on how long the recovery should run for
     recover_timeout: int | None = None
+
+    def __init__(
+            self,
+            job_timeout: int | None = None,
+            recover_timeout: int | None = None) -> None:
+
+        self.job_timeout = job_timeout
+        self.recover_timeout = recover_timeout
 
     def save(self) -> JobOptionsData:
         """Serialize the job options to a dictionary.

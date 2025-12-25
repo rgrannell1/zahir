@@ -123,6 +123,31 @@ class JobRunnableEvent(ZahirEvent):
 
 
 @dataclass
+class JobRunningEvent(ZahirEvent):
+    """Indicates that a job is currently running"""
+
+    workflow_id: str
+    job: "Job"
+    job_id: str
+
+    def save(self) -> dict[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "job_type": type(self.job).__name__,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "JobRunningEvent":
+        # Job is not deserialized from events - set to None
+        return cls(
+            workflow_id=data["workflow_id"],
+            job=None,  # type: ignore
+            job_id=data["job_id"],
+        )
+
+
+@dataclass
 class JobCompletedEvent(ZahirEvent):
     """Indicates that a job has completed successfully"""
 

@@ -3,7 +3,7 @@ from typing import Iterator
 from zahir.context import LocalContext
 from zahir.dependencies.job import JobDependency
 from zahir.scope import LocalScope
-from zahir.types import Context, Job
+from zahir.types import Context, Job, JobOptions
 from zahir.workflow import Workflow
 
 class BookProcessor(Job):
@@ -19,10 +19,15 @@ class BookProcessor(Job):
 
     with open(input["file_path"], "r") as file:
       for line in file:
+        opts = JobOptions(
+          job_timeout=1,
+          recover_timeout=1,
+        )
+
         if "CHAPTER" in line:
           chapter_job = ChapterProcessor({
             "lines": chapter_lines.copy()
-          }, {})
+          }, {}, opts)
           yield chapter_job
           pids.append(chapter_job.job_id)
 
@@ -51,7 +56,6 @@ class ChapterProcessor(Job):
         if len(word) > len(longest_word):
           longest_word = word
 
-    print(longest_word)
     yield {
       "top_shelf_word": longest_word
     }
@@ -71,7 +75,6 @@ class LongestWordAssembly(Job):
       summary = dep.output(context)
       chapters.append(summary)
 
-    print(chapters)
     yield {
       "chapters": chapters
     }
