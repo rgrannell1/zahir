@@ -73,6 +73,7 @@ def recover_workflow(
                     recovery_end_time - recovery_start_time
                 ).total_seconds()
                 context.job_registry.set_state(job_id, JobState.RECOVERED)
+                context.job_registry.set_recovery_duration(job_id, recovery_duration)
                 yield JobRecoveryCompleted(
                     workflow_id, current_job, job_id, recovery_duration
                 )
@@ -208,11 +209,12 @@ def execute_workflow_batch(
             continue
 
         # Yield started event and set state before submitting
+        submit_time = datetime.now(tz=timezone.utc)
         yield JobStartedEvent(workflow_id, current_job, job_id)
         context.job_registry.set_state(job_id, JobState.RUNNING)
+        context.job_registry.set_timing(job_id, started_at=submit_time)
 
         timeout = current_job.options.job_timeout if current_job.options else None
-        submit_time = datetime.now(tz=timezone.utc)
         future = executor.submit(
             execute_single_job, job_id, current_job, context, timing_info, workflow_id
         )
@@ -231,6 +233,9 @@ def execute_workflow_batch(
             # Job completed successfully within timeout
             start_time, end_time = timing_info[job_id]
             duration = (end_time - start_time).total_seconds()
+            context.job_registry.set_timing(
+                job_id, completed_at=end_time, duration_seconds=duration
+            )
             # State already set to COMPLETED in execute_single_job
             yield JobCompletedEvent(workflow_id, current_job, job_id, duration)
         except TimeoutError:
@@ -243,6 +248,9 @@ def execute_workflow_batch(
                 f"Job {type(current_job).__name__} exceeded timeout of {timeout}s"
             )
             context.job_registry.set_state(job_id, JobState.TIMED_OUT)
+            context.job_registry.set_timing(
+                job_id, completed_at=completion_time, duration_seconds=elapsed
+            )
             yield JobTimeoutEvent(workflow_id, current_job, job_id, elapsed)
             yield from recover_workflow(
                 current_job, job_id, timeout_err, workflow_id, context

@@ -1,6 +1,7 @@
 """Registry management for workflow execution."""
 
 from dataclasses import dataclass
+from datetime import datetime
 from threading import Lock
 from typing import Iterator
 from zahir.events import WorkflowOutputEvent
@@ -13,6 +14,7 @@ from zahir.types import (
     DependencyType,
     JobState,
     Scope,
+    JobInformation
 )
 
 
@@ -22,6 +24,10 @@ class JobEntry:
 
     job: Job
     state: JobState
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    duration_seconds: float | None = None
+    recovery_duration_seconds: float | None = None
 
 
 class MemoryJobRegistry(JobRegistry):
@@ -86,6 +92,42 @@ class MemoryJobRegistry(JobRegistry):
 
         with self._lock:
             self._outputs[job_id] = output
+
+    def set_timing(
+        self,
+        job_id: str,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        duration_seconds: float | None = None,
+    ) -> None:
+        """Store timing information for a job
+
+        @param job_id: The ID of the job
+        @param started_at: When the job started execution
+        @param completed_at: When the job completed execution
+        @param duration_seconds: How long the job took to execute
+        """
+
+        with self._lock:
+            if job_id in self.jobs_dict:
+                entry = self.jobs_dict[job_id]
+                if started_at is not None:
+                    entry.started_at = started_at
+                if completed_at is not None:
+                    entry.completed_at = completed_at
+                if duration_seconds is not None:
+                    entry.duration_seconds = duration_seconds
+
+    def set_recovery_duration(self, job_id: str, duration_seconds: float) -> None:
+        """Store recovery duration for a job
+
+        @param job_id: The ID of the job
+        @param duration_seconds: How long the recovery took
+        """
+
+        with self._lock:
+            if job_id in self.jobs_dict:
+                self.jobs_dict[job_id].recovery_duration_seconds = duration_seconds
 
     def get_output(self, job_id: str) -> dict | None:
         """Retrieve the output of a completed job
@@ -180,14 +222,45 @@ class MemoryJobRegistry(JobRegistry):
         for job_id, job in runnable_list:
             yield job_id, job
 
-    def jobs(self, context: Context) -> Iterator[tuple[str, "Job"]]:
-        """Get an iterator of all jobs (ID, Job).
+    def jobs(self, context: Context) -> Iterator["JobInformation"]:
+        """Get an iterator of all jobs with their information.
 
         @param context: The context containing scope and registries for deserialization
+        @return: An iterator of JobInformation objects
         """
 
         with self._lock:
-            job_list = [(job_id, entry.job) for job_id, entry in self.jobs_dict.items()]
+            job_list = [
+                (
+                    job_id,
+                    entry.job,
+                    entry.state,
+                    self._outputs.get(job_id),
+                    entry.started_at,
+                    entry.completed_at,
+                    entry.duration_seconds,
+                    entry.recovery_duration_seconds,
+                )
+                for job_id, entry in self.jobs_dict.items()
+            ]
 
-        for job_id, job in job_list:
-            yield job_id, job
+        for (
+            job_id,
+            job,
+            state,
+            output,
+            started_at,
+            completed_at,
+            duration_seconds,
+            recovery_duration_seconds,
+        ) in job_list:
+            yield JobInformation(
+                job_id=job_id,
+                job=job,
+                state=state,
+                output=output,
+                started_at=started_at,
+                completed_at=completed_at,
+                duration_seconds=duration_seconds,
+                recovery_duration_seconds=recovery_duration_seconds,
+            )

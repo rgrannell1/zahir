@@ -5,6 +5,7 @@ import sqlite3
 from pathlib import Path
 from threading import Lock
 from typing import Iterator
+from datetime import datetime
 
 from zahir.events import WorkflowOutputEvent
 from zahir.types import (
@@ -13,6 +14,7 @@ from zahir.types import (
     Job,
     JobRegistry,
     JobState,
+    JobInformation
 )
 
 
@@ -36,7 +38,11 @@ class SQLiteJobRegistry(JobRegistry):
                     job_id TEXT PRIMARY KEY,
                     serialised_job TEXT NOT NULL,
                     state TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    started_at TIMESTAMP,
+                    completed_at TIMESTAMP,
+                    duration_seconds REAL,
+                    recovery_duration_seconds REAL
                 )
             """)
             conn.execute("""
@@ -122,6 +128,57 @@ class SQLiteJobRegistry(JobRegistry):
                     VALUES (?, ?)
                     """,
                     (job_id, serialised_output),
+                )
+                conn.commit()
+
+    def set_timing(
+        self,
+        job_id: str,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        duration_seconds: float | None = None,
+    ) -> None:
+        """Store timing information for a job.
+
+        @param job_id: The ID of the job
+        @param started_at: When the job started execution
+        @param completed_at: When the job completed execution
+        @param duration_seconds: How long the job took to execute
+        """
+        with self._lock:
+            with sqlite3.connect(self.db_path) as conn:
+                updates = []
+                params = []
+
+                if started_at is not None:
+                    updates.append("started_at = ?")
+                    params.append(started_at.isoformat() if hasattr(started_at, 'isoformat') else str(started_at))
+                if completed_at is not None:
+                    updates.append("completed_at = ?")
+                    params.append(completed_at.isoformat() if hasattr(completed_at, 'isoformat') else str(completed_at))
+                if duration_seconds is not None:
+                    updates.append("duration_seconds = ?")
+                    params.append(duration_seconds)
+
+                if updates:
+                    params.append(job_id)
+                    conn.execute(
+                        f"UPDATE jobs SET {', '.join(updates)} WHERE job_id = ?",
+                        params,
+                    )
+                    conn.commit()
+
+    def set_recovery_duration(self, job_id: str, duration_seconds: float) -> None:
+        """Store recovery duration for a job.
+
+        @param job_id: The ID of the job
+        @param duration_seconds: How long the recovery took
+        """
+        with self._lock:
+            with sqlite3.connect(self.db_path) as conn:
+                conn.execute(
+                    "UPDATE jobs SET recovery_duration_seconds = ? WHERE job_id = ?",
+                    (duration_seconds, job_id),
                 )
                 conn.commit()
 
@@ -242,24 +299,82 @@ class SQLiteJobRegistry(JobRegistry):
         for job_id, job in runnable_list:
             yield job_id, job
 
-    def jobs(self, context: Context) -> Iterator[tuple[str, Job]]:
-        """Get an iterator of all jobs (ID, Job).
+    def jobs(self, context: Context) -> Iterator["JobInformation"]:
+        """Get an iterator of all jobs with their information.
 
         @param context: The context containing scope and registries for deserialization
+        @return: An iterator of JobInformation objects
         """
+
         with self._lock:
             job_list = []
             with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("SELECT job_id, serialised_job FROM jobs")
+                cursor = conn.execute("""
+                    SELECT j.job_id, j.serialised_job, j.state, o.output,
+                           j.started_at, j.completed_at, j.duration_seconds,
+                           j.recovery_duration_seconds
+                    FROM jobs j
+                    LEFT JOIN job_outputs o ON j.job_id = o.job_id
+                """)
 
                 for row in cursor:
-                    job_id, serialised_job = row
-                    job_list.append((job_id, serialised_job))
+                    (
+                        job_id,
+                        serialised_job,
+                        state,
+                        output,
+                        started_at,
+                        completed_at,
+                        duration_seconds,
+                        recovery_duration_seconds,
+                    ) = row
+                    job_list.append(
+                        (
+                            job_id,
+                            serialised_job,
+                            state,
+                            output,
+                            started_at,
+                            completed_at,
+                            duration_seconds,
+                            recovery_duration_seconds,
+                        )
+                    )
 
         # Deserialize and yield outside the lock
-        for job_id, serialised_job in job_list:
+        for (
+            job_id,
+            serialised_job,
+            state_str,
+            output_str,
+            started_at_str,
+            completed_at_str,
+            duration_seconds,
+            recovery_duration_seconds,
+        ) in job_list:
             job_data = json.loads(serialised_job)
             job_type = job_data["type"]
             JobClass = context.scope.get_task_class(job_type)
             job = JobClass.load(context, job_data)
-            yield job_id, job
+
+            state = JobState(state_str)
+            output = json.loads(output_str) if output_str else None
+
+            # Parse datetime strings if present
+            started_at = (
+                datetime.fromisoformat(started_at_str) if started_at_str else None
+            )
+            completed_at = (
+                datetime.fromisoformat(completed_at_str) if completed_at_str else None
+            )
+
+            yield JobInformation(
+                job_id=job_id,
+                job=job,
+                state=state,
+                output=output,
+                started_at=started_at,
+                completed_at=completed_at,
+                duration_seconds=duration_seconds,
+                recovery_duration_seconds=recovery_duration_seconds,
+            )

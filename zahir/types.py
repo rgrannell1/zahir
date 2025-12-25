@@ -1,6 +1,8 @@
 """Core type definitions used throughout Zahir."""
 
 from abc import ABC, abstractmethod
+from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import (
     TYPE_CHECKING,
@@ -103,6 +105,21 @@ class JobState(str, Enum):
     IMPOSSIBLE = "impossible"
 
 
+@dataclass
+class JobInformation:
+    """Holds information about a job stored in the job registry."""
+
+    job_id: str
+    job: "Job"
+    state: JobState
+    output: dict[str, Any] | None
+
+    # Timing information
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
+    duration_seconds: float | None = None
+    recovery_duration_seconds: float | None = None
+
 class JobRegistry(ABC):
     """Keeps track of jobs to be run."""
 
@@ -130,6 +147,34 @@ class JobRegistry(ABC):
 
         @param job_id: The ID of the job
         @param output: The output dictionary produced by the job
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def set_timing(
+        self,
+        job_id: str,
+        started_at: datetime | None = None,
+        completed_at: datetime | None = None,
+        duration_seconds: float | None = None,
+    ) -> None:
+        """Store timing information for a job
+
+        @param job_id: The ID of the job
+        @param started_at: When the job started execution
+        @param completed_at: When the job completed execution
+        @param duration_seconds: How long the job took to execute
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def set_recovery_duration(self, job_id: str, duration_seconds: float) -> None:
+        """Store recovery duration for a job
+
+        @param job_id: The ID of the job
+        @param duration_seconds: How long the recovery took
         """
 
         raise NotImplementedError
@@ -169,10 +214,11 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def jobs(self, context: "Context") -> Iterator[tuple[str, "Job"]]:
-        """Get an iterator of all jobs (ID, Job).
+    def jobs(self, context: "Context") -> Iterator[JobInformation]:
+        """Get an iterator of all jobs with their information.
 
         @param context: The context containing scope and registries for deserialization
+        @return: An iterator of JobInformation objects
         """
 
         raise NotImplementedError
