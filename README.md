@@ -1,5 +1,5 @@
 
-# Zahir
+# 🪙 Zahir
 
 ![tests](https://github.com/rgrannell1/zahir/actions/workflows/ci.yml/badge.svg)
 
