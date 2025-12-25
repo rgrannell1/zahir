@@ -16,10 +16,14 @@ src/
         time.py            await a particular time-range before starting a job
         group.py           await a group of dependencies
         job.py             await a particular job-state
-    registries/
-        local.py           register jobs & events locally
-        sqlite.py          register jobs & events in SQLite
+    event_registry/
+        memory.py          register events locally
+        sqlite.py          register events in SQLite
+    job_registry/
+        memory.py          register jobs locally
+        sqlite.py          register jobs in SQLite
     context.py             communicates workflow internals with dependencies and jobs
+    logging.py             output information about the workflow status
     events.py              events describing workflow state-updates
     exception.py           exceptions thrown by Zahir
     scope.py               handle translation from serialised data to instances
@@ -35,17 +39,19 @@ Workflows can be modelled with a few primitives:
 
 ### Jobs
 
-Jobs do something, based on an input. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled. If a more general rollback pattern is desired, detect the failure condition in some job and schedule a tidyup job.
+Jobs do something, based on an input. They can have dependencies that must be met before they run. If they throw an unhandled exception, an optional recovery workflow is scheduled (essentially a "catch" handler).
 
-Jobs may yield other jobs they wish to complete after the current one. This can be done with conditional logic (so conditional workflows are of course supported). No automatic guarantee is given on job execution order (everything that can be run in parallel, is run in parallel), but yielding to a `Job` that depends on other jobs will preserve ordering. This allows patterns such as "process each item, await completion & update a database".
+Workflows comprise jobs that create other jobs. They aren't a separate abstraction; jobs yield further jobs they wish to complete after the current one. This can be done with conditional logic (so conditional workflows are of course supported). No automatic guarantee is given on job execution order (everything that can be run in parallel, is run in parallel). Jobs can however depend on other jobs and their outputs via a `JobDependency`. This allows patterns such as "process each item, await completion & update a database".
 
-Data is passed unidirectionally from an initial job to subjobs, by the parent job simply yielding the new instantiated job. Jobs may, ultimately, yield an output dictionary. This allows a promise-style call pattern:
+Rollbacks are also not separate abstractions; if something goes wrong, detect it and schedule tasks to remediate it. Rollbacks are job-level as individual job-rollbacks do not necessarily effectively compose into a workflow level rollback.
+
+Data is passed unidirectionally from an initial job to subjobs by the parent job simply yielding the new instantiated job with appropriate input. Jobs may, ultimately, yield a `JobOutputEvent` dictionary. This allows a promise-style call pattern:
 
 - Job A spawns N batch jobs
 - Job B awaits this jobs via a list of job-dependencies
-- On completion, Job b can access the output data from this array of jobs
+- On completion, Job B can access the output data from this array of jobs
 
-This is the most idiomatic way of implementing the "fan-out, then aggregate" pattern in Zahir.
+This is the most idiomatic way of implementing the "fan-out, then aggregate" pattern in Zahir. In a similar way, workflow-level output can be yielded with `WorkflowOutputEvent`
 
 ### Dependencies
 
