@@ -169,6 +169,15 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def jobs(self, context: "Context") -> Iterator[tuple[str, "Job"]]:
+        """Get an iterator of all jobs (ID, Job).
+
+        @param context: The context containing scope and registries for deserialization
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
     def outputs(self, workflow_id: str) -> Iterator["WorkflowOutputEvent"]:
         """Get workflow output event containing all job outputs.
 

@@ -28,7 +28,7 @@ class MemoryJobRegistry(JobRegistry):
     """Thread-safe job registry"""
 
     def __init__(self, scope: Scope | None = None) -> None:
-        self.jobs: dict[str, JobEntry] = {}
+        self.jobs_dict: dict[str, JobEntry] = {}
         self._outputs: dict[str, dict] = {}
         self._lock = Lock()
         # for consistency, we should probably accept a scope.
@@ -44,7 +44,7 @@ class MemoryJobRegistry(JobRegistry):
 
         with self._lock:
             job_id = job.job_id
-            self.jobs[job_id] = JobEntry(job=job, state=JobState.PENDING)
+            self.jobs_dict[job_id] = JobEntry(job=job, state=JobState.PENDING)
 
         return job_id
 
@@ -57,8 +57,8 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            if job_id in self.jobs:
-                return self.jobs[job_id].state
+            if job_id in self.jobs_dict:
+                return self.jobs_dict[job_id].state
             else:
                 raise KeyError(f"Job ID {job_id} not found in registry")
 
@@ -72,8 +72,8 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            if job_id in self.jobs:
-                self.jobs[job_id].state = state
+            if job_id in self.jobs_dict:
+                self.jobs_dict[job_id].state = state
 
         return job_id
 
@@ -104,7 +104,9 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            return any(entry.state == JobState.PENDING for entry in self.jobs.values())
+            return any(
+                entry.state == JobState.PENDING for entry in self.jobs_dict.values()
+            )
 
     def running(self, context: Context) -> Iterator[tuple[str, "Job"]]:
         """Get an iterator of currently running jobs.
@@ -120,7 +122,7 @@ class MemoryJobRegistry(JobRegistry):
 
         running_list = []
         with self._lock:
-            for job_id, entry in self.jobs.items():
+            for job_id, entry in self.jobs_dict.items():
                 if entry.state in running_states:
                     running_list.append((job_id, entry.job))
 
@@ -150,7 +152,7 @@ class MemoryJobRegistry(JobRegistry):
         # First, collect pending jobs without holding the lock during ready() checks
         pending_jobs = []
         with self._lock:
-            for job_id, entry in self.jobs.items():
+            for job_id, entry in self.jobs_dict.items():
                 if entry.state == JobState.PENDING:
                     pending_jobs.append((job_id, entry.job))
 
@@ -171,9 +173,21 @@ class MemoryJobRegistry(JobRegistry):
         if impossible_list:
             with self._lock:
                 for job_id in impossible_list:
-                    if job_id in self.jobs:
-                        self.jobs[job_id].state = JobState.IMPOSSIBLE
+                    if job_id in self.jobs_dict:
+                        self.jobs_dict[job_id].state = JobState.IMPOSSIBLE
 
         # Yield runnable jobs
         for job_id, job in runnable_list:
+            yield job_id, job
+
+    def jobs(self, context: Context) -> Iterator[tuple[str, "Job"]]:
+        """Get an iterator of all jobs (ID, Job).
+
+        @param context: The context containing scope and registries for deserialization
+        """
+
+        with self._lock:
+            job_list = [(job_id, entry.job) for job_id, entry in self.jobs_dict.items()]
+
+        for job_id, job in job_list:
             yield job_id, job

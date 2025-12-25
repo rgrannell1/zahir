@@ -1,7 +1,7 @@
 from zahir.logging import ZahirLogger
 from zahir.types import Context, Scope, JobRegistry, EventRegistry
-from zahir.registries.local import MemoryJobRegistry, MemoryEventRegistry
-
+from zahir.job_registry.memory import MemoryJobRegistry
+from zahir.event_registry.memory import MemoryEventRegistry
 
 class LocalContext(Context):
     """A local, direct context implementation. Probably the only one that will be needed."""

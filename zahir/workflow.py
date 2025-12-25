@@ -288,7 +288,7 @@ class Workflow:
         return str(uuid.uuid4())
 
     def _run(
-        self, start: Job | None = None, context: Context | None = None
+        self, context: Context, start: Job | None = None
     ) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job
 
@@ -302,10 +302,11 @@ class Workflow:
         # if desired, seed the workflow with an initial job. Otherwise we'll just
         # process jobs currently in the workflow registry.
         if start is not None:
-            self.context.job_registry.add(start)
+            context.job_registry.add(start)
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
             while True:
+
                 # Note: this is a bit memory-inefficient.
                 runnable_jobs = list(self.context.job_registry.runnable(self.context))
 
@@ -350,6 +351,7 @@ class Workflow:
         @param start: The starting job of the workflow
         """
 
-        for event in self._run(start):
+        for event in self._run(self.context, start):
             self.context.event_registry.register(event)
+            self.context.logger.render(self.context)
             yield event

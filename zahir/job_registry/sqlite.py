@@ -241,3 +241,25 @@ class SQLiteJobRegistry(JobRegistry):
         # Yield outside the lock
         for job_id, job in runnable_list:
             yield job_id, job
+
+    def jobs(self, context: Context) -> Iterator[tuple[str, Job]]:
+        """Get an iterator of all jobs (ID, Job).
+
+        @param context: The context containing scope and registries for deserialization
+        """
+        with self._lock:
+            job_list = []
+            with sqlite3.connect(self.db_path) as conn:
+                cursor = conn.execute("SELECT job_id, serialised_job FROM jobs")
+
+                for row in cursor:
+                    job_id, serialised_job = row
+                    job_list.append((job_id, serialised_job))
+
+        # Deserialize and yield outside the lock
+        for job_id, serialised_job in job_list:
+            job_data = json.loads(serialised_job)
+            job_type = job_data["type"]
+            JobClass = context.scope.get_task_class(job_type)
+            job = JobClass.load(context, job_data)
+            yield job_id, job

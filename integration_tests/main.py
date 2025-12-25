@@ -1,3 +1,4 @@
+import re
 from typing import Iterator
 from zahir.context import LocalContext
 from zahir.dependencies.job import JobDependency
@@ -33,6 +34,13 @@ class BookProcessor(Job):
         yield LongestWordAssembly({}, job_dependencies)
 
 
+WORD_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
+
+
+def longest_word_sequence(text: str) -> str:
+    return max(WORD_RE.findall(text), key=len, default="")
+
+
 class ChapterProcessor(Job):
     @classmethod
     def run(
@@ -42,8 +50,10 @@ class ChapterProcessor(Job):
 
         for line in input["lines"]:
             for word in line.split():
-                if len(word) > len(longest_word):
-                    longest_word = word
+                tidied_word = longest_word_sequence(word)
+
+                if len(tidied_word) > len(longest_word):
+                    longest_word = tidied_word
 
         yield JobOutputEvent({"top_shelf_word": longest_word})
 
@@ -53,13 +63,13 @@ class LongestWordAssembly(Job):
     def run(
         cls, context: Context, input, dependencies
     ) -> Iterator[Job | JobOutputEvent | WorkflowOutputEvent]:
-        long_words = []
+        long_words = set()
 
         for dep in dependencies.get("chapters"):
             summary = dep.output(context)
-            long_words.append(summary["top_shelf_word"])
+            long_words.add(summary["top_shelf_word"])
 
-        yield WorkflowOutputEvent({"the_list": sorted(long_words)})
+        yield WorkflowOutputEvent({"the_list": list(long_words)})
 
 
 scope = LocalScope()
@@ -71,4 +81,4 @@ for event in workflow.run(
     BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
 ):
     if isinstance(event, WorkflowOutputEvent):
-        print(event)
+        ...

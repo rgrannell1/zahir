@@ -8,4 +8,6 @@ class ZahirLogger:
         self.event_registry = event_registry
         self.job_registry = job_registry
 
-    def render(self) -> None: ...
+    def render(self, context: "Context") -> None:
+        for job in self.job_registry.jobs(context):
+            ...
