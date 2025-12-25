@@ -19,6 +19,7 @@ from zahir.events import ZahirEvent
 if TYPE_CHECKING:
     from zahir.dependencies.group import DependencyGroup
     from zahir.events import JobOutputEvent, WorkflowOutputEvent
+    from zahir.logging import ZahirLogger
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Dependency ++++++++++++++++++++++++++++++++
@@ -414,6 +415,9 @@ class Scope(ABC):
     def add_job_class(self, TaskClass: type["Job"]) -> None: ...
 
     @abstractmethod
+    def add_job_classes(self, TaskClasses: list[type["Job"]]) -> None: ...
+
+    @abstractmethod
     def get_task_class(self, type_name: str) -> type["Job"]: ...
 
     @abstractmethod
@@ -436,13 +440,16 @@ class Context:
     scope: Scope
     job_registry: JobRegistry
     event_registry: EventRegistry
+    logger: "ZahirLogger"
 
     def __init__(
         self,
         scope: Scope,
         job_registry: JobRegistry,
         event_registry: EventRegistry,
+        logger: "ZahirLogger",
     ) -> None:
         self.scope = scope
         self.job_registry = job_registry
         self.event_registry = event_registry
+        self.logger = logger

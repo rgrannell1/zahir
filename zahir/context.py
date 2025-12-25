@@ -1,3 +1,4 @@
+from zahir.logging import ZahirLogger
 from zahir.types import Context, Scope, JobRegistry, EventRegistry
 from zahir.registries.local import MemoryJobRegistry, MemoryEventRegistry
 
@@ -17,12 +18,18 @@ class LocalContext(Context):
         @param job_registry: The job registry (defaults to MemoryJobRegistry if None)
         @param event_registry: The event registry (defaults to MemoryEventRegistry if None)
         """
+
+        event_registry = (
+            event_registry if event_registry is not None else MemoryEventRegistry()
+        )
+
+        job_registry = (
+            job_registry if job_registry is not None else MemoryJobRegistry(scope)
+        )
+
         super().__init__(
             scope=scope,
-            job_registry=job_registry
-            if job_registry is not None
-            else MemoryJobRegistry(scope),
-            event_registry=event_registry
-            if event_registry is not None
-            else MemoryEventRegistry(),
+            job_registry=job_registry,
+            event_registry=event_registry,
+            logger=ZahirLogger(event_registry),
         )

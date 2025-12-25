@@ -59,13 +59,11 @@ class LongestWordAssembly(Job):
             summary = dep.output(context)
             long_words.append(summary["top_shelf_word"])
 
-        yield WorkflowOutputEvent({"long_words": sorted(long_words)})
+        yield WorkflowOutputEvent({"the_list": sorted(long_words)})
 
 
 scope = LocalScope()
-scope.add_job_class(BookProcessor)
-scope.add_job_class(ChapterProcessor)
-scope.add_job_class(LongestWordAssembly)
+scope.add_job_classes([BookProcessor, ChapterProcessor, LongestWordAssembly])
 
 workflow = Workflow(context=LocalContext(scope=scope), max_workers=4, stall_time=1)
 

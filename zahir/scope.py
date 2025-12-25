@@ -12,6 +12,10 @@ class LocalScope(Scope):
     def add_job_class(self, TaskClass: type[Job]) -> None:
         self.jobs[TaskClass.__name__] = TaskClass
 
+    def add_job_classes(self, TaskClasses: list[type[Job]]) -> None:
+        for TaskClass in TaskClasses:
+            self.jobs[TaskClass.__name__] = TaskClass
+
     def get_task_class(self, type_name: str) -> type[Job]:
         return self.jobs[type_name]
 
