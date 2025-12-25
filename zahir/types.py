@@ -120,6 +120,7 @@ class JobInformation:
     duration_seconds: float | None = None
     recovery_duration_seconds: float | None = None
 
+
 class JobRegistry(ABC):
     """Keeps track of jobs to be run."""
 

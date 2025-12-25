@@ -295,9 +295,7 @@ class Workflow:
 
         return generate_slug(2)
 
-    def _run(
-        self, context: Context, start: Job | None = None
-    ) -> Iterator[ZahirEvent]:
+    def _run(self, context: Context, start: Job | None = None) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job
 
         @param start: The starting job of the workflow
@@ -314,7 +312,6 @@ class Workflow:
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
             while True:
-
                 # Note: this is a bit memory-inefficient.
                 runnable_jobs = list(self.context.job_registry.runnable(self.context))
 

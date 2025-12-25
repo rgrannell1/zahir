@@ -14,7 +14,7 @@ from zahir.types import (
     DependencyType,
     JobState,
     Scope,
-    JobInformation
+    JobInformation,
 )
 
 

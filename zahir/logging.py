@@ -6,6 +6,7 @@ def clear_screen() -> None:
     sys.stdout.write("\033[2J\033[H")
     sys.stdout.flush()
 
+
 class ZahirLogger:
     def __init__(
         self, event_registry: "EventRegistry", job_registry: "JobRegistry"
@@ -43,8 +44,11 @@ class ZahirLogger:
         for job_info in info:
             emoji = self.task_emoji(job_info)
 
-            message = f'{emoji} {job_info.job_id} ({job_info.job.__class__.__name__})'
+            message = f"{emoji} {job_info.job_id} ({job_info.job.__class__.__name__})"
 
-            if job_info.state == JobState.COMPLETED and job_info.duration_seconds is not None:
-                message += f' {job_info.duration_seconds:.2f}s'
+            if (
+                job_info.state == JobState.COMPLETED
+                and job_info.duration_seconds is not None
+            ):
+                message += f" {job_info.duration_seconds:.2f}s"
             print(message)

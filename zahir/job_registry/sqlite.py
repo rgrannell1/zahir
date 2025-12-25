@@ -14,7 +14,7 @@ from zahir.types import (
     Job,
     JobRegistry,
     JobState,
-    JobInformation
+    JobInformation,
 )
 
 
@@ -152,10 +152,18 @@ class SQLiteJobRegistry(JobRegistry):
 
                 if started_at is not None:
                     updates.append("started_at = ?")
-                    params.append(started_at.isoformat() if hasattr(started_at, 'isoformat') else str(started_at))
+                    params.append(
+                        started_at.isoformat()
+                        if hasattr(started_at, "isoformat")
+                        else str(started_at)
+                    )
                 if completed_at is not None:
                     updates.append("completed_at = ?")
-                    params.append(completed_at.isoformat() if hasattr(completed_at, 'isoformat') else str(completed_at))
+                    params.append(
+                        completed_at.isoformat()
+                        if hasattr(completed_at, "isoformat")
+                        else str(completed_at)
+                    )
                 if duration_seconds is not None:
                     updates.append("duration_seconds = ?")
                     params.append(duration_seconds)
