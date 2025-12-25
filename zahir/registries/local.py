@@ -128,24 +128,34 @@ class MemoryJobRegistry(JobRegistry):
         @return: An iterator of (job ID, job) tuples for runnable jobs
         """
 
+        # First, collect pending jobs without holding the lock during ready() checks
+        pending_jobs = []
         with self._lock:
-            runnable_list = []
-
             for job_id, entry in self.jobs.items():
-                # Must be in pending to be checked
-                if entry.state != JobState.PENDING:
-                    continue
+                if entry.state == JobState.PENDING:
+                    pending_jobs.append((job_id, entry.job))
 
-                job = entry.job
-                status = job.ready()
+        # Check readiness outside the lock to avoid deadlock
+        # (job.ready() may call back into this registry via dependencies)
+        runnable_list = []
+        impossible_list = []
 
-                if status == DependencyState.SATISFIED:
-                    runnable_list.append((job_id, job))
-                elif status == DependencyState.IMPOSSIBLE:
-                    # If any dependency is impossible, we can no longer run this job
-                    entry.state = JobState.IMPOSSIBLE
+        for job_id, job in pending_jobs:
+            status = job.ready()
 
-        # Yield outside the lock to avoid holding it during iteration
+            if status == DependencyState.SATISFIED:
+                runnable_list.append((job_id, job))
+            elif status == DependencyState.IMPOSSIBLE:
+                impossible_list.append(job_id)
+
+        # Update impossible jobs with the lock
+        if impossible_list:
+            with self._lock:
+                for job_id in impossible_list:
+                    if job_id in self.jobs:
+                        self.jobs[job_id].state = JobState.IMPOSSIBLE
+
+        # Yield runnable jobs
         for job_id, job in runnable_list:
             yield job_id, job
 
