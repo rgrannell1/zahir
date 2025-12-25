@@ -68,7 +68,7 @@ Dependency implementations must be serialisable to JSON.
 
 ### Events
 
-Zahir communicates changes in workflow state as a stream of events emitted by `workflow.run`. These events include metadata, the list is currently:
+Zahir communicates changes in workflow state as a stream of events emitted by `workflow.run`. These events include metadata. The list is currently:
 
 - `WorkflowCompleteEvent`: workflow complete
 - `WorkflowOutputEvent`
@@ -82,6 +82,11 @@ Zahir communicates changes in workflow state as a stream of events emitted by `w
 - `JobRecoveryTimeout`
 - `JobIrrecoverableEvent`
 - `JobPrecheckFailedEvent`
+
+A few can be used by jobs to communicate with the workflow engine:
+
+- `WorkflowOutputEvent`: yield output from the workflow. Workflows yield a stream of outputs; since many workflows are long-running it's better to yield results as we go
+- `JobOutputEvent`: return output from a job. Treated as a singular return; the task is dropped after this event is yielded.
 
 ## Registries
 
