@@ -4,6 +4,7 @@ from unittest.mock import Mock
 from zahir.registries.local import MemoryJobRegistry
 from zahir.types import Job, JobState, DependencyState, Context
 from zahir.dependencies.group import DependencyGroup
+from zahir.events import JobOutputEvent, WorkflowOutputEvent
 from typing import Iterator
 
 
@@ -13,15 +14,15 @@ class SimpleJob(Job):
     @classmethod
     def run(
         cls, context: Context, input: dict, dependencies: DependencyGroup
-    ) -> Iterator[Job | dict]:
-        yield {"result": "done"}
+    ) -> Iterator[Job | JobOutputEvent | WorkflowOutputEvent]:
+        yield JobOutputEvent(output={"result": "done"})
 
 
 def test_memory_job_registry_initialization():
     """Test that registry starts empty."""
     registry = MemoryJobRegistry()
     assert len(registry.jobs) == 0
-    assert len(registry.outputs) == 0
+    assert len(registry._outputs) == 0
     assert registry.pending() is False
 
 
@@ -99,8 +100,7 @@ def test_memory_job_registry_set_output():
     output = {"result": "success", "data": 42}
     registry.set_output(job_id, output)
 
-    assert job_id in registry.outputs
-    assert registry.outputs[job_id] == output
+    assert registry.get_output(job_id) == output
 
 
 def test_memory_job_registry_get_output():
@@ -174,7 +174,7 @@ def test_memory_job_registry_runnable():
     job_id = registry.add(job)
 
     mock_context = Mock()
-    runnable = list(registry.running(mock_context))
+    runnable = list(registry.runnable(mock_context))
 
     assert len(runnable) == 1
     assert runnable[0][0] == job_id
@@ -195,7 +195,7 @@ def test_memory_job_registry_runnable_excludes_non_pending():
     registry.set_state(job_id1, JobState.COMPLETED)
 
     mock_context = Mock()
-    runnable = list(registry.running(mock_context))
+    runnable = list(registry.runnable(mock_context))
 
     # Only job2 should be runnable
     assert len(runnable) == 1
@@ -212,7 +212,7 @@ def test_memory_job_registry_runnable_marks_impossible():
     job_id = registry.add(job)
 
     mock_context = Mock()
-    runnable = list(registry.running(mock_context))
+    runnable = list(registry.runnable(mock_context))
 
     # Job should not be runnable
     assert len(runnable) == 0
@@ -230,7 +230,7 @@ def test_memory_job_registry_runnable_skips_unsatisfied():
     registry.add(job)
 
     mock_context = Mock()
-    runnable = list(registry.running(mock_context))
+    runnable = list(registry.runnable(mock_context))
 
     # Job should not be runnable
     assert len(runnable) == 0
