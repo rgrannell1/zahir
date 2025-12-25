@@ -37,6 +37,7 @@ dev = [
     "freezegun>=1.5.0",
     "pytest-cov>=4.0.0",
     "coverage>=7.2.7",
+    "coolname>=2.2.0",
 ]
 
 [project.optional-dependencies]
@@ -44,4 +45,5 @@ test = [
   "pytest",
   "pytest-cov",
   "freezegun",
+  "coolname",
 ]
