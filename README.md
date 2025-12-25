@@ -43,7 +43,7 @@ Jobs do something, based on an input. They can have dependencies that must be me
 
 Workflows comprise jobs that create other jobs. They aren't a separate abstraction; jobs yield further jobs they wish to complete after the current one. This can be done with conditional logic (so conditional workflows are of course supported). No automatic guarantee is given on job execution order (everything that can be run in parallel, is run in parallel). Jobs can however depend on other jobs and their outputs via a `JobDependency`. This allows patterns such as "process each item, await completion & update a database".
 
-Rollbacks are also not separate abstractions; if something goes wrong, detect it and schedule tasks to remediate it. Rollbacks are job-level as individual job-rollbacks do not necessarily effectively compose into a workflow level rollback.
+Rollbacks are also not separate abstractions; if something goes wrong, detect it and schedule tasks to remediate it. Rollbacks are not job-level as individual job-rollbacks do not necessarily effectively compose into a workflow level rollback.
 
 Data is passed unidirectionally from an initial job to subjobs by the parent job simply yielding the new instantiated job with appropriate input. Jobs may, ultimately, yield a `JobOutputEvent` dictionary. This allows a promise-style call pattern:
 
