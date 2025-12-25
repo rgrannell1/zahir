@@ -71,9 +71,11 @@ Dependency implementations must be serialisable to JSON.
 Zahir communicates changes in workflow state as a stream of events emitted by `workflow.run`. These events include metadata, the list is currently:
 
 - `WorkflowCompleteEvent`: workflow complete
+- `WorkflowOutputEvent`
 - `JobRunnableEvent`
 - `JobCompletedEvent`
 - `JobStartedEvent`
+- `JobOutputEvent`
 - `JobTimeoutEvent`
 - `JobRecoveryStarted`
 - `JobRecoveryCompleted`
