@@ -4,7 +4,7 @@ import json
 import sqlite3
 from pathlib import Path
 from threading import Lock
-from typing import Iterator
+from typing import Any, Iterator, cast
 from datetime import datetime
 
 from zahir.events import WorkflowOutputEvent
@@ -15,6 +15,7 @@ from zahir.types import (
     JobRegistry,
     JobState,
     JobInformation,
+    SerialisedJob,
 )
 
 
@@ -215,7 +216,7 @@ class SQLiteJobRegistry(JobRegistry):
         @return: An iterator yielding a WorkflowOutputEvent with all outputs
         """
 
-        output_dict = {}
+        output_dict: dict[str, dict] = {}
         with self._lock:
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.execute("SELECT job_id, output FROM job_outputs")
@@ -248,7 +249,7 @@ class SQLiteJobRegistry(JobRegistry):
         @return: An iterator of (job ID, job) tuples for running jobs
         """
         with self._lock:
-            running_list = []
+            running_list: list[tuple[str, str]] = []
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.execute(
                     "SELECT job_id, serialised_job FROM jobs WHERE state IN (?, ?)",
@@ -261,7 +262,7 @@ class SQLiteJobRegistry(JobRegistry):
 
         # Deserialize and yield outside the lock
         for job_id, serialised_job in running_list:
-            job_data = json.loads(serialised_job)
+            job_data = cast(SerialisedJob, json.loads(serialised_job))
             job_type = job_data["type"]
             JobClass = context.scope.get_task_class(job_type)
             job = JobClass.load(context, job_data)
@@ -274,7 +275,7 @@ class SQLiteJobRegistry(JobRegistry):
         @return: An iterator of (job ID, job) tuples for runnable jobs
         """
         with self._lock:
-            runnable_list = []
+            runnable_list: list[tuple[str, Job]] = []
 
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.execute(
@@ -284,7 +285,7 @@ class SQLiteJobRegistry(JobRegistry):
 
                 for row in cursor:
                     job_id, serialised_job = row
-                    job_data = json.loads(serialised_job)
+                    job_data = cast(SerialisedJob, json.loads(serialised_job))
 
                     job_type = job_data["type"]
                     JobClass = context.scope.get_task_class(job_type)
@@ -315,7 +316,7 @@ class SQLiteJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            job_list = []
+            job_list: list[tuple[str, str, str, str | None, str | None, str | None, float | None, float | None]] = []
             with sqlite3.connect(self.db_path) as conn:
                 cursor = conn.execute("""
                     SELECT j.job_id, j.serialised_job, j.state, o.output,
@@ -360,7 +361,7 @@ class SQLiteJobRegistry(JobRegistry):
             duration_seconds,
             recovery_duration_seconds,
         ) in job_list:
-            job_data = json.loads(serialised_job)
+            job_data = cast(SerialisedJob, json.loads(serialised_job))
             job_type = job_data["type"]
 
             JobClass = context.scope.get_task_class(job_type)

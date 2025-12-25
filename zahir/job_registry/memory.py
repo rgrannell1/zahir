@@ -162,7 +162,7 @@ class MemoryJobRegistry(JobRegistry):
             JobState.RECOVERING,
         }
 
-        running_list = []
+        running_list: list[tuple[str, Job]] = []
         with self._lock:
             for job_id, entry in self.jobs_dict.items():
                 if entry.state in running_states:
@@ -179,7 +179,7 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            output_dict = self._outputs.copy()
+            output_dict: dict[str, dict] = self._outputs.copy()
 
         if output_dict:
             yield WorkflowOutputEvent(output_dict, workflow_id)
@@ -192,7 +192,7 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         # First, collect pending jobs without holding the lock during ready() checks
-        pending_jobs = []
+        pending_jobs: list[tuple[str, Job]] = []
         with self._lock:
             for job_id, entry in self.jobs_dict.items():
                 if entry.state == JobState.PENDING:
@@ -200,8 +200,8 @@ class MemoryJobRegistry(JobRegistry):
 
         # Check readiness outside the lock to avoid deadlock
         # (job.ready() may call back into this registry via dependencies)
-        runnable_list = []
-        impossible_list = []
+        runnable_list: list[tuple[str, Job]] = []
+        impossible_list: list[str] = []
 
         for job_id, job in pending_jobs:
             status = job.ready()
