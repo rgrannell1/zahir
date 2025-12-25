@@ -326,9 +326,6 @@ class Workflow:
                         workflow_end_time - workflow_start_time
                     ).total_seconds()
 
-                    # Yield workflow output event
-                    yield from self.context.job_registry.outputs(workflow_id)
-
                     yield WorkflowCompleteEvent(workflow_id, workflow_duration)
                     break
 

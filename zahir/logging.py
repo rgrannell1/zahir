@@ -1,8 +1,11 @@
-from zahir.types import EventRegistry
+from zahir.types import EventRegistry, JobRegistry
 
 
 class ZahirLogger:
-    def __init__(self, event_registry: "EventRegistry") -> None:
+    def __init__(
+        self, event_registry: "EventRegistry", job_registry: "JobRegistry"
+    ) -> None:
         self.event_registry = event_registry
+        self.job_registry = job_registry
 
     def render(self) -> None: ...

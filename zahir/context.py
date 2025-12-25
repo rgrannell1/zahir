@@ -27,9 +27,11 @@ class LocalContext(Context):
             job_registry if job_registry is not None else MemoryJobRegistry(scope)
         )
 
+        logger = ZahirLogger(event_registry, job_registry)
+
         super().__init__(
             scope=scope,
             job_registry=job_registry,
             event_registry=event_registry,
-            logger=ZahirLogger(event_registry),
+            logger=logger,
         )
