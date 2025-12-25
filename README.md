@@ -51,7 +51,9 @@ Data is passed unidirectionally from an initial job to subjobs by the parent job
 - Job B awaits this jobs via a list of job-dependencies
 - On completion, Job B can access the output data from this array of jobs
 
-This is the most idiomatic way of implementing the "fan-out, then aggregate" pattern in Zahir. In a similar way, workflow-level output can be yielded with `WorkflowOutputEvent`
+This is the most idiomatic way of implementing the "fan-out, then aggregate" pattern in Zahir. In a similar way, workflow-level output can be yielded with `WorkflowOutputEvent`.
+
+Jobs should have most of their logic factored out into plain functions; the job should just take input, call the necessary functions, and delegate to other jobs.
 
 ### Dependencies - Await some precondition before doing things
 
