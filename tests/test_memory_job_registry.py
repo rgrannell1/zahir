@@ -1,7 +1,7 @@
 """Tests for MemoryJobRegistry"""
 
 from unittest.mock import Mock
-from zahir.registries.local import MemoryJobRegistry
+from zahir.job_registry.memory import MemoryJobRegistry
 from zahir.types import Job, JobState, DependencyState, Context
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import JobOutputEvent, WorkflowOutputEvent
@@ -21,7 +21,7 @@ class SimpleJob(Job):
 def test_memory_job_registry_initialization():
     """Test that registry starts empty."""
     registry = MemoryJobRegistry()
-    assert len(registry.jobs) == 0
+    assert len(registry.jobs_dict) == 0
     assert len(registry._outputs) == 0
     assert registry.pending() is False
 
@@ -34,9 +34,9 @@ def test_memory_job_registry_add_job():
     job_id = registry.add(job)
 
     assert job_id == job.job_id
-    assert job_id in registry.jobs
-    assert registry.jobs[job_id].job == job
-    assert registry.jobs[job_id].state == JobState.PENDING
+    assert job_id in registry.jobs_dict
+    assert registry.jobs_dict[job_id].job == job
+    assert registry.jobs_dict[job_id].state == JobState.PENDING
 
 
 def test_memory_job_registry_add_multiple_jobs():
@@ -51,10 +51,10 @@ def test_memory_job_registry_add_multiple_jobs():
     job_id2 = registry.add(job2)
     job_id3 = registry.add(job3)
 
-    assert len(registry.jobs) == 3
-    assert registry.jobs[job_id1].job == job1
-    assert registry.jobs[job_id2].job == job2
-    assert registry.jobs[job_id3].job == job3
+    assert len(registry.jobs_dict) == 3
+    assert registry.jobs_dict[job_id1].job == job1
+    assert registry.jobs_dict[job_id2].job == job2
+    assert registry.jobs_dict[job_id3].job == job3
 
 
 def test_memory_job_registry_get_state():

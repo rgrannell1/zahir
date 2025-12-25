@@ -30,7 +30,7 @@ from zahir.types import (
     DependencyType,
     JobState,
 )
-import uuid
+from coolname import generate_slug
 
 
 def recover_workflow(
@@ -283,9 +283,9 @@ class Workflow:
         self.stall_time = stall_time if stall_time is not None else self.STALL_TIME
 
     def _workflow_id(self) -> str:
-        """Generate a unique workflow ID based on the current time"""
+        """Generate a unique workflow ID using adjective-noun format"""
 
-        return str(uuid.uuid4())
+        return generate_slug(2)
 
     def _run(
         self, context: Context, start: Job | None = None

@@ -10,4 +10,4 @@ class ZahirLogger:
 
     def render(self, context: "Context") -> None:
         for job in self.job_registry.jobs(context):
-            ...
+            print(job)

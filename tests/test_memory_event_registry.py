@@ -1,7 +1,7 @@
 """Tests for MemoryEventRegistry"""
 
 from unittest.mock import Mock
-from zahir.registries.local import MemoryEventRegistry
+from zahir.event_registry.memory import MemoryEventRegistry
 from zahir.events import (
     WorkflowCompleteEvent,
     JobCompletedEvent,

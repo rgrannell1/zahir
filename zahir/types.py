@@ -12,7 +12,7 @@ from typing import (
     TypedDict,
     TypeVar,
 )
-from uuid import uuid4
+from coolname import generate_slug
 
 from zahir.events import ZahirEvent
 
@@ -304,7 +304,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
         from zahir.dependencies.group import DependencyGroup
 
         self.parent_id = parent_id
-        self.job_id = job_id if job_id is not None else str(uuid4())
+        self.job_id = job_id if job_id is not None else generate_slug(2)
         self.input = input
         self.dependencies = DependencyGroup(dependencies)
         self.options = options
