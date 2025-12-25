@@ -86,4 +86,4 @@ for event in workflow.run(BookProcessor({
   "file_path": "/home/rg/Code/zahir/integration_tests/data.txt"
 }, {})):
   if isinstance(event, WorkflowOutputEvent):
-    ...
+    print(event)

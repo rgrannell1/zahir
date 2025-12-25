@@ -210,32 +210,33 @@ def execute_workflow_batch(
     for future in as_completed(job_futures):
         job_id, current_job, timeout, submit_time = job_futures[future]
 
-        # Check if job exceeded timeout based on actual execution time
-        completion_time = datetime.now(tz=timezone.utc)
-        elapsed = (completion_time - submit_time).total_seconds()
-
         try:
-            # Get result and yield any events from execute_single_job
-            for event in future.result():
+            # Actually enforce the timeout by passing it to result()
+            # This will raise TimeoutError if the job exceeds its timeout
+            for event in future.result(timeout=timeout):
                 yield event
 
-            # Check if it timed out based on actual execution time
-            if timeout is not None and elapsed > timeout:
-                timeout_err = TimeoutError(
-                    f"Job {type(current_job).__name__} exceeded timeout of {timeout}s (took {elapsed:.2f}s)"
-                )
-                context.job_registry.set_state(job_id, JobState.TIMED_OUT)
-                yield JobTimeoutEvent(workflow_id, current_job, job_id, elapsed)
-                yield from recover_workflow(
-                    current_job, job_id, timeout_err, workflow_id, context
-                )
-            else:
-                # Get actual execution timing from the worker thread
-                start_time, end_time = timing_info[job_id]
-                duration = (end_time - start_time).total_seconds()
-                # State already set to COMPLETED in execute_single_job
-                yield JobCompletedEvent(workflow_id, current_job, job_id, duration)
+            # Job completed successfully within timeout
+            start_time, end_time = timing_info[job_id]
+            duration = (end_time - start_time).total_seconds()
+            # State already set to COMPLETED in execute_single_job
+            yield JobCompletedEvent(workflow_id, current_job, job_id, duration)
+        except TimeoutError:
+            # Job exceeded its timeout - cancel it and trigger recovery
+            future.cancel()
+            completion_time = datetime.now(tz=timezone.utc)
+            elapsed = (completion_time - submit_time).total_seconds()
+            
+            timeout_err = TimeoutError(
+                f"Job {type(current_job).__name__} exceeded timeout of {timeout}s"
+            )
+            context.job_registry.set_state(job_id, JobState.TIMED_OUT)
+            yield JobTimeoutEvent(workflow_id, current_job, job_id, elapsed)
+            yield from recover_workflow(
+                current_job, job_id, timeout_err, workflow_id, context
+            )
         except Exception as job_err:
+            # Job raised an exception - trigger recovery
             yield from recover_workflow(
                 current_job, job_id, job_err, workflow_id, context
             )
