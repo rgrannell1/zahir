@@ -56,6 +56,48 @@ class WorkflowCompleteEvent(ZahirEvent):
 
 
 @dataclass
+class WorkflowStallStartEvent(ZahirEvent):
+    """Indicates that the workflow is starting a stall period"""
+
+    workflow_id: str
+    stall_duration_seconds: float
+
+    def save(self) -> dict[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+            "stall_duration_seconds": self.stall_duration_seconds,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "WorkflowStallStartEvent":
+        return cls(
+            workflow_id=data["workflow_id"],
+            stall_duration_seconds=data["stall_duration_seconds"],
+        )
+
+
+@dataclass
+class WorkflowStallEndEvent(ZahirEvent):
+    """Indicates that the workflow has finished a stall period"""
+
+    workflow_id: str
+    stall_duration_seconds: float
+
+    def save(self) -> dict[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+            "stall_duration_seconds": self.stall_duration_seconds,
+        }
+
+    @classmethod
+    def load(cls, data: dict[str, Any]) -> "WorkflowStallEndEvent":
+        return cls(
+            workflow_id=data["workflow_id"],
+            stall_duration_seconds=data["stall_duration_seconds"],
+        )
+
+
+@dataclass
 class JobRunnableEvent(ZahirEvent):
     """Indicates that a job is runnable"""
 

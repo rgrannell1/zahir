@@ -16,6 +16,8 @@ from zahir.events import (
     JobStartedEvent,
     JobTimeoutEvent,
     WorkflowCompleteEvent,
+    WorkflowStallStartEvent,
+    WorkflowStallEndEvent,
     ZahirEvent,
 )
 from zahir.registries.local import JobRegistry
@@ -129,6 +131,25 @@ def execute_single_job(
     end_time = datetime.now(tz=timezone.utc)
     timing_info[job_id] = (start_time, end_time)
     context.job_registry.set_state(job_id, JobState.COMPLETED)
+
+def handle_workflow_stall(
+    batch_duration: float,
+    stall_time: float,
+    workflow_id: str,
+) -> Iterator[ZahirEvent]:
+    """Handle workflow stall period if batch completed faster than stall time.
+
+    @param batch_duration: How long the batch took to execute in seconds
+    @param stall_time: The minimum time between workflow phases in seconds
+    @param workflow_id: The ID of the workflow
+    @return: Iterator of stall events
+    """
+    if batch_duration < stall_time:
+        sleep_time = stall_time - batch_duration
+        yield WorkflowStallStartEvent(workflow_id, sleep_time)
+        time.sleep(sleep_time)
+        yield WorkflowStallEndEvent(workflow_id, sleep_time)
+
 
 def execute_workflow_batch(
     executor: ThreadPoolExecutor,
@@ -244,10 +265,8 @@ class Workflow:
         if start is not None:
             self.context.job_registry.add(start)
 
-        runnable_fails = 0
-
         with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
-            while self.context.job_registry.pending():
+            while True:
                 # Note: this is a bit memory-inefficient.
                 runnable_jobs = list(self.context.job_registry.runnable(self.context))
 
@@ -275,11 +294,12 @@ class Workflow:
                 batch_end_time = datetime.now(tz=timezone.utc)
                 batch_duration = (batch_end_time - batch_start_time).total_seconds()
 
-                # for IO-bound workflows, we're unlikely to need this. But
+                # For IO-bound workflows, we're unlikely to need this. But
                 # for shorter workflows throttling might be needed.
-                if batch_duration < self.stall_time:
-                    sleep_time = self.stall_time - batch_duration
-                    time.sleep(sleep_time)
+                yield from handle_workflow_stall(
+                    batch_duration, self.stall_time, workflow_id
+                )
+                print('next loop')
 
     def run(self, start: Job | None = None) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job
