@@ -30,7 +30,7 @@ from zahir.types import (
     OutputType,
     JobState,
 )
-from zahir.id_generator import generate_id
+from zahir.utils.id_generator import generate_id
 
 
 def recover_workflow(

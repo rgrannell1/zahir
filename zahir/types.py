@@ -16,7 +16,7 @@ from typing import (
 )
 
 from zahir.events import ZahirEvent
-from zahir.id_generator import generate_id
+from zahir.utils.id_generator import generate_id
 
 if TYPE_CHECKING:
     from zahir.dependencies.group import DependencyGroup
