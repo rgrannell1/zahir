@@ -141,6 +141,10 @@ rs lint
 ```
 
 ```
+rs check && rs check:mypy
+```
+
+```
 rs test
 ```
 
