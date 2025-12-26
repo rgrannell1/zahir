@@ -6,7 +6,7 @@ from zahir.types import Dependency, DependencyState
 class DependencyGroup(Dependency):
     """Await a all subdependencies."""
 
-    dependencies: dict[str, Dependency | list[Dependency]]
+    dependencies: Mapping[str, Dependency | list[Dependency]]
 
     def __init__(self, dependencies: Mapping[str, Dependency | list[Dependency]]) -> None:
         self.dependencies = dict(dependencies)
@@ -27,7 +27,7 @@ class DependencyGroup(Dependency):
 
         return DependencyState.SATISFIED
 
-    def save(self) -> dict:
+    def save(self) -> Mapping:
         """Save all subdependencies to a dictionary."""
 
         dependencies = {}
@@ -40,7 +40,7 @@ class DependencyGroup(Dependency):
         return {"type": "DependencyGroup", "dependencies": dependencies}
 
     @classmethod
-    def load(cls, context, data: dict) -> "DependencyGroup":
+    def load(cls, context, data: Mapping) -> "DependencyGroup":
         """Load all subdependencies from a dictionary."""
 
         dependencies = {}

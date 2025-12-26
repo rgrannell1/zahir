@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import Any, TypedDict
+from typing import Any, Mapping, TypedDict
 from zahir.types import Dependency, DependencyState
 
 
@@ -47,7 +47,7 @@ class TimeDependency(Dependency):
 
         return DependencyState.SATISFIED
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "type": "TimeDependency",
             "before": self.before.isoformat() if self.before else None,
@@ -55,7 +55,7 @@ class TimeDependency(Dependency):
         }
 
     @classmethod
-    def load(cls, context, data: dict[str, Any]) -> "TimeDependency":
+    def load(cls, context, data: Mapping[str, Any]) -> "TimeDependency":
         before = datetime.fromisoformat(data["before"]) if data["before"] else None
         after = datetime.fromisoformat(data["after"]) if data["after"] else None
 

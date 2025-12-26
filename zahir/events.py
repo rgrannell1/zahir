@@ -20,7 +20,7 @@ class ZahirEvent(ABC):
     """Base class for all Zahir events"""
 
     @abstractmethod
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         """Serialize the event to a dictionary.
 
         @return: The serialized event data
@@ -29,7 +29,7 @@ class ZahirEvent(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, data: dict[str, Any]) -> "ZahirEvent":
+    def load(cls, data: Mapping[str, Any]) -> "ZahirEvent":
         """Deserialize the event from a dictionary.
 
         @param data: The serialized event data
@@ -45,14 +45,14 @@ class WorkflowCompleteEvent(ZahirEvent):
     workflow_id: str
     duration_seconds: float
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "duration_seconds": self.duration_seconds,
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "WorkflowCompleteEvent":
+    def load(cls, data: Mapping[str, Any]) -> "WorkflowCompleteEvent":
         return cls(
             workflow_id=data["workflow_id"], duration_seconds=data["duration_seconds"]
         )
@@ -62,21 +62,21 @@ class WorkflowCompleteEvent(ZahirEvent):
 class WorkflowOutputEvent(ZahirEvent):
     """Indicates that the workflow has produced output"""
 
-    outputs: dict[str, Any]
+    outputs: Mapping[str, Any]
     workflow_id: str | None = None
 
-    def __init__(self, outputs: dict[str, Any], workflow_id: str | None = None) -> None:
+    def __init__(self, outputs: Mapping[str, Any], workflow_id: str | None = None) -> None:
         self.outputs = outputs
         self.workflow_id = workflow_id
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "outputs": self.outputs,
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "WorkflowOutputEvent":
+    def load(cls, data: Mapping[str, Any]) -> "WorkflowOutputEvent":
         return cls(
             workflow_id=data["workflow_id"],
             outputs=data["outputs"],
@@ -90,14 +90,14 @@ class WorkflowStallStartEvent(ZahirEvent):
     workflow_id: str
     stall_duration_seconds: float
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "stall_duration_seconds": self.stall_duration_seconds,
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "WorkflowStallStartEvent":
+    def load(cls, data: Mapping[str, Any]) -> "WorkflowStallStartEvent":
         return cls(
             workflow_id=data["workflow_id"],
             stall_duration_seconds=data["stall_duration_seconds"],
@@ -111,14 +111,14 @@ class WorkflowStallEndEvent(ZahirEvent):
     workflow_id: str
     stall_duration_seconds: float
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "stall_duration_seconds": self.stall_duration_seconds,
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "WorkflowStallEndEvent":
+    def load(cls, data: Mapping[str, Any]) -> "WorkflowStallEndEvent":
         return cls(
             workflow_id=data["workflow_id"],
             stall_duration_seconds=data["stall_duration_seconds"],
@@ -132,14 +132,14 @@ class JobRunnableEvent(ZahirEvent):
     workflow_id: str
     job_id: str
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobRunnableEvent":
+    def load(cls, data: Mapping[str, Any]) -> "JobRunnableEvent":
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -153,14 +153,14 @@ class JobRunningEvent(ZahirEvent):
     workflow_id: str
     job_id: str
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobRunningEvent":
+    def load(cls, data: Mapping[str, Any]) -> "JobRunningEvent":
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -175,7 +175,7 @@ class JobCompletedEvent(ZahirEvent):
     job_id: str
     duration_seconds: float
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -183,7 +183,7 @@ class JobCompletedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobCompletedEvent":
+    def load(cls, data: Mapping[str, Any]) -> "JobCompletedEvent":
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -195,11 +195,11 @@ class JobCompletedEvent(ZahirEvent):
 class JobOutputEvent(ZahirEvent, Generic[OutputType]):
     """Indicates that a job has produced output"""
 
-    output: OutputType
+    output: OutputType  # type: ignore[misc]
     workflow_id: str | None = None
     job_id: str | None = None
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -207,8 +207,8 @@ class JobOutputEvent(ZahirEvent, Generic[OutputType]):
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobOutputEvent":
-        return cls(
+    def load(cls, data: Mapping[str, Any]) -> "JobOutputEvent":  # type: ignore[type-arg]
+        return JobOutputEvent(
             output=data["output"],
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -222,14 +222,14 @@ class JobStartedEvent(ZahirEvent):
     workflow_id: str
     job_id: str
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobStartedEvent":
+    def load(cls, data: Mapping[str, Any]) -> "JobStartedEvent":
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -244,7 +244,7 @@ class JobTimeoutEvent(ZahirEvent):
     job_id: str
     duration_seconds: float
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -252,7 +252,7 @@ class JobTimeoutEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobTimeoutEvent":
+    def load(cls, data: Mapping[str, Any]) -> "JobTimeoutEvent":
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -267,14 +267,14 @@ class JobRecoveryStarted(ZahirEvent):
     workflow_id: str
     job_id: str
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobRecoveryStarted":
+    def load(cls, data: Mapping[str, Any]) -> "JobRecoveryStarted":
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -289,7 +289,7 @@ class JobRecoveryCompleted(ZahirEvent):
     job_id: str
     duration_seconds: float
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -297,7 +297,7 @@ class JobRecoveryCompleted(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobRecoveryCompleted":
+    def load(cls, data: Mapping[str, Any]) -> "JobRecoveryCompleted":
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -312,14 +312,14 @@ class JobRecoveryTimeout(ZahirEvent):
     workflow_id: str
     job_id: str
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobRecoveryTimeout":
+    def load(cls, data: Mapping[str, Any]) -> "JobRecoveryTimeout":
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -334,7 +334,7 @@ class JobIrrecoverableEvent(ZahirEvent):
     error: Exception
     job_id: str
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -343,7 +343,7 @@ class JobIrrecoverableEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobIrrecoverableEvent":
+    def load(cls, data: Mapping[str, Any]) -> "JobIrrecoverableEvent":
         # Recreate a generic exception from the error string
         error_msg = data.get("error", "Unknown error")
         return cls(
@@ -361,7 +361,7 @@ class JobPrecheckFailedEvent(ZahirEvent):
     job_id: str
     errors: list[str]
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -369,7 +369,7 @@ class JobPrecheckFailedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: dict[str, Any]) -> "JobPrecheckFailedEvent":
+    def load(cls, data: Mapping[str, Any]) -> "JobPrecheckFailedEvent":
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],

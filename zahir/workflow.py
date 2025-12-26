@@ -3,7 +3,7 @@
 import time
 from datetime import datetime, timezone
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed, TimeoutError
-from typing import Iterator, cast
+from typing import Iterator, Mapping, cast
 
 from zahir.events import (
     JobCompletedEvent,
@@ -102,7 +102,7 @@ def _run_recovery(
     ):
         if isinstance(item, JobOutputEvent):
             # Output event - store it and stop processing
-            context.job_registry.set_output(current_job.job_id, cast(dict, item.output))
+            context.job_registry.set_output(current_job.job_id, cast(Mapping, item.output))
             item.workflow_id = workflow_id
             item.job_id = current_job.job_id
             yield item
@@ -139,7 +139,7 @@ def execute_single_job(
         if isinstance(item, JobOutputEvent):
             # Store the job output, and stop processing the iterator.
             from typing import cast
-            context.job_registry.set_output(job_id, cast(dict, item.output))
+            context.job_registry.set_output(job_id, cast(Mapping, item.output))
             item.workflow_id = workflow_id
             item.job_id = job_id
 

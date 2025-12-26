@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from threading import Lock
-from typing import Iterator
+from typing import Iterator, Mapping
 from zahir.events import WorkflowOutputEvent
 from zahir.types import (
     Context,
@@ -41,7 +41,7 @@ class MemoryJobRegistry(JobRegistry):
 
     def __init__(self, scope: Scope | None = None) -> None:
         self.jobs_dict: dict[str, JobEntry] = {}
-        self._outputs: dict[str, dict] = {}
+        self._outputs: dict[str, Mapping] = {}
         self._lock = Lock()
         # for consistency, we should probably accept a scope.
         # but I don't think we actually use it given we don't need to serialise and deserialise.
@@ -89,7 +89,7 @@ class MemoryJobRegistry(JobRegistry):
 
         return job_id
 
-    def set_output(self, job_id: str, output: dict) -> None:
+    def set_output(self, job_id: str, output: Mapping) -> None:
         """Store the output of a completed job
 
         @param job_id: The ID of the job
@@ -135,7 +135,7 @@ class MemoryJobRegistry(JobRegistry):
             if job_id in self.jobs_dict:
                 self.jobs_dict[job_id].recovery_duration_seconds = duration_seconds
 
-    def get_output(self, job_id: str) -> dict | None:
+    def get_output(self, job_id: str) -> Mapping | None:
         """Retrieve the output of a completed job
 
         @param job_id: The ID of the job
@@ -185,7 +185,7 @@ class MemoryJobRegistry(JobRegistry):
         """
 
         with self._lock:
-            output_dict: dict[str, dict] = self._outputs.copy()
+            output_dict: dict[str, Mapping] = self._outputs.copy()
 
         if output_dict:
             yield WorkflowOutputEvent(output_dict, workflow_id)

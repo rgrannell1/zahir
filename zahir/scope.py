@@ -1,4 +1,4 @@
-from typing import Self
+from typing import Mapping, Self
 from zahir.types import Scope, Job, Dependency
 
 

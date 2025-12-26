@@ -4,7 +4,7 @@ import json
 import sqlite3
 from pathlib import Path
 from threading import Lock
-from typing import Iterator, cast
+from typing import Iterator, Mapping, cast
 from datetime import datetime
 
 from zahir.events import WorkflowOutputEvent
@@ -113,7 +113,7 @@ class SQLiteJobRegistry(JobRegistry):
 
         return job_id
 
-    def set_output(self, job_id: str, output: dict) -> None:
+    def set_output(self, job_id: str, output: Mapping) -> None:
         """Store the output of a completed job.
 
         @param job_id: The ID of the job
@@ -191,7 +191,7 @@ class SQLiteJobRegistry(JobRegistry):
                 )
                 conn.commit()
 
-    def get_output(self, job_id: str) -> dict | None:
+    def get_output(self, job_id: str) -> Mapping | None:
         """Retrieve the output of a completed job.
 
         @param job_id: The ID of the job

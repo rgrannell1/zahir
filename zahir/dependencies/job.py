@@ -1,9 +1,9 @@
 
 from typing import cast
-from typing import Any, Generic, TypeVar, TypedDict
+from typing import Any, Generic, Mapping, TypeVar, TypedDict
 from zahir.types import Context, Dependency, DependencyState, JobRegistry, JobState
 
-OutputType = TypeVar("OutputType", bound=dict)
+OutputType = TypeVar("OutputType", bound=Mapping)
 
 
 class JobDependencyData(TypedDict, total=False):
@@ -63,7 +63,7 @@ class JobDependency(Dependency, Generic[OutputType]):
         }
 
     @classmethod
-    def load(cls, context: Context, data: dict[str, Any]) -> "JobDependency":
+    def load(cls, context: Context, data: Mapping[str, Any]) -> "JobDependency":
         """Load the job dependency from a dictionary."""
 
         job_id = data["job_id"]

@@ -1,5 +1,5 @@
 import re
-from typing import Iterator, TypedDict, cast
+from typing import Iterator, Mapping, TypedDict, cast
 from zahir.context import MemoryContext
 from zahir.dependencies.job import JobDependency
 from zahir.events import JobOutputEvent, WorkflowOutputEvent
@@ -76,7 +76,7 @@ class LongestWordAssembly(Job):
     ) -> Iterator[Job | JobOutputEvent[LongestWordAssemblyOutput] | WorkflowOutputEvent]:
         long_words = set()
 
-        chapters = cast(list[JobDependency[dict]], dependencies.get("chapters"))
+        chapters = cast(list[JobDependency[Mapping]], dependencies.get("chapters"))
 
         for dep in chapters:
             summary = dep.output(context)

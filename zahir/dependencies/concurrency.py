@@ -1,6 +1,6 @@
 from threading import Lock
 from types import TracebackType
-from typing import Any, Self
+from typing import Any, Mapping, Self
 from zahir.types import Dependency, DependencyState
 
 
@@ -39,7 +39,7 @@ class ConcurrencyLimit(Dependency):
                 else DependencyState.UNSATISFIED
             )
 
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         """Save the concurrency limit to a dictionary."""
 
         return {
@@ -51,7 +51,7 @@ class ConcurrencyLimit(Dependency):
         }
 
     @classmethod
-    def load(cls, context, data: dict[str, Any]) -> Self:
+    def load(cls, context, data: Mapping[str, Any]) -> Self:
         """Load the concurrency limit from a dictionary."""
 
         return cls(limit=data["limit"], slots=data["slots"])

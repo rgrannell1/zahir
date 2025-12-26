@@ -55,7 +55,7 @@ class Dependency(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def save(self) -> dict[str, Any]:
+    def save(self) -> Mapping[str, Any]:
         """Serialize the dependency to a dictionary.
 
         @return: The serialized dependency data
@@ -64,7 +64,7 @@ class Dependency(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, context: "Context", data: dict[str, Any]) -> Self:
+    def load(cls, context: "Context", data: Mapping[str, Any]) -> Self:
         raise NotImplementedError
 
 
@@ -116,7 +116,7 @@ class JobInformation:
     # The job's current state
     state: JobState
     # The output of the job, if there is one
-    output: dict[str, Any] | None
+    output: Mapping[str, Any] | None
 
     # When did the job start?
     started_at: datetime | None = None
@@ -150,7 +150,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_output(self, job_id: str, output: dict) -> None:
+    def set_output(self, job_id: str, output: Mapping) -> None:
         """Store the output of a completed job
 
         @param job_id: The ID of the job
@@ -188,7 +188,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_output(self, job_id: str) -> dict | None:
+    def get_output(self, job_id: str) -> Mapping | None:
         """Retrieve the output of a completed job
 
         @param job_id: The ID of the job
@@ -286,10 +286,10 @@ class SerialisedJob(TypedDict):
     parent_id: str | None
 
     # The input parameters to the job. Must be JSON-serialisable
-    input: dict[str, Any]
+    input: Mapping[str, Any]
 
     # The serialised dependencies for the job
-    dependencies: dict[str, Any]
+    dependencies: Mapping[str, Any]
 
     # The serialised options for the job
     options: JobOptionsData | None
