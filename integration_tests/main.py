@@ -34,7 +34,8 @@ class BookProcessor(Job):
 
                 chapter_lines.append(line)
 
-        agg_dependencies = {
+        from zahir.types import Dependency
+        agg_dependencies: dict[str, list[Dependency]] = {
             "chapters": [JobDependency(pid, context.job_registry) for pid in pids]
         }
 
@@ -76,7 +77,8 @@ class LongestWordAssembly(Job):
         for dep in chapter_list:
             if isinstance(dep, JobDependency):
                 summary = dep.output(context)
-                long_words.add(summary["top_shelf_word"])
+                if summary is not None:
+                    long_words.add(summary["top_shelf_word"])
 
         yield WorkflowOutputEvent({"the_list": list(long_words)})
 

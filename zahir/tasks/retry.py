@@ -83,13 +83,13 @@ class RetryTask(Job):
             },
         )
 
-        failure_sensor = JobDependency(
+        failure_sensor: JobDependency = JobDependency(
             task.job_id,
             context.job_registry,
             satisfied_states=input["retry_states"],
             impossible_states=input["impossible_states"],
         )
-        success_sensor = JobDependency(
+        success_sensor: JobDependency = JobDependency(
             task.job_id,
             context.job_registry,
             impossible_states={JobState.COMPLETED},
@@ -147,13 +147,13 @@ def retryable(
     else:
         resolved_retry_opts = retry_opts
 
-    failure_sensor = JobDependency(
+    failure_sensor: JobDependency = JobDependency(
         task.job_id,
         context.job_registry,
         satisfied_states=retry_states,
         impossible_states=impossible_states,
     )
-    success_sensor = JobDependency(
+    success_sensor: JobDependency = JobDependency(
         task.job_id,
         context.job_registry,
         impossible_states={JobState.COMPLETED},

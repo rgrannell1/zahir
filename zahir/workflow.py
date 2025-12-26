@@ -30,7 +30,7 @@ from zahir.types import (
     OutputType,
     JobState,
 )
-from coolname import generate_slug
+from zahir.id_generator import generate_id
 
 
 def recover_workflow(
@@ -294,7 +294,7 @@ class Workflow:
     def _workflow_id(self) -> str:
         """Generate a unique workflow ID using adjective-noun format"""
 
-        return generate_slug(2)
+        return generate_id(2)
 
     def _run(self, context: Context, start: Job | None = None) -> Iterator[ZahirEvent]:
         """Run a workflow from the starting job

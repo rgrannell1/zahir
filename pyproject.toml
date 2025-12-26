@@ -40,6 +40,7 @@ dev = [
     "coverage>=7.2.7",
     "coolname>=2.2.0",
     "ty>=0.0.7",
+    "mypy>=1.8.0",
 ]
 
 [project.optional-dependencies]
