@@ -98,6 +98,7 @@ A few can be used by jobs to communicate with the workflow engine:
 
 - `WorkflowOutputEvent`: yield output from the workflow. Workflows yield a stream of outputs; since many workflows are long-running it's better to yield results as we go
 - `JobOutputEvent`: return output from a job. Treated as a singular return; the task is dropped after this event is yielded.
+- `ZahirCustomEvent`: whatever additional events you'd like to emit
 
 ### Registries - Store workflow state
 
