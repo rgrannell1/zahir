@@ -9,6 +9,7 @@ from zahir.scope import LocalScope
 from zahir.tasks.decorator import job
 from zahir.types import Context, Job
 from zahir.workflow import Workflow
+from zahir.types import Dependency
 
 WORD_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
 
@@ -37,7 +38,6 @@ def BookProcessor(
 
             chapter_lines.append(line)
 
-    from zahir.types import Dependency
 
     agg_dependencies: dict[str, list[Dependency]] = {
         "chapters": [JobDependency(pid, context.job_registry) for pid in pids]
@@ -105,4 +105,3 @@ for event in workflow.run(
     BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
 ):
     print(event.output)
-    breakpoint()

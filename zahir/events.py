@@ -10,8 +10,7 @@ from dataclasses import dataclass
 from typing import  Any, Generic, Mapping, TypeVar
 
 
-OutputType = TypeVar("OutputType", bound=Mapping[str, Any], covariant=True)
-
+OutputType = TypeVar("OutputType", bound=Mapping[str, Any])
 
 class ZahirEvent(ABC):
     """Base class for all Zahir events"""
@@ -59,10 +58,10 @@ class WorkflowCompleteEvent(ZahirEvent):
 class WorkflowOutputEvent(ZahirEvent, Generic[OutputType]):
     """Indicates that the workflow has produced output"""
 
-    output: OutputType  # type: ignore[misc]
+    output: OutputType
     workflow_id: str | None = None
 
-    def __init__(self, output: OutputType, workflow_id: str | None = None) -> None:  # type: ignore[misc]
+    def __init__(self, output: OutputType, workflow_id: str | None = None) -> None:
         self.output = output
         self.workflow_id = workflow_id
 
@@ -73,7 +72,7 @@ class WorkflowOutputEvent(ZahirEvent, Generic[OutputType]):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "WorkflowOutputEvent":  # type: ignore[type-arg]
+    def load(cls, data: Mapping[str, Any]) -> "WorkflowOutputEvent":
         return WorkflowOutputEvent(
             workflow_id=data["workflow_id"],
             output=data["output"],
@@ -204,7 +203,7 @@ class JobOutputEvent(ZahirEvent, Generic[OutputType]):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobOutputEvent":  # type: ignore[type-arg]
+    def load(cls, data: Mapping[str, Any]) -> "JobOutputEvent":
         return JobOutputEvent(
             output=data["output"],
             workflow_id=data["workflow_id"],
