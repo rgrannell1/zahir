@@ -1,4 +1,4 @@
-from typing import Mapping, TypeVar, cast
+from typing import Mapping, TypeVar, cast, overload
 
 from zahir.types import Dependency, DependencyState
 
@@ -23,7 +23,7 @@ class DependencyGroup(Dependency):
             dep_list = dependency if isinstance(dependency, list) else [dependency]
 
             for subdep in dep_list:
-                state = subdep.satisfied()
+                state = subdep.satisfied()  # type: ignore[union-attr]
 
                 if state == DependencyState.UNSATISFIED:
                     return DependencyState.UNSATISFIED
@@ -38,7 +38,7 @@ class DependencyGroup(Dependency):
         dependencies = {}
         for name, deps in self.dependencies.items():
             if isinstance(deps, list):
-                dependencies[name] = [dep.save() for dep in deps]
+                dependencies[name] = [dep.save() for dep in deps]  # type: ignore[union-attr]
             else:
                 dependencies[name] = [deps.save()]
 
@@ -60,7 +60,7 @@ class DependencyGroup(Dependency):
 
         return cls(dependencies)
 
-    def get(self, name: str) -> _DT | list[_DT]:
+    def get(self, name: str) -> Dependency | list[Dependency]:
         """Get a subdependency by name.
 
         @param name: The name of the subdependency

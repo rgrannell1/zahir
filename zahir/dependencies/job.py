@@ -1,5 +1,7 @@
-from typing import Any, TypedDict
+from typing import Any, Generic, TypeVar, TypedDict
 from zahir.types import Context, Dependency, DependencyState, JobRegistry, JobState
+
+OutputType = TypeVar("OutputType", bound=dict)
 
 
 class JobDependencyData(TypedDict, total=False):
@@ -10,7 +12,7 @@ class JobDependencyData(TypedDict, total=False):
     impossible_states: list[str]
 
 
-class JobDependency(Dependency):
+class JobDependency(Dependency, Generic[OutputType]):
     """A dependency on another job's completion."""
 
     job_id: str
@@ -76,7 +78,7 @@ class JobDependency(Dependency):
             impossible_states=impossible_states if impossible_states else None,
         )
 
-    def output(self, context: Context) -> dict | None:
+    def output(self, context: Context) -> OutputType | None:
         """Get the output of the job, if available, from the registry"""
-
-        return context.job_registry.get_output(self.job_id)
+        from typing import cast
+        return cast(OutputType | None, context.job_registry.get_output(self.job_id))

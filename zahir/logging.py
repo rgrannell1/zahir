@@ -1,5 +1,5 @@
 import sys
-from zahir.types import EventRegistry, JobInformation, JobRegistry, JobState
+from zahir.types import Context, EventRegistry, JobInformation, JobRegistry, JobState
 
 
 def clear_screen() -> None:

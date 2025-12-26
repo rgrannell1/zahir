@@ -208,7 +208,7 @@ def test_memory_job_registry_runnable_marks_impossible():
 
     # Create job with impossible dependencies
     job = SimpleJob(input={}, dependencies={})
-    job.ready = Mock(return_value=DependencyState.IMPOSSIBLE)
+    job.ready = Mock(return_value=DependencyState.IMPOSSIBLE)  # type: ignore[method-assign]
     job_id = registry.add(job)
 
     mock_context = Mock()
@@ -226,7 +226,7 @@ def test_memory_job_registry_runnable_skips_unsatisfied():
 
     # Create job with unsatisfied dependencies
     job = SimpleJob(input={}, dependencies={})
-    job.ready = Mock(return_value=DependencyState.UNSATISFIED)
+    job.ready = Mock(return_value=DependencyState.UNSATISFIED)  # type: ignore[method-assign]
     registry.add(job)
 
     mock_context = Mock()

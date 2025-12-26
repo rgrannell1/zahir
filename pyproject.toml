@@ -22,6 +22,7 @@ classifiers = [
 ]
 dependencies = [
     "croniter>=2.0.0",
+    "coolname>=2.2.0",
 ]
 
 [project.urls]
@@ -38,6 +39,7 @@ dev = [
     "pytest-cov>=4.0.0",
     "coverage>=7.2.7",
     "coolname>=2.2.0",
+    "ty>=0.0.7",
 ]
 
 [project.optional-dependencies]

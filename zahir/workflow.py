@@ -27,14 +27,14 @@ from zahir.types import (
     Context,
     Job,
     ArgsType,
-    DependencyType,
+    OutputType,
     JobState,
 )
 from coolname import generate_slug
 
 
 def recover_workflow(
-    current_job: Job[ArgsType, DependencyType],
+    current_job: Job[ArgsType, OutputType],
     job_id: str,
     err: Exception,
     workflow_id: str,

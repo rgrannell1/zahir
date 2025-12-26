@@ -45,7 +45,7 @@ def create_backoff_delay(retry_opts: RetryOptions, retry_count: int) -> TimeDepe
     initial_delay = retry_opts.get("initial_delay", 5)
     backoff_factor = retry_opts.get("backoff_factor", 2)
 
-    # Exponential backoff: delay = initial_delay * (backoff_factor ^ retry_count)
+    # delay = initial_delay * (backoff_factor ^ retry_count)
     delay_seconds = initial_delay * (backoff_factor**retry_count)
 
     now = datetime.now(tz=timezone.utc)
@@ -138,11 +138,14 @@ def retryable(
     """Retry a job if it enters a failure state."""
     yield task
 
-    retry_opts = retry_opts or {
-        "max_retries": 3,
-        "backoff_factor": 2,
-        "initial_delay": 5,
-    }
+    if retry_opts is None:
+        resolved_retry_opts: RetryOptions = {
+            "max_retries": 3,
+            "backoff_factor": 2,
+            "initial_delay": 5,
+        }
+    else:
+        resolved_retry_opts = retry_opts
 
     failure_sensor = JobDependency(
         task.job_id,
@@ -156,21 +159,22 @@ def retryable(
         impossible_states={JobState.COMPLETED},
     )
 
-    delay_sensor = create_backoff_delay(retry_opts, 0)
+    delay_sensor = create_backoff_delay(resolved_retry_opts, 0)
 
     # on failure, yield the retry task. This task will block until a
     # failure state is reached. It should also be programmed to be impossible if other states are reached to
+    retry_input: RetryTaskInput = {
+        "type": type(task).__name__,
+        "input": task.input,
+        "dependencies": task.dependencies,
+        "options": task.options,
+        "retry_options": resolved_retry_opts,
+        "retry_count": 0,
+        "retry_states": retry_states,
+        "impossible_states": impossible_states,
+    }
     yield RetryTask(
-        {
-            "type": type(task).__name__,
-            "input": task.input,
-            "dependencies": task.dependencies,
-            "options": task.options,
-            "retry_options": retry_opts,
-            "retry_count": 0,
-            "retry_states": retry_states,
-            "impossible_states": impossible_states,
-        },
+        retry_input,
         {
             # our dependencies; only run if:
             # * the upstream job fails

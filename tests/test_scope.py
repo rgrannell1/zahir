@@ -15,8 +15,9 @@ class SampleJob(Job):
     @classmethod
     def run(
         cls, context: Context, input: dict, dependencies: DependencyGroup
-    ) -> Iterator[Job | dict]:
-        yield {"result": "test"}
+    ) -> Iterator[Job]:
+        from zahir.events import JobOutputEvent
+        yield JobOutputEvent({"result": "test"})
 
 
 class AnotherSampleJob(Job):
@@ -25,8 +26,9 @@ class AnotherSampleJob(Job):
     @classmethod
     def run(
         cls, context: Context, input: dict, dependencies: DependencyGroup
-    ) -> Iterator[Job | dict]:
-        yield {"result": "another"}
+    ) -> Iterator[Job]:
+        from zahir.events import JobOutputEvent
+        yield JobOutputEvent({"result": "another"})
 
 
 def test_scope_add_and_get_task_class():

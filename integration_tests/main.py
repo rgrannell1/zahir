@@ -1,14 +1,21 @@
 import re
 from typing import Iterator
-from zahir.context import LocalContext
+from zahir.context import MemoryContext
 from zahir.dependencies.job import JobDependency
 from zahir.events import JobOutputEvent, WorkflowOutputEvent
 from zahir.scope import LocalScope
 from zahir.types import Context, Job
 from zahir.workflow import Workflow
 
+WORD_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
+
+def longest_word_sequence(text: str) -> str:
+    from typing import cast
+    return cast(str, max(WORD_RE.findall(text), key=len, default=""))
 
 class BookProcessor(Job):
+    """Top-level job; splits the book into chapters and processes each, then aggregates results."""
+
     @classmethod
     def run(
         cls, context: Context, input, dependencies
@@ -27,21 +34,16 @@ class BookProcessor(Job):
 
                 chapter_lines.append(line)
 
-        job_dependencies = {
+        agg_dependencies = {
             "chapters": [JobDependency(pid, context.job_registry) for pid in pids]
         }
 
-        yield LongestWordAssembly({}, job_dependencies)
-
-
-WORD_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
-
-
-def longest_word_sequence(text: str) -> str:
-    return max(WORD_RE.findall(text), key=len, default="")
-
+        # await the job results, compute the list of longest words in the books
+        yield LongestWordAssembly({}, agg_dependencies)
 
 class ChapterProcessor(Job):
+    """For each chapter, find the longest word."""
+
     @classmethod
     def run(
         cls, context: Context, input, dependencies
@@ -55,10 +57,13 @@ class ChapterProcessor(Job):
                 if len(tidied_word) > len(longest_word):
                     longest_word = tidied_word
 
+        # return the longest word found in the chapter
         yield JobOutputEvent({"top_shelf_word": longest_word})
 
 
 class LongestWordAssembly(Job):
+    """Assemble the longest words from each chapter into a unique list."""
+
     @classmethod
     def run(
         cls, context: Context, input, dependencies
@@ -72,13 +77,16 @@ class LongestWordAssembly(Job):
         yield WorkflowOutputEvent({"the_list": list(long_words)})
 
 
-scope = LocalScope()
-scope.add_job_classes([BookProcessor, ChapterProcessor, LongestWordAssembly])
+scope = LocalScope().add_job_classes([
+    BookProcessor,
+    ChapterProcessor,
+    LongestWordAssembly
+])
 
-workflow = Workflow(context=LocalContext(scope=scope), max_workers=4, stall_time=1)
+workflow = Workflow(context=MemoryContext(scope=scope), max_workers=4, stall_time=1)
 
 for event in workflow.run(
     BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
 ):
     if isinstance(event, WorkflowOutputEvent):
-        ...
+        print(event)

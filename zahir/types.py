@@ -262,7 +262,7 @@ class EventRegistry(ABC):
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 ArgsType = TypeVar("ArgsType", bound=dict)
-DependencyType = TypeVar("DependencyType", bound=Dependency)
+OutputType = TypeVar("OutputType", bound=dict)
 
 
 class JobOptionsData(TypedDict, total=False):
@@ -333,7 +333,7 @@ class JobOptions:
         return options
 
 
-class Job(ABC, Generic[ArgsType, DependencyType]):
+class Job(ABC, Generic[ArgsType, OutputType]):
     """Jobs can depend on other jobs."""
 
     # Optional parent job ID for traceability
@@ -351,7 +351,7 @@ class Job(ABC, Generic[ArgsType, DependencyType]):
     def __init__(
         self,
         input: ArgsType,
-        dependencies: Mapping[str, DependencyType | list[DependencyType]],
+        dependencies: Mapping[str, Dependency | list[Dependency]],
         options: JobOptions | None = None,
         job_id: str | None = None,
         parent_id: str | None = None,
@@ -479,12 +479,12 @@ class Scope(ABC):
     """
 
     @abstractmethod
-    def add_job_class(self, TaskClass: type["Job"]) -> None:
+    def add_job_class(self, TaskClass: type["Job"]) -> Self:
         """Add a job class to the scope."""
         ...
 
     @abstractmethod
-    def add_job_classes(self, TaskClasses: list[type["Job"]]) -> None:
+    def add_job_classes(self, TaskClasses: list[type["Job"]]) -> Self:
         """Add multiple job classes to the scope."""
         ...
 
@@ -494,7 +494,7 @@ class Scope(ABC):
         ...
 
     @abstractmethod
-    def add_dependency_class(self, DependencyClass: type[Dependency]) -> None:
+    def add_dependency_class(self, DependencyClass: type[Dependency]) -> Self:
         """Add a dependency class to the scope."""
         ...
 

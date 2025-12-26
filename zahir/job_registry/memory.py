@@ -11,7 +11,7 @@ from zahir.types import (
     JobRegistry,
     Job,
     ArgsType,
-    DependencyType,
+    OutputType,
     JobState,
     Scope,
     JobInformation,
@@ -47,7 +47,7 @@ class MemoryJobRegistry(JobRegistry):
         # but I don't think we actually use it given we don't need to serialise and deserialise.
         self.scope = scope
 
-    def add(self, job: "Job[ArgsType, DependencyType]") -> str:
+    def add(self, job: "Job[ArgsType, OutputType]") -> str:
         """Register a job with the job registry, returning a job ID
 
         @param job: The job to register
