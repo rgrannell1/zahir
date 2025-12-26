@@ -72,10 +72,9 @@ Dependency implementations must be serialisable to JSON.
 
 ### Events - Communicate how the workflow is going
 
-Zahir communicates changes in workflow state as a stream of events emitted by `workflow.run`. These events include metadata. The list is currently:
+Zahir communicates changes in workflow state as a stream of events emitted by `workflow.run`. These events include metadata. Most are emitted internally by the workflow engine itself:
 
 - `WorkflowCompleteEvent`: workflow complete
-- `WorkflowOutputEvent`
 - `JobRunnableEvent`
 - `JobCompletedEvent`
 - `JobStartedEvent`
