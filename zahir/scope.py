@@ -1,4 +1,4 @@
-from typing import Mapping, Self
+from typing import Self
 from zahir.types import Scope, Job, Dependency
 
 
@@ -6,7 +6,9 @@ class LocalScope(Scope):
     """A local translation layer between dependency / job names and
     their underlying Python classes."""
 
-    def __init__(self, jobs: list[type[Job]] = [], dependencies: list[type[Dependency]] = []) -> None:
+    def __init__(
+        self, jobs: list[type[Job]] = [], dependencies: list[type[Dependency]] = []
+    ) -> None:
         self.jobs: dict[str, type[Job]] = {}
         self.dependencies: dict[str, type[Dependency]] = {}
 

@@ -76,9 +76,7 @@ def recover_workflow(
                 ).total_seconds()
                 context.job_registry.set_state(job_id, JobState.RECOVERED)
                 context.job_registry.set_recovery_duration(job_id, recovery_duration)
-                yield JobRecoveryCompleted(
-                    workflow_id, job_id, recovery_duration
-                )
+                yield JobRecoveryCompleted(workflow_id, job_id, recovery_duration)
             except TimeoutError:
                 context.job_registry.set_state(job_id, JobState.RECOVERY_TIMED_OUT)
                 yield JobRecoveryTimeout(workflow_id, job_id)
@@ -104,7 +102,9 @@ def _run_recovery(
     ):
         if isinstance(item, JobOutputEvent):
             # Output event - store it and stop processing
-            context.job_registry.set_output(current_job.job_id, cast(Mapping, item.output))
+            context.job_registry.set_output(
+                current_job.job_id, cast(Mapping, item.output)
+            )
             item.workflow_id = workflow_id
             item.job_id = current_job.job_id
             yield item
@@ -141,6 +141,7 @@ def execute_single_job(
         if isinstance(item, JobOutputEvent):
             # Store the job output, and stop processing the iterator.
             from typing import cast
+
             context.job_registry.set_output(job_id, cast(Mapping, item.output))
             item.workflow_id = workflow_id
             item.job_id = job_id
@@ -204,9 +205,7 @@ def execute_workflow_batch(
         # First, let's precheck for errors
         precheck_errors = current_job.precheck(current_job.input)
         if precheck_errors:
-            yield JobPrecheckFailedEvent(
-                workflow_id, job_id, precheck_errors
-            )
+            yield JobPrecheckFailedEvent(workflow_id, job_id, precheck_errors)
             context.job_registry.set_state(job_id, JobState.COMPLETED)
             continue
 
@@ -353,7 +352,9 @@ class Workflow(Generic[WorkflowOutputType]):
                     batch_duration, self.stall_time, workflow_id
                 )
 
-    def run(self, start: Job | None = None) -> Iterator[WorkflowOutputEvent[WorkflowOutputType]]:
+    def run(
+        self, start: Job | None = None
+    ) -> Iterator[WorkflowOutputEvent[WorkflowOutputType]]:
         """Run a workflow from the starting job
 
         @param start: The starting job of the workflow

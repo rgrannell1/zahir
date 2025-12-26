@@ -8,7 +8,9 @@ class DependencyGroup(Dependency):
 
     dependencies: Mapping[str, Dependency | list[Dependency]]
 
-    def __init__(self, dependencies: Mapping[str, Dependency | list[Dependency]]) -> None:
+    def __init__(
+        self, dependencies: Mapping[str, Dependency | list[Dependency]]
+    ) -> None:
         self.dependencies = dict(dependencies)
 
     def satisfied(self) -> DependencyState:

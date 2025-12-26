@@ -1,6 +1,5 @@
 """Tests for event serialization and deserialization"""
 
-from unittest.mock import Mock
 from zahir.events import (
     WorkflowCompleteEvent,
     JobRunnableEvent,
@@ -130,9 +129,7 @@ def test_job_irrecoverable_event_roundtrip():
     """Test JobIrrecoverableEvent save/load roundtrip."""
     error = ValueError("Something went wrong")
 
-    event = JobIrrecoverableEvent(
-        workflow_id="wf-ccc", error=error, job_id="job-ddd"
-    )
+    event = JobIrrecoverableEvent(workflow_id="wf-ccc", error=error, job_id="job-ddd")
 
     saved = event.save()
     assert saved["workflow_id"] == "wf-ccc"
