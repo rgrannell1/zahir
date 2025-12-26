@@ -1,3 +1,5 @@
+
+from typing import cast
 from typing import Any, Generic, TypeVar, TypedDict
 from zahir.types import Context, Dependency, DependencyState, JobRegistry, JobState
 
@@ -80,5 +82,4 @@ class JobDependency(Dependency, Generic[OutputType]):
 
     def output(self, context: Context) -> OutputType | None:
         """Get the output of the job, if available, from the registry"""
-        from typing import cast
         return cast(OutputType | None, context.job_registry.get_output(self.job_id))

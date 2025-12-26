@@ -70,9 +70,13 @@ class LongestWordAssembly(Job):
     ) -> Iterator[Job | JobOutputEvent | WorkflowOutputEvent]:
         long_words = set()
 
-        for dep in dependencies.get("chapters"):
-            summary = dep.output(context)
-            long_words.add(summary["top_shelf_word"])
+        chapters = dependencies.get("chapters")
+        chapter_list = chapters if isinstance(chapters, list) else [chapters]
+
+        for dep in chapter_list:
+            if isinstance(dep, JobDependency):
+                summary = dep.output(context)
+                long_words.add(summary["top_shelf_word"])
 
         yield WorkflowOutputEvent({"the_list": list(long_words)})
 

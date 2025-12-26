@@ -1,5 +1,6 @@
 """Tests for LocalScope"""
 
+from zahir.events import JobOutputEvent
 from zahir.scope import LocalScope
 from zahir.types import Job, Context
 from zahir.dependencies.group import DependencyGroup
@@ -15,7 +16,7 @@ class SampleJob(Job):
     @classmethod
     def run(
         cls, context: Context, input: dict, dependencies: DependencyGroup
-    ) -> Iterator[Job]:
+    ) -> Iterator[Job|JobOutputEvent]:
         from zahir.events import JobOutputEvent
         yield JobOutputEvent({"result": "test"})
 
@@ -26,7 +27,7 @@ class AnotherSampleJob(Job):
     @classmethod
     def run(
         cls, context: Context, input: dict, dependencies: DependencyGroup
-    ) -> Iterator[Job]:
+    ) -> Iterator[Job|JobOutputEvent]:
         from zahir.events import JobOutputEvent
         yield JobOutputEvent({"result": "another"})
 

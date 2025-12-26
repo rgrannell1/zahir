@@ -3,7 +3,7 @@
 import time
 from datetime import datetime, timezone
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed, TimeoutError
-from typing import Iterator
+from typing import Iterator, cast
 
 from zahir.events import (
     JobCompletedEvent,
@@ -64,7 +64,7 @@ def recover_workflow(
             try:
                 recovery_start_time = datetime.now(tz=timezone.utc)
                 context.job_registry.set_state(job_id, JobState.RECOVERING)
-                yield JobRecoveryStarted(workflow_id, current_job, job_id)
+                yield JobRecoveryStarted(workflow_id, job_id)
                 # Get recovery events from the future
                 for event in future.result(timeout=recovery_timeout):
                     yield event
@@ -75,15 +75,15 @@ def recover_workflow(
                 context.job_registry.set_state(job_id, JobState.RECOVERED)
                 context.job_registry.set_recovery_duration(job_id, recovery_duration)
                 yield JobRecoveryCompleted(
-                    workflow_id, current_job, job_id, recovery_duration
+                    workflow_id, job_id, recovery_duration
                 )
             except TimeoutError:
                 context.job_registry.set_state(job_id, JobState.RECOVERY_TIMED_OUT)
-                yield JobRecoveryTimeout(workflow_id, current_job, job_id)
+                yield JobRecoveryTimeout(workflow_id, job_id)
     except Exception as recovery_err:
         # Oh dear! Even the recovery failed.
         context.job_registry.set_state(job_id, JobState.IRRECOVERABLE)
-        yield JobIrrecoverableEvent(workflow_id, recovery_err, current_job, job_id)
+        yield JobIrrecoverableEvent(workflow_id, recovery_err, job_id)
 
 
 def _run_recovery(
@@ -102,7 +102,7 @@ def _run_recovery(
     ):
         if isinstance(item, JobOutputEvent):
             # Output event - store it and stop processing
-            context.job_registry.set_output(current_job.job_id, item.output)
+            context.job_registry.set_output(current_job.job_id, cast(dict, item.output))
             item.workflow_id = workflow_id
             item.job_id = current_job.job_id
             yield item
@@ -138,8 +138,8 @@ def execute_single_job(
     ):
         if isinstance(item, JobOutputEvent):
             # Store the job output, and stop processing the iterator.
-
-            context.job_registry.set_output(job_id, item.output)
+            from typing import cast
+            context.job_registry.set_output(job_id, cast(dict, item.output))
             item.workflow_id = workflow_id
             item.job_id = job_id
 
@@ -203,14 +203,14 @@ def execute_workflow_batch(
         precheck_errors = current_job.precheck(current_job.input)
         if precheck_errors:
             yield JobPrecheckFailedEvent(
-                workflow_id, current_job, job_id, precheck_errors
+                workflow_id, job_id, precheck_errors
             )
             context.job_registry.set_state(job_id, JobState.COMPLETED)
             continue
 
         # Yield started event and set state before submitting
         submit_time = datetime.now(tz=timezone.utc)
-        yield JobStartedEvent(workflow_id, current_job, job_id)
+        yield JobStartedEvent(workflow_id, job_id)
         context.job_registry.set_state(job_id, JobState.RUNNING)
         context.job_registry.set_timing(job_id, started_at=submit_time)
 
@@ -238,7 +238,7 @@ def execute_workflow_batch(
                 job_id, completed_at=end_time, duration_seconds=duration
             )
             # State already set to COMPLETED in execute_single_job
-            yield JobCompletedEvent(workflow_id, current_job, job_id, duration)
+            yield JobCompletedEvent(workflow_id, job_id, duration)
         except TimeoutError:
             # Job exceeded its timeout - cancel it and trigger recovery
             future.cancel()
@@ -252,7 +252,7 @@ def execute_workflow_batch(
             context.job_registry.set_timing(
                 job_id, completed_at=completion_time, duration_seconds=elapsed
             )
-            yield JobTimeoutEvent(workflow_id, current_job, job_id, elapsed)
+            yield JobTimeoutEvent(workflow_id, job_id, elapsed)
             yield from recover_workflow(
                 current_job, job_id, timeout_err, workflow_id, context
             )
@@ -318,13 +318,13 @@ class Workflow:
 
                 # Yield information on each job we currently consider runnable.
                 for runnable_job_id, runnable in runnable_jobs:
-                    yield JobRunnableEvent(workflow_id, runnable, runnable_job_id)
+                    yield JobRunnableEvent(workflow_id, runnable_job_id)
 
                 running_jobs = list(self.context.job_registry.running(self.context))
 
                 # Yield information on each job currently running.
                 for running_job_id, running in running_jobs:
-                    yield JobRunningEvent(workflow_id, running, running_job_id)
+                    yield JobRunningEvent(workflow_id, running_job_id)
 
                 # We're finished; record we're done and exit.
                 if not runnable_jobs and not running_jobs:
