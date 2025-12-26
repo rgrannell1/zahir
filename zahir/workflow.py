@@ -28,7 +28,7 @@ from zahir.types import (
     Job,
     ArgsType,
     OutputType,
-    JobState,
+    JobState
 )
 from zahir.utils.id_generator import generate_id
 
@@ -114,8 +114,10 @@ def _run_recovery(
             item.workflow_id = workflow_id
             yield item
         else:
-            # It's a Job - add as recovery job
-            context.job_registry.add(item)
+            # Only add Jobs to the job registry
+            from zahir.types import Job
+            if isinstance(item, Job):
+                context.job_registry.add(item)
 
 
 def execute_single_job(
@@ -153,10 +155,10 @@ def execute_single_job(
             item.workflow_id = workflow_id
             yield item
         else:
-            # The current job yielded a subjob; add it to the registry.
-
-            item.parent_id = current_job.job_id
-            context.job_registry.add(item)
+            # Only add Jobs to the job registry
+            if isinstance(item, Job):
+                item.parent_id = current_job.job_id
+                context.job_registry.add(item)
 
     end_time = datetime.now(tz=timezone.utc)
     timing_info[job_id] = (start_time, end_time)
@@ -365,4 +367,4 @@ class Workflow(Generic[WorkflowOutputType]):
             self.context.logger.render(self.context)
 
             if isinstance(event, WorkflowOutputEvent):
-                yield event  # type: ignore[misc]
+                yield event

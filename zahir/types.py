@@ -20,7 +20,7 @@ from zahir.utils.id_generator import generate_id
 
 if TYPE_CHECKING:
     from zahir.dependencies.group import DependencyGroup
-    from zahir.events import JobOutputEvent, WorkflowOutputEvent
+    from zahir.events import JobOutputEvent, WorkflowOutputEvent, ZahirCustomEvent
     from zahir.logging import ZahirLogger
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -387,7 +387,7 @@ class Job(ABC, Generic[ArgsType, OutputType]):
     @abstractmethod
     def run(
         cls, context: "Context", input: ArgsType, dependencies: "DependencyGroup"
-    ) -> Iterator["Job | JobOutputEvent | WorkflowOutputEvent"]:
+    ) -> Iterator["Job | JobOutputEvent | WorkflowOutputEvent | ZahirCustomEvent"]:
         """Run the job itself. Unhandled exceptions will be caught
         by the workflow executor, and routed to the `recover` method.
 
@@ -409,7 +409,7 @@ class Job(ABC, Generic[ArgsType, OutputType]):
         input: ArgsType,
         dependencies: "DependencyGroup",
         err: Exception,
-    ) -> Iterator["Job | JobOutputEvent | WorkflowOutputEvent"]:
+    ) -> Iterator["Job | JobOutputEvent | WorkflowOutputEvent | ZahirCustomEvent"]:
         """The job failed with an unhandled exception. The job
         can define a particular way of handling the exception.
 

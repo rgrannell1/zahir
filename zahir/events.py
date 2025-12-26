@@ -11,6 +11,7 @@ from typing import  Any, Generic, Mapping, TypeVar
 
 
 OutputType = TypeVar("OutputType", bound=Mapping[str, Any])
+CustomEventOutputType = TypeVar("CustomEventOutputType", bound=Mapping[str, Any])
 
 class ZahirEvent(ABC):
     """Base class for all Zahir events"""
@@ -370,4 +371,28 @@ class JobPrecheckFailedEvent(ZahirEvent):
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
             errors=data["errors"],
+        )
+
+
+# Custom event for user-defined job outputs or signals
+@dataclass
+class ZahirCustomEvent(ZahirEvent, Generic[CustomEventOutputType]):
+    """Custom event for arbitrary job output or signals."""
+    workflow_id: str | None = None
+    job_id: str | None = None
+    output: CustomEventOutputType | None = None
+
+    def save(self) -> Mapping[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "output": self.output,
+        }
+
+    @classmethod
+    def load(cls, data: Mapping[str, Any]) -> "ZahirCustomEvent":
+        return cls(
+            workflow_id=data.get("workflow_id"),
+            job_id=data.get("job_id"),
+            output=data.get("output"),
         )
