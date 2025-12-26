@@ -7,12 +7,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Generic, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Mapping, TypeVar
 
 if TYPE_CHECKING:
     from zahir.types import Job
 
-OutputType = TypeVar("OutputType", bound=dict[str, Any])
+OutputType = TypeVar("OutputType", bound=Mapping[str, Any], covariant=True)
 
 
 

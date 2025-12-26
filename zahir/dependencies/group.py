@@ -1,8 +1,6 @@
-from typing import Mapping, TypeVar, cast, overload
+from typing import Mapping
 
 from zahir.types import Dependency, DependencyState
-
-_DT = TypeVar("_DT", bound=Dependency)
 
 
 class DependencyGroup(Dependency):
@@ -10,11 +8,8 @@ class DependencyGroup(Dependency):
 
     dependencies: dict[str, Dependency | list[Dependency]]
 
-    def __init__(self, dependencies: Mapping[str, _DT | list[_DT]]) -> None:
-        # Cast is safe because _DT is bound to Dependency
-        self.dependencies = cast(
-            dict[str, Dependency | list[Dependency]], dict(dependencies)
-        )
+    def __init__(self, dependencies: Mapping[str, Dependency | list[Dependency]]) -> None:
+        self.dependencies = dict(dependencies)
 
     def satisfied(self) -> DependencyState:
         """Are all subdependencies satisfied?"""

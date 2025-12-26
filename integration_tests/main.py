@@ -1,5 +1,5 @@
 import re
-from typing import Iterator
+from typing import Iterator, TypedDict, cast
 from zahir.context import MemoryContext
 from zahir.dependencies.job import JobDependency
 from zahir.events import JobOutputEvent, WorkflowOutputEvent
@@ -42,13 +42,16 @@ class BookProcessor(Job):
         # await the job results, compute the list of longest words in the books
         yield LongestWordAssembly({}, agg_dependencies)
 
+class ChapterProcessorOutput(TypedDict):
+    top_shelf_word: str
+
 class ChapterProcessor(Job):
     """For each chapter, find the longest word."""
 
     @classmethod
     def run(
         cls, context: Context, input, dependencies
-    ) -> Iterator[Job | JobOutputEvent | WorkflowOutputEvent]:
+    ) -> Iterator[Job | JobOutputEvent[ChapterProcessorOutput] | WorkflowOutputEvent]:
         longest_word = ""
 
         for line in input["lines"]:
@@ -59,8 +62,10 @@ class ChapterProcessor(Job):
                     longest_word = tidied_word
 
         # return the longest word found in the chapter
-        yield JobOutputEvent({"top_shelf_word": longest_word})
+        yield JobOutputEvent(cast(ChapterProcessorOutput, {"top_shelf_word": longest_word}))
 
+class LongestWordAssemblyOutput(TypedDict):
+    the_list: list[str]
 
 class LongestWordAssembly(Job):
     """Assemble the longest words from each chapter into a unique list."""
@@ -68,19 +73,17 @@ class LongestWordAssembly(Job):
     @classmethod
     def run(
         cls, context: Context, input, dependencies
-    ) -> Iterator[Job | JobOutputEvent | WorkflowOutputEvent]:
+    ) -> Iterator[Job | JobOutputEvent[LongestWordAssemblyOutput] | WorkflowOutputEvent]:
         long_words = set()
 
-        chapters = dependencies.get("chapters")
-        chapter_list = chapters if isinstance(chapters, list) else [chapters]
+        chapters = cast(list[JobDependency[dict]], dependencies.get("chapters"))
 
-        for dep in chapter_list:
-            if isinstance(dep, JobDependency):
-                summary = dep.output(context)
-                if summary is not None:
-                    long_words.add(summary["top_shelf_word"])
+        for dep in chapters:
+            summary = dep.output(context)
+            if summary is not None:
+                long_words.add(summary["top_shelf_word"])
 
-        yield WorkflowOutputEvent({"the_list": list(long_words)})
+        yield JobOutputEvent(cast(LongestWordAssemblyOutput, {"the_list": list(long_words)}))
 
 
 scope = LocalScope().add_job_classes([
@@ -94,5 +97,5 @@ workflow = Workflow(context=MemoryContext(scope=scope), max_workers=4, stall_tim
 for event in workflow.run(
     BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
 ):
-    if isinstance(event, WorkflowOutputEvent):
+    if isinstance(event, JobOutputEvent):
         print(event)
