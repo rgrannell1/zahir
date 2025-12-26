@@ -33,6 +33,14 @@ src/
     workflow.py            run the workflows
 ```
 
+## What is Zahir?
+
+Zahir is not a DAG workflow engine or a traditional state-machine workflow engine. It is a dynamically expanding event-driven state-machine where state transitions are defined at runtime by running jobs. It does not statically define a workflow; the workflow unfolds from the starting step's execution.
+
+There's tradeoffs. Static analysis is limited, and occasionally typing is also inexact (specifically when consuming output via a `JobDependency`). On the plus side, the dependency system covers all forms of constraint-based scheduling we could want; waiting for a HTTP resource, bailing if a file is already created, time-based scheduling, concurrency limiting. Steps can schedule jobs conditionally, and workflow consumers can monitor and interact with the workflow via an eventing system.
+
+So Zahir is maximally expressive and extensible, at some cost to analysability.
+
 ## Constructs
 
 ![](./zahir.png)
@@ -91,7 +99,7 @@ A few can be used by jobs to communicate with the workflow engine:
 - `WorkflowOutputEvent`: yield output from the workflow. Workflows yield a stream of outputs; since many workflows are long-running it's better to yield results as we go
 - `JobOutputEvent`: return output from a job. Treated as a singular return; the task is dropped after this event is yielded.
 
-## Registries - Store workflow state
+### Registries - Store workflow state
 
 Workflow orchestrators need to store some operational data.
 
@@ -99,17 +107,27 @@ Workflow orchestrators need to store some operational data.
 
 `EventRegistry` stores the events of a workflow execution.
 
-## Scope - Convert from data to classes
+### Scope - Convert from data to classes
 
 We serialise jobs and dependencies to our registries for storage. We need to translate this data back to the associated Python classes. `Scope` implementations handle this translation. Jobs and Dependencies have to be explicitly registered with a scope for a non-local workflow to run.
 
-## Context - Bundles Zahir internals
+### Context - Bundles Zahir internals
 
 We expose internals like the job-registry and scope to dependencies and jobs as a runtime-only value using a `Context` object. This allows us to implement control-flow operations like retries using Jobs directly. This prevents structural lock-in to the control-flow operators shipped with Zahir.
 
-## Logger - Communicate Job State
+### Logger - Communicate Job State
 
 Workflows run a long time, so we need to communicate how the workflow is proceeding.
+
+## Modelling Workflows
+
+### Scheduling
+
+Zahir does not have a dedicated scheduling feature, since there's many ways to approach scheduling. Jobs run under certain conditions and yield further jobs; jobs are all schedulers of a sort. But for simple time-based scheduling, use a `TimeDependency` to your task to have it run in a certain time-range. Or, construct a `Scheduler` job and attach conditions to each job it yields.
+
+### Idempotency
+
+We often want to run a workflow job to achieve a certain state (e.g create a resource). To ensure we only do this once, construct a dependency that is `impossible` when the resource already exists, and attach it to the creation job. This ensures we'll only attempt to construct the resource once.
 
 ## Development
 
