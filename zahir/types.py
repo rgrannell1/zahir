@@ -450,7 +450,7 @@ class Job(ABC, Generic[ArgsType, OutputType]):
         """
 
         job_type = data["type"]
-        JobClass = context.scope.get_task_class(job_type)
+        JobClass = context.scope.get_job_class(job_type)
 
         job = JobClass(
             input=data["input"],
@@ -489,7 +489,7 @@ class Scope(ABC):
         ...
 
     @abstractmethod
-    def get_task_class(self, type_name: str) -> type["Job"]:
+    def get_job_class(self, type_name: str) -> type["Job"]:
         """Get a job class by its type name."""
         ...
 

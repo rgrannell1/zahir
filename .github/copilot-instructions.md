@@ -2,4 +2,4 @@
 
 - Run tests with `rs test`
 - Lint with `rs lint`
-- Type check with `rs check` (which is ty) and `rs check:mypy`
+- Type check with `rs check && rs check:mypy`

@@ -59,13 +59,13 @@ class WorkflowCompleteEvent(ZahirEvent):
 
 
 @dataclass
-class WorkflowOutputEvent(ZahirEvent):
+class WorkflowOutputEvent(ZahirEvent, Generic[OutputType]):
     """Indicates that the workflow has produced output"""
 
-    output: Mapping[str, Any]
+    output: OutputType  # type: ignore[misc]
     workflow_id: str | None = None
 
-    def __init__(self, output: Mapping[str, Any], workflow_id: str | None = None) -> None:
+    def __init__(self, output: OutputType, workflow_id: str | None = None) -> None:  # type: ignore[misc]
         self.output = output
         self.workflow_id = workflow_id
 
@@ -76,8 +76,8 @@ class WorkflowOutputEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "WorkflowOutputEvent":
-        return cls(
+    def load(cls, data: Mapping[str, Any]) -> "WorkflowOutputEvent":  # type: ignore[type-arg]
+        return WorkflowOutputEvent(
             workflow_id=data["workflow_id"],
             output=data["output"],
         )

@@ -264,7 +264,7 @@ class SQLiteJobRegistry(JobRegistry):
         for job_id, serialised_job in running_list:
             job_data = cast(SerialisedJob, json.loads(serialised_job))
             job_type = job_data["type"]
-            JobClass = context.scope.get_task_class(job_type)
+            JobClass = context.scope.get_job_class(job_type)
             job = JobClass.load(context, job_data)
             yield job_id, job
 
@@ -288,7 +288,7 @@ class SQLiteJobRegistry(JobRegistry):
                     job_data = cast(SerialisedJob, json.loads(serialised_job))
 
                     job_type = job_data["type"]
-                    JobClass = context.scope.get_task_class(job_type)
+                    JobClass = context.scope.get_job_class(job_type)
 
                     job = JobClass.load(context, job_data)
                     status = job.ready()
@@ -375,7 +375,7 @@ class SQLiteJobRegistry(JobRegistry):
             job_data = cast(SerialisedJob, json.loads(serialised_job))
             job_type = job_data["type"]
 
-            JobClass = context.scope.get_task_class(job_type)
+            JobClass = context.scope.get_job_class(job_type)
             job = JobClass.load(context, job_data)
 
             state = JobState(state_str)

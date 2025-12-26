@@ -6,9 +6,12 @@ class LocalScope(Scope):
     """A local translation layer between dependency / job names and
     their underlying Python classes."""
 
-    def __init__(self) -> None:
+    def __init__(self, jobs: list[type[Job]] = [], dependencies: list[type[Dependency]] = []) -> None:
         self.jobs: dict[str, type[Job]] = {}
         self.dependencies: dict[str, type[Dependency]] = {}
+
+        self.add_job_classes(jobs)
+        self.add_dependency_classes(dependencies)
 
     def add_job_class(self, TaskClass: type[Job]) -> Self:
         self.jobs[TaskClass.__name__] = TaskClass
@@ -19,7 +22,7 @@ class LocalScope(Scope):
             self.jobs[TaskClass.__name__] = TaskClass
         return self
 
-    def get_task_class(self, type_name: str) -> type[Job]:
+    def get_job_class(self, type_name: str) -> type[Job]:
         return self.jobs[type_name]
 
     def add_dependency_class(self, DependencyClass: type[Dependency]) -> Self:

@@ -85,19 +85,22 @@ class LongestWordAssembly(Job):
             if summary is not None:
                 long_words.add(summary["top_shelf_word"])
 
-        yield WorkflowOutputEvent(cast(LongestWordAssemblyOutput, {"the_list": list(long_words)}))
+        yield WorkflowOutputEvent(cast(LongestWordAssemblyOutput, {"the_list": sorted(long_words, key=len)}))
 
 
-scope = LocalScope().add_job_classes([
-    BookProcessor,
-    ChapterProcessor,
-    LongestWordAssembly
-]).add_dependency_classes([
-    DependencyGroup,
-    JobDependency
-])
+scope = LocalScope(
+    jobs=[
+        BookProcessor,
+        ChapterProcessor,
+        LongestWordAssembly
+    ],
+    dependencies=[
+        DependencyGroup,
+        JobDependency
+    ]
+)
 
-workflow = Workflow(context=MemoryContext(scope=scope), max_workers=4, stall_time=1)
+workflow: Workflow[LongestWordAssemblyOutput] = Workflow(context=MemoryContext(scope=scope), max_workers=4, stall_time=1)
 
 for event in workflow.run(
     BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})

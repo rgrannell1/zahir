@@ -3,7 +3,7 @@
 import time
 from datetime import datetime, timezone
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed, TimeoutError
-from typing import Iterator, Mapping, cast
+from typing import Any, Generic, Iterator, Mapping, TypeVar, cast
 
 from zahir.events import (
     JobCompletedEvent,
@@ -31,6 +31,8 @@ from zahir.types import (
     JobState,
 )
 from zahir.utils.id_generator import generate_id
+
+WorkflowOutputType = TypeVar("WorkflowOutputType", bound=Mapping[str, Any])
 
 
 def recover_workflow(
@@ -263,7 +265,7 @@ def execute_workflow_batch(
             )
 
 
-class Workflow:
+class Workflow(Generic[WorkflowOutputType]):
     """A workflow execution engine"""
 
     DEFAULT_MAX_WORKERS = 4
@@ -351,7 +353,7 @@ class Workflow:
                     batch_duration, self.stall_time, workflow_id
                 )
 
-    def run(self, start: Job | None = None) -> Iterator[WorkflowOutputEvent]:
+    def run(self, start: Job | None = None) -> Iterator[WorkflowOutputEvent[WorkflowOutputType]]:
         """Run a workflow from the starting job
 
         @param start: The starting job of the workflow
@@ -362,4 +364,4 @@ class Workflow:
             self.context.logger.render(self.context)
 
             if isinstance(event, WorkflowOutputEvent):
-                yield event
+                yield event  # type: ignore[misc]

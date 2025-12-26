@@ -38,7 +38,7 @@ def test_scope_add_and_get_task_class():
 
     scope.add_job_class(SampleJob)
 
-    retrieved = scope.get_task_class("SampleJob")
+    retrieved = scope.get_job_class("SampleJob")
     assert retrieved == SampleJob
     assert retrieved.__name__ == "SampleJob"
 
@@ -50,8 +50,8 @@ def test_scope_add_multiple_task_classes():
     scope.add_job_class(SampleJob)
     scope.add_job_class(AnotherSampleJob)
 
-    assert scope.get_task_class("SampleJob") == SampleJob
-    assert scope.get_task_class("AnotherSampleJob") == AnotherSampleJob
+    assert scope.get_job_class("SampleJob") == SampleJob
+    assert scope.get_job_class("AnotherSampleJob") == AnotherSampleJob
 
 
 def test_scope_get_task_class_raises_on_missing():
@@ -59,7 +59,7 @@ def test_scope_get_task_class_raises_on_missing():
     scope = LocalScope()
 
     try:
-        scope.get_task_class("NonExistentJob")
+        scope.get_job_class("NonExistentJob")
         assert False, "Should have raised KeyError"
     except KeyError:
         pass
@@ -108,7 +108,7 @@ def test_scope_task_and_dependency_classes_separate():
     scope.add_dependency_class(TimeDependency)
 
     # Should be able to retrieve both independently
-    assert scope.get_task_class("SampleJob") == SampleJob
+    assert scope.get_job_class("SampleJob") == SampleJob
     assert scope.get_dependency_class("TimeDependency") == TimeDependency
 
     # Tasks shouldn't be in dependencies and vice versa
@@ -119,7 +119,7 @@ def test_scope_task_and_dependency_classes_separate():
         pass
 
     try:
-        scope.get_task_class("TimeDependency")
+        scope.get_job_class("TimeDependency")
         assert False, "Should have raised KeyError"
     except KeyError:
         pass
@@ -130,11 +130,11 @@ def test_scope_overwrite_task_class():
     scope = LocalScope()
 
     scope.add_job_class(SampleJob)
-    original = scope.get_task_class("SampleJob")
+    original = scope.get_job_class("SampleJob")
 
     # Add again (same class)
     scope.add_job_class(SampleJob)
-    retrieved = scope.get_task_class("SampleJob")
+    retrieved = scope.get_job_class("SampleJob")
 
     assert retrieved == original
     assert retrieved == SampleJob
