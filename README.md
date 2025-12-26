@@ -3,6 +3,8 @@
 
 ![tests](https://github.com/rgrannell1/zahir/actions/workflows/ci.yml/badge.svg)
 
+> Perhaps I shall conclude by wearing away the Zahir simply through thinking of it again and again.
+
 ## Motivation
 
 I'm writing a self-hosted digital library website, and I need a way of coordinating data-processing. My last workflow engine was written in PowerShell, so I'm not using that...
