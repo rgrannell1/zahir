@@ -499,6 +499,11 @@ class Scope(ABC):
         ...
 
     @abstractmethod
+    def add_dependency_classes(self, DependencyClasses: list[type[Dependency]]) -> Self:
+        """Add multiple dependency classes to the scope."""
+        ...
+
+    @abstractmethod
     def get_dependency_class(self, type_name: str) -> type[Dependency]:
         """Get a dependency class by its type name."""
         ...

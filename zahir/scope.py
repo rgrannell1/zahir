@@ -26,5 +26,10 @@ class LocalScope(Scope):
         self.dependencies[DependencyClass.__name__] = DependencyClass
         return self
 
+    def add_dependency_classes(self, DependencyClasses: list[type[Dependency]]) -> Self:
+        for DependencyClass in DependencyClasses:
+            self.dependencies[DependencyClass.__name__] = DependencyClass
+        return self
+
     def get_dependency_class(self, type_name: str) -> type[Dependency]:
         return self.dependencies[type_name]

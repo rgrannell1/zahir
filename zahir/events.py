@@ -62,24 +62,24 @@ class WorkflowCompleteEvent(ZahirEvent):
 class WorkflowOutputEvent(ZahirEvent):
     """Indicates that the workflow has produced output"""
 
-    outputs: Mapping[str, Any]
+    output: Mapping[str, Any]
     workflow_id: str | None = None
 
-    def __init__(self, outputs: Mapping[str, Any], workflow_id: str | None = None) -> None:
-        self.outputs = outputs
+    def __init__(self, output: Mapping[str, Any], workflow_id: str | None = None) -> None:
+        self.output = output
         self.workflow_id = workflow_id
 
     def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
-            "outputs": self.outputs,
+            "output": self.output,
         }
 
     @classmethod
     def load(cls, data: Mapping[str, Any]) -> "WorkflowOutputEvent":
         return cls(
             workflow_id=data["workflow_id"],
-            outputs=data["outputs"],
+            output=data["output"],
         )
 
 

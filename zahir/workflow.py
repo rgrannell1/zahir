@@ -351,7 +351,7 @@ class Workflow:
                     batch_duration, self.stall_time, workflow_id
                 )
 
-    def run(self, start: Job | None = None) -> Iterator[ZahirEvent]:
+    def run(self, start: Job | None = None) -> Iterator[WorkflowOutputEvent]:
         """Run a workflow from the starting job
 
         @param start: The starting job of the workflow
@@ -360,4 +360,6 @@ class Workflow:
         for event in self._run(self.context, start):
             self.context.event_registry.register(event)
             self.context.logger.render(self.context)
-            yield event
+
+            if isinstance(event, WorkflowOutputEvent):
+                yield event

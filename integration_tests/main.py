@@ -1,6 +1,8 @@
 import re
+
 from typing import Iterator, Mapping, TypedDict, cast
 from zahir.context import MemoryContext
+from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
 from zahir.events import JobOutputEvent, WorkflowOutputEvent
 from zahir.scope import LocalScope
@@ -83,13 +85,16 @@ class LongestWordAssembly(Job):
             if summary is not None:
                 long_words.add(summary["top_shelf_word"])
 
-        yield JobOutputEvent(cast(LongestWordAssemblyOutput, {"the_list": list(long_words)}))
+        yield WorkflowOutputEvent(cast(LongestWordAssemblyOutput, {"the_list": list(long_words)}))
 
 
 scope = LocalScope().add_job_classes([
     BookProcessor,
     ChapterProcessor,
     LongestWordAssembly
+]).add_dependency_classes([
+    DependencyGroup,
+    JobDependency
 ])
 
 workflow = Workflow(context=MemoryContext(scope=scope), max_workers=4, stall_time=1)
@@ -97,5 +102,5 @@ workflow = Workflow(context=MemoryContext(scope=scope), max_workers=4, stall_tim
 for event in workflow.run(
     BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
 ):
-    if isinstance(event, JobOutputEvent):
-        print(event)
+    print(event.output)
+    breakpoint()
