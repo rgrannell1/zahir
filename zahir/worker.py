@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 import time
 import multiprocessing
 from typing import Iterator, cast
-from zahir.base_types import Job, JobState, Scope, SerialisedJob
+from zahir.base_types import Context, Job, JobState, Scope, SerialisedJob
 from zahir.context.memory import MemoryContext
 from zahir.events import (
     JobCompletedEvent,
@@ -31,9 +31,6 @@ from concurrent.futures import (
     ThreadPoolExecutor,
     TimeoutError as FutureTimeoutError,
 )
-
-RUN_TIMEOUT_S = 30
-RECOVER_TIMEOUT_S = 10
 
 
 def handle_job_output(
@@ -92,7 +89,7 @@ def drain(gen, *, output_queue, workflow_id, job_id):
 def execute_job(
     job_id: str,
     job: Job,
-    context: "Context",
+    context: Context,
     workflow_id: str,
     output_queue: OutputQueue,
 ) -> None:
@@ -234,7 +231,7 @@ def zahir_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) -> N
         )
 
 
-def load_job(context: "Context", event: JobEvent) -> Job:
+def load_job(context: Context, event: JobEvent) -> Job:
     return Job.load(context, event.job)
 
 type JobStateEvent = (
@@ -278,30 +275,26 @@ def handle_supervisor_event(
 
 
 def zahir_worker_pool(
-    scope, worker_count: int = 4
+    context, worker_count: int = 4
 ) -> Iterator[WorkflowOutputEvent | JobOutputEvent | ZahirCustomEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 
     output_queue: OutputQueue = multiprocessing.Queue()
 
-    # bad, dependency injection
-    job_registry = SQLiteJobRegistry("jobs.db")
-    context = MemoryContext(scope=scope, job_registry=job_registry)
-
     workflow_id = generate_id(3)
 
     processes = []
     for _ in range(worker_count):
         process = multiprocessing.Process(
-            target=zahir_worker, args=(scope, output_queue, workflow_id)
+            target=zahir_worker, args=(context.scope, output_queue, workflow_id)
         )
         process.start()
         processes.append(process)
     try:
         while True:
             event = output_queue.get()
-            handle_supervisor_event(event, context, job_registry)
+            handle_supervisor_event(event, context, context.job_registry)
             yield event
     except KeyboardInterrupt:
         for process in processes:

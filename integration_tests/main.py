@@ -104,10 +104,12 @@ scope = LocalScope(
 # ):
 #    print(event.output)
 
-db = SQLiteJobRegistry("jobs.db")
-db.add(
+job_registry = SQLiteJobRegistry("jobs.db")
+job_registry.add(
     BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
 )
 
-for event in zahir_worker_pool(scope, worker_count=4):
+context = MemoryContext(scope=scope, job_registry=job_registry)
+
+for event in zahir_worker_pool(context, worker_count=4):
     print(event)
