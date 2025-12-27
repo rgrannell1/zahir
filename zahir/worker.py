@@ -221,7 +221,6 @@ def zahir_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) -> N
             time.sleep(1)
             continue
 
-        submit_time = datetime.now(tz=timezone.utc)
         execute_job(
             job.job_id,
             job,
@@ -234,6 +233,7 @@ def zahir_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) -> N
 def load_job(context: Context, event: JobEvent) -> Job:
     return Job.load(context, event.job)
 
+# Job-state events (TODO, via inheritance)
 type JobStateEvent = (
   JobStartedEvent |
   JobPrecheckFailedEvent |
@@ -244,6 +244,7 @@ type JobStateEvent = (
 )
 
 EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
+    # What jobstate does each event correspond to?
     JobStartedEvent: JobState.RUNNING,
     JobPrecheckFailedEvent: JobState.PRECHECK_FAILED,
     JobTimeoutEvent: JobState.TIMED_OUT,

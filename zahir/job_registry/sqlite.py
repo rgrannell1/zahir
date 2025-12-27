@@ -153,6 +153,7 @@ class SQLiteJobRegistry(JobRegistry):
         completed_at: datetime | None = None,
         duration_seconds: float | None = None,
     ) -> None:
+        # TODO deprecate
         updates: list[str] = []
         params: list[object] = []
 
@@ -180,6 +181,8 @@ class SQLiteJobRegistry(JobRegistry):
             conn.commit()
 
     def set_recovery_duration(self, job_id: str, duration_seconds: float) -> None:
+        # TODO deprecate
+
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
             conn.execute(
@@ -199,7 +202,7 @@ class SQLiteJobRegistry(JobRegistry):
             return None
         return json.loads(row[0])
 
-    def outputs(self, workflow_id: str) -> Iterator["WorkflowOutputEvent"]:
+    def workflow_outputs(self, workflow_id: str) -> Iterator["WorkflowOutputEvent"]:
         output_dict: dict[str, dict] = {}
         with self._connect() as conn:
             rows = conn.execute("SELECT job_id, output FROM job_outputs").fetchall()
@@ -211,6 +214,7 @@ class SQLiteJobRegistry(JobRegistry):
             yield WorkflowOutputEvent(output_dict, workflow_id)
 
     def pending(self) -> bool:
+        # TODO deprecate
         with self._connect() as conn:
             (count,) = conn.execute(
                 "SELECT COUNT(*) FROM jobs WHERE state = ?",
@@ -219,6 +223,8 @@ class SQLiteJobRegistry(JobRegistry):
         return count > 0
 
     def running(self, context: Context) -> Iterator[tuple[str, Job]]:
+        # TODO deprecate
+
         with self._connect() as conn:
             running_list = conn.execute(
                 "SELECT job_id, serialised_job FROM jobs WHERE state IN (?, ?)",

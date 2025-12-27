@@ -247,7 +247,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def outputs(self, workflow_id: str) -> Iterator["WorkflowOutputEvent"]:
+    def workflow_outputs(self, workflow_id: str) -> Iterator["WorkflowOutputEvent"]:
         """Get workflow output event containing all job outputs.
 
         @param workflow_id: The ID of the workflow
