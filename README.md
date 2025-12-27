@@ -100,23 +100,15 @@ A few can be used by jobs to communicate with the workflow engine:
 
 ### Registries - Store workflow state
 
-Workflow orchestrators need to store some operational data.
-
-`JobRegistry` keeps track of which jobs exist, their outputs, and what state they are in.
-
-`EventRegistry` stores the events of a workflow execution.
+Workflow orchestrators need to store some operational data. The job-registry keeps track of which jobs exist, their outputs, what state they are in, and how long they ran for.
 
 ### Scope - Convert from data to classes
 
 We serialise jobs and dependencies to our registries for storage. We need to translate this data back to the associated Python classes. `Scope` implementations handle this translation. Jobs and Dependencies have to be explicitly registered with a scope for a non-local workflow to run.
 
-### Context - Bundles Zahir internals
-
-We expose internals like the job-registry and scope to dependencies and jobs as a runtime-only value using a `Context` object. This allows us to implement control-flow operations like retries using Jobs directly. This prevents structural lock-in to the control-flow operators shipped with Zahir.
-
 ### Logger - Communicate Job State
 
-Workflows run a long time, so we need to communicate how the workflow is proceeding.
+Workflows run a long time, so we need to communicate how the workflow is proceeding. The logger can process events and display them in a TUI.
 
 ## Modelling Workflows
 
@@ -127,6 +119,14 @@ Zahir does not have a dedicated scheduling feature, since there's many ways to a
 ### Idempotency
 
 We often want to run a workflow job to achieve a certain state (e.g create a resource). To ensure we only do this once, construct a dependency that is `impossible` when the resource already exists, and attach it to the creation job. This ensures we'll only attempt to construct the resource once.
+
+## Execution
+
+![](./engine.png)
+
+Zahir is a multi-process workflow engine that shares workflow state through cross-process event-queues.
+
+The overseer constructs worker processes, which poll the job-registry for any jobs ready to run. After claiming the job, the worker streams events describing the job state, its outputs, timeouts, and any futher jobs to be run to the overseer. The overseer updates the job-registry in turn with this information, and relays events on to the logger and whichever function invoked the workflow.
 
 ## Development
 
