@@ -134,7 +134,7 @@ Pending → Ready → Claimed → Running → Complete
 
 ![](./job-lifecycle.png)
 
-
+The workflow engine itself doesn't care much about workflow states; it will continue to run what it can. Jobs can however introspect on their dependency jobs states and react accordingly; maybe continue as is, report different output, or declare the job impossible.
 
 ## Development
 
