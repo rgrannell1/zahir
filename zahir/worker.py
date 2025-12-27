@@ -10,11 +10,14 @@ from zahir.events import (
     JobCompletedEvent,
     JobEvent,
     JobOutputEvent,
+    JobPrecheckFailedEvent,
+    JobRecoveryStarted,
     JobRecoveryTimeout,
     JobStartedEvent,
     JobTimeoutEvent,
     WorkflowOutputEvent,
     ZahirCustomEvent,
+    JobIrrecoverableEvent,
     ZahirEvent,
 )
 from zahir.job_registry.sqlite import SQLiteJobRegistry
@@ -38,23 +41,28 @@ def handle_job_output(
 ) -> None:
     """Sent job output items to the output queue."""
 
-    if isinstance(item, JobOutputEvent):
-        # this job is done & has an output
-
+    if isinstance(
+        item,
+        (
+            JobOutputEvent,
+            WorkflowOutputEvent,
+            JobCompletedEvent,
+            JobOutputEvent,
+            JobPrecheckFailedEvent,
+            JobRecoveryStarted,
+            JobRecoveryTimeout,
+            JobStartedEvent,
+            JobTimeoutEvent,
+            WorkflowOutputEvent,
+            ZahirCustomEvent,
+            JobIrrecoverableEvent
+        ),
+    ):
         item.workflow_id = workflow_id
         item.job_id = job_id
-        output_queue.put(item)
-    elif isinstance(item, WorkflowOutputEvent):
-        # yield the workflow output upstream
 
-        item.workflow_id = workflow_id
         output_queue.put(item)
-    elif isinstance(item, ZahirCustomEvent):
-        # something custom, yield upstream
 
-        item.workflow_id = workflow_id
-        item.job_id = job_id
-        output_queue.put(item)
     elif isinstance(item, Job):
         # new subjob, yield as a serialised event upstream
 
@@ -64,10 +72,21 @@ def handle_job_output(
             )
         )
 
+    if isinstance(item, JobOutputEvent):
+        # ensure jobs with output also count as completed
+        output_queue.put(
+            JobCompletedEvent(
+                workflow_id=workflow_id,
+                job_id=job_id,
+                duration_seconds=0.0,  # TODO
+            )
+        )
+
 
 def drain(gen, *, output_queue, workflow_id, job_id):
     for item in gen:
         handle_job_output(item, output_queue, workflow_id, job_id)
+
 
 
 def execute_job(
@@ -83,11 +102,24 @@ def execute_job(
     job_timeout = options.job_timeout if options else None
     recover_timeout = options.recover_timeout if options else None
 
-    try:
-        # Started!
-        output_queue.put(JobStartedEvent(workflow_id, job_id))
+    # Started!
+    output_queue.put(JobStartedEvent(workflow_id, job_id))
+    start_time = datetime.now(tz=timezone.utc)
 
-        start_time = datetime.now(tz=timezone.utc)
+    try:
+        # First, let's precheck the job
+
+        errors = type(job).precheck(job.input)
+        if errors:
+            # Precheck failed; report and exit
+            output_queue.put(
+                JobPrecheckFailedEvent(
+                    workflow_id=workflow_id,
+                    job_id=job_id,
+                    errors=errors,
+                )
+            )
+            return
 
         with ThreadPoolExecutor(max_workers=1) as ex:
             try:
@@ -107,6 +139,58 @@ def execute_job(
                     )
                 )
                 raise
+            output_queue.put(
+                JobCompletedEvent(
+                    workflow_id=workflow_id,
+                    job_id=job_id,
+                    duration_seconds=(datetime.now(tz=timezone.utc) - start_time).total_seconds(),
+                ))
+
+    except Exception as err:
+        # hope springs eternal!
+        # let's try recover
+        output_queue.put(
+            JobRecoveryStarted(
+                workflow_id=workflow_id,
+                job_id=job_id,
+            )
+        )
+
+        with ThreadPoolExecutor(max_workers=1) as ex:
+            try:
+                ex.submit(
+                    drain,
+                    type(job).recover(context, job.input, job.dependencies, err),
+                    output_queue=output_queue,
+                    workflow_id=workflow_id,
+                    job_id=job_id,
+                ).result(timeout=recover_timeout)
+            except FutureTimeoutError as timeout_err:
+                # Recovery timed out; raise the error!
+                output_queue.put(
+                    JobRecoveryTimeout(
+                        workflow_id=workflow_id,
+                        job_id=job_id,
+                        duration_seconds=cast(float, recover_timeout),
+                    )
+                )
+                # Irrecoverable failure
+                output_queue.put(
+                    JobIrrecoverableEvent(
+                        workflow_id=workflow_id,
+                        job_id=job_id,
+                        error=timeout_err,
+                    )
+                )
+            except Exception as recovery_err:
+                # Irrecoverable failure
+                output_queue.put(
+                    JobIrrecoverableEvent(
+                        workflow_id=workflow_id,
+                        job_id=job_id,
+                        error=recovery_err,
+                    )
+                )
 
         end_time = datetime.now(tz=timezone.utc)
 
@@ -118,28 +202,6 @@ def execute_job(
                 duration_seconds=(end_time - start_time).total_seconds(),
             )
         )
-
-    except Exception as err:
-        with ThreadPoolExecutor(max_workers=1) as ex:
-            # let's try recover
-            try:
-                ex.submit(
-                    drain,
-                    type(job).recover(context, job.input, job.dependencies, err),
-                    output_queue=output_queue,
-                    workflow_id=workflow_id,
-                    job_id=job_id,
-                ).result(timeout=recover_timeout)
-            except FutureTimeoutError:
-              # Recovery timed out; raise the error!
-              output_queue.put(
-                  JobRecoveryTimeout(
-                      workflow_id=workflow_id,
-                      job_id=job_id,
-                      duration_seconds=cast(float, recover_timeout),
-                  )
-              )
-              raise
 
 
 def zahir_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) -> None:
@@ -183,9 +245,26 @@ def handle_supervisor_event(
 
     if isinstance(event, JobStartedEvent):
         job_registry.set_state(event.job_id, JobState.RUNNING)
+
+    elif isinstance(event, JobPrecheckFailedEvent):
+        job_registry.set_state(event.job_id, JobState.PRECHECK_FAILED)
+
+    elif isinstance(event, JobTimeoutEvent):
+        job_registry.set_state(event.job_id, JobState.TIMED_OUT)
+
+    elif isinstance(event, JobRecoveryTimeout):
+        job_registry.set_state(event.job_id, JobState.RECOVERY_TIMED_OUT)
+
+    elif isinstance(event, JobIrrecoverableEvent):
+        job_registry.set_state(event.job_id, JobState.IRRECOVERABLE)
+
+    elif isinstance(event, JobCompletedEvent):
+        job_registry.set_state(event.job_id, JobState.COMPLETED)
+
     elif isinstance(event, JobEvent):
         # register the new job
         job_registry.add(load_job(context, event))
+
     elif isinstance(event, JobOutputEvent):
         # store the job output
         job_registry.set_output(cast(str, event.job_id), event.output)

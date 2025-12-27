@@ -14,8 +14,6 @@ from zahir.events import (
     JobStartedEvent,
     JobTimeoutEvent,
     WorkflowOutputEvent,
-    WorkflowStallStartEvent,
-    WorkflowStallEndEvent,
     ZahirEvent,
 )
 from zahir.base_types import Context, Job, JobState

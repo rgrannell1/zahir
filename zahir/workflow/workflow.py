@@ -5,8 +5,6 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Generic, Iterator, Mapping, TypeVar
 
 from zahir.events import (
-    JobRunnableEvent,
-    JobRunningEvent,
     WorkflowCompleteEvent,
     WorkflowOutputEvent,
     ZahirCustomEvent,

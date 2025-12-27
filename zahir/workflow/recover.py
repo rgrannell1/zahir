@@ -7,7 +7,6 @@ from typing import Any, Iterator, Mapping, TypeVar, cast
 from zahir.events import (
     JobIrrecoverableEvent,
     JobOutputEvent,
-    JobRecoveryCompleted,
     JobRecoveryStarted,
     JobRecoveryTimeout,
     WorkflowOutputEvent,

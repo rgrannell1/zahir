@@ -82,6 +82,8 @@ class JobState(str, Enum):
     # Still to be run
     PENDING = "pending"
 
+    PRECHECK_FAILED = "precheck_failed"
+
     # Currently running
     RUNNING = "running"
 

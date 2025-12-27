@@ -62,15 +62,23 @@ class WorkflowOutputEvent(ZahirEvent, Generic[OutputType]):
 
     output: OutputType
     workflow_id: str | None = None
+    job_id: str | None = None
 
-    def __init__(self, output: OutputType, workflow_id: str | None = None) -> None:
+    def __init__(
+        self,
+        output: OutputType,
+        workflow_id: str | None = None,
+        job_id: str | None = None,
+    ) -> None:
         self.output = output
         self.workflow_id = workflow_id
+        self.job_id = job_id
 
     def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "output": self.output,
+            "job_id": self.job_id,
         }
 
     @classmethod
@@ -78,89 +86,6 @@ class WorkflowOutputEvent(ZahirEvent, Generic[OutputType]):
         return WorkflowOutputEvent(
             workflow_id=data["workflow_id"],
             output=data["output"],
-        )
-
-
-@dataclass
-class WorkflowStallStartEvent(ZahirEvent):
-    """Indicates that the workflow is starting a stall period"""
-
-    workflow_id: str
-    stall_duration_seconds: float
-
-    def save(self) -> Mapping[str, Any]:
-        return {
-            "workflow_id": self.workflow_id,
-            "stall_duration_seconds": self.stall_duration_seconds,
-        }
-
-    @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "WorkflowStallStartEvent":
-        return cls(
-            workflow_id=data["workflow_id"],
-            stall_duration_seconds=data["stall_duration_seconds"],
-        )
-
-
-@dataclass
-class WorkflowStallEndEvent(ZahirEvent):
-    """Indicates that the workflow has finished a stall period"""
-
-    workflow_id: str
-    stall_duration_seconds: float
-
-    def save(self) -> Mapping[str, Any]:
-        return {
-            "workflow_id": self.workflow_id,
-            "stall_duration_seconds": self.stall_duration_seconds,
-        }
-
-    @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "WorkflowStallEndEvent":
-        return cls(
-            workflow_id=data["workflow_id"],
-            stall_duration_seconds=data["stall_duration_seconds"],
-        )
-
-
-@dataclass
-class JobRunnableEvent(ZahirEvent):
-    """Indicates that a job is runnable"""
-
-    workflow_id: str
-    job_id: str
-
-    def save(self) -> Mapping[str, Any]:
-        return {
-            "workflow_id": self.workflow_id,
-            "job_id": self.job_id,
-        }
-
-    @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobRunnableEvent":
-        return cls(
-            workflow_id=data["workflow_id"],
-            job_id=data["job_id"],
-        )
-
-
-@dataclass
-class JobRunningEvent(ZahirEvent):
-    """Indicates that a job is currently running"""
-
-    workflow_id: str
-    job_id: str
-
-    def save(self) -> Mapping[str, Any]:
-        return {
-            "workflow_id": self.workflow_id,
-            "job_id": self.job_id,
-        }
-
-    @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobRunningEvent":
-        return cls(
-            workflow_id=data["workflow_id"],
             job_id=data["job_id"],
         )
 
@@ -276,30 +201,6 @@ class JobRecoveryStarted(ZahirEvent):
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
-        )
-
-
-@dataclass
-class JobRecoveryCompleted(ZahirEvent):
-    """Indicates that a job recovery has completed"""
-
-    workflow_id: str
-    job_id: str
-    duration_seconds: float
-
-    def save(self) -> Mapping[str, Any]:
-        return {
-            "workflow_id": self.workflow_id,
-            "job_id": self.job_id,
-            "duration_seconds": self.duration_seconds,
-        }
-
-    @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobRecoveryCompleted":
-        return cls(
-            workflow_id=data["workflow_id"],
-            job_id=data["job_id"],
-            duration_seconds=data["duration_seconds"],
         )
 
 
