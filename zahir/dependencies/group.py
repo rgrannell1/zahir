@@ -55,6 +55,8 @@ class DependencyGroup(Dependency):
                     DepClass = context.scope.get_dependency_class(dep_data['type'])
 
                     deplist.append(DepClass.load(context, dep_data))
+
+                dependencies[name] = deplist
             else:
                 DepClass = context.scope.get_dependency_class(deps['type'])
                 dependencies[name] = DepClass.load(context, deps)

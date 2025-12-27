@@ -113,7 +113,7 @@ def zahir_worker_pool(scope, worker_count: int = 4) -> Iterator[WorkflowOutputEv
     context = MemoryContext(scope=scope)
     job_registry = SQLiteJobRegistry("jobs.db")
 
-    workflow_id = generate_id(2)
+    workflow_id = generate_id(3)
 
     processes = []
     for _ in range(worker_count):

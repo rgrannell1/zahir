@@ -386,7 +386,7 @@ class Job(ABC, Generic[ArgsType, OutputType]):
         from zahir.dependencies.group import DependencyGroup
 
         self.parent_id = parent_id
-        self.job_id = job_id if job_id is not None else generate_id(2)
+        self.job_id = job_id if job_id is not None else generate_id(3)
         self.input = input
         self.dependencies = DependencyGroup(dependencies) if isinstance(dependencies, dict) else dependencies
         self.options = options

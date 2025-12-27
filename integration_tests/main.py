@@ -4,7 +4,7 @@ from typing import Iterator, Mapping, TypedDict, cast
 from zahir.context import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
-from zahir.events import JobOutputEvent, WorkflowOutputEvent
+from zahir.events import JobEvent, JobOutputEvent, WorkflowOutputEvent
 from zahir.scope import LocalScope
 from zahir.tasks.decorator import job
 from zahir.base_types import Context, Job
@@ -113,5 +113,4 @@ db = SQLiteJobRegistry("jobs.db")
 db.add(BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {}))
 
 for event in zahir_worker_pool(scope, worker_count=4):
-    #print(event)
-    ...
+    print(event)
