@@ -47,7 +47,7 @@ def execute_single_job(
         if isinstance(item, JobOutputEvent):
             # Store the job output, and stop processing the iterator.
 
-            #context.job_registry.set_output(job_id, cast(Mapping, item.output))
+            # context.job_registry.set_output(job_id, cast(Mapping, item.output))
             item.workflow_id = workflow_id
             item.job_id = job_id
 

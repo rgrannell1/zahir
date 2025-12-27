@@ -52,13 +52,13 @@ class DependencyGroup(Dependency):
                 deplist: list[Dependency] = []
 
                 for dep_data in deps:
-                    DepClass = context.scope.get_dependency_class(dep_data['type'])
+                    DepClass = context.scope.get_dependency_class(dep_data["type"])
 
                     deplist.append(DepClass.load(context, dep_data))
 
                 dependencies[name] = deplist
             else:
-                DepClass = context.scope.get_dependency_class(deps['type'])
+                DepClass = context.scope.get_dependency_class(deps["type"])
                 dependencies[name] = DepClass.load(context, deps)
 
         return cls(dependencies)

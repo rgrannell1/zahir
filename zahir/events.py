@@ -309,11 +309,13 @@ class JobRecoveryTimeout(ZahirEvent):
 
     workflow_id: str
     job_id: str
+    duration_seconds: float
 
     def save(self) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
+            "duration_seconds": self.duration_seconds,
         }
 
     @classmethod
@@ -321,6 +323,7 @@ class JobRecoveryTimeout(ZahirEvent):
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
+            duration_seconds=data["duration_seconds"],
         )
 
 

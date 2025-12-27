@@ -27,7 +27,9 @@ class SQLiteJobRegistry(JobRegistry):
         conn = sqlite3.connect(self.db_path, timeout=30)
         # Consistent behavior per connection
         conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA synchronous=NORMAL;")  # use FULL if you want max durability
+        conn.execute(
+            "PRAGMA synchronous=NORMAL;"
+        )  # use FULL if you want max durability
         conn.execute("PRAGMA foreign_keys=ON;")
         conn.execute("PRAGMA busy_timeout=5000;")
         return conn
@@ -78,7 +80,11 @@ class SQLiteJobRegistry(JobRegistry):
                 AND state = ?
                 RETURNING job_id, serialised_job
                 """,
-                (JobState.CLAIMED.value, JobState.PENDING.value, JobState.PENDING.value),
+                (
+                    JobState.CLAIMED.value,
+                    JobState.PENDING.value,
+                    JobState.PENDING.value,
+                ),
             ).fetchone()
             conn.commit()
 
@@ -286,8 +292,12 @@ class SQLiteJobRegistry(JobRegistry):
 
             state = JobState(state_str)
             output = json.loads(output_str) if output_str else None
-            started_at = datetime.fromisoformat(started_at_str) if started_at_str else None
-            completed_at = datetime.fromisoformat(completed_at_str) if completed_at_str else None
+            started_at = (
+                datetime.fromisoformat(started_at_str) if started_at_str else None
+            )
+            completed_at = (
+                datetime.fromisoformat(completed_at_str) if completed_at_str else None
+            )
 
             yield JobInformation(
                 job_id=job_id,
