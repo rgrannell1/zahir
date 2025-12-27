@@ -2,7 +2,7 @@ from collections.abc import Callable
 import inspect
 from typing import Any, get_type_hints
 
-from zahir.types import Job
+from zahir.base_types import Job
 
 
 def job(fn: Callable[..., Any]):

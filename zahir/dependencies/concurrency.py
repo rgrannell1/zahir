@@ -1,7 +1,7 @@
 from threading import Lock
 from types import TracebackType
 from typing import Any, Mapping, Self
-from zahir.types import Dependency, DependencyState
+from zahir.base_types import Dependency, DependencyState
 
 
 class ConcurrencyLimit(Dependency):

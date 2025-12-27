@@ -8,6 +8,7 @@ from typing import Any, Iterator, Mapping, TypeVar
 
 from zahir.events import (
     JobCompletedEvent,
+    JobEvent,
     JobOutputEvent,
     JobPrecheckFailedEvent,
     JobStartedEvent,
@@ -17,7 +18,7 @@ from zahir.events import (
     WorkflowStallEndEvent,
     ZahirEvent,
 )
-from zahir.types import Context, Job, JobState
+from zahir.base_types import Context, Job, JobState
 from zahir.workflow.recover import recover_workflow
 
 WorkflowOutputType = TypeVar("WorkflowOutputType", bound=Mapping[str, Any])
@@ -46,7 +47,7 @@ def execute_single_job(
         if isinstance(item, JobOutputEvent):
             # Store the job output, and stop processing the iterator.
 
-            context.job_registry.set_output(job_id, cast(Mapping, item.output))
+            #context.job_registry.set_output(job_id, cast(Mapping, item.output))
             item.workflow_id = workflow_id
             item.job_id = job_id
 
@@ -56,11 +57,10 @@ def execute_single_job(
             # Yield workflow output event directly
             item.workflow_id = workflow_id
             yield item
-        else:
-            # Only add Jobs to the job registry
-            if isinstance(item, Job):
-                item.parent_id = current_job.job_id
-                context.job_registry.add(item)
+        elif isinstance(item, Job):
+            yield JobEvent(
+                job=item.save(),
+            )
 
     end_time = datetime.now(tz=timezone.utc)
     timing_info[job_id] = (start_time, end_time)

@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock
 from zahir.dependencies.job import JobDependency
-from zahir.types import DependencyState, JobState
+from zahir.base_types import DependencyState, JobState
 
 
 def test_job_dependency_satisfied_when_completed():

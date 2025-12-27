@@ -5,7 +5,7 @@ from unittest.mock import Mock
 from freezegun import freeze_time
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.time import TimeDependency
-from zahir.types import DependencyState
+from zahir.base_types import DependencyState
 
 
 @freeze_time("2025-01-01 12:00:00", tz_offset=0)

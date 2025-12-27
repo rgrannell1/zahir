@@ -1,14 +1,14 @@
-
 import os
 import tempfile
 
-from zahir.types import Context, EventRegistry
+from zahir.base_types import Context, EventRegistry
 from zahir.scope import LocalScope
-from zahir.logging import ZahirLogger
+from zahir.logger import ZahirLogger
 from zahir.job_registry.sqlite import SQLiteJobRegistry
-from zahir.types import Job, JobState
+from zahir.base_types import Job, JobState
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import WorkflowOutputEvent
+
 
 class DummyEventRegistry(EventRegistry):
     def register(self, event):
@@ -21,8 +21,6 @@ class DummyLogger(ZahirLogger):
 
     def render(self, context):
         pass
-
-
 
 
 class DummyJob(Job):

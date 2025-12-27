@@ -9,16 +9,17 @@ from zahir.events import (
     JobRunningEvent,
     WorkflowCompleteEvent,
     WorkflowOutputEvent,
+    ZahirCustomEvent,
     ZahirEvent,
 )
-from zahir.types import Context, Job
+from zahir.base_types import Context, Job
 from zahir.utils.id_generator import generate_id
 from zahir.workflow.execute import handle_workflow_stall, execute_workflow_batch
 
 WorkflowOutputType = TypeVar("WorkflowOutputType", bound=Mapping[str, Any])
 
 
-class Workflow(Generic[WorkflowOutputType]):
+class LocalWorkflow(Generic[WorkflowOutputType]):
     """A workflow execution engine"""
 
     DEFAULT_MAX_WORKERS = 4
@@ -69,6 +70,9 @@ class Workflow(Generic[WorkflowOutputType]):
         with ThreadPoolExecutor(max_workers=self.max_workers) as exec:
             while True:
                 # Note: this is a bit memory-inefficient.
+                # This is also the worst part of the current architecture. We should move more towards a
+                # polling model where we keep executing a `fetch-job-then-run` loop until we're done.
+
                 runnable_jobs = list(self.context.job_registry.runnable(self.context))
 
                 # Yield information on each job we currently consider runnable.
@@ -81,8 +85,7 @@ class Workflow(Generic[WorkflowOutputType]):
                 for running_job_id, running in running_jobs:
                     yield JobRunningEvent(workflow_id, running_job_id)
 
-                # We're finished; record we're done and exit.
-                if not runnable_jobs and not running_jobs:
+                    # We're finished; record we're done and exit.
                     workflow_end_time = datetime.now(tz=timezone.utc)
                     workflow_duration = (
                         workflow_end_time - workflow_start_time
@@ -108,10 +111,13 @@ class Workflow(Generic[WorkflowOutputType]):
 
     def run(
         self, start: Job | None = None
-    ) -> Iterator[WorkflowOutputEvent[WorkflowOutputType]]:
-        """Run a workflow from the starting job
+    ) -> Iterator[WorkflowOutputEvent[WorkflowOutputType] | ZahirCustomEvent]:
+        """Run all jobs in the registry, opptionally seeding from this job in particular.
 
-        @param start: The starting job of the workflow
+        @param start: The starting job of the workflow. Optional; the run will run all pending jobs in the job-register
+        @return: Yields an iterator that gives:
+        - WorkflowOutputEvent: the actual values yielded from the workflow
+        - ZahirCustomEvent: any custom events emitted by workflows. Can be used for custom in-band eventing.
         """
 
         for event in self._run(self.context, start):

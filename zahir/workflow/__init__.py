@@ -1,5 +1,5 @@
 """ """
 
-from zahir.workflow.workflow import Workflow
+from zahir.workflow.workflow import LocalWorkflow
 
-__all__ = ["Workflow"]
+__all__ = ["LocalWorkflow"]

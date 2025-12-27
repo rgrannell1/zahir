@@ -8,7 +8,7 @@ from typing import Iterator, Mapping, cast
 from datetime import datetime
 
 from zahir.events import WorkflowOutputEvent
-from zahir.types import (
+from zahir.base_types import (
     Context,
     DependencyState,
     Job,
@@ -20,7 +20,37 @@ from zahir.types import (
 
 
 class SQLiteJobRegistry(JobRegistry):
-    """Thread-safe SQLite-backed job registry for persistent workflow state."""
+    def claim(self, context: Context) -> Job | None:
+        """Atomically claim a pending job and set its state to CLAIMED."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.isolation_level = "EXCLUSIVE"
+
+            cursor = conn.execute(
+                """
+                UPDATE jobs SET state = ?
+                WHERE job_id = (
+                    SELECT job_id FROM jobs WHERE state = ? LIMIT 1
+                ) AND state = ?
+                RETURNING job_id, serialised_job
+                """,
+                (
+                    JobState.CLAIMED.value,
+                    JobState.PENDING.value,
+                    JobState.PENDING.value,
+                ),
+            )
+            row = cursor.fetchone()
+            conn.commit()
+
+            if row is None:
+                return None
+
+            _, serialised_job = row
+            job_data = json.loads(serialised_job)
+            job_type = job_data["type"]
+            JobClass = context.scope.get_job_class(job_type)
+            job = JobClass.load(context, job_data)
+            return job
 
     def __init__(self, db_path: str | Path) -> None:
         """Initialize SQLite job registry.
@@ -34,6 +64,8 @@ class SQLiteJobRegistry(JobRegistry):
     def _init_db(self) -> None:
         """Initialize the database schema."""
         with sqlite3.connect(self.db_path) as conn:
+            # Enable WAL mode for better multiprocess concurrency
+            conn.execute("PRAGMA journal_mode=WAL;")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     job_id TEXT PRIMARY KEY,

@@ -21,7 +21,7 @@ from zahir.utils.id_generator import generate_id
 if TYPE_CHECKING:
     from zahir.dependencies.group import DependencyGroup
     from zahir.events import JobOutputEvent, WorkflowOutputEvent, ZahirCustomEvent
-    from zahir.logging import ZahirLogger
+    from zahir.logger import ZahirLogger
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Dependency ++++++++++++++++++++++++++++++++
@@ -75,6 +75,9 @@ class Dependency(ABC):
 
 class JobState(str, Enum):
     """Track the state jobs can be in"""
+
+    # Job has been claimed by a worker, but not yet started
+    CLAIMED = "claimed"
 
     # Still to be run
     PENDING = "pending"
@@ -133,7 +136,17 @@ class JobRegistry(ABC):
 
     @abstractmethod
     def add(self, job: "Job") -> str:
-        """Register a job with the job registry, returning a job ID"""
+        """
+        Register a job with the job registry, returning a job ID.
+
+        This method MUST ensure that each job_id is registered at most once:
+        - If a job with the same job_id already exists in the registry, this method MUST raise an exception.
+        - This ensures that each job is run at most once per registry instance.
+
+        @param job: The job to register
+        @return: The job ID assigned to the job
+        @raises ValueError: If the job_id is already registered
+        """
 
         raise NotImplementedError
 
@@ -237,6 +250,19 @@ class JobRegistry(ABC):
 
         @param workflow_id: The ID of the workflow
         @return: An iterator yielding a WorkflowOutputEvent with all outputs
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def claim(self, context: "Context") -> "Job | None":
+        """Claim a pending job for execution.
+
+        This method should atomically select a pending job, mark it as claimed,
+        and return its ID and Job instance. If no pending jobs are available,
+        it should return None.
+
+        @return: A tuple of (job_id, Job) if a job was claimed, or None if no pending jobs are available.
         """
 
         raise NotImplementedError
@@ -351,7 +377,7 @@ class Job(ABC, Generic[ArgsType, OutputType]):
     def __init__(
         self,
         input: ArgsType,
-        dependencies: Mapping[str, Dependency | list[Dependency]],
+        dependencies: Mapping[str, Dependency | list[Dependency]] | "DependencyGroup",
         options: JobOptions | None = None,
         job_id: str | None = None,
         parent_id: str | None = None,
@@ -362,7 +388,7 @@ class Job(ABC, Generic[ArgsType, OutputType]):
         self.parent_id = parent_id
         self.job_id = job_id if job_id is not None else generate_id(2)
         self.input = input
-        self.dependencies = DependencyGroup(dependencies)
+        self.dependencies = DependencyGroup(dependencies) if isinstance(dependencies, dict) else dependencies
         self.options = options
 
     @staticmethod
@@ -451,10 +477,13 @@ class Job(ABC, Generic[ArgsType, OutputType]):
 
         job_type = data["type"]
         JobClass = context.scope.get_job_class(job_type)
+        from zahir.dependencies.group import DependencyGroup
+
+        dependencies = data['dependencies']
 
         job = JobClass(
             input=data["input"],
-            dependencies=data["dependencies"],
+            dependencies=DependencyGroup.load(context, dependencies),
             options=JobOptions.load(data["options"]) if data["options"] else None,
             job_id=data["job_id"],
             parent_id=data.get("parent_id"),
@@ -539,3 +568,11 @@ class Context:
         self.job_registry = job_registry
         self.event_registry = event_registry
         self.logger = logger
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++ Worker ++++++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+
+class Worker(ABC): ...

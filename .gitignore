@@ -10,3 +10,4 @@ wheels/
 .venv
 integration_tests/data.txt
 *.pyi
+jobs.db*

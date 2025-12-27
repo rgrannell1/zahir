@@ -7,7 +7,7 @@ from threading import Lock
 
 from zahir import events as event_module
 from zahir.events import ZahirEvent
-from zahir.types import (
+from zahir.base_types import (
     EventRegistry,
 )
 

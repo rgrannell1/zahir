@@ -5,7 +5,7 @@ from datetime import datetime
 from threading import Lock
 from typing import Iterator, Mapping
 from zahir.events import WorkflowOutputEvent
-from zahir.types import (
+from zahir.base_types import (
     Context,
     DependencyState,
     JobRegistry,
@@ -37,7 +37,14 @@ class JobEntry:
 
 
 class MemoryJobRegistry(JobRegistry):
-    """Thread-safe job registry"""
+    def claim(self, context: Context) -> tuple[str, Job] | None:
+        """Atomically claim a pending job and set its state to CLAIMED."""
+        with self._lock:
+            for job_id, entry in self.jobs_dict.items():
+                if entry.state == JobState.PENDING:
+                    entry.state = JobState.CLAIMED
+                    return job_id, entry.job
+        return None
 
     def __init__(self, scope: Scope | None = None) -> None:
         self.jobs_dict: dict[str, JobEntry] = {}
@@ -52,10 +59,15 @@ class MemoryJobRegistry(JobRegistry):
 
         @param job: The job to register
         @return: The job ID assigned to the job
+        @raises ValueError: If the job_id is already registered
         """
 
         with self._lock:
             job_id = job.job_id
+            if job_id in self.jobs_dict:
+                raise ValueError(
+                    f"Job ID {job_id} is already registered in the registry"
+                )
             self.jobs_dict[job_id] = JobEntry(job=job, state=JobState.PENDING)
 
         return job_id

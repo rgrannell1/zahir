@@ -13,7 +13,7 @@ from zahir.events import (
     WorkflowOutputEvent,
     ZahirEvent,
 )
-from zahir.types import Context, Job, ArgsType, OutputType, JobState
+from zahir.base_types import Context, Job, ArgsType, OutputType, JobState
 
 WorkflowOutputType = TypeVar("WorkflowOutputType", bound=Mapping[str, Any])
 
@@ -98,7 +98,7 @@ def _run_recovery(
             yield item
         else:
             # Only add Jobs to the job registry
-            from zahir.types import Job
+            from zahir.base_types import Job
 
             if isinstance(item, Job):
                 context.job_registry.add(item)

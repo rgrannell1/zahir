@@ -1,6 +1,6 @@
 from typing import Mapping
 
-from zahir.types import Dependency, DependencyState
+from zahir.base_types import Dependency, DependencyState
 
 
 class DependencyGroup(Dependency):
@@ -49,11 +49,14 @@ class DependencyGroup(Dependency):
 
         for name, deps in data["dependencies"].items():
             if isinstance(deps, list):
-                dependencies[name] = [
-                    context.scope.get_dependency_class(dep_data) for dep_data in deps
-                ]
+                deplist: list[Dependency] = []
+
+                for dep_data in deps:
+                    DepClass = context.scope.get_dependency_class(dep_data)
+                    deplist.append(DepClass.load(context, dep_data))
             else:
-                dependencies[name] = context.scope.get_dependency_class(deps)
+                DepClass = context.scope.get_dependency_class(deps)
+                dependencies[name] = DepClass.load(context, deps)
 
         return cls(dependencies)
 

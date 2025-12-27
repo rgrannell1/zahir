@@ -2,7 +2,7 @@
 
 from zahir.events import JobOutputEvent
 from zahir.scope import LocalScope
-from zahir.types import Job, Context
+from zahir.base_types import Job, Context
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.time import TimeDependency
 from zahir.dependencies.job import JobDependency

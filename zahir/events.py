@@ -398,3 +398,21 @@ class ZahirCustomEvent(ZahirEvent, Generic[CustomEventOutputType]):
             job_id=data.get("job_id"),
             output=data.get("output"),
         )
+
+
+@dataclass
+class JobEvent(ZahirEvent):
+    """Generic job event for various job state changes."""
+
+    job: "SerialisedJob"
+
+    def save(self) -> Mapping[str, Any]:
+        return {
+            "job": self.job,
+        }
+
+    @classmethod
+    def load(cls, data: Mapping[str, Any]) -> "JobEvent":
+        return cls(
+            job=data["job"],
+        )

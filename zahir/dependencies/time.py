@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from typing import Any, Mapping, TypedDict
-from zahir.types import Dependency, DependencyState
+from zahir.base_types import Dependency, DependencyState
 
 
 class TimeDependencyData(TypedDict, total=False):

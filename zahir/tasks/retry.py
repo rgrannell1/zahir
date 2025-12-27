@@ -8,7 +8,7 @@ from typing import Any, Iterable, Iterator, TypedDict
 from zahir.dependencies.job import JobDependency
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.time import TimeDependency
-from zahir.types import Context, Dependency, JobOptions, JobState, Job
+from zahir.base_types import Context, Dependency, JobOptions, JobState, Job
 
 
 class RetryOptions(TypedDict, total=False):

@@ -2,7 +2,7 @@
 
 from unittest.mock import Mock
 from zahir.job_registry.memory import MemoryJobRegistry
-from zahir.types import Job, JobState, DependencyState, Context
+from zahir.base_types import Job, JobState, DependencyState, Context
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import JobOutputEvent, WorkflowOutputEvent
 from typing import Iterator
