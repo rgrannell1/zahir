@@ -6,15 +6,14 @@
 from datetime import datetime, timezone
 import time
 import multiprocessing
-from typing import Iterator
-from zahir.base_types import Job, Scope, SerialisedJob
+from typing import Iterator, cast
+from zahir.base_types import Job, JobState, Scope, SerialisedJob
 from zahir.context.memory import MemoryContext
 from zahir.events import JobEvent, JobOutputEvent, JobStartedEvent, WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.utils.id_generator import generate_id
-from zahir.workflow.execute import execute_single_job
 
-type OutputQueue = multiprocessing.Queue["SerialisedJob|ZahirEvent"]
+type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
 
 def handle_job_output(item, output_queue: OutputQueue, workflow_id: str, job_id: str) -> None:
@@ -103,6 +102,20 @@ def load_job(context: "Context", event: JobEvent) -> Job:
     return Job.load(context, event.job)
 
 
+def handle_supervisor_event(event: ZahirEvent, context: "Context", job_registry: SQLiteJobRegistry) -> None:
+    """Handle events in the supervisor process"""
+
+    if isinstance(event, JobStartedEvent):
+        job_registry.set_state(event.job_id, JobState.RUNNING)
+    elif isinstance(event, JobEvent):
+        # register the new job
+        job_registry.add(load_job(context, event))
+    elif isinstance(event, JobOutputEvent):
+        # store the job output
+        job_registry.set_output(cast(str, event.job_id), event.output)
+        job_registry.set_state(cast(str, event.job_id), JobState.COMPLETED)
+
+
 def zahir_worker_pool(scope, worker_count: int = 4) -> Iterator[WorkflowOutputEvent|JobOutputEvent|ZahirCustomEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
@@ -123,10 +136,7 @@ def zahir_worker_pool(scope, worker_count: int = 4) -> Iterator[WorkflowOutputEv
     try:
         while True:
             event = output_queue.get()
-
-            if isinstance(event, JobEvent):
-               job_registry.add(load_job(context, event))
-
+            handle_supervisor_event(event, context, job_registry)
             yield event
     except KeyboardInterrupt:
         for process in processes:
