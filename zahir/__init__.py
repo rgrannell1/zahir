@@ -1,6 +1,4 @@
 from zahir.base_types import Job, Dependency, JobRegistry
-from zahir.workflow import LocalWorkflow
-from zahir.job_registry.memory import MemoryJobRegistry
 from zahir.dependencies.concurrency import ConcurrencyLimit
 from zahir.events import JobOutputEvent
 
@@ -10,8 +8,6 @@ __all__ = [
     "Job",
     "Dependency",
     "JobRegistry",
-    "LocalWorkflow",
-    "MemoryJobRegistry",
     "ConcurrencyLimit",
     "JobOutputEvent",
 ]

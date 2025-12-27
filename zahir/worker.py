@@ -237,29 +237,35 @@ def zahir_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) -> N
 def load_job(context: "Context", event: JobEvent) -> Job:
     return Job.load(context, event.job)
 
+type JobStateEvent = (
+  JobStartedEvent |
+  JobPrecheckFailedEvent |
+  JobTimeoutEvent |
+  JobRecoveryTimeout |
+  JobIrrecoverableEvent |
+  JobCompletedEvent
+)
+
+EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
+    JobStartedEvent: JobState.RUNNING,
+    JobPrecheckFailedEvent: JobState.PRECHECK_FAILED,
+    JobTimeoutEvent: JobState.TIMED_OUT,
+    JobRecoveryTimeout: JobState.RECOVERY_TIMED_OUT,
+    JobIrrecoverableEvent: JobState.IRRECOVERABLE,
+    JobCompletedEvent: JobState.COMPLETED,
+}
 
 def handle_supervisor_event(
     event: ZahirEvent, context: "Context", job_registry: SQLiteJobRegistry
 ) -> None:
     """Handle events in the supervisor process"""
 
-    if isinstance(event, JobStartedEvent):
-        job_registry.set_state(event.job_id, JobState.RUNNING)
-
-    elif isinstance(event, JobPrecheckFailedEvent):
-        job_registry.set_state(event.job_id, JobState.PRECHECK_FAILED)
-
-    elif isinstance(event, JobTimeoutEvent):
-        job_registry.set_state(event.job_id, JobState.TIMED_OUT)
-
-    elif isinstance(event, JobRecoveryTimeout):
-        job_registry.set_state(event.job_id, JobState.RECOVERY_TIMED_OUT)
-
-    elif isinstance(event, JobIrrecoverableEvent):
-        job_registry.set_state(event.job_id, JobState.IRRECOVERABLE)
-
-    elif isinstance(event, JobCompletedEvent):
-        job_registry.set_state(event.job_id, JobState.COMPLETED)
+    if type(event) in EVENT_TO_STATE:
+        # event is a JobStateEvent, so job_id is present
+        job_state_event = cast(JobStateEvent, event)
+        job_registry.set_state(
+            cast(str, job_state_event.job_id), EVENT_TO_STATE[type(job_state_event)]
+        )
 
     elif isinstance(event, JobEvent):
         # register the new job
@@ -280,8 +286,8 @@ def zahir_worker_pool(
     output_queue: OutputQueue = multiprocessing.Queue()
 
     # bad, dependency injection
-    context = MemoryContext(scope=scope)
     job_registry = SQLiteJobRegistry("jobs.db")
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     workflow_id = generate_id(3)
 

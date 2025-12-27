@@ -9,7 +9,6 @@ from zahir.scope import LocalScope
 from zahir.tasks.decorator import job
 from zahir.base_types import Context, Job
 from zahir.worker import zahir_worker_pool
-from zahir.workflow import LocalWorkflow
 from zahir.base_types import Dependency
 from zahir.job_registry import SQLiteJobRegistry
 
@@ -98,9 +97,6 @@ scope = LocalScope(
     dependencies=[DependencyGroup, JobDependency],
 )
 
-workflow: LocalWorkflow[LongestWordAssemblyOutput] = LocalWorkflow(
-    context=MemoryContext(scope), max_workers=4, stall_time=1
-)
 
 
 # for event in workflow.run(
