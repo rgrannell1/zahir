@@ -117,10 +117,7 @@ def zahir_worker_pool(scope, worker_count: int = 4) -> Iterator[WorkflowOutputEv
 
     processes = []
     for _ in range(worker_count):
-        process = multiprocessing.Process(target=zahir_worker, args=(
-          scope,
-          output_queue,
-          workflow_id))
+        process = multiprocessing.Process(target=zahir_worker, args=(scope, output_queue, workflow_id))
         process.start()
         processes.append(process)
     try:

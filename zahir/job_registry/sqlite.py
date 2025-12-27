@@ -3,7 +3,6 @@
 import json
 import sqlite3
 from pathlib import Path
-from threading import Lock
 from typing import Iterator, Mapping, cast
 from datetime import datetime
 
@@ -20,52 +19,22 @@ from zahir.base_types import (
 
 
 class SQLiteJobRegistry(JobRegistry):
-    def claim(self, context: Context) -> Job | None:
-        """Atomically claim a pending job and set its state to CLAIMED."""
-        with sqlite3.connect(self.db_path) as conn:
-            conn.isolation_level = "EXCLUSIVE"
-
-            cursor = conn.execute(
-                """
-                UPDATE jobs SET state = ?
-                WHERE job_id = (
-                    SELECT job_id FROM jobs WHERE state = ? LIMIT 1
-                ) AND state = ?
-                RETURNING job_id, serialised_job
-                """,
-                (
-                    JobState.CLAIMED.value,
-                    JobState.PENDING.value,
-                    JobState.PENDING.value,
-                ),
-            )
-            row = cursor.fetchone()
-            conn.commit()
-
-            if row is None:
-                return None
-
-            _, serialised_job = row
-            job_data = json.loads(serialised_job)
-            job_type = job_data["type"]
-            JobClass = context.scope.get_job_class(job_type)
-            job = JobClass.load(context, job_data)
-            return job
-
     def __init__(self, db_path: str | Path) -> None:
-        """Initialize SQLite job registry.
-
-        @param db_path: Path to the SQLite database file
-        """
         self.db_path = Path(db_path)
-        self._lock = Lock()
         self._init_db()
 
+    def _connect(self) -> sqlite3.Connection:
+        conn = sqlite3.connect(self.db_path, timeout=30)
+        # Consistent behavior per connection
+        conn.execute("PRAGMA journal_mode=WAL;")
+        conn.execute("PRAGMA synchronous=NORMAL;")  # use FULL if you want max durability
+        conn.execute("PRAGMA foreign_keys=ON;")
+        conn.execute("PRAGMA busy_timeout=5000;")
+        return conn
+
     def _init_db(self) -> None:
-        """Initialize the database schema."""
-        with sqlite3.connect(self.db_path) as conn:
-            # Enable WAL mode for better multiprocess concurrency
-            conn.execute("PRAGMA journal_mode=WAL;")
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS jobs (
                     job_id TEXT PRIMARY KEY,
@@ -91,78 +60,85 @@ class SQLiteJobRegistry(JobRegistry):
             """)
             conn.commit()
 
-    def add(self, job: Job) -> str:
-        """Register a job with the job registry, returning a job ID.
-
-        @param job: The job to register
-        @return: The job ID assigned to the job
-        """
-        with self._lock:
-            job_id = job.job_id
-            serialised = json.dumps(job.save())
-
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute(
-                    "INSERT INTO jobs (job_id, serialised_job, state) VALUES (?, ?, ?)",
-                    (job_id, serialised, JobState.PENDING.value),
+    def claim(self, context: Context) -> Job | None:
+        """Atomically claim a pending job and set its state to CLAIMED."""
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+            row = conn.execute(
+                """
+                UPDATE jobs
+                SET state = ?
+                WHERE job_id = (
+                    SELECT job_id
+                    FROM jobs
+                    WHERE state = ?
+                    ORDER BY created_at
+                    LIMIT 1
                 )
-                conn.commit()
+                AND state = ?
+                RETURNING job_id, serialised_job
+                """,
+                (JobState.CLAIMED.value, JobState.PENDING.value, JobState.PENDING.value),
+            ).fetchone()
+            conn.commit()
+
+        if row is None:
+            return None
+
+        _, serialised_job = row
+        job_data = json.loads(serialised_job)
+        JobClass = context.scope.get_job_class(job_data["type"])
+        return JobClass.load(context, job_data)
+
+    def add(self, job: Job) -> str:
+        job_id = job.job_id
+        serialised = json.dumps(job.save())
+
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+            conn.execute(
+                "INSERT INTO jobs (job_id, serialised_job, state) VALUES (?, ?, ?)",
+                (job_id, serialised, JobState.PENDING.value),
+            )
+            conn.commit()
 
         return job_id
 
     def get_state(self, job_id: str) -> JobState:
-        """Get the state of a job by ID.
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT state FROM jobs WHERE job_id = ?",
+                (job_id,),
+            ).fetchone()
 
-        @param job_id: The ID of the job to get the state of
-        @return: The state of the job
-        """
-        with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    "SELECT state FROM jobs WHERE job_id = ?", (job_id,)
-                )
-                row = cursor.fetchone()
+        if row is None:
+            raise KeyError(f"Job ID {job_id} not found in registry")
 
-                if row is None:
-                    raise KeyError(f"Job ID {job_id} not found in registry")
-
-                return JobState(row[0])
+        return JobState(row[0])
 
     def set_state(self, job_id: str, state: JobState) -> str:
-        """Set the state of a job by ID.
-
-        @param job_id: The ID of the job to update
-        @param state: The new state of the job
-        @return: The ID of the job
-        """
-        with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute(
-                    "UPDATE jobs SET state = ? WHERE job_id = ?",
-                    (state.value, job_id),
-                )
-                conn.commit()
-
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+            conn.execute(
+                "UPDATE jobs SET state = ? WHERE job_id = ?",
+                (state.value, job_id),
+            )
+            conn.commit()
         return job_id
 
     def set_output(self, job_id: str, output: Mapping) -> None:
-        """Store the output of a completed job.
-
-        @param job_id: The ID of the job
-        @param output: The output dictionary produced by the job
-        """
-        with self._lock:
-            serialised_output = json.dumps(output)
-
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute(
-                    """
-                    INSERT OR REPLACE INTO job_outputs (job_id, output)
-                    VALUES (?, ?)
-                    """,
-                    (job_id, serialised_output),
-                )
-                conn.commit()
+        serialised_output = json.dumps(output)
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+            conn.execute(
+                """
+                INSERT INTO job_outputs (job_id, output)
+                VALUES (?, ?)
+                ON CONFLICT(job_id) DO UPDATE SET output = excluded.output
+                """,
+                (job_id, serialised_output),
+            )
+            conn.commit()
 
     def set_timing(
         self,
@@ -171,88 +147,56 @@ class SQLiteJobRegistry(JobRegistry):
         completed_at: datetime | None = None,
         duration_seconds: float | None = None,
     ) -> None:
-        """Store timing information for a job.
+        updates: list[str] = []
+        params: list[object] = []
 
-        @param job_id: The ID of the job
-        @param started_at: When the job started execution
-        @param completed_at: When the job completed execution
-        @param duration_seconds: How long the job took to execute
-        """
-        with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
-                updates: list[str] = []
-                params: list[str | float] = []
+        if started_at is not None:
+            updates.append("started_at = ?")
+            params.append(started_at.isoformat())
+        if completed_at is not None:
+            updates.append("completed_at = ?")
+            params.append(completed_at.isoformat())
+        if duration_seconds is not None:
+            updates.append("duration_seconds = ?")
+            params.append(duration_seconds)
 
-                if started_at is not None:
-                    updates.append("started_at = ?")
-                    params.append(
-                        started_at.isoformat()
-                        if hasattr(started_at, "isoformat")
-                        else str(started_at)
-                    )
-                if completed_at is not None:
-                    updates.append("completed_at = ?")
-                    params.append(
-                        completed_at.isoformat()
-                        if hasattr(completed_at, "isoformat")
-                        else str(completed_at)
-                    )
-                if duration_seconds is not None:
-                    updates.append("duration_seconds = ?")
-                    params.append(duration_seconds)
+        if not updates:
+            return
 
-                if updates:
-                    params.append(job_id)
-                    conn.execute(
-                        f"UPDATE jobs SET {', '.join(updates)} WHERE job_id = ?",
-                        params,
-                    )
-                    conn.commit()
+        params.append(job_id)
+
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+            conn.execute(
+                f"UPDATE jobs SET {', '.join(updates)} WHERE job_id = ?",
+                params,
+            )
+            conn.commit()
 
     def set_recovery_duration(self, job_id: str, duration_seconds: float) -> None:
-        """Store recovery duration for a job.
-
-        @param job_id: The ID of the job
-        @param duration_seconds: How long the recovery took
-        """
-        with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
-                conn.execute(
-                    "UPDATE jobs SET recovery_duration_seconds = ? WHERE job_id = ?",
-                    (duration_seconds, job_id),
-                )
-                conn.commit()
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+            conn.execute(
+                "UPDATE jobs SET recovery_duration_seconds = ? WHERE job_id = ?",
+                (duration_seconds, job_id),
+            )
+            conn.commit()
 
     def get_output(self, job_id: str) -> Mapping | None:
-        """Retrieve the output of a completed job.
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT output FROM job_outputs WHERE job_id = ?",
+                (job_id,),
+            ).fetchone()
 
-        @param job_id: The ID of the job
-        @return: The output dictionary, or None if no output was set
-        """
-        with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    "SELECT output FROM job_outputs WHERE job_id = ?", (job_id,)
-                )
-                row = cursor.fetchone()
-
-                if row is None:
-                    return None
-
-                return json.loads(row[0])
+        if row is None:
+            return None
+        return json.loads(row[0])
 
     def outputs(self, workflow_id: str) -> Iterator["WorkflowOutputEvent"]:
-        """Get workflow output event containing all job outputs.
-
-        @param workflow_id: The ID of the workflow
-        @return: An iterator yielding a WorkflowOutputEvent with all outputs
-        """
-
         output_dict: dict[str, dict] = {}
-        with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("SELECT job_id, output FROM job_outputs")
-                rows = cursor.fetchall()
+        with self._connect() as conn:
+            rows = conn.execute("SELECT job_id, output FROM job_outputs").fetchall()
 
         for job_id, serialised_output in rows:
             output_dict[job_id] = json.loads(serialised_output)
@@ -261,139 +205,71 @@ class SQLiteJobRegistry(JobRegistry):
             yield WorkflowOutputEvent(output_dict, workflow_id)
 
     def pending(self) -> bool:
-        """Check whether any jobs still need to be run.
-
-        @return: True if there are pending jobs, False otherwise
-        """
-        with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    "SELECT COUNT(*) FROM jobs WHERE state = ?",
-                    (JobState.PENDING.value,),
-                )
-                count = cursor.fetchone()[0]
-                return count > 0
+        with self._connect() as conn:
+            (count,) = conn.execute(
+                "SELECT COUNT(*) FROM jobs WHERE state = ?",
+                (JobState.PENDING.value,),
+            ).fetchone()
+        return count > 0
 
     def running(self, context: Context) -> Iterator[tuple[str, Job]]:
-        """Get an iterator of currently running jobs.
+        with self._connect() as conn:
+            running_list = conn.execute(
+                "SELECT job_id, serialised_job FROM jobs WHERE state IN (?, ?)",
+                (JobState.RUNNING.value, JobState.RECOVERING.value),
+            ).fetchall()
 
-        @param context: The context containing scope and registries for deserialization
-        @return: An iterator of (job ID, job) tuples for running jobs
-        """
-        with self._lock:
-            running_list: list[tuple[str, str]] = []
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    "SELECT job_id, serialised_job FROM jobs WHERE state IN (?, ?)",
-                    (JobState.RUNNING.value, JobState.RECOVERING.value),
-                )
-
-                for row in cursor:
-                    job_id, serialised_job = row
-                    running_list.append((job_id, serialised_job))
-
-        # Deserialize and yield outside the lock
         for job_id, serialised_job in running_list:
             job_data = cast(SerialisedJob, json.loads(serialised_job))
-            job_type = job_data["type"]
-            JobClass = context.scope.get_job_class(job_type)
-            job = JobClass.load(context, job_data)
-            yield job_id, job
+            JobClass = context.scope.get_job_class(job_data["type"])
+            yield job_id, JobClass.load(context, job_data)
 
     def runnable(self, context: Context) -> Iterator[tuple[str, Job]]:
-        """Yield all runnable jobs from the registry.
+        runnable_list: list[tuple[str, Job]] = []
 
-        @param context: The context containing scope and registries for deserialization
-        @return: An iterator of (job ID, job) tuples for runnable jobs
-        """
-        with self._lock:
-            runnable_list: list[tuple[str, Job]] = []
+        # Read PENDING jobs first (no transaction needed yet)
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT job_id, serialised_job FROM jobs WHERE state = ?",
+                (JobState.PENDING.value,),
+            ).fetchall()
 
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute(
-                    "SELECT job_id, serialised_job FROM jobs WHERE state = ?",
-                    (JobState.PENDING.value,),
+        # Determine runnable/impossible outside DB
+        to_mark_impossible: list[str] = []
+        for job_id, serialised_job in rows:
+            job_data = cast(SerialisedJob, json.loads(serialised_job))
+            JobClass = context.scope.get_job_class(job_data["type"])
+            job = JobClass.load(context, job_data)
+
+            status = job.ready()
+            if status == DependencyState.SATISFIED:
+                runnable_list.append((job_id, job))
+            elif status == DependencyState.IMPOSSIBLE:
+                to_mark_impossible.append(job_id)
+
+        # Mark impossible in one write transaction
+        if to_mark_impossible:
+            with self._connect() as conn:
+                conn.execute("BEGIN IMMEDIATE;")
+                conn.executemany(
+                    "UPDATE jobs SET state = ? WHERE job_id = ?",
+                    [(JobState.IMPOSSIBLE.value, jid) for jid in to_mark_impossible],
                 )
-
-                for row in cursor:
-                    job_id, serialised_job = row
-                    job_data = cast(SerialisedJob, json.loads(serialised_job))
-
-                    job_type = job_data["type"]
-                    JobClass = context.scope.get_job_class(job_type)
-
-                    job = JobClass.load(context, job_data)
-                    status = job.ready()
-
-                    if status == DependencyState.SATISFIED:
-                        runnable_list.append((job_id, job))
-                    elif status == DependencyState.IMPOSSIBLE:
-                        # Mark as impossible
-                        conn.execute(
-                            "UPDATE jobs SET state = ? WHERE job_id = ?",
-                            (JobState.IMPOSSIBLE.value, job_id),
-                        )
-
                 conn.commit()
 
-        # Yield outside the lock
         for job_id, job in runnable_list:
             yield job_id, job
 
     def jobs(self, context: Context) -> Iterator["JobInformation"]:
-        """Get an iterator of all jobs with their information.
+        with self._connect() as conn:
+            job_list = conn.execute("""
+                SELECT j.job_id, j.serialised_job, j.state, o.output,
+                       j.started_at, j.completed_at, j.duration_seconds,
+                       j.recovery_duration_seconds
+                FROM jobs j
+                LEFT JOIN job_outputs o ON j.job_id = o.job_id
+            """).fetchall()
 
-        @param context: The context containing scope and registries for deserialization
-        @return: An iterator of JobInformation objects
-        """
-
-        with self._lock:
-            job_list: list[
-                tuple[
-                    str,
-                    str,
-                    str,
-                    str | None,
-                    str | None,
-                    str | None,
-                    float | None,
-                    float | None,
-                ]
-            ] = []
-            with sqlite3.connect(self.db_path) as conn:
-                cursor = conn.execute("""
-                    SELECT j.job_id, j.serialised_job, j.state, o.output,
-                           j.started_at, j.completed_at, j.duration_seconds,
-                           j.recovery_duration_seconds
-                    FROM jobs j
-                    LEFT JOIN job_outputs o ON j.job_id = o.job_id
-                """)
-
-                for row in cursor:
-                    (
-                        job_id,
-                        serialised_job,
-                        state,
-                        output,
-                        started_at,
-                        completed_at,
-                        duration_seconds,
-                        recovery_duration_seconds,
-                    ) = row
-                    job_list.append(
-                        (
-                            job_id,
-                            serialised_job,
-                            state,
-                            output,
-                            started_at,
-                            completed_at,
-                            duration_seconds,
-                            recovery_duration_seconds,
-                        )
-                    )
-
-        # Deserialize and yield outside the lock
         for (
             job_id,
             serialised_job,
@@ -405,20 +281,13 @@ class SQLiteJobRegistry(JobRegistry):
             recovery_duration_seconds,
         ) in job_list:
             job_data = cast(SerialisedJob, json.loads(serialised_job))
-            job_type = job_data["type"]
-
-            JobClass = context.scope.get_job_class(job_type)
+            JobClass = context.scope.get_job_class(job_data["type"])
             job = JobClass.load(context, job_data)
 
             state = JobState(state_str)
             output = json.loads(output_str) if output_str else None
-
-            started_at = (
-                datetime.fromisoformat(started_at_str) if started_at_str else None
-            )
-            completed_at = (
-                datetime.fromisoformat(completed_at_str) if completed_at_str else None
-            )
+            started_at = datetime.fromisoformat(started_at_str) if started_at_str else None
+            completed_at = datetime.fromisoformat(completed_at_str) if completed_at_str else None
 
             yield JobInformation(
                 job_id=job_id,

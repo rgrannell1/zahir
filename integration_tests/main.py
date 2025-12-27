@@ -113,4 +113,5 @@ db = SQLiteJobRegistry("jobs.db")
 db.add(BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {}))
 
 for event in zahir_worker_pool(scope, worker_count=4):
-    print(event)
+    #print(event)
+    ...
