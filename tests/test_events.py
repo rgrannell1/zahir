@@ -2,13 +2,10 @@
 
 from zahir.events import (
     WorkflowCompleteEvent,
-    JobRunnableEvent,
     JobCompletedEvent,
     JobStartedEvent,
     JobTimeoutEvent,
     JobRecoveryStarted,
-    JobRecoveryCompleted,
-    JobRecoveryTimeout,
     JobIrrecoverableEvent,
     JobPrecheckFailedEvent,
 )
@@ -25,20 +22,6 @@ def test_workflow_complete_event_roundtrip():
     loaded = WorkflowCompleteEvent.load(saved)
     assert loaded.workflow_id == "wf-123"
     assert loaded.duration_seconds == 42.5
-
-
-def test_job_runnable_event_roundtrip():
-    """Test JobRunnableEvent save/load roundtrip."""
-
-    event = JobRunnableEvent(workflow_id="wf-456", job_id="job-789")
-
-    saved = event.save()
-    assert saved["workflow_id"] == "wf-456"
-    assert saved["job_id"] == "job-789"
-
-    loaded = JobRunnableEvent.load(saved)
-    assert loaded.workflow_id == "wf-456"
-    assert loaded.job_id == "job-789"
 
 
 def test_job_completed_event_roundtrip():
@@ -98,33 +81,6 @@ def test_job_recovery_started_roundtrip():
     assert loaded.job_id == "job-888"
 
 
-def test_job_recovery_completed_roundtrip():
-    """Test JobRecoveryCompleted save/load roundtrip."""
-
-    event = JobRecoveryCompleted(
-        workflow_id="wf-999", job_id="job-000", duration_seconds=5.7
-    )
-
-    saved = event.save()
-    loaded = JobRecoveryCompleted.load(saved)
-
-    assert loaded.workflow_id == "wf-999"
-    assert loaded.job_id == "job-000"
-    assert loaded.duration_seconds == 5.7
-
-
-def test_job_recovery_timeout_roundtrip():
-    """Test JobRecoveryTimeout save/load roundtrip."""
-
-    event = JobRecoveryTimeout(workflow_id="wf-aaa", job_id="job-bbb")
-
-    saved = event.save()
-    loaded = JobRecoveryTimeout.load(saved)
-
-    assert loaded.workflow_id == "wf-aaa"
-    assert loaded.job_id == "job-bbb"
-
-
 def test_job_irrecoverable_event_roundtrip():
     """Test JobIrrecoverableEvent save/load roundtrip."""
     error = ValueError("Something went wrong")
@@ -166,13 +122,10 @@ def test_all_events_save_include_workflow_id():
 
     events = [
         WorkflowCompleteEvent("wf-1", 1.0),
-        JobRunnableEvent("wf-1", "job-1"),
         JobCompletedEvent("wf-1", "job-1", 1.0),
         JobStartedEvent("wf-1", "job-1"),
         JobTimeoutEvent("wf-1", "job-1", 1.0),
         JobRecoveryStarted("wf-1", "job-1"),
-        JobRecoveryCompleted("wf-1", "job-1", 1.0),
-        JobRecoveryTimeout("wf-1", "job-1"),
         JobIrrecoverableEvent("wf-1", Exception("err"), "job-1"),
         JobPrecheckFailedEvent("wf-1", "job-1", []),
     ]

@@ -4,7 +4,7 @@ from typing import Iterator, Mapping, TypedDict, cast
 from zahir.context import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
-from zahir.events import JobEvent, JobOutputEvent, WorkflowOutputEvent
+from zahir.events import JobOutputEvent, WorkflowOutputEvent
 from zahir.scope import LocalScope
 from zahir.tasks.decorator import job
 from zahir.base_types import Context, Job

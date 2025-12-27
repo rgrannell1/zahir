@@ -3,7 +3,7 @@ import tempfile
 
 from zahir.base_types import Context, EventRegistry
 from zahir.scope import LocalScope
-from zahir.logger import ZahirLogger
+from zahir.logging import ZahirLogger
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.base_types import Job, JobState
 from zahir.dependencies.group import DependencyGroup

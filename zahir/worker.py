@@ -26,7 +26,6 @@ from zahir.utils.id_generator import generate_id
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
 
-from datetime import datetime, timezone
 from concurrent.futures import (
     ThreadPoolExecutor,
     TimeoutError as FutureTimeoutError,
@@ -119,7 +118,7 @@ def execute_job(
                     workflow_id=workflow_id,
                     job_id=job_id,
                 ).result(timeout=job_timeout)
-            except FutureTimeoutError as err:
+            except FutureTimeoutError:
                 output_queue.put(
                     JobTimeoutEvent(
                         workflow_id=workflow_id,

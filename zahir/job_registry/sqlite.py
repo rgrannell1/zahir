@@ -9,7 +9,6 @@ from datetime import datetime
 from zahir.events import WorkflowOutputEvent
 from zahir.base_types import (
     Context,
-    DependencyState,
     Job,
     JobRegistry,
     JobState,
