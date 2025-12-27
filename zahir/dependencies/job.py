@@ -82,3 +82,7 @@ class JobDependency(Dependency, Generic[OutputType]):
     def output(self, context: Context) -> OutputType | None:
         """Get the output of the job, if available, from the registry"""
         return cast(OutputType | None, context.job_registry.get_output(self.job_id))
+
+    def state(self) -> JobState:
+        """Get the current state of the job from the registry"""
+        return self.job_registry.get_state(self.job_id)
