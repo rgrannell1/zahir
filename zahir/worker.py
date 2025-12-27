@@ -281,9 +281,11 @@ def zahir_worker_pool(
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 
+    workflow_id = generate_id(3)
     output_queue: OutputQueue = multiprocessing.Queue()
 
-    workflow_id = generate_id(3)
+    # TODO: reintroduce dependency evaluation loop; I think this refactor breaks dependencies
+    # CRITICAL! Should be done in a separate worker.
 
     processes = []
     for _ in range(worker_count):

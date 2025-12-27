@@ -222,56 +222,6 @@ class SQLiteJobRegistry(JobRegistry):
             ).fetchone()
         return count > 0
 
-    def running(self, context: Context) -> Iterator[tuple[str, Job]]:
-        # TODO deprecate
-
-        with self._connect() as conn:
-            running_list = conn.execute(
-                "SELECT job_id, serialised_job FROM jobs WHERE state IN (?, ?)",
-                (JobState.RUNNING.value, JobState.RECOVERING.value),
-            ).fetchall()
-
-        for job_id, serialised_job in running_list:
-            job_data = cast(SerialisedJob, json.loads(serialised_job))
-            JobClass = context.scope.get_job_class(job_data["type"])
-            yield job_id, JobClass.load(context, job_data)
-
-    def runnable(self, context: Context) -> Iterator[tuple[str, Job]]:
-        runnable_list: list[tuple[str, Job]] = []
-
-        # Read PENDING jobs first (no transaction needed yet)
-        with self._connect() as conn:
-            rows = conn.execute(
-                "SELECT job_id, serialised_job FROM jobs WHERE state = ?",
-                (JobState.PENDING.value,),
-            ).fetchall()
-
-        # Determine runnable/impossible outside DB
-        to_mark_impossible: list[str] = []
-        for job_id, serialised_job in rows:
-            job_data = cast(SerialisedJob, json.loads(serialised_job))
-            JobClass = context.scope.get_job_class(job_data["type"])
-            job = JobClass.load(context, job_data)
-
-            status = job.ready()
-            if status == DependencyState.SATISFIED:
-                runnable_list.append((job_id, job))
-            elif status == DependencyState.IMPOSSIBLE:
-                to_mark_impossible.append(job_id)
-
-        # Mark impossible in one write transaction
-        if to_mark_impossible:
-            with self._connect() as conn:
-                conn.execute("BEGIN IMMEDIATE;")
-                conn.executemany(
-                    "UPDATE jobs SET state = ? WHERE job_id = ?",
-                    [(JobState.IMPOSSIBLE.value, jid) for jid in to_mark_impossible],
-                )
-                conn.commit()
-
-        for job_id, job in runnable_list:
-            yield job_id, job
-
     def jobs(self, context: Context) -> Iterator["JobInformation"]:
         with self._connect() as conn:
             job_list = conn.execute("""

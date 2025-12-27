@@ -175,63 +175,11 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_timing(
-        self,
-        job_id: str,
-        started_at: datetime | None = None,
-        completed_at: datetime | None = None,
-        duration_seconds: float | None = None,
-    ) -> None:
-        """Store timing information for a job
-
-        @param job_id: The ID of the job
-        @param started_at: When the job started execution
-        @param completed_at: When the job completed execution
-        @param duration_seconds: How long the job took to execute
-        """
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_recovery_duration(self, job_id: str, duration_seconds: float) -> None:
-        """Store recovery duration for a job
-
-        @param job_id: The ID of the job
-        @param duration_seconds: How long the recovery took
-        """
-
-        raise NotImplementedError
-
-    @abstractmethod
     def get_output(self, job_id: str) -> Mapping | None:
         """Retrieve the output of a completed job
 
         @param job_id: The ID of the job
         @return: The output dictionary, or None if no output was set
-        """
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def pending(self) -> bool:
-        """Check whether any jobs still need to be run."""
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def runnable(self, context: "Context") -> Iterator[tuple[str, "Job"]]:
-        """Get an iterator of runnable jobs (ID, Job)
-
-        @param context: The context containing scope and registries for deserialization
-        """
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def running(self, context: "Context") -> Iterator[tuple[str, "Job"]]:
-        """Get an iterator of currently running jobs (ID, Job).
-
-        @param context: The context containing scope and registries for deserialization
         """
 
         raise NotImplementedError
