@@ -127,7 +127,7 @@ def execute_job(
                         duration_seconds=cast(float, job_timeout),
                     )
                 )
-                raise
+                return
             output_queue.put(
                 JobCompletedEvent(
                     workflow_id=workflow_id,

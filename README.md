@@ -128,6 +128,14 @@ Zahir is a multi-process workflow engine that shares workflow state through cros
 
 The overseer constructs worker processes, which poll the job-registry for any jobs ready to run. After claiming the job, the worker streams events describing the job state, its outputs, timeouts, and any futher jobs to be run to the overseer. The overseer updates the job-registry in turn with this information, and relays events on to the logger and whichever function invoked the workflow.
 
+Jobs transition through many states during execution. Healthy jobs transition through the chain of states:
+
+Pending → Ready → Claimed → Running → Complete
+
+![](./job-lifecycle.png)
+
+
+
 ## Development
 
 ```

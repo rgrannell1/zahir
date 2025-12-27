@@ -76,12 +76,23 @@ class Dependency(ABC):
 class JobState(str, Enum):
     """Track the state jobs can be in"""
 
-    # Job has been claimed by a worker, but not yet started
-    CLAIMED = "claimed"
-
     # Still to be run
     PENDING = "pending"
 
+    # Dependencies have not yet been satisfied for this job
+    BLOCKED = "blocked"
+
+    # Dependencies can never be satisfied, so
+    # this job is impossible to run
+    IMPOSSIBLE = "impossible"
+
+    # Ready to run
+    READY = "ready"
+
+    # Job has been claimed by a worker, but not yet started
+    CLAIMED = "claimed"
+
+    # Input validations for the job failed
     PRECHECK_FAILED = "precheck_failed"
 
     # Currently running
@@ -104,10 +115,6 @@ class JobState(str, Enum):
 
     # Even rollback failed; this job is irrecoverable
     IRRECOVERABLE = "irrecoverable"
-
-    # Dependencies can never be satisfied, so
-    # this job is impossible to run
-    IMPOSSIBLE = "impossible"
 
 
 @dataclass
