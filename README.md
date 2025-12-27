@@ -63,7 +63,7 @@ Data is passed unidirectionally from an initial job to subjobs by the parent job
 
 This is the most idiomatic way of implementing the "fan-out, then aggregate" pattern in Zahir. In a similar way, workflow-level output can be yielded with `WorkflowOutputEvent`.
 
-Jobs should have most of their logic factored out into plain functions; the job should just take input, call the necessary functions, and delegate to other jobs.
+Jobs should have most of their logic factored out into plain functions; the job itself should just take input, call the necessary library functions, event, and delegate to other jobs. 
 
 ### Dependencies - Await some precondition before doing things
 
