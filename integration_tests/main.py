@@ -38,7 +38,6 @@ def BookProcessor(
 
             chapter_lines.append(line)
 
-
     agg_dependencies: dict[str, list[Dependency]] = {
         "chapters": [JobDependency(pid, context.job_registry) for pid in pids]
     }

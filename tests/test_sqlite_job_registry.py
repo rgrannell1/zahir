@@ -1,28 +1,38 @@
 
+import os
+import tempfile
+
 from zahir.types import Context, EventRegistry
 from zahir.scope import LocalScope
 from zahir.logging import ZahirLogger
+from zahir.job_registry.sqlite import SQLiteJobRegistry
+from zahir.types import Job, JobState
+from zahir.dependencies.group import DependencyGroup
+from zahir.events import WorkflowOutputEvent
 
 class DummyEventRegistry(EventRegistry):
-    def register(self, event): pass
+    def register(self, event):
+        pass
+
 
 class DummyLogger(ZahirLogger):
     def __init__(self, event_registry, job_registry):
         super().__init__(event_registry, job_registry)
-    def render(self, context): pass
-import os
-import tempfile
-import pytest
-from zahir.job_registry.sqlite import SQLiteJobRegistry
-from zahir.types import Job, JobState, JobInformation
-from zahir.dependencies.group import DependencyGroup
-from zahir.events import WorkflowOutputEvent
+
+    def render(self, context):
+        pass
+
+
 
 
 class DummyJob(Job):
-    def __init__(self, input=None, dependencies=None, options=None, job_id=None, parent_id=None):
+    def __init__(
+        self, input=None, dependencies=None, options=None, job_id=None, parent_id=None
+    ):
         self.input = input if input is not None else {}
-        self.dependencies = dependencies if dependencies is not None else DependencyGroup({})
+        self.dependencies = (
+            dependencies if dependencies is not None else DependencyGroup({})
+        )
         self.options = options
         self.job_id = job_id if job_id is not None else "dummy"
         self.parent_id = parent_id
@@ -30,6 +40,7 @@ class DummyJob(Job):
     @classmethod
     def run(cls, context, input, dependencies):
         yield WorkflowOutputEvent({"result": 42})
+
 
 def test_sqlite_job_registry_lifecycle():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -54,7 +65,7 @@ def test_sqlite_job_registry_lifecycle():
             scope=scope,
             job_registry=registry,
             event_registry=event_registry,
-            logger=DummyLogger(event_registry, registry)
+            logger=DummyLogger(event_registry, registry),
         )
         info = list(registry.jobs(dummy_context))
         assert any(j.job_id == job_id for j in info)

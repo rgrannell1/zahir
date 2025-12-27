@@ -1,9 +1,10 @@
 """Workflow execution engine"""
 
 import time
+from typing import cast
 from datetime import datetime, timezone
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed, TimeoutError
-from typing import Any, Iterator, Mapping, TypeVar, cast
+from typing import Any, Iterator, Mapping, TypeVar
 
 from zahir.events import (
     JobCompletedEvent,

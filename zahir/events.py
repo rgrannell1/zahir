@@ -7,11 +7,12 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import  Any, Generic, Mapping, TypeVar
+from typing import Any, Generic, Mapping, TypeVar
 
 
 OutputType = TypeVar("OutputType", bound=Mapping[str, Any])
 CustomEventOutputType = TypeVar("CustomEventOutputType", bound=Mapping[str, Any])
+
 
 class ZahirEvent(ABC):
     """Base class for all Zahir events"""
@@ -378,6 +379,7 @@ class JobPrecheckFailedEvent(ZahirEvent):
 @dataclass
 class ZahirCustomEvent(ZahirEvent, Generic[CustomEventOutputType]):
     """Custom event for arbitrary job output or signals."""
+
     workflow_id: str | None = None
     job_id: str | None = None
     output: CustomEventOutputType | None = None
