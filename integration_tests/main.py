@@ -8,9 +8,9 @@ from zahir.events import JobOutputEvent, WorkflowOutputEvent
 from zahir.scope import LocalScope
 from zahir.tasks.decorator import job
 from zahir.base_types import Context, Job
-from zahir.worker import zahir_worker_pool
 from zahir.base_types import Dependency
 from zahir.job_registry import SQLiteJobRegistry
+from zahir.worker.overseer import zahir_worker_overseer
 
 WORD_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
 
@@ -110,5 +110,5 @@ job_registry.add(
 
 context = MemoryContext(scope=scope, job_registry=job_registry)
 
-for event in zahir_worker_pool(context, worker_count=4):
+for event in zahir_worker_overseer(context, worker_count=4):
     print(event)
