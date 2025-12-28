@@ -14,12 +14,8 @@ from zahir.dependencies.time import TimeDependency
 def test_dependency_group_all_satisfied():
     """Test that group is satisfied when all dependencies are satisfied."""
     # Both dependencies are satisfied at current time (12:00)
-    dep1 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
-    )
-    dep2 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC)
-    )
+    dep1 = TimeDependency(before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC))
+    dep2 = TimeDependency(before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC))
 
     group = DependencyGroup({"dep1": dep1, "dep2": dep2})
     assert group.satisfied() == DependencyState.SATISFIED
@@ -29,12 +25,8 @@ def test_dependency_group_all_satisfied():
 def test_dependency_group_one_unsatisfied():
     """Test that group is unsatisfied when any dependency is unsatisfied."""
     # First is satisfied, second is not (13:00 is in the future)
-    dep1 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
-    )
-    dep2 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 13, 0, 0, tzinfo=UTC)
-    )
+    dep1 = TimeDependency(before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC))
+    dep2 = TimeDependency(before=None, after=datetime(2025, 1, 1, 13, 0, 0, tzinfo=UTC))
 
     group = DependencyGroup({"dep1": dep1, "dep2": dep2})
     assert group.satisfied() == DependencyState.UNSATISFIED
@@ -43,13 +35,9 @@ def test_dependency_group_one_unsatisfied():
 @freeze_time("2025-01-01 12:00:00", tz_offset=0)
 def test_dependency_group_one_impossible():
     """Test that group is impossible when any dependency is impossible."""
-    dep1 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
-    )
+    dep1 = TimeDependency(before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC))
     # Second has already passed its 'before' deadline
-    dep2 = TimeDependency(
-        before=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC), after=None
-    )
+    dep2 = TimeDependency(before=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC), after=None)
 
     group = DependencyGroup({"dep1": dep1, "dep2": dep2})
     assert group.satisfied() == DependencyState.IMPOSSIBLE
@@ -58,12 +46,8 @@ def test_dependency_group_one_impossible():
 @freeze_time("2025-01-01 12:00:00", tz_offset=0)
 def test_dependency_group_with_list():
     """Test that group handles lists of dependencies correctly."""
-    dep1 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
-    )
-    dep2 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC)
-    )
+    dep1 = TimeDependency(before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC))
+    dep2 = TimeDependency(before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC))
     dep3 = TimeDependency(
         before=None, after=datetime(2025, 1, 1, 11, 30, 0, tzinfo=UTC)
     )
@@ -76,16 +60,10 @@ def test_dependency_group_with_list():
 @freeze_time("2025-01-01 12:00:00", tz_offset=0)
 def test_dependency_group_with_list_one_unsatisfied():
     """Test that group is unsatisfied when any dependency in a list is unsatisfied."""
-    dep1 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
-    )
-    dep2 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC)
-    )
+    dep1 = TimeDependency(before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC))
+    dep2 = TimeDependency(before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC))
     # This one is not satisfied yet
-    dep3 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 13, 0, 0, tzinfo=UTC)
-    )
+    dep3 = TimeDependency(before=None, after=datetime(2025, 1, 1, 13, 0, 0, tzinfo=UTC))
 
     group = DependencyGroup({"single": dep1, "multi": [dep2, dep3]})
     assert group.satisfied() == DependencyState.UNSATISFIED
@@ -99,15 +77,9 @@ def test_dependency_group_empty():
 
 def test_dependency_group_save():
     """Test that save serializes all dependencies correctly."""
-    dep1 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
-    )
-    dep2 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC)
-    )
-    dep3 = TimeDependency(
-        before=datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC), after=None
-    )
+    dep1 = TimeDependency(before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC))
+    dep2 = TimeDependency(before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC))
+    dep3 = TimeDependency(before=datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC), after=None)
 
     group = DependencyGroup({"dep1": dep1, "dep2": [dep2, dep3]})
     saved = group.save()
@@ -129,12 +101,8 @@ def test_dependency_group_save():
 
 def test_dependency_group_save_load_roundtrip():
     """Test that save/load preserves the dependency group correctly."""
-    dep1 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
-    )
-    dep2 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC)
-    )
+    dep1 = TimeDependency(before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC))
+    dep2 = TimeDependency(before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC))
 
     group = DependencyGroup({"dep1": dep1, "dep2": dep2})
     saved = group.save()

@@ -42,6 +42,7 @@ JOBS_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs(state)
 """
 
+
 class SQLiteJobRegistry(JobRegistry):
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)

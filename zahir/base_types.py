@@ -91,6 +91,9 @@ class JobState(str, Enum):
     # Job has been claimed by a worker, but not yet started
     CLAIMED = "claimed"
 
+    # Claimed, now paused
+    PAUSED = "paused"
+
     # Input validations for the job failed
     PRECHECK_FAILED = "precheck_failed"
 
@@ -343,7 +346,7 @@ class Job(ABC, Generic[ArgsType, OutputType]):
         input: ArgsType,
         dependencies: "Mapping[str, Dependency | list[Dependency]] | DependencyGroup",
         options: JobOptions | None = None,
-    job_id: str | None = None,
+        job_id: str | None = None,
         parent_id: str | None = None,
     ) -> None:
         # Import here to avoid circular dependency, this is so dumb.

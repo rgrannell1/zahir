@@ -320,3 +320,21 @@ class JobEvent(ZahirEvent):
         return cls(
             job=data["job"],
         )
+
+
+@dataclass
+class Await(ZahirEvent):
+    """Indicates that a job is awaiting some condition before proceeding"""
+
+    job: SerialisedJob
+
+    def save(self) -> Mapping[str, Any]:
+        return {
+            "job": self.job,
+        }
+
+    @classmethod
+    def load(cls, data: Mapping[str, Any]) -> Await:
+        return cls(
+            job=data["job"],
+        )

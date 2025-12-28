@@ -5,11 +5,7 @@ from zahir.logging import ZahirLogger
 class MemoryContext(Context):
     """A local, direct context implementation. Probably the only one that will be needed."""
 
-    def __init__(
-        self,
-        scope: Scope,
-        job_registry: JobRegistry
-    ) -> None:
+    def __init__(self, scope: Scope, job_registry: JobRegistry) -> None:
         """Initialize a local context with default registries if not provided
 
         @param scope: The scope for the context
@@ -17,7 +13,5 @@ class MemoryContext(Context):
         """
 
         super().__init__(
-            scope=scope,
-            job_registry=job_registry,
-            logger=ZahirLogger(job_registry)
+            scope=scope, job_registry=job_registry, logger=ZahirLogger(job_registry)
         )

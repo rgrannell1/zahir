@@ -2,7 +2,7 @@ from collections.abc import Iterator, Mapping
 from typing import Any, Generic, TypeVar
 
 from zahir.base_types import Job
-from zahir.events import WorkflowOutputEvent, ZahirCustomEvent
+from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.worker.overseer import zahir_worker_overseer
 
 WorkflowOutputType = TypeVar("WorkflowOutputType", bound=Mapping[str, Any])
@@ -24,8 +24,8 @@ class LocalWorkflow(Generic[WorkflowOutputType]):
         self.max_workers = 4
 
     def run(
-        self, start: Job | None = None
-    ) -> Iterator[WorkflowOutputEvent[WorkflowOutputType] | ZahirCustomEvent]:
+        self, start: Job | None = None, all_events: bool = False
+    ) -> Iterator[WorkflowOutputEvent[WorkflowOutputType] | ZahirEvent]:
         """Run all jobs in the registry, opptionally seeding from this job in particular.
 
         @param start: The starting job of the workflow. Optional; the run will run all pending jobs in the job-register

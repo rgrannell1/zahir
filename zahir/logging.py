@@ -8,8 +8,7 @@ from zahir.base_types import (
     JobState,
 )
 
+
 class ZahirLogger:
-    def __init__(
-        self, job_registry: "JobRegistry"
-    ) -> None:
+    def __init__(self, job_registry: "JobRegistry") -> None:
         self.job_registry = job_registry
