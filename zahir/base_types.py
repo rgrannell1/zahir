@@ -520,8 +520,6 @@ class Context:
     scope: Scope
     # Keep track of jobs
     job_registry: JobRegistry
-    # Keep track of events
-    event_registry: EventRegistry
     # Log the progress of the workflow
     logger: "ZahirLogger"
 
@@ -529,12 +527,10 @@ class Context:
         self,
         scope: Scope,
         job_registry: JobRegistry,
-        event_registry: EventRegistry,
         logger: "ZahirLogger",
     ) -> None:
         self.scope = scope
         self.job_registry = job_registry
-        self.event_registry = event_registry
         self.logger = logger
 
 

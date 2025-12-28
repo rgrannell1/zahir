@@ -17,6 +17,30 @@ from zahir.base_types import (
 )
 from zahir.events import WorkflowOutputEvent
 
+JOBS_TABLE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS jobs (
+    job_id                    TEXT PRIMARY KEY,
+    serialised_job            TEXT NOT NULL,
+    state                     TEXT NOT NULL,
+    created_at                TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    started_at                TIMESTAMP,
+    completed_at              TIMESTAMP,
+    duration_seconds          REAL,
+    recovery_duration_seconds REAL
+);
+"""
+
+JOB_OUTPUTS_TABLE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS job_outputs (
+    job_id                    TEXT PRIMARY KEY,
+    output                    TEXT NOT NULL,
+    FOREIGN KEY (job_id) REFERENCES jobs(job_id)
+);
+"""
+
+JOBS_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs(state)
+"""
 
 class SQLiteJobRegistry(JobRegistry):
     def __init__(self, db_path: str | Path) -> None:
@@ -25,41 +49,20 @@ class SQLiteJobRegistry(JobRegistry):
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, timeout=30)
-        # Consistent behavior per connection
+
         conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute(
-            "PRAGMA synchronous=NORMAL;"
-        )  # use FULL if you want max durability
+        conn.execute("PRAGMA synchronous=NORMAL;")
         conn.execute("PRAGMA foreign_keys=ON;")
         conn.execute("PRAGMA busy_timeout=5000;")
+
         return conn
 
     def _init_db(self) -> None:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS jobs (
-                    job_id TEXT PRIMARY KEY,
-                    serialised_job TEXT NOT NULL,
-                    state TEXT NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    started_at TIMESTAMP,
-                    completed_at TIMESTAMP,
-                    duration_seconds REAL,
-                    recovery_duration_seconds REAL
-                )
-            """)
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS job_outputs (
-                    job_id TEXT PRIMARY KEY,
-                    output TEXT NOT NULL,
-                    FOREIGN KEY (job_id) REFERENCES jobs(job_id)
-                )
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_jobs_state
-                ON jobs(state)
-            """)
+            conn.execute(JOBS_TABLE_SCHEMA)
+            conn.execute(JOB_OUTPUTS_TABLE_SCHEMA)
+            conn.execute(JOBS_INDEX)
             conn.commit()
 
     def claim(self, context: Context) -> Job | None:
