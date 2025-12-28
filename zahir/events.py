@@ -160,6 +160,27 @@ class JobStartedEvent(ZahirEvent):
 
 
 @dataclass
+class JobPausedEvent(ZahirEvent):
+    """Indicates that a job has paused execution"""
+
+    workflow_id: str
+    job_id: str
+
+    def save(self) -> Mapping[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+        }
+
+    @classmethod
+    def load(cls, data: Mapping[str, Any]) -> JobPausedEvent:
+        return cls(
+            workflow_id=data["workflow_id"],
+            job_id=data["job_id"],
+        )
+
+
+@dataclass
 class JobTimeoutEvent(ZahirEvent):
     """Indicates that a job has timed out"""
 

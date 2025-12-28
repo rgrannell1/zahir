@@ -10,6 +10,7 @@ from zahir.events import (
     JobEvent,
     JobIrrecoverableEvent,
     JobOutputEvent,
+    JobPausedEvent,
     JobPrecheckFailedEvent,
     JobRecoveryTimeout,
     JobStartedEvent,
@@ -34,6 +35,7 @@ type JobStateEvent = (
     | JobRecoveryTimeout
     | JobIrrecoverableEvent
     | JobCompletedEvent
+    | JobPausedEvent
 )
 
 EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
@@ -44,6 +46,7 @@ EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
     JobRecoveryTimeout: JobState.RECOVERY_TIMED_OUT,
     JobIrrecoverableEvent: JobState.IRRECOVERABLE,
     JobCompletedEvent: JobState.COMPLETED,
+    JobPausedEvent: JobState.PAUSED,
 }
 
 

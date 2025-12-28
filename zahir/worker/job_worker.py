@@ -16,6 +16,7 @@ from zahir.events import (
     JobEvent,
     JobIrrecoverableEvent,
     JobOutputEvent,
+    JobPausedEvent,
     JobPrecheckFailedEvent,
     JobRecoveryStarted,
     JobRecoveryTimeout,
@@ -27,22 +28,10 @@ from zahir.events import (
 )
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 
-type OutputQueue = multiprocessing.Queue["ZahirEvent"]
-
-class ZahirWorkerState:
-    def __init__(self, context: Context, output_queue: OutputQueue, workflow_id: str):
-        self.job: Job | None = None
-        self.job_gen: Iterator | None = None
-        self.job_output: any = None
-        self.job_err: Exception | None = None
-        self.run_job_stack: list[tuple[Job, Iterator]] = []
-        self.context: Context = context
-        self.output_queue: OutputQueue = output_queue
-        self.workflow_id: str = workflow_id
-        # last_event holds a value (e.g. Await or JobOutputEvent) produced by a handler
-        self.last_event: any = None
 
 class ZahirJobState(str, Enum):
+    """Zahir transitions through these states when executing jobs."""
+
     START = "start"
     WAIT_FOR_JOB = "wait_for_job"
     POP_JOB = "pop_job"
@@ -53,9 +42,36 @@ class ZahirJobState(str, Enum):
     HANDLE_JOB_COMPLETE = "handle_job_complete"
     HANDLE_JOB_TIMEOUT = "handle_job_timeout"
 
+
+type OutputQueue = multiprocessing.Queue["ZahirEvent"]
+
+
+class ZahirWorkerState:
+    """Mutable state held during job execution."""
+
+    def __init__(self, context: Context, output_queue: OutputQueue, workflow_id: str):
+        self.job: Job | None = None
+        self.job_gen: Iterator | None = None
+        self.job_output: any = None
+        self.job_err: Exception | None = None
+        self.run_job_stack: list[tuple[Job, Iterator]] = []
+        self.context: Context = context
+        self.output_queue: OutputQueue = output_queue
+        self.workflow_id: str = workflow_id
+
+        # last_event holds a value (e.g. Await or JobOutputEvent) produced by a handler
+        # Dubious LLM suggestion, keeping it for now.
+        self.last_event: any = None
+
+
 class ZahirJobStateMachine:
+    """Manages the actual state transitions of a Zahir job; run the thing,
+    handle awaits, outputs, eventing, timeouts, failures, etc."""
+
     @classmethod
     def start(cls, state) -> Tuple[ZahirJobState, None]:
+        """We start. We makre sure there's something on the job stack to run."""
+
         if not state.run_job_stack:
             # First, let's make sure there's a generator on the stack.
             job = state.context.job_registry.claim(state.context)
@@ -69,22 +85,28 @@ class ZahirJobStateMachine:
 
     @classmethod
     def wait_for_job(cls, state) -> Tuple[ZahirJobState, None]:
+        """No jobs available; for the moment let's just sleep. In future, be cleverer
+        and have dependencies suggest nap-times"""
         time.sleep(1)
         return ZahirJobState.START, state
 
     @classmethod
     def pop_job(cls, state) -> Tuple[ZahirJobState, None]:
+        """We need a job; pop one off the stack"""
+
         if not state.job or not state.job_gen:
-            # We need a job; pop one off the stack
             state.job, state.job_gen = state.run_job_stack.pop()
 
         return ZahirJobState.CHECK_PRECONDITIONS, state
 
     @classmethod
     def check_preconditions(cls, state) -> Tuple[ZahirJobState, None]:
+        """Can we even run this job? Check the input preconditions first."""
+
         job_state = state.context.job_registry.get_state(state.job.job_id)
+
         if job_state == JobState.CLAIMED:
-            # we'll avoid re-running for Paused jobs.
+            # we'll avoid re-running for `Paused` jobs.
             if errors := type(state.job).precheck(state.job.input):
                 # Precheck failed; job is no longer on the stack, so
                 # let's report and continue.
@@ -96,18 +118,26 @@ class ZahirJobStateMachine:
                         errors=errors,
                     )
                 )
+
                 return ZahirJobState.START, state
         return ZahirJobState.EXECUTE_JOB, state
 
     @classmethod
     def handle_await(cls, state, await_event: Await) -> Tuple[ZahirJobState, None]:
+        """We received an Await event. We should put out current job back on the stack,
+        pause the job formally, then load the awaited job and start executing it."""
         # Pause the current job, put it back on the worker-process stack.
         state.run_job_stack.append((state.job, state.job_gen))
 
-        # Load the job being awaited from the serialised format
+        # Pause the job please
+        state.output_queue.put(
+            JobPausedEvent(workflow_id=state.workflow_id, job_id=state.job.job_id)
+        )
+
+        # Load the job now being awaited from the serialised format to the actual job instance
         job = Job.load(state.context, await_event.job)
 
-        # ...then, let's instantiate the `run` method
+        # ...then, let's instantiate the `run` generator
         job_gen = type(job).run(state.context, job.input, job.dependencies)
         state.job, state.job_gen = job, job_gen
 
@@ -115,8 +145,11 @@ class ZahirJobStateMachine:
 
     @classmethod
     def handle_job_output(cls, state) -> Tuple[ZahirJobState, None]:
+        """We received a job output! It's emitted upstream already; just null out the job state."""
+
         # We're done with this subjob
-        state.job_output = None # TODO job_output_event.output
+        # TODO set job output so that the parent job can access it
+        state.job_output = None
         state.job_err = None
         state.job = None
         state.job_gen = None
@@ -125,18 +158,19 @@ class ZahirJobStateMachine:
 
     @classmethod
     def handle_job_complete(cls, state) -> Tuple[ZahirJobState, None]:
+        """Mark the job as complete. Emit a completion event. Null out the job. Start over."""
         # We're also done with this subjob
         state.output_queue.put(
             JobCompletedEvent(
-                workflow_id=state.workflow_id, job_id=state.job.job_id, duration_seconds=0.1
+                workflow_id=state.workflow_id,
+                job_id=state.job.job_id,
+                duration_seconds=0.1,
             )
-
         )
         state.job_output = None
         state.job_err = None
         state.job = None
         state.job_gen = None
-
 
         return ZahirJobState.START, state
 
@@ -153,7 +187,9 @@ class ZahirJobStateMachine:
         )
         state.output_queue.put(
             JobCompletedEvent(
-                workflow_id=state.workflow_id, job_id=state.job.job_id, duration_seconds=0.1
+                workflow_id=state.workflow_id,
+                job_id=state.job.job_id,
+                duration_seconds=0.1,
             )
         )
 
@@ -184,6 +220,7 @@ class ZahirJobStateMachine:
                 state.last_event = job_gen_result
 
                 if isinstance(job_gen_result, Await):
+                    # our job is now awaiting another; switch to that before resuming the first one
                     return ZahirJobState.HANDLE_AWAIT, state
                 if isinstance(job_gen_result, JobOutputEvent):
                     return ZahirJobState.HANDLE_JOB_OUTPUT, state
@@ -194,22 +231,24 @@ class ZahirJobStateMachine:
                 return ZahirJobState.HANDLE_JOB_TIMEOUT, state
             except Exception as err:
                 ...
-                # TODO wire in recovery mechanism (what a faff to keep it)
+                # TODO wire in recovery mechanism (what a faff to keep, though
+                # I gues it's worth it)
 
         return ZahirJobState.START, state
-
 
     @classmethod
     def get_state(cls, state_name: ZahirJobState):
         return getattr(cls, state_name.value)
 
+
 def zahir_job_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) -> None:
     """Repeatly request and execute jobs from the job registry until
     there's nothing else to be done. Communicate events back to the
     supervisor process.
+
     """
 
-    # bad, dependency injection. temporary.
+    # bad, bold. dependency injection. temporary.
     job_registry = SQLiteJobRegistry("jobs.db")
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
@@ -218,20 +257,21 @@ def zahir_job_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) 
 
     # ...so I put a workflow engine inside your workflow engine
     while True:
+        # We don't terminate this loop; the overseer process does based on completion events
+
+        # run through our second secret workflow engine's steps repeatedly to update the job state
         handler = ZahirJobStateMachine.get_state(current)
         next_state, state = handler(state)
         state.last_event = None
         current = next_state
+
 
 def handle_job_events(
     gen, *, output_queue, workflow_id, job_id
 ) -> Await | JobOutputEvent | None:
     """Sent job output items to the output queue."""
 
-    # TODO: JobOutputEvent needs special handling
-
     for item in gen:
-        print(item)
         if isinstance(item, Await):
             return item
 
