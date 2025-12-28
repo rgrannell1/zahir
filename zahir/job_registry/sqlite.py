@@ -62,7 +62,7 @@ class SQLiteJobRegistry(JobRegistry):
             conn.commit()
 
     def claim(self, context: Context) -> Job | None:
-        """Atomically claim a pending job and set its state to CLAIMED."""
+        """Atomically claim a ready job and set its state to CLAIMED."""
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
             row = conn.execute(
@@ -81,8 +81,8 @@ class SQLiteJobRegistry(JobRegistry):
                 """,
                 (
                     JobState.CLAIMED.value,
-                    JobState.PENDING.value,
-                    JobState.PENDING.value,
+                    JobState.READY.value,
+                    JobState.READY.value,
                 ),
             ).fetchone()
             conn.commit()
@@ -100,11 +100,11 @@ class SQLiteJobRegistry(JobRegistry):
         serialised = json.dumps(job.save())
 
         # Jobs need their dependencies verified to have passed before they can run;
-        # so by default they start as BLOCKED unless they have no dependencies.
+        # so by default they start as PENDING unless they have no dependencies.
         job_state = (
-            JobState.PENDING.value
+            JobState.READY.value
             if job.dependencies.empty()
-            else JobState.BLOCKED.value
+            else JobState.PENDING.value
         )
 
         with self._connect() as conn:
@@ -176,10 +176,9 @@ class SQLiteJobRegistry(JobRegistry):
             yield WorkflowOutputEvent(output_dict, workflow_id)
 
     def active(self) -> bool:
-        """Return True if any jobs are active (pending, blocked, ready, claimed, running, recovering)."""
+        """Return True if any jobs are active (pending, ready, claimed, running, recovering)."""
         active_states = [
             JobState.PENDING.value,
-            JobState.BLOCKED.value,
             JobState.READY.value,
             JobState.CLAIMED.value,
             JobState.RUNNING.value,

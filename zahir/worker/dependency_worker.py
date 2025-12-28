@@ -32,14 +32,14 @@ def zahir_dependency_worker(
             return
 
         # try to find blocked jobs whose dependencies are now satisfied
-        for job_info in job_registry.jobs(context, state=JobState.BLOCKED):
+        for job_info in job_registry.jobs(context, state=JobState.PENDING):
             ...
             job = job_info.job
 
             dependencies_state = job.dependencies.satisfied()
 
             if dependencies_state == DependencyState.SATISFIED:
-                job_registry.set_state(job.job_id, JobState.PENDING)
+                job_registry.set_state(job.job_id, JobState.READY)
             elif dependencies_state == DependencyState.IMPOSSIBLE:
                 job_registry.set_state(job.job_id, JobState.IMPOSSIBLE)
 

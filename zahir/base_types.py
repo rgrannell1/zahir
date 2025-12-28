@@ -161,7 +161,7 @@ class JobRegistry(ABC):
 
     @abstractmethod
     def active(self) -> bool:
-        """Return True if any jobs are active (pending, blocked, ready, claimed, running, recovering)."""
+        """Return True if any jobs are active (pending, ready, claimed, running, recovering)."""
 
         raise NotImplementedError
 
