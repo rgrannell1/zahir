@@ -36,9 +36,9 @@ def BookProcessor(
                 yield chapter_job
                 pids.append(chapter_job.job_id)
 
-                #just_for_testing = ChapterProcessor({"lines": chapter_lines.copy()}, {})
-                #result = yield Await(just_for_testing)
-                #print('result', result)
+                just_for_testing = ChapterProcessor({"lines": chapter_lines.copy()}, {})
+                result = yield Await(just_for_testing)
+                print('result', result)
                 #raise Exception('stop here')
 
                 chapter_lines = []
