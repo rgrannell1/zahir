@@ -7,7 +7,7 @@ from zahir.base_types import Context, Dependency, Job
 from zahir.context import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
-from zahir.events import JobOutputEvent, WorkflowOutputEvent
+from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.tasks.decorator import job
@@ -25,7 +25,7 @@ def longest_word_sequence(text: str) -> str:
 @job
 def BookProcessor(
     cls, context: Context, input, dependencies
-) -> Iterator[Job | JobOutputEvent]:
+) -> Iterator[Job | Await | JobOutputEvent]:
     pids = []
     chapter_lines: list[str] = []
 
@@ -35,6 +35,11 @@ def BookProcessor(
                 chapter_job = ChapterProcessor({"lines": chapter_lines.copy()}, {})
                 yield chapter_job
                 pids.append(chapter_job.job_id)
+
+                #just_for_testing = ChapterProcessor({"lines": chapter_lines.copy()}, {})
+                #result = yield Await(just_for_testing)
+                #print('result', result)
+                #raise Exception('stop here')
 
                 chapter_lines = []
 

@@ -58,6 +58,7 @@ class ZahirWorkerState:
         self.context: Context = context
         self.output_queue: OutputQueue = output_queue
         self.workflow_id: str = workflow_id
+        self.await_event: Await | None = None
 
         # last_event holds a value (e.g. Await or JobOutputEvent) produced by a handler
         # Dubious LLM suggestion, keeping it for now.
@@ -126,7 +127,7 @@ class ZahirJobStateMachine:
         return ZahirJobState.EXECUTE_JOB, state
 
     @classmethod
-    def handle_await(cls, state, await_event: Await) -> Tuple[ZahirJobState, None]:
+    def handle_await(cls, state) -> Tuple[ZahirJobState, None]:
         """We received an Await event. We should put out current job back on the stack,
         pause the job formally, then load the awaited job and start executing it."""
 
@@ -139,8 +140,22 @@ class ZahirJobStateMachine:
             JobPausedEvent(workflow_id=state.workflow_id, job_id=state.job.job_id)
         )
 
-        # Load the job now being awaited from the serialised format to the actual job instance
-        job = Job.load(state.context, await_event.job)
+        await_event = state.await_event
+        assert await_event is not None
+
+        job = await_event.job
+        state.context.job_registry.add(job)
+        # TO DO also writes, then Unique ID clashes
+        #state.output_queue.put(
+        #    JobEvent(
+        #        job=job.save(),
+        #    )
+        #)
+        state.context.job_registry.set_state(job.job_id, JobState.CLAIMED)
+
+        state.output_queue.put(
+            JobStartedEvent(workflow_id=state.workflow_id, job_id=job.job_id)
+        )
 
         # ...then, let's instantiate the `run` generator
         job_gen = type(job).run(state.context, job.input, job.dependencies)
@@ -237,8 +252,11 @@ class ZahirJobStateMachine:
 
                 if isinstance(job_gen_result, Await):
                     # our job is now awaiting another; switch to that before resuming the first one
+                    state.await_event = job_gen_result
                     return ZahirJobState.HANDLE_AWAIT, state
-                if isinstance(job_gen_result, JobOutputEvent):
+                elif isinstance(job_gen_result, JobOutputEvent):
+                    state.last_event = job_gen_result.copy()
+                    print(job_gen_result,'xxxxxxxxxxxxxx')
                     return ZahirJobState.HANDLE_JOB_OUTPUT, state
                 elif job_gen_result is None:
                     return ZahirJobState.HANDLE_JOB_COMPLETE_NO_OUTPUT, state
