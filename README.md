@@ -122,7 +122,7 @@ We often want to run a workflow job to achieve a certain state (e.g create a res
 
 ### Job-Expiration
 
-Jobs generally have a useful period in which we'd like to execute them (today, not a week from now, for example). This can be codified by using a `TimeDependency` with a for condition
+Jobs generally have a useful period in which we'd like to execute them (today, not a week from now, for example). This can be codified by using a `TimeDependency` with a before condition
 
 ### API Access
 
