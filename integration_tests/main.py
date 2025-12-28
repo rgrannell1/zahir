@@ -10,7 +10,7 @@ from zahir.tasks.decorator import job
 from zahir.base_types import Context, Job
 from zahir.base_types import Dependency
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.worker.overseer import zahir_worker_overseer
+from zahir.worker import LocalWorkflow
 
 WORD_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
 
@@ -97,18 +97,12 @@ scope = LocalScope(
     dependencies=[DependencyGroup, JobDependency],
 )
 
-
-# for event in workflow.run(
-#    BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
-# ):
-#    print(event.output)
-
 job_registry = SQLiteJobRegistry("jobs.db")
-job_registry.add(
-    BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
-)
-
 context = MemoryContext(scope=scope, job_registry=job_registry)
 
-for event in zahir_worker_overseer(context, worker_count=4):
+start = BookProcessor(
+    {"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {}
+)
+
+for event in LocalWorkflow[LongestWordAssemblyOutput](context).run(start):
     print(event)

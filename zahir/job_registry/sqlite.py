@@ -101,7 +101,11 @@ class SQLiteJobRegistry(JobRegistry):
 
         # Jobs need their dependencies verified to have passed before they can run;
         # so by default they start as BLOCKED unless they have no dependencies.
-        job_state = JobState.PENDING.value if job.dependencies.empty() else JobState.BLOCKED.value
+        job_state = (
+            JobState.PENDING.value
+            if job.dependencies.empty()
+            else JobState.BLOCKED.value
+        )
 
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
@@ -190,7 +194,9 @@ class SQLiteJobRegistry(JobRegistry):
             ).fetchone()
         return row is not None
 
-    def jobs(self, context: Context, state: JobState | None = None) -> Iterator["JobInformation"]:
+    def jobs(
+        self, context: Context, state: JobState | None = None
+    ) -> Iterator["JobInformation"]:
         with self._connect() as conn:
             job_list = conn.execute("""
                 SELECT j.job_id, j.serialised_job, j.state, o.output,

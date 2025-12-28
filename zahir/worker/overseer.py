@@ -24,12 +24,6 @@ from zahir.worker.job_worker import zahir_job_worker
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
-
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    TimeoutError as FutureTimeoutError,
-)
-
 # Job-state events (TODO, via inheritance)
 type JobStateEvent = (
     JobStartedEvent
@@ -73,22 +67,16 @@ def handle_supervisor_event(
         job_registry.set_state(cast(str, event.job_id), JobState.COMPLETED)
 
 
-
-
 def zahir_worker_overseer(
     context, worker_count: int = 4
-) -> Iterator[WorkflowOutputEvent | JobOutputEvent | ZahirCustomEvent]:
+) -> Iterator[WorkflowOutputEvent | ZahirCustomEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 
     workflow_id = generate_id(3)
     output_queue: OutputQueue = multiprocessing.Queue()
 
-    # TODO: reintroduce dependency evaluation loop; I think this refactor breaks dependencies
-    # CRITICAL! Should be done in a separate worker.
-
     processes = []
-
     processs = multiprocessing.Process(
         target=zahir_dependency_worker, args=(context.scope, output_queue, workflow_id)
     )
@@ -109,8 +97,7 @@ def zahir_worker_overseer(
                 break
 
             handle_supervisor_event(event, context, context.job_registry)
-            if isinstance(
-                event, (WorkflowOutputEvent, JobOutputEvent, ZahirCustomEvent)):
+            if isinstance(event, (WorkflowOutputEvent, ZahirCustomEvent)):
                 yield event
     except KeyboardInterrupt:
         pass

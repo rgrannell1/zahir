@@ -1,4 +1,3 @@
-
 from datetime import datetime, timezone
 import time
 import multiprocessing
@@ -22,18 +21,16 @@ from zahir.events import (
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
-
-
 from concurrent.futures import (
     ThreadPoolExecutor,
     TimeoutError as FutureTimeoutError,
 )
 
+
 def zahir_job_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) -> None:
     """Repeatly request and execute jobs from the job registry until
     there's nothing else to be done. Communicate events back to the
     supervisor process.
-
     """
 
     # bad, dependency injection. temporary.
@@ -45,7 +42,6 @@ def zahir_job_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) 
         job = job_registry.claim(context)
 
         if job is None:
-            # TODO recentralise this timeout
             time.sleep(1)
             continue
 
@@ -174,6 +170,7 @@ def execute_job(
                 duration_seconds=(end_time - start_time).total_seconds(),
             )
         )
+
 
 def handle_job_output(gen, *, output_queue, workflow_id, job_id):
     """Sent job output items to the output queue."""

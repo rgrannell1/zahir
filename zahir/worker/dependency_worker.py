@@ -1,4 +1,3 @@
-
 import multiprocessing
 import time
 from zahir.base_types import DependencyState, JobState, Scope
@@ -12,11 +11,11 @@ from zahir.job_registry.sqlite import SQLiteJobRegistry
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
+
 def zahir_dependency_worker(
     scope: Scope, output_queue: OutputQueue, workflow_id: str
 ) -> None:
     """Analyse job dependencies and mark jobs as pending."""
-    ...
 
     # bad, dependency injection. temporary.
     job_registry = SQLiteJobRegistry("jobs.db")

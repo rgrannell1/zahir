@@ -198,7 +198,9 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def jobs(self, context: "Context", state: JobState | None = None) -> Iterator[JobInformation]:
+    def jobs(
+        self, context: "Context", state: JobState | None = None
+    ) -> Iterator[JobInformation]:
         """Get an iterator of all jobs with their information.
 
         @param context: The context containing scope and registries for deserialization
