@@ -341,9 +341,9 @@ class Job(ABC, Generic[ArgsType, OutputType]):
     def __init__(
         self,
         input: ArgsType,
-        dependencies: Mapping[str, Dependency | list[Dependency]] | "DependencyGroup",
+        dependencies: "Mapping[str, Dependency | list[Dependency]] | DependencyGroup",
         options: JobOptions | None = None,
-        job_id: str | None = None,
+    job_id: str | None = None,
         parent_id: str | None = None,
     ) -> None:
         # Import here to avoid circular dependency, this is so dumb.

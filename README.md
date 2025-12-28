@@ -13,24 +13,27 @@ I'm writing a self-hosted digital library website, and I need a way of coordinat
 
 ```
 src/
+    context/
+        memory.py              communicates workflow internals with dependencies and jobs
     dependencies/
-        concurrency.py     await a free concurrency slot before starting a job
-        time.py            await a particular time-range before starting a job
-        group.py           await a group of dependencies
-        job.py             await a particular job-state
-    event_registry/
-        memory.py          register events locally
-        sqlite.py          register events in SQLite
+        concurrency.py         await a free concurrency slot before starting a job
+        time.py                await a particular time-range before starting a job
+        group.py               await a group of dependencies
+        job.py                 await a particular job-state
     job_registry/
-        memory.py          register jobs locally
-        sqlite.py          register jobs in SQLite
-    context.py             communicates workflow internals with dependencies and jobs
-    logging.py             output information about the workflow status
-    events.py              events describing workflow state-updates
-    exception.py           exceptions thrown by Zahir
-    scope.py               handle translation from serialised data to instances
-    types.py               abstract types for key Zahir abstractions
-    workflow.py            run the workflows
+        sqlite.py              register jobs in SQLite
+    utils/
+        id_generator.py        adjective-noun ids
+    worker/
+        dependency_worker.py   check if dependencies are satistfied
+        job_worker.py          claim and run a job freom the job registry
+        overseer.py            manage the overall workflow execution
+
+    base_types.py              abstract types for key Zahir abstractions
+    events.py                  events describing workflow state-updates
+    exception.py               exceptions thrown by Zahir
+    logging.py                 output information about the workflow status
+    scope.py                   handle translation from serialised data to instances
 ```
 
 ## What is Zahir?
@@ -63,7 +66,7 @@ Data is passed unidirectionally from an initial job to subjobs by the parent job
 
 This is the most idiomatic way of implementing the "fan-out, then aggregate" pattern in Zahir. In a similar way, workflow-level output can be yielded with `WorkflowOutputEvent`.
 
-Jobs should have most of their logic factored out into plain functions; the job itself should just take input, call the necessary library functions, event, and delegate to other jobs. 
+Jobs should have most of their logic factored out into plain functions; the job itself should just take input, call the necessary library functions, event, and delegate to other jobs.
 
 ### Dependencies - Await some precondition before doing things
 
@@ -126,7 +129,7 @@ Jobs generally have a useful period in which we'd like to execute them (today, n
 
 ### API Access
 
-Use a `ConcurrencyLimit` with the appropriate concurrency limit and slots (roughly, how many calls we'll make) to make API calls within a concurrency limit. 
+Use a `ConcurrencyLimit` with the appropriate concurrency limit and slots (roughly, how many calls we'll make) to make API calls within a concurrency limit.
 
 ## Execution
 

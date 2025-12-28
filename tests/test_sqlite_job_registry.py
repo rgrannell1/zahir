@@ -47,7 +47,7 @@ def test_sqlite_job_registry_lifecycle():
         job = DummyJob(job_id="job1")
         job_id = registry.add(job)
         assert job_id == "job1"
-        assert registry.get_state(job_id) == JobState.PENDING
+        assert registry.get_state(job_id) == JobState.READY
         registry.set_state(job_id, JobState.COMPLETED)
         assert registry.get_state(job_id) == JobState.COMPLETED
         registry.set_output(job_id, {"result": 42})
