@@ -39,7 +39,7 @@ class ZahirJobState(str, Enum):
     EXECUTE_JOB = "execute_job"
     HANDLE_AWAIT = "handle_await"
     HANDLE_JOB_OUTPUT = "handle_job_output"
-    HANDLE_JOB_COMPLETE = "handle_job_complete"
+    HANDLE_JOB_COMPLETE_NO_OUTPUT = "handle_job_complete_no_output"
     HANDLE_JOB_TIMEOUT = "handle_job_timeout"
 
 
@@ -63,6 +63,8 @@ class ZahirWorkerState:
         # Dubious LLM suggestion, keeping it for now.
         self.last_event: any = None
 
+        self.current_job_awaited: bool = False
+
 
 class ZahirJobStateMachine:
     """Manages the actual state transitions of a Zahir job; run the thing,
@@ -80,6 +82,7 @@ class ZahirJobStateMachine:
 
             job_gen = type(job).run(state.context, job.input, job.dependencies)
             state.run_job_stack.append((job, job_gen))
+            state.current_job_awaited = False
 
         return ZahirJobState.POP_JOB, state
 
@@ -126,8 +129,10 @@ class ZahirJobStateMachine:
     def handle_await(cls, state, await_event: Await) -> Tuple[ZahirJobState, None]:
         """We received an Await event. We should put out current job back on the stack,
         pause the job formally, then load the awaited job and start executing it."""
+
         # Pause the current job, put it back on the worker-process stack.
         state.run_job_stack.append((state.job, state.job_gen))
+        state.current_job_awaited = True
 
         # Pause the job please
         state.output_queue.put(
@@ -145,11 +150,15 @@ class ZahirJobStateMachine:
 
     @classmethod
     def handle_job_output(cls, state) -> Tuple[ZahirJobState, None]:
-        """We received a job output! It's emitted upstream already; just null out the job state."""
+        """We received a job output! It's emitted upstream already; just null out the job state. Persist the output to the state if awaited; we'll pop, then pass
+        the output to the awaiting job"""
 
-        # We're done with this subjob
-        # TODO set job output so that the parent job can access it
-        state.job_output = None
+        # something wants the result further up the stack! Give it what it wants.
+        if state.current_job_awaited:
+            state.job_output = state.last_event.output
+        else:
+            state.job_output = None
+
         state.job_err = None
         state.job = None
         state.job_gen = None
@@ -157,7 +166,7 @@ class ZahirJobStateMachine:
         return ZahirJobState.START, state
 
     @classmethod
-    def handle_job_complete(cls, state) -> Tuple[ZahirJobState, None]:
+    def handle_job_complete_no_output(cls, state) -> Tuple[ZahirJobState, None]:
         """Mark the job as complete. Emit a completion event. Null out the job. Start over."""
         # We're also done with this subjob
         state.output_queue.put(
@@ -193,7 +202,8 @@ class ZahirJobStateMachine:
             )
         )
 
-        return ZahirJobState.HANDLE_JOB_COMPLETE, state
+        # it's fine, no output to give even if awaited.
+        return ZahirJobState.HANDLE_JOB_COMPLETE_NO_OUTPUT, state
 
     @classmethod
     def execute_job(cls, state) -> Tuple[ZahirJobState, None]:
@@ -208,6 +218,12 @@ class ZahirJobStateMachine:
 
         with ThreadPoolExecutor(max_workers=1) as ex:
             try:
+                # We have an output to send the awaiting job!
+                # TO DO handle send failures
+                if state.job_output:
+                    state.job_gen.send(state.job_output)
+                    state.job_output = None
+
                 job_gen_result = ex.submit(
                     handle_job_events,
                     state.job_gen,
@@ -225,7 +241,7 @@ class ZahirJobStateMachine:
                 if isinstance(job_gen_result, JobOutputEvent):
                     return ZahirJobState.HANDLE_JOB_OUTPUT, state
                 elif job_gen_result is None:
-                    return ZahirJobState.HANDLE_JOB_COMPLETE, state
+                    return ZahirJobState.HANDLE_JOB_COMPLETE_NO_OUTPUT, state
 
             except FutureTimeoutError:
                 return ZahirJobState.HANDLE_JOB_TIMEOUT, state
