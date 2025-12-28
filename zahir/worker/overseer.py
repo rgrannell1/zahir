@@ -106,11 +106,12 @@ def zahir_worker_overseer(
             event = output_queue.get()
 
             if isinstance(event, WorkflowCompleteEvent):
-                yield event
                 break
 
             handle_supervisor_event(event, context, context.job_registry)
-            yield event
+            if isinstance(
+                event, (WorkflowOutputEvent, JobOutputEvent, ZahirCustomEvent)):
+                yield event
     except KeyboardInterrupt:
         pass
     finally:
