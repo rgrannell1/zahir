@@ -239,16 +239,11 @@ class ZahirJobStateMachine:
 
         with ThreadPoolExecutor(max_workers=1) as ex:
             try:
-                sent = True
-                if waiting_for := state.awaiting_jobs.get(state.job.job_id):
-                    output = state.job_outputs.get(waiting_for)
-                    event = state.job_gen.send(output)
-                    handle_job_events(iter([event]), output_queue=state.output_queue, workflow_id=state.workflow_id, job_id=cast(str, state.job.job_id))
-
                 job_gen_result = ex.submit(
                     handle_job_events,
                     state.job_gen,
                     output_queue=state.output_queue,
+                    state=state,
                     workflow_id=state.workflow_id,
                     job_id=cast(str, state.job.job_id),
                 ).result(timeout=job_timeout)
@@ -304,12 +299,31 @@ def zahir_job_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) 
 
 
 def handle_job_events(
-    gen, *, output_queue, workflow_id, job_id
+    gen, *, output_queue, state, workflow_id, job_id
 ) -> Await | JobOutputEvent | None:
     """Sent job output items to the output queue."""
 
-    for item in gen:
-        print(item)
+    queue: list[ZahirEvent|Job] = []
+    if waiting_for := state.awaiting_jobs.get(state.job.job_id):
+        output = state.job_outputs.get(waiting_for)
+        event = state.job_gen.send(output)
+        queue.append(event)
+
+        # we might have further awaits, so tidy up the state so we can await yet again!
+        del state.awaiting_jobs[state.job.job_id]
+        del state.job_outputs[waiting_for]
+
+    while True:
+        # deal with the send event, if we have one
+        item = queue.pop(0) if queue else None
+
+        if item is None:
+            try:
+                item = next(gen)
+            except StopIteration:
+                # We're finished!
+                return None
+
         if isinstance(item, Await):
             return item
 
@@ -355,6 +369,3 @@ def handle_job_events(
             )
 
             continue
-
-    # We're finished
-    return None
