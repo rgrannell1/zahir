@@ -63,7 +63,7 @@ def BookProcessor(
 
         pids.append(chapter_job.job_id)
 
-    assembly_deps: dict[str, list[Dependency]] = {
+    assembly_deps = {
         "chapters": [JobDependency(pid, context.job_registry) for pid in pids]
     }
 
@@ -90,7 +90,7 @@ def LongestWordAssembly(
     """Assemble the longest words from each chapter into a unique list."""
 
     long_words = set()
-    chapters = cast(list[JobDependency[Mapping]], dependencies.get("chapters"))
+    chapters = dependencies.get("chapters")
 
     for dep in chapters:
         summary = dep.output(context)
