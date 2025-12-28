@@ -1,13 +1,12 @@
-import os
+import pathlib
 import tempfile
 
-from zahir.base_types import Context, EventRegistry
-from zahir.scope import LocalScope
-from zahir.logging import ZahirLogger
-from zahir.job_registry.sqlite import SQLiteJobRegistry
-from zahir.base_types import Job, JobState
+from zahir.base_types import Context, EventRegistry, Job, JobState
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import WorkflowOutputEvent
+from zahir.job_registry.sqlite import SQLiteJobRegistry
+from zahir.logging import ZahirLogger
+from zahir.scope import LocalScope
 
 
 class DummyEventRegistry(EventRegistry):
@@ -68,4 +67,4 @@ def test_sqlite_job_registry_lifecycle():
         info = list(registry.jobs(dummy_context))
         assert any(j.job_id == job_id for j in info)
     finally:
-        os.remove(db_path)
+        pathlib.Path(db_path).unlink()

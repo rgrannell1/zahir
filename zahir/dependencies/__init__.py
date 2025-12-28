@@ -4,10 +4,9 @@ Jobs can depend on things; this implements a few common dependency types. Depend
 must be serialisable, since we store them alongside jobs.
 """
 
-from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.concurrency import ConcurrencyLimit
-from zahir.dependencies.time import TimeDependency
+from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
+from zahir.dependencies.time import TimeDependency
 
-
-__all__ = ["DependencyGroup", "ConcurrencyLimit", "TimeDependency", "JobDependency"]
+__all__ = ["ConcurrencyLimit", "DependencyGroup", "JobDependency", "TimeDependency"]

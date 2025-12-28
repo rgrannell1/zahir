@@ -1,6 +1,6 @@
 """Tests for Zahir exceptions"""
 
-from zahir.exception import ZahirException, DependencyMissingException
+from zahir.exception import DependencyMissingException, ZahirException
 
 
 def test_exceptions_instantiate():

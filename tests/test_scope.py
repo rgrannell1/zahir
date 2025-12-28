@@ -1,13 +1,14 @@
 """Tests for LocalScope"""
 
+from collections.abc import Iterator
+
+from zahir.base_types import Context, Job
+from zahir.dependencies.concurrency import ConcurrencyLimit
+from zahir.dependencies.group import DependencyGroup
+from zahir.dependencies.job import JobDependency
+from zahir.dependencies.time import TimeDependency
 from zahir.events import JobOutputEvent
 from zahir.scope import LocalScope
-from zahir.base_types import Job, Context
-from zahir.dependencies.group import DependencyGroup
-from zahir.dependencies.time import TimeDependency
-from zahir.dependencies.job import JobDependency
-from zahir.dependencies.concurrency import ConcurrencyLimit
-from typing import Iterator
 
 
 class SampleJob(Job):

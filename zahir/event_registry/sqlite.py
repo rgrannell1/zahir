@@ -1,15 +1,15 @@
 """SQLite-based registry for persistent workflow execution."""
 
 import json
-import sqlite3
 from pathlib import Path
+import sqlite3
 from threading import Lock
 
 from zahir import events as event_module
-from zahir.events import ZahirEvent
 from zahir.base_types import (
     EventRegistry,
 )
+from zahir.events import ZahirEvent
 
 
 class SQLiteEventRegistry(EventRegistry):
@@ -67,37 +67,36 @@ class SQLiteEventRegistry(EventRegistry):
         @param workflow_id: Optional filter by workflow ID
         @return: List of deserialised event objects
         """
-        with self._lock:
-            with sqlite3.connect(self.db_path) as conn:
-                query = (
-                    "SELECT event_type, event_data, created_at FROM events WHERE 1=1"
-                )
-                params = []
+        with self._lock, sqlite3.connect(self.db_path) as conn:
+            query = (
+                "SELECT event_type, event_data, created_at FROM events WHERE 1=1"
+            )
+            params = []
 
-                if event_type:
-                    query += " AND event_type = ?"
-                    params.append(event_type)
+            if event_type:
+                query += " AND event_type = ?"
+                params.append(event_type)
 
-                if workflow_id:
-                    # Use JSON extraction to safely filter by workflow_id
-                    # This avoids LIKE pattern injection vulnerabilities
-                    query += " AND json_extract(event_data, '$.workflow_id') = ?"
-                    params.append(workflow_id)
+            if workflow_id:
+                # Use JSON extraction to safely filter by workflow_id
+                # This avoids LIKE pattern injection vulnerabilities
+                query += " AND json_extract(event_data, '$.workflow_id') = ?"
+                params.append(workflow_id)
 
-                query += " ORDER BY created_at"
+            query += " ORDER BY created_at"
 
-                cursor = conn.execute(query, params)
-                events = []
+            cursor = conn.execute(query, params)
+            events = []
 
-                for row in cursor:
-                    event_type_name, event_data, created_at = row
-                    data = json.loads(event_data)
+            for row in cursor:
+                event_type_name, event_data, created_at = row
+                data = json.loads(event_data)
 
-                    # Deserialise event using the appropriate class
-                    # These are prevended, so no need to use a scope object
-                    event_class = getattr(event_module, event_type_name, None)
-                    if event_class and hasattr(event_class, "load"):
-                        event = event_class.load(data)
-                        events.append(event)
+                # Deserialise event using the appropriate class
+                # These are prevended, so no need to use a scope object
+                event_class = getattr(event_module, event_type_name, None)
+                if event_class and hasattr(event_class, "load"):
+                    event = event_class.load(data)
+                    events.append(event)
 
-                return events
+            return events

@@ -1,11 +1,14 @@
 """Workers poll centrally for jobs to run, lease them, and return results back centrally. They report quiescence when there's nothing left to do, so the supervisor task can exit gracefully."""
 
+from collections.abc import Iterator
 import multiprocessing
-from typing import Iterator, cast
+from typing import cast
+
 from zahir.base_types import Context, Job, JobState
 from zahir.events import (
     JobCompletedEvent,
     JobEvent,
+    JobIrrecoverableEvent,
     JobOutputEvent,
     JobPrecheckFailedEvent,
     JobRecoveryTimeout,
@@ -14,7 +17,6 @@ from zahir.events import (
     WorkflowCompleteEvent,
     WorkflowOutputEvent,
     ZahirCustomEvent,
-    JobIrrecoverableEvent,
     ZahirEvent,
 )
 from zahir.job_registry.sqlite import SQLiteJobRegistry

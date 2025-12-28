@@ -2,9 +2,9 @@
 
 from zahir.event_registry.memory import MemoryEventRegistry
 from zahir.events import (
-    WorkflowCompleteEvent,
     JobCompletedEvent,
     JobStartedEvent,
+    WorkflowCompleteEvent,
 )
 
 

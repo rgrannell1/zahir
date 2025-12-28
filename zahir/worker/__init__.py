@@ -1,4 +1,6 @@
-from typing import Any, Generic, Iterator, Mapping, TypeVar
+from collections.abc import Iterator, Mapping
+from typing import Any, Generic, TypeVar
+
 from zahir.base_types import Job
 from zahir.events import WorkflowOutputEvent, ZahirCustomEvent
 from zahir.worker.overseer import zahir_worker_overseer
@@ -38,4 +40,4 @@ class LocalWorkflow(Generic[WorkflowOutputType]):
         yield from zahir_worker_overseer(self.context, self.max_workers)
 
 
-__all__ = ["zahir_worker_overseer", "LocalWorkflow"]
+__all__ = ["LocalWorkflow", "zahir_worker_overseer"]

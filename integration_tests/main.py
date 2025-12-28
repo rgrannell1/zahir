@@ -1,15 +1,16 @@
+from collections.abc import Iterator, Mapping
+import pathlib
 import re
+from typing import TypedDict, cast
 
-from typing import Iterator, Mapping, TypedDict, cast
+from zahir.base_types import Context, Dependency, Job
 from zahir.context import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
 from zahir.events import JobOutputEvent, WorkflowOutputEvent
+from zahir.job_registry import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.tasks.decorator import job
-from zahir.base_types import Context, Job
-from zahir.base_types import Dependency
-from zahir.job_registry import SQLiteJobRegistry
 from zahir.worker import LocalWorkflow
 
 WORD_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
@@ -28,7 +29,7 @@ def BookProcessor(
     pids = []
     chapter_lines: list[str] = []
 
-    with open(input["file_path"], "r") as file:
+    with pathlib.Path(input["file_path"]).open() as file:
         for line in file:
             if "CHAPTER" in line:
                 chapter_job = ChapterProcessor({"lines": chapter_lines.copy()}, {})

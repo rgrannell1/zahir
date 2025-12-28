@@ -6,9 +6,9 @@ Workflows should be observable. So we'll yield events describing the state of th
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any, Generic, Mapping, TypeVar
-
+from typing import Any, Generic, TypeVar
 
 OutputType = TypeVar("OutputType", bound=Mapping[str, Any])
 CustomEventOutputType = TypeVar("CustomEventOutputType", bound=Mapping[str, Any])
@@ -27,7 +27,7 @@ class ZahirEvent(ABC):
 
     @classmethod
     @abstractmethod
-    def load(cls, data: Mapping[str, Any]) -> "ZahirEvent":
+    def load(cls, data: Mapping[str, Any]) -> ZahirEvent:
         """Deserialize the event from a dictionary.
 
         @param data: The serialized event data
@@ -50,7 +50,7 @@ class WorkflowCompleteEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "WorkflowCompleteEvent":
+    def load(cls, data: Mapping[str, Any]) -> WorkflowCompleteEvent:
         return cls(
             workflow_id=data["workflow_id"], duration_seconds=data["duration_seconds"]
         )
@@ -82,7 +82,7 @@ class WorkflowOutputEvent(ZahirEvent, Generic[OutputType]):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "WorkflowOutputEvent":
+    def load(cls, data: Mapping[str, Any]) -> WorkflowOutputEvent:
         return WorkflowOutputEvent(
             workflow_id=data["workflow_id"],
             output=data["output"],
@@ -106,7 +106,7 @@ class JobCompletedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobCompletedEvent":
+    def load(cls, data: Mapping[str, Any]) -> JobCompletedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -130,7 +130,7 @@ class JobOutputEvent(ZahirEvent, Generic[OutputType]):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobOutputEvent":
+    def load(cls, data: Mapping[str, Any]) -> JobOutputEvent:
         return JobOutputEvent(
             output=data["output"],
             workflow_id=data["workflow_id"],
@@ -152,7 +152,7 @@ class JobStartedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobStartedEvent":
+    def load(cls, data: Mapping[str, Any]) -> JobStartedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -175,7 +175,7 @@ class JobTimeoutEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobTimeoutEvent":
+    def load(cls, data: Mapping[str, Any]) -> JobTimeoutEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -197,7 +197,7 @@ class JobRecoveryStarted(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobRecoveryStarted":
+    def load(cls, data: Mapping[str, Any]) -> JobRecoveryStarted:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -220,7 +220,7 @@ class JobRecoveryTimeout(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobRecoveryTimeout":
+    def load(cls, data: Mapping[str, Any]) -> JobRecoveryTimeout:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -245,7 +245,7 @@ class JobIrrecoverableEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobIrrecoverableEvent":
+    def load(cls, data: Mapping[str, Any]) -> JobIrrecoverableEvent:
         # Recreate a generic exception from the error string
         error_msg = data.get("error", "Unknown error")
         return cls(
@@ -271,7 +271,7 @@ class JobPrecheckFailedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobPrecheckFailedEvent":
+    def load(cls, data: Mapping[str, Any]) -> JobPrecheckFailedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -296,7 +296,7 @@ class ZahirCustomEvent(ZahirEvent, Generic[CustomEventOutputType]):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "ZahirCustomEvent":
+    def load(cls, data: Mapping[str, Any]) -> ZahirCustomEvent:
         return cls(
             workflow_id=data.get("workflow_id"),
             job_id=data.get("job_id"),
@@ -308,7 +308,7 @@ class ZahirCustomEvent(ZahirEvent, Generic[CustomEventOutputType]):
 class JobEvent(ZahirEvent):
     """Generic job event for various job state changes."""
 
-    job: "SerialisedJob"
+    job: SerialisedJob
 
     def save(self) -> Mapping[str, Any]:
         return {
@@ -316,7 +316,7 @@ class JobEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> "JobEvent":
+    def load(cls, data: Mapping[str, Any]) -> JobEvent:
         return cls(
             job=data["job"],
         )

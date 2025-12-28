@@ -1,4 +1,4 @@
-from typing import Mapping
+from collections.abc import Mapping
 
 from zahir.base_types import Dependency, DependencyState
 
@@ -24,7 +24,7 @@ class DependencyGroup(Dependency):
 
                 if state == DependencyState.UNSATISFIED:
                     return DependencyState.UNSATISFIED
-                elif state == DependencyState.IMPOSSIBLE:
+                if state == DependencyState.IMPOSSIBLE:
                     return DependencyState.IMPOSSIBLE
 
         return DependencyState.SATISFIED

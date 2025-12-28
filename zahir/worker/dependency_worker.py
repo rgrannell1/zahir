@@ -1,8 +1,8 @@
 import multiprocessing
 import time
+
 from zahir.base_types import DependencyState, JobState, Scope
 from zahir.context.memory import MemoryContext
-from zahir.dependencies import job
 from zahir.events import (
     WorkflowCompleteEvent,
     ZahirEvent,
@@ -33,7 +33,6 @@ def zahir_dependency_worker(
 
         # try to find blocked jobs whose dependencies are now satisfied
         for job_info in job_registry.jobs(context, state=JobState.PENDING):
-            ...
             job = job_info.job
 
             dependencies_state = job.dependencies.satisfied()

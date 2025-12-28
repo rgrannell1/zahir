@@ -1,7 +1,7 @@
 """Test ConcurrencyLimit dependency."""
 
-from zahir.dependencies.concurrency import ConcurrencyLimit
 from zahir.base_types import DependencyState
+from zahir.dependencies.concurrency import ConcurrencyLimit
 
 
 def test_concurrency_limit_claim():

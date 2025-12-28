@@ -1,5 +1,5 @@
-from zahir.events import ZahirEvent
 from zahir.base_types import EventRegistry
+from zahir.events import ZahirEvent
 
 
 class MemoryEventRegistry(EventRegistry):

@@ -3,12 +3,14 @@
 A task for retrying another task under certain conditions.
 """
 
-from datetime import datetime, timedelta, timezone
-from typing import Any, Iterable, Iterator, TypedDict
-from zahir.dependencies.job import JobDependency
+from collections.abc import Iterable, Iterator
+from datetime import UTC, datetime, timedelta
+from typing import Any, TypedDict
+
+from zahir.base_types import Context, Dependency, Job, JobOptions, JobState
 from zahir.dependencies.group import DependencyGroup
+from zahir.dependencies.job import JobDependency
 from zahir.dependencies.time import TimeDependency
-from zahir.base_types import Context, Dependency, JobOptions, JobState, Job
 
 
 class RetryOptions(TypedDict, total=False):
@@ -48,7 +50,7 @@ def create_backoff_delay(retry_opts: RetryOptions, retry_count: int) -> TimeDepe
     # delay = initial_delay * (backoff_factor ^ retry_count)
     delay_seconds = initial_delay * (backoff_factor**retry_count)
 
-    now = datetime.now(tz=timezone.utc)
+    now = datetime.now(tz=UTC)
     after_time = now + timedelta(seconds=delay_seconds)
 
     return TimeDependency(before=None, after=after_time)

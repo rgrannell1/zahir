@@ -1,13 +1,13 @@
 """Tests for event serialization and deserialization"""
 
 from zahir.events import (
-    WorkflowCompleteEvent,
     JobCompletedEvent,
-    JobStartedEvent,
-    JobTimeoutEvent,
-    JobRecoveryStarted,
     JobIrrecoverableEvent,
     JobPrecheckFailedEvent,
+    JobRecoveryStarted,
+    JobStartedEvent,
+    JobTimeoutEvent,
+    WorkflowCompleteEvent,
 )
 
 

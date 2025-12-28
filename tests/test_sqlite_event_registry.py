@@ -1,5 +1,6 @@
-import os
+import pathlib
 import tempfile
+
 from zahir.event_registry.sqlite import SQLiteEventRegistry
 from zahir.events import WorkflowCompleteEvent
 
@@ -12,8 +13,8 @@ def test_sqlite_event_registry_register_and_query():
         event = WorkflowCompleteEvent(workflow_id="wf1", duration_seconds=1.23)
         registry.register(event)
         # Directly query the DB to check event was written
-        import sqlite3
         import json
+        import sqlite3
 
         with sqlite3.connect(db_path) as conn:
             cur = conn.execute("SELECT event_type, event_data FROM events")
@@ -24,4 +25,4 @@ def test_sqlite_event_registry_register_and_query():
                 for r in rows
             )
     finally:
-        os.remove(db_path)
+        pathlib.Path(db_path).unlink()

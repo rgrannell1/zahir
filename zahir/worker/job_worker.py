@@ -1,12 +1,18 @@
-from datetime import datetime, timezone
-import time
+from datetime import UTC, datetime
 import multiprocessing
+import time
 from typing import cast
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    TimeoutError as FutureTimeoutError,
+)
+
 from zahir.base_types import Context, Job, Scope
 from zahir.context.memory import MemoryContext
 from zahir.events import (
     JobCompletedEvent,
     JobEvent,
+    JobIrrecoverableEvent,
     JobOutputEvent,
     JobPrecheckFailedEvent,
     JobRecoveryStarted,
@@ -15,16 +21,11 @@ from zahir.events import (
     JobTimeoutEvent,
     WorkflowOutputEvent,
     ZahirCustomEvent,
-    JobIrrecoverableEvent,
     ZahirEvent,
 )
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    TimeoutError as FutureTimeoutError,
-)
 
 
 def zahir_job_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) -> None:
@@ -69,7 +70,7 @@ def execute_job(
 
     # Started!
     output_queue.put(JobStartedEvent(workflow_id, job_id))
-    start_time = datetime.now(tz=timezone.utc)
+    start_time = datetime.now(tz=UTC)
 
     try:
         # First, let's precheck the job
@@ -109,7 +110,7 @@ def execute_job(
                     workflow_id=workflow_id,
                     job_id=job_id,
                     duration_seconds=(
-                        datetime.now(tz=timezone.utc) - start_time
+                        datetime.now(tz=UTC) - start_time
                     ).total_seconds(),
                 )
             )
@@ -160,7 +161,7 @@ def execute_job(
                     )
                 )
 
-        end_time = datetime.now(tz=timezone.utc)
+        end_time = datetime.now(tz=UTC)
 
         # Finished! Let's share a timing
         output_queue.put(

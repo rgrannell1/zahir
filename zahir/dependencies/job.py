@@ -1,5 +1,6 @@
-from typing import cast
-from typing import Any, Generic, Mapping, TypeVar, TypedDict
+from collections.abc import Mapping
+from typing import Any, Generic, TypedDict, TypeVar, cast
+
 from zahir.base_types import Context, Dependency, DependencyState, JobRegistry, JobState
 
 OutputType = TypeVar("OutputType", bound=Mapping)
@@ -48,8 +49,7 @@ class JobDependency(Dependency, Generic[OutputType]):
 
         if state in self.satisfied_states:
             return DependencyState.SATISFIED
-        else:
-            return DependencyState.UNSATISFIED
+        return DependencyState.UNSATISFIED
 
     def save(self) -> dict[str, Any]:
         """Save the job dependency to a dictionary."""

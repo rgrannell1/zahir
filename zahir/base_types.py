@@ -1,6 +1,7 @@
 """Core type definitions used throughout Zahir."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
@@ -8,8 +9,6 @@ from typing import (
     TYPE_CHECKING,
     Any,
     Generic,
-    Iterator,
-    Mapping,
     Self,
     TypedDict,
     TypeVar,

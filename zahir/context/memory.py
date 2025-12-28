@@ -1,6 +1,6 @@
-from zahir.logging import ZahirLogger
-from zahir.base_types import Context, Scope, JobRegistry, EventRegistry
+from zahir.base_types import Context, EventRegistry, JobRegistry, Scope
 from zahir.event_registry.memory import MemoryEventRegistry
+from zahir.logging import ZahirLogger
 
 
 class MemoryContext(Context):

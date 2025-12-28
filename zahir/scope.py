@@ -1,5 +1,6 @@
 from typing import Self
-from zahir.base_types import Scope, Job, Dependency
+
+from zahir.base_types import Dependency, Job, Scope
 
 
 class LocalScope(Scope):

@@ -1,6 +1,8 @@
+from collections.abc import Mapping
 from threading import Lock
 from types import TracebackType
-from typing import Any, Mapping, Self
+from typing import Any, Self
+
 from zahir.base_types import Dependency, DependencyState
 
 
@@ -71,4 +73,3 @@ class ConcurrencyLimit(Dependency):
         """Exit the context manager by freeing a slot."""
 
         self.free()
-        return None

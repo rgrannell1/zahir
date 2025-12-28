@@ -1,20 +1,21 @@
 """SQLite-based registry for persistent workflow execution."""
 
-import json
-import sqlite3
-from pathlib import Path
-from typing import Iterator, Mapping, cast
+from collections.abc import Iterator, Mapping
 from datetime import datetime
+import json
+from pathlib import Path
+import sqlite3
+from typing import cast
 
-from zahir.events import WorkflowOutputEvent
 from zahir.base_types import (
     Context,
     Job,
+    JobInformation,
     JobRegistry,
     JobState,
-    JobInformation,
     SerialisedJob,
 )
+from zahir.events import WorkflowOutputEvent
 
 
 class SQLiteJobRegistry(JobRegistry):
@@ -102,9 +103,7 @@ class SQLiteJobRegistry(JobRegistry):
         # Jobs need their dependencies verified to have passed before they can run;
         # so by default they start as PENDING unless they have no dependencies.
         job_state = (
-            JobState.READY.value
-            if job.dependencies.empty()
-            else JobState.PENDING.value
+            JobState.READY.value if job.dependencies.empty() else JobState.PENDING.value
         )
 
         with self._connect() as conn:
