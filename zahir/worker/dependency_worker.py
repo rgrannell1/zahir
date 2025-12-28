@@ -5,6 +5,7 @@ from zahir.base_types import DependencyState, JobState, Scope
 from zahir.context.memory import MemoryContext
 from zahir.dependencies import job
 from zahir.events import (
+    WorkflowCompleteEvent,
     ZahirEvent,
 )
 from zahir.job_registry.sqlite import SQLiteJobRegistry
@@ -22,6 +23,15 @@ def zahir_dependency_worker(
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     while True:
+        if not job_registry.active():
+            output_queue.put(
+                WorkflowCompleteEvent(
+                    workflow_id=workflow_id,
+                    duration_seconds=0.0,  # TODO: track duration
+                )
+            )
+            return
+
         # try to find blocked jobs whose dependencies are now satisfied
         for job_info in job_registry.jobs(context, state=JobState.BLOCKED):
             ...

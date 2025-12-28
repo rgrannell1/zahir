@@ -160,6 +160,12 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def active(self) -> bool:
+        """Return True if any jobs are active (pending, blocked, ready, claimed, running, recovering)."""
+
+        raise NotImplementedError
+
+    @abstractmethod
     def get_state(self, job_id: str) -> JobState:
         """Get the state of a job by ID"""
 
@@ -192,7 +198,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def jobs(self, context: "Context") -> Iterator[JobInformation]:
+    def jobs(self, context: "Context", state: JobState | None = None) -> Iterator[JobInformation]:
         """Get an iterator of all jobs with their information.
 
         @param context: The context containing scope and registries for deserialization

@@ -171,6 +171,25 @@ class SQLiteJobRegistry(JobRegistry):
         if output_dict:
             yield WorkflowOutputEvent(output_dict, workflow_id)
 
+    def active(self) -> bool:
+        """Return True if any jobs are active (pending, blocked, ready, claimed, running, recovering)."""
+        active_states = [
+            JobState.PENDING.value,
+            JobState.BLOCKED.value,
+            JobState.READY.value,
+            JobState.CLAIMED.value,
+            JobState.RUNNING.value,
+            JobState.RECOVERING.value,
+        ]
+        with self._connect() as conn:
+            row = conn.execute(
+                "SELECT 1 FROM jobs WHERE state IN ({}) LIMIT 1".format(
+                    ",".join("?" for _ in active_states)
+                ),
+                active_states,
+            ).fetchone()
+        return row is not None
+
     def jobs(self, context: Context, state: JobState | None = None) -> Iterator["JobInformation"]:
         with self._connect() as conn:
             job_list = conn.execute("""

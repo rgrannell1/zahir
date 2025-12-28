@@ -11,6 +11,7 @@ from zahir.events import (
     JobRecoveryTimeout,
     JobStartedEvent,
     JobTimeoutEvent,
+    WorkflowCompleteEvent,
     WorkflowOutputEvent,
     ZahirCustomEvent,
     JobIrrecoverableEvent,
@@ -72,6 +73,8 @@ def handle_supervisor_event(
         job_registry.set_state(cast(str, event.job_id), JobState.COMPLETED)
 
 
+
+
 def zahir_worker_overseer(
     context, worker_count: int = 4
 ) -> Iterator[WorkflowOutputEvent | JobOutputEvent | ZahirCustomEvent]:
@@ -101,9 +104,16 @@ def zahir_worker_overseer(
     try:
         while True:
             event = output_queue.get()
+
+            if isinstance(event, WorkflowCompleteEvent):
+                yield event
+                break
+
             handle_supervisor_event(event, context, context.job_registry)
             yield event
     except KeyboardInterrupt:
+        pass
+    finally:
         for process in processes:
             process.terminate()
         for process in processes:
