@@ -52,7 +52,6 @@ class ZahirWorkerState:
     def __init__(self, context: Context, output_queue: OutputQueue, workflow_id: str):
         self.job: Job | None = None
         self.job_gen: Iterator | None = None
-        self.job_output: any = None
         self.job_err: Exception | None = None
         # each entry is (job, job_gen, awaited: bool)
         self.run_job_stack: list[tuple[Job, Iterator, bool]] = []
@@ -60,12 +59,14 @@ class ZahirWorkerState:
         self.output_queue: OutputQueue = output_queue
         self.workflow_id: str = workflow_id
         self.await_event: Await | None = None
+        self.job_outputs: dict[str, dict] = {}
+        self.awaiting_jobs: dict[str, str] = {}
 
         # last_event holds a value (e.g. Await or JobOutputEvent) produced by a handler
         # Dubious LLM suggestion, keeping it for now.
         self.last_event: any = None
 
-        self.current_job_awaited: bool = False
+        self.current_job_wants_output_sent: bool = False
 
 
 class ZahirJobStateMachine:
@@ -102,8 +103,7 @@ class ZahirJobStateMachine:
         if not state.job or not state.job_gen:
             job, job_gen, awaited = state.run_job_stack.pop()
             state.job, state.job_gen = job, job_gen
-            # reflect whether this popped job was awaited when it was pushed
-            state.current_job_awaited = awaited
+            state.current_job_wants_output_sent = awaited
 
         return ZahirJobState.CHECK_PRECONDITIONS, state
 
@@ -137,6 +137,8 @@ class ZahirJobStateMachine:
 
         # Pause the current job, put it back on the worker-process stack and mark it awaited.
         state.run_job_stack.append((state.job, state.job_gen, True))
+        # Current job awaits new job
+        state.awaiting_jobs[state.job.job_id] = state.await_event.job.job_id
 
         # Pause the job please
         state.output_queue.put(
@@ -163,8 +165,9 @@ class ZahirJobStateMachine:
         # ...then, let's instantiate the `run` generator
         job_gen = type(job).run(state.context, job.input, job.dependencies)
         state.job, state.job_gen = job, job_gen
-        # this new job is not awaited (it's the awaited target)
-        state.current_job_awaited = False
+
+        # this new job is not awaited yet (it's the awaited target)
+        state.current_job_wants_output_sent = False
 
         return ZahirJobState.START, state
 
@@ -173,12 +176,8 @@ class ZahirJobStateMachine:
         """We received a job output! It's emitted upstream already; just null out the job state. Persist the output to the state if awaited; we'll pop, then pass
         the output to the awaiting job"""
 
-        # This is dubious; unconditioned on whether the next stack entry wants it.
-        if state.last_event:
-            state.job_output = state.last_event.output
-            state.last_event = None
-        else:
-            state.job_output = None
+        if isinstance(state.last_event, JobOutputEvent):
+            state.job_outputs[state.job.job_id] = state.last_event.output
 
         state.job_err = None
         state.job = None
@@ -197,7 +196,6 @@ class ZahirJobStateMachine:
                 duration_seconds=0.1,
             )
         )
-        state.job_output = None
         state.job_err = None
         state.job = None
         state.job_gen = None
@@ -237,13 +235,15 @@ class ZahirJobStateMachine:
             JobStartedEvent(workflow_id=state.workflow_id, job_id=state.job.job_id)
         )
 
+        # TO DO send failures as `throws`!
+
         with ThreadPoolExecutor(max_workers=1) as ex:
             try:
-                # We have an output to send the awaiting job!
-                # TO DO handle send failures
-                if state.job_output is not None:
-                    state.job_gen.send(state.job_output)
-                    state.job_output = None
+                sent = True
+                if waiting_for := state.awaiting_jobs.get(state.job.job_id):
+                    output = state.job_outputs.get(waiting_for)
+                    event = state.job_gen.send(output)
+                    handle_job_events(iter([event]), output_queue=state.output_queue, workflow_id=state.workflow_id, job_id=cast(str, state.job.job_id))
 
                 job_gen_result = ex.submit(
                     handle_job_events,
@@ -252,7 +252,6 @@ class ZahirJobStateMachine:
                     workflow_id=state.workflow_id,
                     job_id=cast(str, state.job.job_id),
                 ).result(timeout=job_timeout)
-
 
                 if isinstance(job_gen_result, JobOutputEvent):
                     # store the event for the next handler to inspect
@@ -268,7 +267,7 @@ class ZahirJobStateMachine:
             except FutureTimeoutError:
                 return ZahirJobState.HANDLE_JOB_TIMEOUT, state
             except Exception as err:
-                print(err)
+                raise err
                 ...
                 # TODO wire in recovery mechanism (what a faff to keep, though
                 # I gues it's worth it)
@@ -310,6 +309,7 @@ def handle_job_events(
     """Sent job output items to the output queue."""
 
     for item in gen:
+        print(item)
         if isinstance(item, Await):
             return item
 
@@ -353,6 +353,8 @@ def handle_job_events(
                     job=item.save(),
                 )
             )
+
+            continue
 
     # We're finished
     return None

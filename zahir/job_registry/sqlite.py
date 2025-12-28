@@ -186,6 +186,7 @@ class SQLiteJobRegistry(JobRegistry):
             JobState.CLAIMED.value,
             JobState.RUNNING.value,
             JobState.RECOVERING.value,
+            JobState.PAUSED.value,
         ]
         with self._connect() as conn:
             row = conn.execute(

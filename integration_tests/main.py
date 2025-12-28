@@ -39,7 +39,6 @@ def BookProcessor(
                 just_for_testing = ChapterProcessor({"lines": chapter_lines.copy()}, {})
                 result = yield Await(just_for_testing)
                 print('result', result)
-                #raise Exception('stop here')
 
                 chapter_lines = []
 
