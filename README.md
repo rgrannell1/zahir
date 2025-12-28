@@ -58,13 +58,27 @@ Workflows comprise jobs that create other jobs. They aren't a separate abstracti
 
 Rollbacks are also not separate abstractions; if something goes wrong, detect it and schedule tasks to remediate it. Job-level rollbacks do not compose into workflow rollbacks; crouching, stepping backwards, and taking off your parachute will not get you back on your plane.
 
-Data is passed unidirectionally from an initial job to subjobs by the parent job simply yielding the new instantiated job with appropriate input. Jobs may, ultimately, yield a `JobOutputEvent` dictionary. This allows a promise-style call pattern:
+Jobs generally pass data to child-jobs through parameters, then yield those jobs to continue the workflow. This somewhat mimics the callback-pattern / continuation-style-passing found in JavaScript. I don't remember this pattern fondly. So, Zahir has friendlier concurrency tools:
+
+**JobDependencies**
+
+Jobs may, ultimately, yield a `JobOutputEvent` dictionary. We can access this in a few ways.
 
 - Job A spawns N batch jobs
-- Job B awaits this jobs via a list of job-dependencies
+- Job B awaits this jobs via `list[JobDependency]`
 - On completion, Job B can access the output data from this array of jobs
 
-This is the most idiomatic way of implementing the "fan-out, then aggregate" pattern in Zahir. In a similar way, workflow-level output can be yielded with `WorkflowOutputEvent`.
+This is the simplest way to implement "fan-out, then aggregate" pattern in Zahir. In a similar way, workflow-level output can be yielded with `WorkflowOutputEvent`.
+
+**Awaiting**
+
+Zahir jobs can also await other Zahir jobs using `Await` eventing
+
+- Job A runs `result = yield Await(NewJob({...}, {...}))`
+- Job A is paused, and we execute NewJob through Zahir and capture its output
+- Job A is resumed with the output of NewJob
+
+Note that once a job is started, we cannot serialise it in "half-completed" state. So it remains in-memory until it's completed.
 
 Jobs should have most of their logic factored out into plain functions; the job itself should just take input, call the necessary library functions, event, and delegate to other jobs.
 
@@ -100,6 +114,7 @@ A few can be used by jobs to communicate with the workflow engine:
 - `WorkflowOutputEvent`: yield output from the workflow. Workflows yield a stream of outputs; since many workflows are long-running it's better to yield results as we go
 - `JobOutputEvent`: return output from a job. Treated as a singular return; the task is dropped after this event is yielded.
 - `ZahirCustomEvent`: whatever additional events you'd like to emit
+- `Await`: wait for the result (or an error) from another job before resuming this one
 
 ### Registries - Store workflow state
 
