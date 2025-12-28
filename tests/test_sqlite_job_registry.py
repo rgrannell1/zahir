@@ -15,8 +15,8 @@ class DummyEventRegistry(EventRegistry):
 
 
 class DummyLogger(ZahirLogger):
-    def __init__(self, event_registry, job_registry):
-        super().__init__(event_registry, job_registry)
+    def __init__(self, job_registry):
+        super().__init__(job_registry)
 
     def render(self, context):
         pass
@@ -57,12 +57,10 @@ def test_sqlite_job_registry_lifecycle():
 
         # Use a real Context with dummy event registry and logger
         scope = LocalScope(jobs=[DummyJob])
-        event_registry = DummyEventRegistry()
         dummy_context = Context(
             scope=scope,
             job_registry=registry,
-            event_registry=event_registry,
-            logger=DummyLogger(event_registry, registry),
+            logger=DummyLogger(registry),
         )
         info = list(registry.jobs(dummy_context))
         assert any(j.job_id == job_id for j in info)
