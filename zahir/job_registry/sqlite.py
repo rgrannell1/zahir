@@ -99,11 +99,15 @@ class SQLiteJobRegistry(JobRegistry):
         job_id = job.job_id
         serialised = json.dumps(job.save())
 
+        # Jobs need their dependencies verified to have passed before they can run;
+        # so by default they start as BLOCKED unless they have no dependencies.
+        job_state = JobState.PENDING.value if job.dependencies.empty() else JobState.BLOCKED.value
+
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
             conn.execute(
                 "INSERT INTO jobs (job_id, serialised_job, state) VALUES (?, ?, ?)",
-                (job_id, serialised, JobState.PENDING.value),
+                (job_id, serialised, job_state),
             )
             conn.commit()
 
@@ -145,51 +149,6 @@ class SQLiteJobRegistry(JobRegistry):
             )
             conn.commit()
 
-    def set_timing(
-        self,
-        job_id: str,
-        started_at: datetime | None = None,
-        completed_at: datetime | None = None,
-        duration_seconds: float | None = None,
-    ) -> None:
-        # TODO deprecate
-        updates: list[str] = []
-        params: list[object] = []
-
-        if started_at is not None:
-            updates.append("started_at = ?")
-            params.append(started_at.isoformat())
-        if completed_at is not None:
-            updates.append("completed_at = ?")
-            params.append(completed_at.isoformat())
-        if duration_seconds is not None:
-            updates.append("duration_seconds = ?")
-            params.append(duration_seconds)
-
-        if not updates:
-            return
-
-        params.append(job_id)
-
-        with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE;")
-            conn.execute(
-                f"UPDATE jobs SET {', '.join(updates)} WHERE job_id = ?",
-                params,
-            )
-            conn.commit()
-
-    def set_recovery_duration(self, job_id: str, duration_seconds: float) -> None:
-        # TODO deprecate
-
-        with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE;")
-            conn.execute(
-                "UPDATE jobs SET recovery_duration_seconds = ? WHERE job_id = ?",
-                (duration_seconds, job_id),
-            )
-            conn.commit()
-
     def get_output(self, job_id: str) -> Mapping | None:
         with self._connect() as conn:
             row = conn.execute(
@@ -212,16 +171,7 @@ class SQLiteJobRegistry(JobRegistry):
         if output_dict:
             yield WorkflowOutputEvent(output_dict, workflow_id)
 
-    def pending(self) -> bool:
-        # TODO deprecate
-        with self._connect() as conn:
-            (count,) = conn.execute(
-                "SELECT COUNT(*) FROM jobs WHERE state = ?",
-                (JobState.PENDING.value,),
-            ).fetchone()
-        return count > 0
-
-    def jobs(self, context: Context) -> Iterator["JobInformation"]:
+    def jobs(self, context: Context, state: JobState | None = None) -> Iterator["JobInformation"]:
         with self._connect() as conn:
             job_list = conn.execute("""
                 SELECT j.job_id, j.serialised_job, j.state, o.output,
@@ -245,7 +195,7 @@ class SQLiteJobRegistry(JobRegistry):
             JobClass = context.scope.get_job_class(job_data["type"])
             job = JobClass.load(context, job_data)
 
-            state = JobState(state_str)
+            job_state = JobState(state_str)
             output = json.loads(output_str) if output_str else None
             started_at = (
                 datetime.fromisoformat(started_at_str) if started_at_str else None
@@ -254,10 +204,13 @@ class SQLiteJobRegistry(JobRegistry):
                 datetime.fromisoformat(completed_at_str) if completed_at_str else None
             )
 
+            if state is not None and job_state != state:
+                continue
+
             yield JobInformation(
                 job_id=job_id,
                 job=job,
-                state=state,
+                state=job_state,
                 output=output,
                 started_at=started_at,
                 completed_at=completed_at,

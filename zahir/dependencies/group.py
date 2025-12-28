@@ -70,3 +70,10 @@ class DependencyGroup(Dependency):
         @return: The subdependency or list of subdependencies
         """
         return self.dependencies[name]
+
+    def empty(self) -> bool:
+        """Check if there are no subdependencies.
+
+        @return: True if there are no subdependencies, False otherwise
+        """
+        return len(self.dependencies) == 0
