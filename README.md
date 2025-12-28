@@ -120,6 +120,14 @@ Zahir does not have a dedicated scheduling feature, since there's many ways to a
 
 We often want to run a workflow job to achieve a certain state (e.g create a resource). To ensure we only do this once, construct a dependency that is `impossible` when the resource already exists, and attach it to the creation job. This ensures we'll only attempt to construct the resource once.
 
+### Job-Expiration
+
+Jobs generally have a useful period in which we'd like to execute them (today, not a week from now, for example). This can be codified by using a `TimeDependency` with a for condition
+
+### API Access
+
+Use a `ConcurrencyLimit` with the appropriate concurrency limit and slots (roughly, how many calls we'll make) to make API calls within a concurrency limit. 
+
 ## Execution
 
 ![](./engine.png)
