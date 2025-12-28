@@ -126,10 +126,17 @@ class ZahirJobStateMachine:
     @classmethod
     def handle_job_complete(cls, state) -> Tuple[ZahirJobState, None]:
         # We're also done with this subjob
+        state.output_queue.put(
+            JobCompletedEvent(
+                workflow_id=state.workflow_id, job_id=state.job.job_id, duration_seconds=0.1
+            )
+
+        )
         state.job_output = None
         state.job_err = None
         state.job = None
         state.job_gen = None
+
 
         return ZahirJobState.START, state
 
@@ -155,6 +162,13 @@ class ZahirJobStateMachine:
     @classmethod
     def execute_job(cls, state) -> Tuple[ZahirJobState, None]:
         job_timeout = state.job.options.job_timeout if state.job.options else None
+
+        # Emit a JobStartedEvent when we begin executing the claimed job.
+        # Some job implementations don't emit this implicitly, so the
+        # worker should surface it when execution begins.
+        state.output_queue.put(
+            JobStartedEvent(workflow_id=state.workflow_id, job_id=state.job.job_id)
+        )
 
         with ThreadPoolExecutor(max_workers=1) as ex:
             try:
