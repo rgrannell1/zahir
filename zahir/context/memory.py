@@ -1,4 +1,4 @@
-from zahir.base_types import Context, EventRegistry, JobRegistry, Scope
+from zahir.base_types import Context, JobRegistry, Scope
 from zahir.logging import ZahirLogger
 
 

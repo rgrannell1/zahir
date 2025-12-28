@@ -1,12 +1,12 @@
-from datetime import UTC, datetime
-from enum import Enum
-import multiprocessing
-import time
-from typing import Generator, Iterator, Tuple, cast
+from collections.abc import Iterator
 from concurrent.futures import (
     ThreadPoolExecutor,
     TimeoutError as FutureTimeoutError,
 )
+from enum import Enum
+import multiprocessing
+import time
+from typing import cast
 
 from zahir.base_types import Context, Job, JobState, Scope
 from zahir.context.memory import MemoryContext
@@ -74,7 +74,7 @@ class ZahirJobStateMachine:
     handle awaits, outputs, eventing, timeouts, failures, etc."""
 
     @classmethod
-    def start(cls, state) -> Tuple[ZahirJobState, None]:
+    def start(cls, state) -> tuple[ZahirJobState, None]:
         """We start. We makre sure there's something on the job stack to run."""
 
         if not state.run_job_stack:
@@ -90,14 +90,14 @@ class ZahirJobStateMachine:
         return ZahirJobState.POP_JOB, state
 
     @classmethod
-    def wait_for_job(cls, state) -> Tuple[ZahirJobState, None]:
+    def wait_for_job(cls, state) -> tuple[ZahirJobState, None]:
         """No jobs available; for the moment let's just sleep. In future, be cleverer
         and have dependencies suggest nap-times"""
         time.sleep(1)
         return ZahirJobState.START, state
 
     @classmethod
-    def pop_job(cls, state) -> Tuple[ZahirJobState, None]:
+    def pop_job(cls, state) -> tuple[ZahirJobState, None]:
         """We need a job; pop one off the stack"""
 
         if not state.job or not state.job_gen:
@@ -108,7 +108,7 @@ class ZahirJobStateMachine:
         return ZahirJobState.CHECK_PRECONDITIONS, state
 
     @classmethod
-    def check_preconditions(cls, state) -> Tuple[ZahirJobState, None]:
+    def check_preconditions(cls, state) -> tuple[ZahirJobState, None]:
         """Can we even run this job? Check the input preconditions first."""
 
         job_state = state.context.job_registry.get_state(state.job.job_id)
@@ -131,7 +131,7 @@ class ZahirJobStateMachine:
         return ZahirJobState.EXECUTE_JOB, state
 
     @classmethod
-    def handle_await(cls, state) -> Tuple[ZahirJobState, None]:
+    def handle_await(cls, state) -> tuple[ZahirJobState, None]:
         """We received an Await event. We should put out current job back on the stack,
         pause the job formally, then load the awaited job and start executing it."""
 
@@ -151,11 +151,11 @@ class ZahirJobStateMachine:
         job = await_event.job
         state.context.job_registry.add(job)
         # TO DO also writes, then Unique ID clashes
-        #state.output_queue.put(
+        # state.output_queue.put(
         #    JobEvent(
         #        job=job.save(),
         #    )
-        #)
+        # )
         state.context.job_registry.set_state(job.job_id, JobState.CLAIMED)
 
         state.output_queue.put(
@@ -172,7 +172,7 @@ class ZahirJobStateMachine:
         return ZahirJobState.START, state
 
     @classmethod
-    def handle_job_output(cls, state) -> Tuple[ZahirJobState, None]:
+    def handle_job_output(cls, state) -> tuple[ZahirJobState, None]:
         """We received a job output! It's emitted upstream already; just null out the job state. Persist the output to the state if awaited; we'll pop, then pass
         the output to the awaiting job"""
 
@@ -186,7 +186,7 @@ class ZahirJobStateMachine:
         return ZahirJobState.START, state
 
     @classmethod
-    def handle_job_complete_no_output(cls, state) -> Tuple[ZahirJobState, None]:
+    def handle_job_complete_no_output(cls, state) -> tuple[ZahirJobState, None]:
         """Mark the job as complete. Emit a completion event. Null out the job. Start over."""
         # We're also done with this subjob
         state.output_queue.put(
@@ -203,7 +203,7 @@ class ZahirJobStateMachine:
         return ZahirJobState.START, state
 
     @classmethod
-    def handle_job_timeout(cls, state) -> Tuple[ZahirJobState, None]:
+    def handle_job_timeout(cls, state) -> tuple[ZahirJobState, None]:
         job_timeout = state.job.options.job_timeout if state.job.options else None
 
         state.output_queue.put(
@@ -225,7 +225,7 @@ class ZahirJobStateMachine:
         return ZahirJobState.HANDLE_JOB_COMPLETE_NO_OUTPUT, state
 
     @classmethod
-    def execute_job(cls, state) -> Tuple[ZahirJobState, None]:
+    def execute_job(cls, state) -> tuple[ZahirJobState, None]:
         job_timeout = state.job.options.job_timeout if state.job.options else None
 
         # Emit a JobStartedEvent when we begin executing the claimed job.
@@ -252,18 +252,17 @@ class ZahirJobStateMachine:
                     # store the event for the next handler to inspect
                     state.last_event = job_gen_result
                     return ZahirJobState.HANDLE_JOB_OUTPUT, state
-                elif isinstance(job_gen_result, Await):
+                if isinstance(job_gen_result, Await):
                     # our job is now awaiting another; switch to that before resuming the first one
                     state.await_event = job_gen_result
                     return ZahirJobState.HANDLE_AWAIT, state
-                elif job_gen_result is None:
+                if job_gen_result is None:
                     return ZahirJobState.HANDLE_JOB_COMPLETE_NO_OUTPUT, state
 
             except FutureTimeoutError:
                 return ZahirJobState.HANDLE_JOB_TIMEOUT, state
             except Exception as err:
                 raise err
-                ...
                 # TODO wire in recovery mechanism (what a faff to keep, though
                 # I gues it's worth it)
 
@@ -303,7 +302,7 @@ def handle_job_events(
 ) -> Await | JobOutputEvent | None:
     """Sent job output items to the output queue."""
 
-    queue: list[ZahirEvent|Job] = []
+    queue: list[ZahirEvent | Job] = []
     if waiting_for := state.awaiting_jobs.get(state.job.job_id):
         output = state.job_outputs.get(waiting_for)
         event = state.job_gen.send(output)

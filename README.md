@@ -44,6 +44,86 @@ There's tradeoffs. Static analysis is limited (we don't precompile a workflow st
 
 So Zahir is maximally expressive and extensible, at some cost to static analysability.
 
+## A Simple Workflow
+
+The following example workflow reads the text of a book, splits it into chapters, and `ChapterProcessor` computes the longest word in each chapter. `LongestWordAssembly` depends on these results, aggregates them, and emits an output event with the longest words by chapter.
+
+```python
+@job
+def BookProcessor(
+    cls, context: Context, input, dependencies
+) -> Iterator[Job | JobOutputEvent]:
+
+    pids = []
+    chapters = read_chapters(input["file_path"])
+
+    for chapter_lines in chapters:
+        chapter_job = ChapterProcessor({"lines": chapter_lines}, {})
+        yield chapter_job
+
+        pids.append(chapter_job.job_id)
+
+    assembly_deps: dict[str, list[Dependency]] = {
+        "chapters": [JobDependency(pid, context.job_registry) for pid in pids]
+    }
+
+    # continue processing the job results, compute the list of longest words in the books
+    yield LongestWordAssembly({}, assembly_deps)
+
+
+@job
+def ChapterProcessor(
+    cls, context: Context, input, dependencies
+) -> Iterator[JobOutputEvent]:
+    """For each chapter, find the longest word."""
+
+    # return the longest word found in the chapter
+    yield JobOutputEvent({
+        "longest_word": get_longest_word(input["lines"])
+    })
+
+
+@job
+def LongestWordAssembly(
+    cls, context: Context, input, dependencies
+) -> Iterator[WorkflowOutputEvent]:
+    """Assemble the longest words from each chapter into a unique list."""
+
+    long_words = set()
+    chapters = cast(list[JobDependency[Mapping]], dependencies.get("chapters"))
+
+    for dep in chapters:
+        summary = dep.output(context)
+        if summary is not None:
+            long_words.add(summary["longest_word"])
+
+    yield WorkflowOutputEvent({"longest_words_by_chapter": sorted(long_words, key=len)})
+
+
+```
+
+The boilerplate to start jobs is likely to be reduced, but is currently:
+
+```py
+# Ensure we can translate serialised data back to classes
+scope = LocalScope(
+    jobs=[BookProcessor, ChapterProcessor, LongestWordAssembly],
+    dependencies=[DependencyGroup, JobDependency],
+)
+
+# Somewhere to store job information
+job_registry = SQLiteJobRegistry("jobs.db")
+context = MemoryContext(scope=scope, job_registry=job_registry)
+
+# A starting job
+start = BookProcessor(
+    {"file_path": "./war-and-peace.txt"}, {}
+)
+
+for event in LocalWorkflow(context).run(start):
+    print(event) # WorkflowOutputEvent({ "longest_words_by_chapter": [...] })
+```
+
 ## Constructs
 
 ![](./zahir.png)
@@ -72,11 +152,11 @@ This is the simplest way to implement "fan-out, then aggregate" pattern in Zahir
 
 **Awaiting**
 
-Zahir jobs can also await other Zahir jobs using `Await` eventing
+Zahir jobs are generators; they can await other Zahir jobs using the `Await` event in the following manner:
 
 - Job A runs `result = yield Await(NewJob({...}, {...}))`
-- Job A is paused, and we execute NewJob through Zahir and capture its output
-- Job A is resumed with the output of NewJob
+- Job A is paused, and we execute `NewJob` through Zahir and capture its output
+- Job A is resumed with the output of `NewJob`
 
 Note that once a job is started, we cannot serialise it in "half-completed" state. So it remains in-memory until it's completed.
 

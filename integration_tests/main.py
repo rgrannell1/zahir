@@ -1,7 +1,7 @@
 from collections.abc import Iterator, Mapping
 import pathlib
 import re
-from typing import TypedDict, cast
+from typing import cast
 
 from zahir.base_types import Context, Dependency, Job
 from zahir.context import MemoryContext
@@ -17,64 +17,69 @@ WORD_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
 
 
 def longest_word_sequence(text: str) -> str:
-    from typing import cast
-
     return cast(str, max(WORD_RE.findall(text), key=len, default=""))
 
 
-@job
-def BookProcessor(
-    cls, context: Context, input, dependencies
-) -> Iterator[Job | Await | JobOutputEvent]:
-    pids = []
+def read_chapters(file_path: str) -> Iterator[list[str]]:
     chapter_lines: list[str] = []
 
-    with pathlib.Path(input["file_path"]).open() as file:
+    with pathlib.Path(file_path).open() as file:
         for line in file:
             if "CHAPTER" in line:
-                chapter_job = ChapterProcessor({"lines": chapter_lines.copy()}, {})
-                yield chapter_job
-                pids.append(chapter_job.job_id)
-
-                just_for_testing = yield Await(ChapterProcessor({"lines": chapter_lines.copy()}, {}))
-                print('just_for_testing', just_for_testing)
-
-                chapter_lines = []
+                if chapter_lines:
+                    yield chapter_lines
+                    chapter_lines = []
 
             chapter_lines.append(line)
 
-    agg_dependencies: dict[str, list[Dependency]] = {
-        "chapters": [JobDependency(pid, context.job_registry) for pid in pids]
-    }
+    if chapter_lines:
+        yield chapter_lines
 
-    # await the job results, compute the list of longest words in the books
-    yield LongestWordAssembly({}, agg_dependencies)
-
-
-class ChapterProcessorOutput(TypedDict):
-    top_shelf_word: str
-
-
-@job
-def ChapterProcessor(
-    cls, context: Context, input, dependencies
-) -> Iterator[JobOutputEvent[ChapterProcessorOutput]]:
-    """For each chapter, find the longest word."""
+def get_longest_word(words: list[str]) -> str:
     longest_word = ""
 
-    for line in input["lines"]:
+    for line in words:
         for word in line.split():
             tidied_word = longest_word_sequence(word)
 
             if len(tidied_word) > len(longest_word):
                 longest_word = tidied_word
 
+    return longest_word
+
+
+@job
+def BookProcessor(
+    cls, context: Context, input, dependencies
+) -> Iterator[Job | JobOutputEvent]:
+
+    pids = []
+    chapters = read_chapters(input["file_path"])
+
+    for chapter_lines in chapters:
+        chapter_job = ChapterProcessor({"lines": chapter_lines}, {})
+        yield chapter_job
+
+        pids.append(chapter_job.job_id)
+
+    assembly_deps: dict[str, list[Dependency]] = {
+        "chapters": [JobDependency(pid, context.job_registry) for pid in pids]
+    }
+
+    # continue processing the job results, compute the list of longest words in the books
+    yield LongestWordAssembly({}, assembly_deps)
+
+
+@job
+def ChapterProcessor(
+    cls, context: Context, input, dependencies
+) -> Iterator[JobOutputEvent]:
+    """For each chapter, find the longest word."""
+
     # return the longest word found in the chapter
-    yield JobOutputEvent(cast(ChapterProcessorOutput, {"top_shelf_word": longest_word}))
-
-
-class LongestWordAssemblyOutput(TypedDict):
-    the_list: list[str]
+    yield JobOutputEvent({
+        "longest_word": get_longest_word(input["lines"])
+    })
 
 
 @job
@@ -82,18 +87,16 @@ def LongestWordAssembly(
     cls, context: Context, input, dependencies
 ) -> Iterator[WorkflowOutputEvent]:
     """Assemble the longest words from each chapter into a unique list."""
-    long_words = set()
 
+    long_words = set()
     chapters = cast(list[JobDependency[Mapping]], dependencies.get("chapters"))
 
     for dep in chapters:
         summary = dep.output(context)
         if summary is not None:
-            long_words.add(summary["top_shelf_word"])
+            long_words.add(summary["longest_word"])
 
-    yield WorkflowOutputEvent(
-        cast(LongestWordAssemblyOutput, {"the_list": sorted(long_words, key=len)})
-    )
+    yield WorkflowOutputEvent({"longest_words_by_chapter": sorted(long_words, key=len)})
 
 
 scope = LocalScope(
@@ -108,5 +111,5 @@ start = BookProcessor(
     {"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {}
 )
 
-for event in LocalWorkflow[LongestWordAssemblyOutput](context).run(start):
+for event in LocalWorkflow(context).run(start):
     print(event)
