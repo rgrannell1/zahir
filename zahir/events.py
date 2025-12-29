@@ -37,6 +37,23 @@ class ZahirEvent(ABC):
 
 
 @dataclass
+class WorkflowStartedEvent(ZahirEvent):
+    """Indicates that the workflow has started"""
+
+    workflow_id: str
+
+    def save(self) -> Mapping[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+        }
+
+    @classmethod
+    def load(cls, data: Mapping[str, Any]) -> WorkflowStartedEvent:
+        return cls(
+            workflow_id=data["workflow_id"],
+        )
+
+@dataclass
 class WorkflowCompleteEvent(ZahirEvent):
     """Indicates that the workflow has completed"""
 

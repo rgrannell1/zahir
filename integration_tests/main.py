@@ -35,6 +35,7 @@ def read_chapters(file_path: str) -> Iterator[list[str]]:
     if chapter_lines:
         yield chapter_lines
 
+
 def get_longest_word(words: list[str]) -> str:
     longest_word = ""
 
@@ -52,7 +53,6 @@ def get_longest_word(words: list[str]) -> str:
 def BookProcessor(
     cls, context: Context, input, dependencies
 ) -> Iterator[Job | JobOutputEvent]:
-
     pids = []
     chapters = read_chapters(input["file_path"])
 
@@ -77,9 +77,7 @@ def ChapterProcessor(
     """For each chapter, find the longest word."""
 
     # return the longest word found in the chapter
-    yield JobOutputEvent({
-        "longest_word": get_longest_word(input["lines"])
-    })
+    yield JobOutputEvent({"longest_word": get_longest_word(input["lines"])})
 
 
 @job

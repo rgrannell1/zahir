@@ -1,4 +1,3 @@
-
 from zahir.base_types import (
     JobRegistry,
 )

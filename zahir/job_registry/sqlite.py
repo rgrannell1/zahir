@@ -195,6 +195,7 @@ class SQLiteJobRegistry(JobRegistry):
                 ),
                 active_states,
             ).fetchone()
+
         return row is not None
 
     def jobs(

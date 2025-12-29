@@ -26,7 +26,6 @@ from zahir.events import (
     ZahirCustomEvent,
     ZahirEvent,
 )
-from zahir.job_registry.sqlite import SQLiteJobRegistry
 
 
 class ZahirJobState(str, Enum):
@@ -273,23 +272,19 @@ class ZahirJobStateMachine:
         return getattr(cls, state_name.value)
 
 
-def zahir_job_worker(scope: Scope, output_queue: OutputQueue, workflow_id: str) -> None:
+def zahir_job_worker(context: Context, output_queue: OutputQueue, workflow_id: str) -> None:
     """Repeatly request and execute jobs from the job registry until
     there's nothing else to be done. Communicate events back to the
     supervisor process.
 
     """
 
-    # bad, bold. dependency injection. temporary.
-    job_registry = SQLiteJobRegistry("jobs.db")
-    context = MemoryContext(scope=scope, job_registry=job_registry)
-
     state = ZahirWorkerState(context, output_queue, workflow_id)
     current = ZahirJobState.START
 
     # ...so I put a workflow engine inside your workflow engine
     while True:
-        # We don't terminate this loop; the overseer process does based on completion events
+        # We don't terminate this loop internally; the overseer process does based on completion events
 
         # run through our second secret workflow engine's steps repeatedly to update the job state
         handler = ZahirJobStateMachine.get_state(current)

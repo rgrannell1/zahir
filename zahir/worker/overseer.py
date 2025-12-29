@@ -17,6 +17,7 @@ from zahir.events import (
     JobTimeoutEvent,
     WorkflowCompleteEvent,
     WorkflowOutputEvent,
+    WorkflowStartedEvent,
     ZahirCustomEvent,
     ZahirEvent,
 )
@@ -74,35 +75,38 @@ def handle_supervisor_event(
 
 def zahir_worker_overseer(
     context, worker_count: int = 4
-) -> Iterator[WorkflowOutputEvent | ZahirCustomEvent]:
+) -> Iterator[WorkflowOutputEvent | WorkflowStartedEvent | ZahirCustomEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 
     workflow_id = generate_id(3)
     output_queue: OutputQueue = multiprocessing.Queue()
 
+    yield WorkflowStartedEvent(workflow_id=workflow_id)
+
     processes = []
     processs = multiprocessing.Process(
-        target=zahir_dependency_worker, args=(context.scope, output_queue, workflow_id)
+        target=zahir_dependency_worker, args=(context, output_queue, workflow_id)
     )
     processs.start()
     processes.append(processs)
 
     for _ in range(worker_count - 1):
         process = multiprocessing.Process(
-            target=zahir_job_worker, args=(context.scope, output_queue, workflow_id)
+            target=zahir_job_worker, args=(context, output_queue, workflow_id)
         )
         process.start()
         processes.append(process)
     try:
         while True:
             event = output_queue.get()
+            print(event)
 
             if isinstance(event, WorkflowCompleteEvent):
                 break
 
             handle_supervisor_event(event, context, context.job_registry)
-            if isinstance(event, (WorkflowOutputEvent, ZahirCustomEvent)):
+            if isinstance(event, (WorkflowOutputEvent, WorkflowStartedEvent, WorkflowCompleteEvent, ZahirCustomEvent)):
                 yield event
     except KeyboardInterrupt:
         pass
