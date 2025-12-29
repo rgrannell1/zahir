@@ -5,10 +5,9 @@ from zahir.base_types import Context, Job
 from zahir.context import MemoryContext
 from zahir.events import (
     Await,
-    JobCompletedEvent,
+    JobIrrecoverableEvent,
     JobOutputEvent,
     JobPrecheckFailedEvent,
-    JobStartedEvent,
     WorkflowCompleteEvent,
     WorkflowStartedEvent,
     ZahirCustomEvent,
@@ -65,6 +64,7 @@ def test_awaited_prechecks():
     workflow = LocalWorkflow(context, max_workers=2)
 
     job = ParentJob({}, {})
-    events = workflow.run(job, all_events=True)
-    for event in events:
-        print(event)
+    events = list(workflow.run(job, all_events=True))
+
+    # Check jobirrecoverable failure due to precheck failure
+    any(isinstance(event, JobIrrecoverableEvent) for event in events)
