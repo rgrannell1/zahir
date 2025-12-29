@@ -2,7 +2,9 @@ import multiprocessing
 
 from zahir.base_types import Context
 from zahir.events import (
+    SerialisableError,
     ZahirEvent,
+    ZahirInternalErrorEvent,
 )
 from zahir.worker.job_state_machine import StateChange, ZahirJobState, ZahirJobStateMachine, ZahirWorkerState
 
@@ -20,11 +22,20 @@ def zahir_job_worker(context: Context, output_queue: OutputQueue, workflow_id: s
 
     # ...so I put a workflow engine inside your workflow engine
     while True:
-        # We don't terminate this loop internally; the overseer process does based on completion events
+        # We don't generally terminate this loop internally; the overseer process does based on completion events
 
         # run through our second secret workflow engine's steps repeatedly to update the job state
         handler = ZahirJobStateMachine.get_state(current.state)
-        result = handler(state)
+        try:
+            result = handler(state)
+        except Exception as err:
+            output_queue.put(
+                ZahirInternalErrorEvent(
+                    workflow_id=workflow_id,
+                    error=SerialisableError.from_exception(err),
+                )
+            )
+            break
 
         if result is None:
             raise RuntimeError(f"ZahirJobStateMachine handler {handler} returned None unexpectedly")

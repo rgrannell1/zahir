@@ -20,6 +20,7 @@ from zahir.events import (
     WorkflowStartedEvent,
     ZahirCustomEvent,
     ZahirEvent,
+    ZahirInternalErrorEvent,
 )
 from zahir.utils.id_generator import generate_id
 from zahir.worker.dependency_worker import zahir_dependency_worker
@@ -71,7 +72,6 @@ def handle_supervisor_event(event: ZahirEvent, context: "Context") -> None:
         context.job_registry.set_output(cast(str, event.job_id), event.output)
         context.job_registry.set_state(cast(str, event.job_id), JobState.COMPLETED)
 
-
 def zahir_worker_overseer(context, worker_count: int = 4, all_events: bool = False) -> Iterator[ZahirEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
@@ -80,19 +80,31 @@ def zahir_worker_overseer(context, worker_count: int = 4, all_events: bool = Fal
     output_queue: OutputQueue = multiprocessing.Queue()
 
     processes = []
-    processs = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
-    processs.start()
-    processes.append(processs)
+    dep_proc = multiprocessing.Process(
+        target=zahir_dependency_worker,
+        args=(context, output_queue, workflow_id),
+    )
+    dep_proc.start()
+    processes.append(dep_proc)
 
     output_queue.put(WorkflowStartedEvent(workflow_id=workflow_id))
 
     for _ in range(worker_count - 1):
-        process = multiprocessing.Process(target=zahir_job_worker, args=(context, output_queue, workflow_id))
-        process.start()
-        processes.append(process)
+        p = multiprocessing.Process(
+            target=zahir_job_worker,
+            args=(context, output_queue, workflow_id),
+        )
+        p.start()
+        processes.append(p)
+
+    exc: Exception | None = None
     try:
         while True:
             event = output_queue.get()
+
+            if isinstance(event, ZahirInternalErrorEvent):
+                exc = event.error.to_exception() if event.error else RuntimeError("Unknown internal error in worker")
+                break
 
             if isinstance(event, WorkflowCompleteEvent):
                 if all_events:
@@ -102,10 +114,15 @@ def zahir_worker_overseer(context, worker_count: int = 4, all_events: bool = Fal
             handle_supervisor_event(event, context)
             if all_events or isinstance(event, (WorkflowOutputEvent, ZahirCustomEvent)):
                 yield event
+
     except KeyboardInterrupt:
         pass
     finally:
-        for process in processes:
-            process.terminate()
-        for process in processes:
-            process.join()
+        for p in processes:
+            if p.is_alive():
+                p.terminate()
+        for p in processes:
+            p.join(timeout=2)
+
+    if exc is not None:
+        raise exc

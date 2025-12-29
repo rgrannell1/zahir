@@ -105,7 +105,7 @@ class ZahirWorkerState:
             message = "job_gen must be an Iterator or None"
 
             if self.job:
-                message += f" does {type(self.job)} return instead of yield?"
+                message += f" does '{type(self.job).__name__}' return instead of yield?"
 
             raise TypeError(message)
 
@@ -359,12 +359,14 @@ class ZahirJobStateMachine:
         state.output_queue.put(
             JobIrrecoverableEvent(workflow_id=state.workflow_id, error=state.last_event, job_id=state.job.job_id)
         )
+
+        job_type = type(state.job).__name__
         state.job = None
         state.job_gen = None
         state.recovery = False
 
         return StateChange(
-            ZahirJobState.ENQUEUE_JOB, {"message": f"Recovery job {type(state.job).__name__} irrecoverably failed"}
+            ZahirJobState.ENQUEUE_JOB, {"message": f"Recovery job {job_type} irrecoverably failed"}
         ), state
 
     @classmethod

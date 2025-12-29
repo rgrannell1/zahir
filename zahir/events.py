@@ -8,6 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
+import traceback
 from typing import Any, Generic, TypeVar
 
 OutputType = TypeVar("OutputType", bound=Mapping[str, Any])
@@ -360,10 +361,57 @@ class ZahirCustomEvent[CustomEventOutputType](ZahirEvent):
     def load(cls, data: Mapping[str, Any]) -> ZahirCustomEvent:
         return cls(
             workflow_id=data.get("workflow_id"),
-            job_id=data.get("job_id"),
             output=data.get("output"),
         )
 
+
+@dataclass
+class SerialisableError:
+    type: str
+    module: str
+    message: str
+    args: tuple
+    traceback: str | None
+
+    @classmethod
+    def from_exception(cls, exc: BaseException):
+        return cls(
+            type=exc.__class__.__name__,
+            module=exc.__class__.__module__,
+            message=str(exc),
+            args=exc.args,
+            traceback="".join(traceback.format_exception(type(exc), exc, exc.__traceback__)) if exc.__traceback__ else None,
+        )
+
+    def to_exception(self) -> Exception:
+        # best-effort reconstruction
+        try:
+            mod = __import__(self.module, fromlist=[self.type])
+            exc_type = getattr(mod, self.type)
+            exc = exc_type(*self.args)
+        except Exception:
+            exc = RuntimeError(self.message)
+        return exc
+
+@dataclass
+class ZahirInternalErrorEvent(ZahirEvent):
+    """Indicates that an internal Zahir error has occurred"""
+
+    workflow_id: str | None = None
+    error: SerialisableError | None = None
+
+    def save(self) -> Mapping[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+            "error": self.error,
+        }
+
+    @classmethod
+    def load(cls, data: Mapping[str, Any]) -> ZahirInternalErrorEvent:
+        return cls(
+            workflow_id=data.get("workflow_id"),
+            error=data.get("error"),
+        )
 
 @dataclass
 class JobEvent(ZahirEvent):
