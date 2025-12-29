@@ -18,27 +18,37 @@ from zahir.exception import JobPrecheckError
 
 
 class ZahirJobState(StrEnum):
-    """Zahir transitions through these states when executing jobs."""
+    """Zahir transitions through these states when executing jobs. States are generally 'deconditionalised';
+    when we transition out we transition to a state; the state doesn't if-else on the input in general. This
+    makes things more traceable, but leads to duplicated states."""
 
     START = "start"
+
     ENQUEUE_JOB = "enqueue_job"
     WAIT_FOR_JOB = "wait_for_job"
     POP_JOB = "pop_job"
+
     CHECK_PRECONDITIONS = "check_preconditions"
     EXECUTE_JOB = "execute_job"
     EXECUTE_RECOVERY_JOB = "execute_recovery_job"
     HANDLE_AWAIT = "handle_await"
+
     HANDLE_JOB_OUTPUT = "handle_job_output"
+
     HANDLE_JOB_COMPLETE_NO_OUTPUT = "handle_job_complete_no_output"
     HANDLE_RECOVERY_JOB_COMPLETE_NO_OUTPUT = "handle_recovery_job_complete_no_output"
+
     HANDLE_JOB_TIMEOUT = "handle_job_timeout"
     HANDLE_JOB_EXCEPTION = "handle_job_exception"
+
     HANDLE_RECOVERY_JOB_TIMEOUT = "handle_recovery_job_timeout"
     HANDLE_RECOVERY_JOB_EXCEPTION = "handle_recovery_job_exception"
 
 
 @dataclass
 class StateChange:
+    """Represents a state transition in the Zahir job state machine."""
+
     state: ZahirJobState
     data: dict
 
@@ -48,6 +58,8 @@ RESET = "\x1b[0m"
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
 def log_call(fn):
+    """Decorator to log function calls and their results."""
+
     def wrapper(*args, **kwargs):
         result = fn(*args, **kwargs)
 
@@ -65,7 +77,6 @@ def log_call(fn):
         return result
 
     return wrapper
-
 
 
 # TODO update to just state.frame to simplify context switches
@@ -158,6 +169,7 @@ class ZahirJobStateMachine:
 
         job_gen = type(job).run(state.context, job.input, job.dependencies)
         # new top-level job is not awaited by anything on the stack
+        # and it's not recovering, it's healthy
         state.run_job_stack.append(ZahirStackFrame(job=job, job_gen=job_gen, awaited=False, recovery=False))
 
         return StateChange(ZahirJobState.START, {"message": "Appended new job to stack; going to start"}), state
@@ -167,6 +179,7 @@ class ZahirJobStateMachine:
     def wait_for_job(cls, state) -> tuple[StateChange, None]:
         """No jobs available; for the moment let's just sleep. In future, be cleverer
         and have dependencies suggest nap-times"""
+
         time.sleep(1)
 
         return StateChange(ZahirJobState.START, {"message": "Waited for job, restarting"}), state
@@ -244,7 +257,8 @@ class ZahirJobStateMachine:
 
         job = await_event.job
         state.context.job_registry.add(job)
-        # TO DO write the Job Event; I think we probably need to decouple eventing from registry updates. It's pretty, sane, and extremely non-deterministic to use eventing for updates.
+        # TO DO write the Job Event; I think we probably need to decouple eventing from registry updates.
+        # It's pretty, sane, and extremely non-deterministic to use eventing for updates.
         state.context.job_registry.set_state(job.job_id, JobState.CLAIMED)
 
         state.output_queue.put(JobStartedEvent(workflow_id=state.workflow_id, job_id=job.job_id))
@@ -316,6 +330,8 @@ class ZahirJobStateMachine:
     @classmethod
     @log_call
     def handle_job_timeout(cls, state) -> tuple[StateChange, None]:
+        """The job timed out. Emit a timeout event, null out the job, and start over."""
+
         job_timeout = state.job.options.job_timeout if state.job.options else None
 
         state.output_queue.put(
@@ -334,6 +350,8 @@ class ZahirJobStateMachine:
     @classmethod
     @log_call
     def handle_recovery_job_timeout(cls, state) -> tuple[StateChange, None]:
+        """The recovery job timed out. Emit a recovery timeout event, null out the job, and start over."""
+
         recovery_timeout = state.job.recovery_timeout if state.job.options else None
 
         state.output_queue.put(
@@ -354,6 +372,8 @@ class ZahirJobStateMachine:
     @classmethod
     @log_call
     def handle_recovery_job_exception(cls, state) -> tuple[StateChange, None]:
+        """The recovery job raised an exception. Emit an irrecoverable event, null out the job, and start over."""
+
         # well, recovery didn't work. Ah, well.
 
         state.output_queue.put(
@@ -372,6 +392,8 @@ class ZahirJobStateMachine:
     @classmethod
     @log_call
     def handle_job_exception(cls, state) -> tuple[StateChange, None]:
+        """The job raised an exception. Emit a recovery started event, and switch to recovery mode."""
+
         job_class = type(state.job)
 
         # Let's fork execution back to the job's recovery mechanism
@@ -388,6 +410,8 @@ class ZahirJobStateMachine:
     @classmethod
     @log_call
     def execute_job(cls, state) -> tuple[StateChange, None]:
+        """Execute a job. Handle timeouts, awaits, outputs, exceptions."""
+
         job_timeout = state.job.options.job_timeout if state.job.options else None
 
         # Emit a JobStartedEvent when we begin executing the claimed job.
