@@ -28,7 +28,6 @@ from zahir.worker.job_worker import zahir_job_worker
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
-# Job-state events (TODO, via inheritance)
 type JobStateEvent = (
     JobStartedEvent
     | JobPrecheckFailedEvent
@@ -90,12 +89,12 @@ def zahir_worker_overseer(context, worker_count: int = 4, all_events: bool = Fal
     output_queue.put(WorkflowStartedEvent(workflow_id=workflow_id))
 
     for _ in range(worker_count - 1):
-        p = multiprocessing.Process(
+        proc = multiprocessing.Process(
             target=zahir_job_worker,
             args=(context, output_queue, workflow_id),
         )
-        p.start()
-        processes.append(p)
+        proc.start()
+        processes.append(proc)
 
     exc: Exception | None = None
     try:
@@ -118,11 +117,11 @@ def zahir_worker_overseer(context, worker_count: int = 4, all_events: bool = Fal
     except KeyboardInterrupt:
         pass
     finally:
-        for p in processes:
-            if p.is_alive():
-                p.terminate()
-        for p in processes:
-            p.join(timeout=2)
+        for proc in processes:
+            if proc.is_alive():
+                proc.terminate()
+        for proc in processes:
+            proc.join(timeout=5)
 
     if exc is not None:
         raise exc
