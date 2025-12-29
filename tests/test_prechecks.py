@@ -1,4 +1,3 @@
-import pathlib
 import tempfile
 
 from zahir.base_types import Context, Job
@@ -34,7 +33,7 @@ class PrecheckJob(Job):
 def ParentJob(cls, context: Context, input, dependencies):
     """A parent job that yields to the inner async job. Proves nested awaits work."""
 
-    result = yield Await(PrecheckJob({"test": 1234}, {}))
+    _ = yield Await(PrecheckJob({"test": 1234}, {}))
     yield ZahirCustomEvent(output={"message": "Should never see this."})
 
 
