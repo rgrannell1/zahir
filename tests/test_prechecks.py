@@ -37,6 +37,7 @@ def ParentJob(cls, context: Context, input, dependencies):
     result = yield Await(PrecheckJob({"test": 1234}, {}))
     yield ZahirCustomEvent(output={"message": "Should never see this."})
 
+
 def test_failed_prechecks():
     """Prove that jobs with failing prechecks do not run."""
 
@@ -53,6 +54,7 @@ def test_failed_prechecks():
     assert isinstance(events[0], WorkflowStartedEvent)
     assert isinstance(events[1], JobPrecheckFailedEvent)
     assert isinstance(events[2], WorkflowCompleteEvent)
+
 
 def test_awaited_prechecks():
     """Prove that jobs with failing prechecks error when awaited."""

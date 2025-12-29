@@ -264,6 +264,7 @@ class JobRecoveryCompletedEvent(ZahirEvent):
             duration_seconds=data["duration_seconds"],
         )
 
+
 @dataclass
 class JobRecoveryTimeout(ZahirEvent):
     """Indicates that a job recovery has timed out"""
