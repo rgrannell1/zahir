@@ -10,9 +10,7 @@ from zahir.events import (
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
 
-def zahir_dependency_worker(
-    context: Context, output_queue: OutputQueue, workflow_id: str
-) -> None:
+def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflow_id: str) -> None:
     """Analyse job dependencies and mark jobs as pending."""
 
     while True:

@@ -47,7 +47,6 @@ def create_backoff_delay(retry_opts: RetryOptions, retry_count: int) -> TimeDepe
     initial_delay = retry_opts.get("initial_delay", 5)
     backoff_factor = retry_opts.get("backoff_factor", 2)
 
-    # delay = initial_delay * (backoff_factor ^ retry_count)
     delay_seconds = initial_delay * (backoff_factor**retry_count)
 
     now = datetime.now(tz=UTC)
@@ -67,9 +66,7 @@ class RetryTask(Job):
         super().__init__(input, dependencies)
 
     @classmethod
-    def run(
-        cls, context: Context, input: RetryTaskInput, dependencies: DependencyGroup
-    ) -> Iterator[Job]:
+    def run(cls, context: Context, input: RetryTaskInput, _: DependencyGroup) -> Iterator[Job]:
         """Run the retry task."""
 
         # Reconstruct the task from serialized data
@@ -129,13 +126,13 @@ def retryable(
     context: Context,
     task: Job,
     retry_opts: RetryOptions | None = None,
-    retry_states: set[JobState] = {
+    retry_states: frozenset[JobState] = frozenset({
         JobState.TIMED_OUT,
         JobState.RECOVERY_TIMED_OUT,
         JobState.IRRECOVERABLE,
         JobState.IMPOSSIBLE,
-    },
-    impossible_states: set[JobState] = {JobState.COMPLETED},
+    }),
+    impossible_states: frozenset[JobState] = frozenset({JobState.COMPLETED}),
 ) -> Iterable[Job]:
     """Retry a job if it enters a failure state."""
     yield task

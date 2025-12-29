@@ -53,6 +53,7 @@ class WorkflowStartedEvent(ZahirEvent):
             workflow_id=data["workflow_id"],
         )
 
+
 @dataclass
 class WorkflowCompleteEvent(ZahirEvent):
     """Indicates that the workflow has completed"""
@@ -68,13 +69,11 @@ class WorkflowCompleteEvent(ZahirEvent):
 
     @classmethod
     def load(cls, data: Mapping[str, Any]) -> WorkflowCompleteEvent:
-        return cls(
-            workflow_id=data["workflow_id"], duration_seconds=data["duration_seconds"]
-        )
+        return cls(workflow_id=data["workflow_id"], duration_seconds=data["duration_seconds"])
 
 
 @dataclass
-class WorkflowOutputEvent(ZahirEvent, Generic[OutputType]):
+class WorkflowOutputEvent[OutputType](ZahirEvent):
     """Indicates that the workflow has produced output"""
 
     output: OutputType
@@ -243,6 +242,29 @@ class JobRecoveryStarted(ZahirEvent):
 
 
 @dataclass
+class JobRecoveryCompletedEvent(ZahirEvent):
+    """Indicates that a job recovery has completed"""
+
+    workflow_id: str
+    job_id: str
+    duration_seconds: float
+
+    def save(self) -> Mapping[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "duration_seconds": self.duration_seconds,
+        }
+
+    @classmethod
+    def load(cls, data: Mapping[str, Any]) -> JobRecoveryCompletedEvent:
+        return cls(
+            workflow_id=data["workflow_id"],
+            job_id=data["job_id"],
+            duration_seconds=data["duration_seconds"],
+        )
+
+@dataclass
 class JobRecoveryTimeout(ZahirEvent):
     """Indicates that a job recovery has timed out"""
 
@@ -319,7 +341,7 @@ class JobPrecheckFailedEvent(ZahirEvent):
 
 # Custom event for user-defined job outputs or signals
 @dataclass
-class ZahirCustomEvent(ZahirEvent, Generic[CustomEventOutputType]):
+class ZahirCustomEvent[CustomEventOutputType](ZahirEvent):
     """Custom event for arbitrary job output or signals."""
 
     workflow_id: str | None = None

@@ -72,9 +72,7 @@ def test_job_dependency_custom_impossible_states():
     mock_registry.get_state.return_value = JobState.TIMED_OUT
 
     # Make TIMED_OUT an impossible state
-    dep = JobDependency(
-        "job-123", mock_registry, impossible_states={JobState.TIMED_OUT}
-    )
+    dep = JobDependency("job-123", mock_registry, impossible_states={JobState.TIMED_OUT})
     assert dep.satisfied() == DependencyState.IMPOSSIBLE
 
 

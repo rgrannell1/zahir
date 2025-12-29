@@ -36,10 +36,9 @@ class TimeDependency(Dependency):
 
         now = datetime.now(tz=UTC)
 
-        if self.before:
+        if self.before and now >= self.before:
             # time moves forward, this dependency can now never be met.
-            if now >= self.before:
-                return DependencyState.IMPOSSIBLE
+            return DependencyState.IMPOSSIBLE
 
         if self.after:
             if now >= self.after:

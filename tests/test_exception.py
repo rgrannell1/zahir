@@ -1,9 +1,9 @@
 """Tests for Zahir exceptions"""
 
-from zahir.exception import DependencyMissingException, ZahirException
+from zahir.exception import DependencyMissingError, ZahirError
 
 
 def test_exceptions_instantiate():
     """Test that all exception types can be instantiated."""
-    ZahirException("test error")
-    DependencyMissingException("missing dependency")
+    ZahirError("test error")
+    DependencyMissingError("missing dependency")

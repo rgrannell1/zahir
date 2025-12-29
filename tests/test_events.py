@@ -27,9 +27,7 @@ def test_workflow_complete_event_roundtrip():
 def test_job_completed_event_roundtrip():
     """Test JobCompletedEvent save/load roundtrip."""
 
-    event = JobCompletedEvent(
-        workflow_id="wf-111", job_id="job-222", duration_seconds=15.3
-    )
+    event = JobCompletedEvent(workflow_id="wf-111", job_id="job-222", duration_seconds=15.3)
 
     saved = event.save()
     assert saved["workflow_id"] == "wf-111"
@@ -57,9 +55,7 @@ def test_job_started_event_roundtrip():
 def test_job_timeout_event_roundtrip():
     """Test JobTimeoutEvent save/load roundtrip."""
 
-    event = JobTimeoutEvent(
-        workflow_id="wf-555", job_id="job-666", duration_seconds=30.0
-    )
+    event = JobTimeoutEvent(workflow_id="wf-555", job_id="job-666", duration_seconds=30.0)
 
     saved = event.save()
     loaded = JobTimeoutEvent.load(saved)

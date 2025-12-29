@@ -2,18 +2,19 @@ from collections.abc import Iterator, Mapping
 from typing import Any, Generic, TypeVar
 
 from zahir.base_types import Job
-from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
+from zahir.events import WorkflowOutputEvent, ZahirEvent
 from zahir.worker.overseer import zahir_worker_overseer
 
 WorkflowOutputType = TypeVar("WorkflowOutputType", bound=Mapping[str, Any])
 
 
-class LocalWorkflow(Generic[WorkflowOutputType]):
+class LocalWorkflow[WorkflowOutputType]:
     """A workflow execution engine"""
 
     def __init__(
         self,
         context,
+        max_workers: int = 4,
     ) -> None:
         """Initialize a workflow execution engine
 
@@ -21,7 +22,7 @@ class LocalWorkflow(Generic[WorkflowOutputType]):
         """
 
         self.context = context
-        self.max_workers = 4
+        self.max_workers = max_workers
 
     def run(
         self, start: Job | None = None, all_events: bool = False
@@ -37,7 +38,7 @@ class LocalWorkflow(Generic[WorkflowOutputType]):
         if start is not None:
             self.context.job_registry.add(start)
 
-        yield from zahir_worker_overseer(self.context, self.max_workers)
+        yield from zahir_worker_overseer(self.context, self.max_workers, all_events)
 
 
 __all__ = ["LocalWorkflow", "zahir_worker_overseer"]

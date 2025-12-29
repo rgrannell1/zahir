@@ -21,7 +21,6 @@ from zahir.events import (
     ZahirCustomEvent,
     ZahirEvent,
 )
-from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.utils.id_generator import generate_id
 from zahir.worker.dependency_worker import zahir_dependency_worker
 from zahir.worker.job_worker import zahir_job_worker
@@ -51,62 +50,57 @@ EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
 }
 
 
-def handle_supervisor_event(
-    event: ZahirEvent, context: "Context", job_registry: SQLiteJobRegistry
-) -> None:
-    """Handle events in the supervisor process"""
+def handle_supervisor_event(event: ZahirEvent, context: "Context") -> None:
+    """Handle events in the supervisor process
+
+    @param event: The event to handle
+    @param context: The context
+    """
 
     if type(event) in EVENT_TO_STATE:
         # event is a JobStateEvent, so job_id is present
         job_state_event = cast(JobStateEvent, event)
-        job_registry.set_state(
-            cast(str, job_state_event.job_id), EVENT_TO_STATE[type(job_state_event)]
-        )
+        context.job_registry.set_state(cast(str, job_state_event.job_id), EVENT_TO_STATE[type(job_state_event)])
 
     elif isinstance(event, JobEvent):
         # register the new job
-        job_registry.add(Job.load(context, event.job))
+        context.job_registry.add(Job.load(context, event.job))
 
     elif isinstance(event, JobOutputEvent):
         # store the job output
-        job_registry.set_output(cast(str, event.job_id), event.output)
-        job_registry.set_state(cast(str, event.job_id), JobState.COMPLETED)
+        context.job_registry.set_output(cast(str, event.job_id), event.output)
+        context.job_registry.set_state(cast(str, event.job_id), JobState.COMPLETED)
 
 
-def zahir_worker_overseer(
-    context, worker_count: int = 4
-) -> Iterator[WorkflowOutputEvent | WorkflowStartedEvent | ZahirCustomEvent]:
+def zahir_worker_overseer(context, worker_count: int = 4, all_events: bool = False) -> Iterator[ZahirEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 
     workflow_id = generate_id(3)
     output_queue: OutputQueue = multiprocessing.Queue()
 
-    yield WorkflowStartedEvent(workflow_id=workflow_id)
-
     processes = []
-    processs = multiprocessing.Process(
-        target=zahir_dependency_worker, args=(context, output_queue, workflow_id)
-    )
+    processs = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
     processs.start()
     processes.append(processs)
 
+    output_queue.put(WorkflowStartedEvent(workflow_id=workflow_id))
+
     for _ in range(worker_count - 1):
-        process = multiprocessing.Process(
-            target=zahir_job_worker, args=(context, output_queue, workflow_id)
-        )
+        process = multiprocessing.Process(target=zahir_job_worker, args=(context, output_queue, workflow_id))
         process.start()
         processes.append(process)
     try:
         while True:
             event = output_queue.get()
-            print(event)
 
             if isinstance(event, WorkflowCompleteEvent):
+                if all_events:
+                    yield event
                 break
 
-            handle_supervisor_event(event, context, context.job_registry)
-            if isinstance(event, (WorkflowOutputEvent, WorkflowStartedEvent, WorkflowCompleteEvent, ZahirCustomEvent)):
+            handle_supervisor_event(event, context)
+            if all_events or isinstance(event, (WorkflowOutputEvent, ZahirCustomEvent)):
                 yield event
     except KeyboardInterrupt:
         pass

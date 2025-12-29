@@ -97,8 +97,8 @@ class SQLiteJobRegistry(JobRegistry):
 
         _, serialised_job = row
         job_data = json.loads(serialised_job)
-        JobClass = context.scope.get_job_class(job_data["type"])
-        return JobClass.load(context, job_data)
+        job_class = context.scope.get_job_class(job_data["type"])
+        return job_class.load(context, job_data)
 
     def add(self, job: Job) -> str:
         job_id = job.job_id
@@ -106,9 +106,7 @@ class SQLiteJobRegistry(JobRegistry):
 
         # Jobs need their dependencies verified to have passed before they can run;
         # so by default they start as PENDING unless they have no dependencies.
-        job_state = (
-            JobState.READY.value if job.dependencies.empty() else JobState.PENDING.value
-        )
+        job_state = JobState.READY.value if job.dependencies.empty() else JobState.PENDING.value
 
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
@@ -190,17 +188,13 @@ class SQLiteJobRegistry(JobRegistry):
         ]
         with self._connect() as conn:
             row = conn.execute(
-                "SELECT 1 FROM jobs WHERE state IN ({}) LIMIT 1".format(
-                    ",".join("?" for _ in active_states)
-                ),
+                "SELECT 1 FROM jobs WHERE state IN ({}) LIMIT 1".format(",".join("?" for _ in active_states)),
                 active_states,
             ).fetchone()
 
         return row is not None
 
-    def jobs(
-        self, context: Context, state: JobState | None = None
-    ) -> Iterator["JobInformation"]:
+    def jobs(self, context: Context, state: JobState | None = None) -> Iterator["JobInformation"]:
         with self._connect() as conn:
             job_list = conn.execute("""
                 SELECT j.job_id, j.serialised_job, j.state, o.output,
@@ -221,17 +215,13 @@ class SQLiteJobRegistry(JobRegistry):
             recovery_duration_seconds,
         ) in job_list:
             job_data = cast(SerialisedJob, json.loads(serialised_job))
-            JobClass = context.scope.get_job_class(job_data["type"])
-            job = JobClass.load(context, job_data)
+            job_class = context.scope.get_job_class(job_data["type"])
+            job = job_class.load(context, job_data)
 
             job_state = JobState(state_str)
             output = json.loads(output_str) if output_str else None
-            started_at = (
-                datetime.fromisoformat(started_at_str) if started_at_str else None
-            )
-            completed_at = (
-                datetime.fromisoformat(completed_at_str) if completed_at_str else None
-            )
+            started_at = datetime.fromisoformat(started_at_str) if started_at_str else None
+            completed_at = datetime.fromisoformat(completed_at_str) if completed_at_str else None
 
             if state is not None and job_state != state:
                 continue

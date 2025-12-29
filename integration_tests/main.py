@@ -7,7 +7,7 @@ from zahir.base_types import Context, Dependency, Job
 from zahir.context import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
-from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
+from zahir.events import JobOutputEvent, WorkflowOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.tasks.decorator import job
@@ -50,9 +50,7 @@ def get_longest_word(words: list[str]) -> str:
 
 
 @job
-def BookProcessor(
-    cls, context: Context, input, dependencies
-) -> Iterator[Job | JobOutputEvent]:
+def BookProcessor(cls, context: Context, input, dependencies) -> Iterator[Job | JobOutputEvent]:
     pids = []
     chapters = read_chapters(input["file_path"])
 
@@ -71,9 +69,7 @@ def BookProcessor(
 
 
 @job
-def ChapterProcessor(
-    cls, context: Context, input, dependencies
-) -> Iterator[JobOutputEvent]:
+def ChapterProcessor(cls, context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
     """For each chapter, find the longest word."""
 
     # return the longest word found in the chapter
@@ -81,9 +77,7 @@ def ChapterProcessor(
 
 
 @job
-def LongestWordAssembly(
-    cls, context: Context, input, dependencies
-) -> Iterator[WorkflowOutputEvent]:
+def LongestWordAssembly(cls, context: Context, input, dependencies) -> Iterator[WorkflowOutputEvent]:
     """Assemble the longest words from each chapter into a unique list."""
 
     long_words = set()
@@ -105,9 +99,7 @@ scope = LocalScope(
 job_registry = SQLiteJobRegistry("jobs.db")
 context = MemoryContext(scope=scope, job_registry=job_registry)
 
-start = BookProcessor(
-    {"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {}
-)
+start = BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
 
 for event in LocalWorkflow(context).run(start):
     print(event)

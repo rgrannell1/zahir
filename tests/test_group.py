@@ -48,9 +48,7 @@ def test_dependency_group_with_list():
     """Test that group handles lists of dependencies correctly."""
     dep1 = TimeDependency(before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC))
     dep2 = TimeDependency(before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC))
-    dep3 = TimeDependency(
-        before=None, after=datetime(2025, 1, 1, 11, 30, 0, tzinfo=UTC)
-    )
+    dep3 = TimeDependency(before=None, after=datetime(2025, 1, 1, 11, 30, 0, tzinfo=UTC))
 
     # Mix single and list dependencies
     group = DependencyGroup({"single": dep1, "multi": [dep2, dep3]})

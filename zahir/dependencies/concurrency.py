@@ -36,9 +36,7 @@ class ConcurrencyLimit(Dependency):
 
         with self._lock:
             return (
-                DependencyState.SATISFIED
-                if self.claimed <= (self.limit - self.slots)
-                else DependencyState.UNSATISFIED
+                DependencyState.SATISFIED if self.claimed <= (self.limit - self.slots) else DependencyState.UNSATISFIED
             )
 
     def save(self) -> Mapping[str, Any]:
@@ -47,7 +45,7 @@ class ConcurrencyLimit(Dependency):
         return {
             "type": "ConcurrencyLimit",
             "limit": self.limit,
-            # This will be reset between serialisations
+            # This will be reset between serialisations.
             "claimed": 0,
             "slots": self.slots,
         }

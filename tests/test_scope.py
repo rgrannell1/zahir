@@ -9,15 +9,14 @@ from zahir.dependencies.job import JobDependency
 from zahir.dependencies.time import TimeDependency
 from zahir.events import JobOutputEvent
 from zahir.scope import LocalScope
+from zahir.exception import JobNotInScopeError, DependencyNotInScopeError
 
 
 class SampleJob(Job):
     """Simple test job for scope tests."""
 
     @classmethod
-    def run(
-        cls, context: Context, input: dict, dependencies: DependencyGroup
-    ) -> Iterator[Job | JobOutputEvent]:
+    def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
         from zahir.events import JobOutputEvent
 
         yield JobOutputEvent({"result": "test"})
@@ -27,9 +26,7 @@ class AnotherSampleJob(Job):
     """Another test job for scope tests."""
 
     @classmethod
-    def run(
-        cls, context: Context, input: dict, dependencies: DependencyGroup
-    ) -> Iterator[Job | JobOutputEvent]:
+    def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
         from zahir.events import JobOutputEvent
 
         yield JobOutputEvent({"result": "another"})
@@ -63,8 +60,8 @@ def test_scope_get_task_class_raises_on_missing():
 
     try:
         scope.get_job_class("NonExistentJob")
-        assert False, "Should have raised KeyError"
-    except KeyError:
+        raise AssertionError("failed")
+    except (KeyError, JobNotInScopeError):
         pass
 
 
@@ -98,8 +95,8 @@ def test_scope_get_dependency_class_raises_on_missing():
 
     try:
         scope.get_dependency_class("NonExistentDependency")
-        assert False, "Should have raised KeyError"
-    except KeyError:
+        raise AssertionError("failed")
+    except (KeyError, DependencyNotInScopeError):
         pass
 
 
@@ -117,14 +114,14 @@ def test_scope_task_and_dependency_classes_separate():
     # Tasks shouldn't be in dependencies and vice versa
     try:
         scope.get_dependency_class("SampleJob")
-        assert False, "Should have raised KeyError"
-    except KeyError:
+        raise AssertionError("failed")
+    except (KeyError, DependencyNotInScopeError):
         pass
 
     try:
         scope.get_job_class("TimeDependency")
-        assert False, "Should have raised KeyError"
-    except KeyError:
+        raise AssertionError("failed")
+    except (KeyError, JobNotInScopeError):
         pass
 
 

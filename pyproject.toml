@@ -50,3 +50,6 @@ test = [
   "freezegun",
   "coolname",
 ]
+
+[tool.ruff]
+target-version = "py313"

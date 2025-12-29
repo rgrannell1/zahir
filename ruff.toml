@@ -1,8 +1,8 @@
 # Ruff configuration
 # https://docs.astral.sh/ruff/
 
-target-version = "py311"
-line-length = 88
+target-version = "py313"
+line-length = 120
 fix = true
 unsafe-fixes = false
 respect-gitignore = true

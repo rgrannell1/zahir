@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, Generic, TypedDict, TypeVar, cast
+from typing import Any, TypedDict, TypeVar, cast
 
 from zahir.base_types import Context, Dependency, DependencyState, JobRegistry, JobState
 
@@ -14,7 +14,7 @@ class JobDependencyData(TypedDict, total=False):
     impossible_states: list[str]
 
 
-class JobDependency(Dependency, Generic[OutputType]):
+class JobDependency[OutputType](Dependency):
     """A dependency on another job's completion."""
 
     job_id: str
@@ -66,12 +66,8 @@ class JobDependency(Dependency, Generic[OutputType]):
         """Load the job dependency from a dictionary."""
 
         job_id = data["job_id"]
-        satisfied_states = {
-            JobState(state) for state in data.get("satisfied_states", [])
-        }
-        impossible_states = {
-            JobState(state) for state in data.get("impossible_states", [])
-        }
+        satisfied_states = {JobState(state) for state in data.get("satisfied_states", [])}
+        impossible_states = {JobState(state) for state in data.get("impossible_states", [])}
         return cls(
             job_id=job_id,
             job_registry=context.job_registry,

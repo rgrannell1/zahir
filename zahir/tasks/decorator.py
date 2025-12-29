@@ -15,10 +15,7 @@ def job(fn: Callable[..., Any]):
     class_name = getattr(fn, "__name__", fn.__class__.__name__)
     mod = getattr(fn, "__module__", fn.__class__.__module__)
     qual = getattr(fn, "__qualname__", None)
-    if isinstance(qual, str):
-        qual = qual.rsplit(".", 1)[0]
-    else:
-        qual = class_name
+    qual = qual.rsplit(".", 1)[0] if isinstance(qual, str) else class_name
     class_qualname = f"{mod}.{qual}.{class_name}" if qual else f"{mod}.{class_name}"
 
     ns: dict[str, Any] = {}
@@ -38,5 +35,4 @@ def job(fn: Callable[..., Any]):
     except Exception:
         ns["__type_hints__"] = {}
 
-    ConstructedClass = type(class_name, (Job,), ns)
-    return ConstructedClass
+    return type(class_name, (Job,), ns)

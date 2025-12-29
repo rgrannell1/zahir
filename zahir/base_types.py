@@ -4,11 +4,10 @@ from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from typing import (
     TYPE_CHECKING,
     Any,
-    Generic,
     Self,
     TypedDict,
     TypeVar,
@@ -20,14 +19,14 @@ from zahir.utils.id_generator import generate_id
 if TYPE_CHECKING:
     from zahir.dependencies.group import DependencyGroup
     from zahir.events import JobOutputEvent, WorkflowOutputEvent, ZahirCustomEvent
-    from zahir.logger import ZahirLogger
+    from zahir.logging import ZahirLogger
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Dependency ++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-class DependencyState(str, Enum):
+class DependencyState(StrEnum):
     """The state of a dependency."""
 
     SATISFIED = "satisfied"
@@ -72,7 +71,7 @@ class Dependency(ABC):
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
-class JobState(str, Enum):
+class JobState(StrEnum):
     """Track the state jobs can be in"""
 
     # Still to be run
@@ -200,9 +199,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def jobs(
-        self, context: "Context", state: JobState | None = None
-    ) -> Iterator[JobInformation]:
+    def jobs(self, context: "Context", state: JobState | None = None) -> Iterator[JobInformation]:
         """Get an iterator of all jobs with their information.
 
         @param context: The context containing scope and registries for deserialization
@@ -297,9 +294,7 @@ class JobOptions:
     # Upper-limit on how long the recovery should run for
     recover_timeout: float | None = None
 
-    def __init__(
-        self, job_timeout: float | None = None, recover_timeout: float | None = None
-    ) -> None:
+    def __init__(self, job_timeout: float | None = None, recover_timeout: float | None = None) -> None:
         self.job_timeout = job_timeout
         self.recover_timeout = recover_timeout
 
@@ -326,7 +321,7 @@ class JobOptions:
         return options
 
 
-class Job(ABC, Generic[ArgsType, OutputType]):
+class Job[ArgsType, OutputType](ABC):
     """Jobs can depend on other jobs."""
 
     # Optional parent job ID for traceability
@@ -349,17 +344,13 @@ class Job(ABC, Generic[ArgsType, OutputType]):
         job_id: str | None = None,
         parent_id: str | None = None,
     ) -> None:
-        # Import here to avoid circular dependency, this is so dumb.
-        from zahir.dependencies.group import DependencyGroup
+        # Circular dependency fun, love you Python
+        from zahir.dependencies.group import DependencyGroup  # TO DO lint disable
 
         self.parent_id = parent_id
         self.job_id = job_id if job_id is not None else generate_id(3)
         self.input = input
-        self.dependencies = (
-            DependencyGroup(dependencies)
-            if isinstance(dependencies, dict)
-            else dependencies
-        )
+        self.dependencies = dependencies if isinstance(dependencies, DependencyGroup) else DependencyGroup(dependencies)
         self.options = options
 
     @staticmethod
@@ -420,6 +411,7 @@ class Job(ABC, Generic[ArgsType, OutputType]):
         """
 
         raise err
+        yield
 
     def save(self) -> SerialisedJob:
         """Serialize the job to a dictionary.
@@ -447,20 +439,18 @@ class Job(ABC, Generic[ArgsType, OutputType]):
         """
 
         job_type = data["type"]
-        JobClass = context.scope.get_job_class(job_type)
-        from zahir.dependencies.group import DependencyGroup
+        job_class = context.scope.get_job_class(job_type)
+        from zahir.dependencies.group import DependencyGroup  # TO DO lint disable
 
         dependencies = data["dependencies"]
 
-        job = JobClass(
+        return job_class(
             input=data["input"],
             dependencies=DependencyGroup.load(context, dependencies),
             options=JobOptions.load(data["options"]) if data["options"] else None,
             job_id=data["job_id"],
             parent_id=data.get("parent_id"),
         )
-
-        return job
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -479,12 +469,12 @@ class Scope(ABC):
     """
 
     @abstractmethod
-    def add_job_class(self, TaskClass: type["Job"]) -> Self:
+    def add_job_class(self, job_class: type["Job"]) -> Self:
         """Add a job class to the scope."""
         ...
 
     @abstractmethod
-    def add_job_classes(self, TaskClasses: list[type["Job"]]) -> Self:
+    def add_job_classes(self, job_classes: list[type["Job"]]) -> Self:
         """Add multiple job classes to the scope."""
         ...
 
@@ -494,12 +484,12 @@ class Scope(ABC):
         ...
 
     @abstractmethod
-    def add_dependency_class(self, DependencyClass: type[Dependency]) -> Self:
+    def add_dependency_class(self, dependency_class: type[Dependency]) -> Self:
         """Add a dependency class to the scope."""
         ...
 
     @abstractmethod
-    def add_dependency_classes(self, DependencyClasses: list[type[Dependency]]) -> Self:
+    def add_dependency_classes(self, dependency_classes: list[type[Dependency]]) -> Self:
         """Add multiple dependency classes to the scope."""
         ...
 
@@ -514,6 +504,7 @@ class Scope(ABC):
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
+@dataclass
 class Context:
     """Context such as scope, the job registry, and event registry
     needs to be communicated to Jobs and Dependencies.
@@ -525,21 +516,3 @@ class Context:
     job_registry: JobRegistry
     # Log the progress of the workflow
     logger: "ZahirLogger"
-
-    def __init__(
-        self,
-        scope: Scope,
-        job_registry: JobRegistry,
-        logger: "ZahirLogger",
-    ) -> None:
-        self.scope = scope
-        self.job_registry = job_registry
-        self.logger = logger
-
-
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-# ++++++++++++++++++++++ Worker ++++++++++++++++++++++++++++++++++++
-# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-
-
-class Worker(ABC): ...

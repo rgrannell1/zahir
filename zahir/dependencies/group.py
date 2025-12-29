@@ -8,9 +8,7 @@ class DependencyGroup(Dependency):
 
     dependencies: Mapping[str, Dependency | list[Dependency]]
 
-    def __init__(
-        self, dependencies: Mapping[str, Dependency | list[Dependency]]
-    ) -> None:
+    def __init__(self, dependencies: Mapping[str, Dependency | list[Dependency]]) -> None:
         self.dependencies = dict(dependencies)
 
     def satisfied(self) -> DependencyState:
@@ -52,14 +50,14 @@ class DependencyGroup(Dependency):
                 deplist: list[Dependency] = []
 
                 for dep_data in deps:
-                    DepClass = context.scope.get_dependency_class(dep_data["type"])
+                    dep_class = context.scope.get_dependency_class(dep_data["type"])
 
-                    deplist.append(DepClass.load(context, dep_data))
+                    deplist.append(dep_class.load(context, dep_data))
 
                 dependencies[name] = deplist
             else:
-                DepClass = context.scope.get_dependency_class(deps["type"])
-                dependencies[name] = DepClass.load(context, deps)
+                dep_class = context.scope.get_dependency_class(deps["type"])
+                dependencies[name] = dep_class.load(context, deps)
 
         return cls(dependencies)
 

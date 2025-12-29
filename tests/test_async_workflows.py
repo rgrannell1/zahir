@@ -1,0 +1,58 @@
+import pathlib
+
+from zahir.base_types import Context
+from zahir.context import MemoryContext
+from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
+from zahir.job_registry import SQLiteJobRegistry
+from zahir.scope import LocalScope
+from zahir.tasks.decorator import job
+from zahir.worker import LocalWorkflow
+
+
+@job
+def AddJob(cls, context: Context, input, dependencies):
+    """Add to the input count and yield it"""
+
+    yield JobOutputEvent({"count": input["count"] + 1})
+
+
+@job
+def YieldMany(cls, context: Context, input, dependencies):
+    """Interyield to another job"""
+
+    count = 0
+    result = yield Await(AddJob({"count": count}, {}))
+    count = result["count"]
+    result = yield Await(AddJob({"count": count}, {}))
+    count = result["count"]
+
+    yield JobOutputEvent({"count": count})
+
+
+@job
+def ParentJob(cls, context: Context, input, dependencies):
+    """A parent job that yields to the inner async job. Proves nested awaits work."""
+
+    subcount = yield Await(YieldMany({}, {}))
+    yield WorkflowOutputEvent({"count": subcount["count"]})
+
+
+def test_nested_async_workflow():
+    """Prove that a workflow can use Await many times"""
+
+    tmp_file = "/tmp/zahir_yield_many.db"
+    pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
+    pathlib.Path(tmp_file).touch(exist_ok=True)
+
+    context = MemoryContext(
+        scope=LocalScope(jobs=[AddJob, YieldMany, ParentJob]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
+
+    workflow = LocalWorkflow(context)
+
+    yield_many = ParentJob({}, {})
+    events = list(workflow.run(yield_many))
+    assert len(events) == 1
+    final_event = events[0]
+    assert isinstance(final_event, WorkflowOutputEvent)
+    assert final_event.output["count"] == 2
