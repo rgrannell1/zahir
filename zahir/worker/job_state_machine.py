@@ -1,5 +1,4 @@
-
-
+from collections.abc import Iterator
 from concurrent.futures import (
     ThreadPoolExecutor,
     TimeoutError as FutureTimeoutError,
@@ -10,10 +9,24 @@ import json
 import multiprocessing
 import os
 import time
-from typing import Any, Iterator, cast
+from typing import Any, cast
 
 from zahir.base_types import Context, Job, JobState
-from zahir.events import Await, JobCompletedEvent, JobEvent, JobIrrecoverableEvent, JobOutputEvent, JobPausedEvent, JobPrecheckFailedEvent, JobRecoveryCompletedEvent, JobRecoveryStarted, JobRecoveryTimeout, JobStartedEvent, JobTimeoutEvent, WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
+from zahir.events import (
+    Await,
+    JobCompletedEvent,
+    JobEvent,
+    JobIrrecoverableEvent,
+    JobOutputEvent,
+    JobPrecheckFailedEvent,
+    JobRecoveryStartedEvent,
+    JobRecoveryTimeoutEvent,
+    JobStartedEvent,
+    JobTimeoutEvent,
+    WorkflowOutputEvent,
+    ZahirCustomEvent,
+    ZahirEvent,
+)
 from zahir.exception import JobPrecheckError
 
 
@@ -52,10 +65,12 @@ class StateChange:
     state: ZahirJobState
     data: dict
 
+
 GREEN = "\x1b[32m"
 RESET = "\x1b[0m"
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
+
 
 def log_call(fn):
     """Decorator to log function calls and their results."""
@@ -122,6 +137,7 @@ class ZahirWorkerState:
 
         self._job_gen = value
 
+
 @dataclass
 class ZahirStackFrame:
     """An instantiated job, its run or recovery generator, and whether it's awaited.
@@ -149,11 +165,10 @@ class ZahirJobStateMachine:
                 return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "No job; enqueueing."}), state
 
             return StateChange(ZahirJobState.POP_JOB, {"message": "No job active, so popping from stack"}), state
-        else:
-            return StateChange(
-                ZahirJobState.CHECK_PRECONDITIONS,
-                {"message": f"Checking preconditions for '{state.job.__class__.__name__}'"},
-            ), state
+        return StateChange(
+            ZahirJobState.CHECK_PRECONDITIONS,
+            {"message": f"Checking preconditions for '{state.job.__class__.__name__}'"},
+        ), state
 
     @classmethod
     @log_call
@@ -198,9 +213,13 @@ class ZahirJobStateMachine:
         job_state = state.context.job_registry.get_state(state.frame.job.job_id)
 
         if job_state == JobState.CLAIMED:
-            return StateChange(ZahirJobState.CHECK_PRECONDITIONS, {"message": "Job claimed and active"}), state
-        else:
-            return StateChange(ZahirJobState.EXECUTE_JOB, {"message": f"Resuming job in state '{job_state}'"}), state
+            return StateChange(
+                ZahirJobState.CHECK_PRECONDITIONS, {"message": f"Job {type(state.job).__name__} claimed and active"}
+            ), state
+        return StateChange(
+            ZahirJobState.EXECUTE_JOB,
+            {"message": f"Resuming job {{type(state.job).__name__}} in state '{job_state}'"},
+        ), state
 
     @classmethod
     @log_call
@@ -214,19 +233,14 @@ class ZahirJobStateMachine:
                 return StateChange(
                     ZahirJobState.EXECUTE_RECOVERY_JOB, {"message": "Prechecks passed; executing recovery job"}
                 ), state
-            else:
-                return StateChange(ZahirJobState.EXECUTE_JOB, {"message": "Prechecks passed; executing job"}), state
+            return StateChange(ZahirJobState.EXECUTE_JOB, {"message": "Prechecks passed; executing job"}), state
 
         # we'll avoid re-running for `Paused` jobs.
         # Precheck failed; job is no longer on the stack, so
         # let's report and continue.
 
-        state.output_queue.put(
-            JobPrecheckFailedEvent(
-                workflow_id=state.workflow_id,
-                job_id=state.job.job_id,
-                errors=errors,
-            )
+        state.context.job_registry.set_state(
+            state.job.job_id, state.workflow_id, state.output_queue, JobState.PRECHECK_FAILED
         )
         state.job_errors[state.job.job_id] = JobPrecheckError("\n".join(errors))
         state.job = None
@@ -250,18 +264,14 @@ class ZahirJobStateMachine:
         state.awaiting_jobs[state.job.job_id] = state.await_event.job.job_id
 
         # Pause the job please
-        state.output_queue.put(JobPausedEvent(workflow_id=state.workflow_id, job_id=state.job.job_id))
+        state.context.job_registry.set_state(state.job.job_id, state.workflow_id, state.output_queue, JobState.PAUSED)
 
         await_event = state.await_event
         assert await_event is not None
 
         job = await_event.job
         state.context.job_registry.add(job)
-        # TO DO write the Job Event; I think we probably need to decouple eventing from registry updates.
-        # It's pretty, sane, and extremely non-deterministic to use eventing for updates.
-        state.context.job_registry.set_state(job.job_id, JobState.CLAIMED)
-
-        state.output_queue.put(JobStartedEvent(workflow_id=state.workflow_id, job_id=job.job_id))
+        state.context.job_registry.set_state(job.job_id, state.workflow_id, state.output_queue, JobState.CLAIMED)
 
         # ...then, let's instantiate the `run` generator
         job_gen = type(job).run(state.context, job.input, job.dependencies)
@@ -281,7 +291,11 @@ class ZahirJobStateMachine:
         """We received a job output! It's emitted upstream already; just null out the job state. Persist the output to the state if awaited; we'll pop, then pass
         the output to the awaiting job"""
 
+        # silly to store twice
         state.job_outputs[state.job.job_id] = state.last_event.output
+        state.context.job_registry.set_output(
+            state.job.job_id, state.workflow_id, state.output_queue, state.last_event.output
+        )
 
         # Jobs can only output once, so clear the job and generator
         state.job = None
@@ -295,12 +309,9 @@ class ZahirJobStateMachine:
         """Mark the job as complete. Emit a completion event. Null out the job. Start over."""
 
         # Subjob complete, emit a recovery complete or regular compete and null out the stack frame.
-        state.output_queue.put(
-            JobCompletedEvent(
-                workflow_id=state.workflow_id,
-                job_id=state.job.job_id,
-                duration_seconds=0.1,
-            )
+
+        state.context.job_registry.set_state(
+            state.job.job_id, state.workflow_id, state.output_queue, JobState.COMPLETED
         )
 
         state.job = None
@@ -314,12 +325,8 @@ class ZahirJobStateMachine:
         """Mark the recovery job as complete. Emit a recovery completion event. Null out the job. Start over."""
 
         # Recovery subjob complete, emit a recovery complete and null out the stack frame.
-        state.output_queue.put(
-            JobRecoveryCompletedEvent(
-                workflow_id=state.workflow_id,
-                job_id=state.job.job_id,
-                duration_seconds=0.1,
-            )
+        state.context.job_registry.set_state(
+            state.job.job_id, state.workflow_id, state.output_queue, JobState.RECOVERED
         )
 
         state.job = None
@@ -332,14 +339,8 @@ class ZahirJobStateMachine:
     def handle_job_timeout(cls, state) -> tuple[StateChange, None]:
         """The job timed out. Emit a timeout event, null out the job, and start over."""
 
-        job_timeout = state.job.options.job_timeout if state.job.options else None
-
-        state.output_queue.put(
-            JobTimeoutEvent(
-                workflow_id=state.workflow_id,
-                job_id=state.job.job_id,
-                duration_seconds=cast(float, job_timeout),
-            )
+        state.context.job_registry.set_state(
+            state.job.job_id, state.workflow_id, state.output_queue, JobState.TIMED_OUT
         )
 
         state.job = None
@@ -352,16 +353,9 @@ class ZahirJobStateMachine:
     def handle_recovery_job_timeout(cls, state) -> tuple[StateChange, None]:
         """The recovery job timed out. Emit a recovery timeout event, null out the job, and start over."""
 
-        recovery_timeout = state.job.recovery_timeout if state.job.options else None
-
-        state.output_queue.put(
-            JobRecoveryTimeout(
-                workflow_id=state.workflow_id,
-                job_id=state.job.job_id,
-                duration_seconds=cast(float, recovery_timeout),
-            )
+        state.context.job_registry.set_state(
+            state.job.job_id, state.workflow_id, state.output_queue, JobState.RECOVERY_TIMED_OUT
         )
-
         state.job = None
         state.job_gen = None
 
@@ -375,9 +369,12 @@ class ZahirJobStateMachine:
         """The recovery job raised an exception. Emit an irrecoverable event, null out the job, and start over."""
 
         # well, recovery didn't work. Ah, well.
-
-        state.output_queue.put(
-            JobIrrecoverableEvent(workflow_id=state.workflow_id, error=state.last_event, job_id=state.job.job_id)
+        state.context.job_registry.set_state(
+            state.job.job_id,
+            state.workflow_id,
+            state.output_queue,
+            JobState.IRRECOVERABLE,
+            error=state.last_event,
         )
 
         job_type = type(state.job).__name__
@@ -401,7 +398,9 @@ class ZahirJobStateMachine:
         state.job_gen = job_class.recover(state.context, state.job.input, state.job.dependencies, state.last_event)
 
         state.recovery = True
-        state.context.job_registry.set_state(state.job.job_id, JobState.RECOVERING)
+        state.context.job_registry.set_state(
+            state.job.job_id, state.workflow_id, state.output_queue, JobState.RECOVERING
+        )
 
         return StateChange(
             ZahirJobState.CHECK_PRECONDITIONS, {"message": f"Job {type(state.job).__name__} entering recovery"}
@@ -417,13 +416,14 @@ class ZahirJobStateMachine:
         # Emit a JobStartedEvent when we begin executing the claimed job.
         # Some job implementations don't emit this implicitly, so the
         # worker should surface it when execution begins.
-        state.output_queue.put(JobStartedEvent(workflow_id=state.workflow_id, job_id=state.job.job_id))
+        state.context.job_registry.set_state(state.job.job_id, state.workflow_id, state.output_queue, JobState.RUNNING)
 
         with ThreadPoolExecutor(max_workers=1) as ex:
             try:
                 job_gen_result = ex.submit(
                     handle_job_events,
                     state.job_gen,
+                    job_registry=state.context.job_registry,
                     output_queue=state.output_queue,
                     state=state,
                     workflow_id=state.workflow_id,
@@ -469,7 +469,7 @@ class ZahirJobStateMachine:
                     {"message": f"Job {type(state.job).__name__} raised exception\n{err}"},
                 ), state
 
-        return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": f"Execution complete, enqueueing"}), state
+        return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "Execution complete, enqueueing"}), state
 
     @classmethod
     def execute_recovery_job(cls, state) -> tuple[StateChange, None]:
@@ -480,13 +480,14 @@ class ZahirJobStateMachine:
         # Emit a JobStartedEvent when we begin executing the claimed job.
         # Some job implementations don't emit this implicitly, so the
         # worker should surface it when execution begins.
-        state.output_queue.put(JobStartedEvent(workflow_id=state.workflow_id, job_id=state.job.job_id))
+        state.context.job_registry.set_state(state.job.job_id, state.workflow_id, state.output_queue, JobState.RUNNING)
 
         with ThreadPoolExecutor(max_workers=1) as ex:
             try:
                 job_gen_result = ex.submit(
                     handle_job_events,
                     state.job_gen,
+                    job_registry=state.context.job_registry,
                     output_queue=state.output_queue,
                     state=state,
                     workflow_id=state.workflow_id,
@@ -534,13 +535,14 @@ class ZahirJobStateMachine:
                     {"message": f"Recovery job {type(state.job).__name__} raised exception\n{err}"},
                 ), state
 
-        return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": f"Recovery execution complete, enqueueing"}), state
+        return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "Recovery execution complete, enqueueing"}), state
 
     @classmethod
     def get_state(cls, state_name: ZahirJobState):
         return getattr(cls, state_name.value)
 
-def handle_job_events(gen, *, output_queue, state, workflow_id, job_id) -> Await | JobOutputEvent | None:
+
+def handle_job_events(gen, *, job_registry, output_queue, state, workflow_id, job_id) -> Await | JobOutputEvent | None:
     """Sent job output items to the output queue."""
 
     if not isinstance(gen, Iterator):
@@ -589,8 +591,8 @@ def handle_job_events(gen, *, output_queue, state, workflow_id, job_id) -> Await
                 WorkflowOutputEvent,
                 JobCompletedEvent,
                 JobPrecheckFailedEvent,
-                JobRecoveryStarted,
-                JobRecoveryTimeout,
+                JobRecoveryStartedEvent,
+                JobRecoveryTimeoutEvent,
                 JobStartedEvent,
                 JobTimeoutEvent,
                 ZahirCustomEvent,
@@ -604,8 +606,6 @@ def handle_job_events(gen, *, output_queue, state, workflow_id, job_id) -> Await
 
             if isinstance(item, JobOutputEvent):
                 # Nothing more to be done for this generator
-                output_queue.put(JobCompletedEvent(workflow_id=workflow_id, job_id=job_id, duration_seconds=0.0))
-
                 return item
 
         elif isinstance(item, Job):

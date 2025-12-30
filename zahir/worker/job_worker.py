@@ -10,6 +10,7 @@ from zahir.worker.job_state_machine import StateChange, ZahirJobState, ZahirJobS
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
+
 def zahir_job_worker(context: Context, output_queue: OutputQueue, workflow_id: str) -> None:
     """Repeatly request and execute jobs from the job registry until
     there's nothing else to be done. Communicate events back to the

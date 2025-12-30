@@ -10,8 +10,13 @@ from zahir.scope import LocalScope
 
 
 class DummyEventRegistry(EventRegistry):
+    def __init__(self):
+        import multiprocessing
+
+        self.queue = multiprocessing.Queue()
+
     def register(self, event):
-        pass
+        self.queue.put(event)
 
 
 class DummyLogger(ZahirLogger):
@@ -44,9 +49,12 @@ def test_sqlite_job_registry_lifecycle():
         job_id = registry.add(job)
         assert job_id == "job1"
         assert registry.get_state(job_id) == JobState.READY
-        registry.set_state(job_id, JobState.COMPLETED)
+        import multiprocessing
+
+        dummy_queue = multiprocessing.Queue()
+        registry.set_state(job_id, "wf-test", dummy_queue, JobState.COMPLETED)
         assert registry.get_state(job_id) == JobState.COMPLETED
-        registry.set_output(job_id, {"result": 42})
+        registry.set_output(job_id, "wf-test", dummy_queue, {"result": 42})
         output = registry.get_output(job_id)
         assert output is not None, "Output should not be None"
         assert output["result"] == 42

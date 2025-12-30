@@ -1,5 +1,6 @@
-import pytest
 import tempfile
+
+import pytest
 
 from zahir.base_types import Context
 from zahir.context import MemoryContext
@@ -30,4 +31,4 @@ def test_accidental_return():
 
     job = JustReturns({}, {})
     with pytest.raises(TypeError):
-      list(workflow.run(job, all_events=True))
+        list(workflow.run(job, all_events=True))

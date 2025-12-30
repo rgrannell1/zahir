@@ -173,13 +173,13 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_state(self, job_id: str, state: JobState) -> str:
+    def set_state(self, job_id: str, workflow_id: str, output_queue, state: JobState) -> str:
         """Set the state of a job by ID"""
 
         raise NotImplementedError
 
     @abstractmethod
-    def set_output(self, job_id: str, output: Mapping) -> None:
+    def set_output(self, job_id: str, workflow_id: str, output_queue, output: Mapping) -> None:
         """Store the output of a completed job
 
         @param job_id: The ID of the job

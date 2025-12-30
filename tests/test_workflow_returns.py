@@ -1,4 +1,3 @@
-import pathlib
 import tempfile
 
 from zahir.base_types import Context
@@ -34,11 +33,10 @@ def test_nested_async_workflow():
 
     context = MemoryContext(scope=LocalScope(jobs=[JustReturns]), job_registry=SQLiteJobRegistry(tmp_file))
 
-    workflow = LocalWorkflow(context)
+    workflow = LocalWorkflow(context, max_workers=2)
 
     job = JustReturns({}, {})
     events = list(workflow.run(job, all_events=True))
-    print(events)
 
     assert len(events) == 6
     assert isinstance(events[0], WorkflowStartedEvent)

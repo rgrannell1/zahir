@@ -40,7 +40,7 @@ class LocalScope(Scope):
         @param type_name: The name of the job class to get.
         """
 
-        if not type_name in self.jobs:
+        if type_name not in self.jobs:
             raise JobNotInScopeError(f"Job class '{type_name}' not found in scope. Did you register it?")
 
         return self.jobs[type_name]
@@ -70,7 +70,7 @@ class LocalScope(Scope):
         @param type_name: The name of the dependency class to get.
         """
 
-        if not type_name in self.dependencies:
+        if type_name not in self.dependencies:
             raise DependencyNotInScopeError(f"Dependency class '{type_name}' not found in scope. Did you register it?")
 
         return self.dependencies[type_name]

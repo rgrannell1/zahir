@@ -4,7 +4,7 @@ from zahir.events import (
     JobCompletedEvent,
     JobIrrecoverableEvent,
     JobPrecheckFailedEvent,
-    JobRecoveryStarted,
+    JobRecoveryStartedEvent,
     JobStartedEvent,
     JobTimeoutEvent,
     WorkflowCompleteEvent,
@@ -68,10 +68,10 @@ def test_job_timeout_event_roundtrip():
 def test_job_recovery_started_roundtrip():
     """Test JobRecoveryStarted save/load roundtrip."""
 
-    event = JobRecoveryStarted(workflow_id="wf-777", job_id="job-888")
+    event = JobRecoveryStartedEvent(workflow_id="wf-777", job_id="job-888")
 
     saved = event.save()
-    loaded = JobRecoveryStarted.load(saved)
+    loaded = JobRecoveryStartedEvent.load(saved)
 
     assert loaded.workflow_id == "wf-777"
     assert loaded.job_id == "job-888"
@@ -121,7 +121,7 @@ def test_all_events_save_include_workflow_id():
         JobCompletedEvent("wf-1", "job-1", 1.0),
         JobStartedEvent("wf-1", "job-1"),
         JobTimeoutEvent("wf-1", "job-1", 1.0),
-        JobRecoveryStarted("wf-1", "job-1"),
+        JobRecoveryStartedEvent("wf-1", "job-1"),
         JobIrrecoverableEvent("wf-1", Exception("err"), "job-1"),
         JobPrecheckFailedEvent("wf-1", "job-1", []),
     ]

@@ -222,7 +222,7 @@ class JobTimeoutEvent(ZahirEvent):
 
 
 @dataclass
-class JobRecoveryStarted(ZahirEvent):
+class JobRecoveryStartedEvent(ZahirEvent):
     """Indicates that a job recovery has started"""
 
     workflow_id: str
@@ -235,7 +235,7 @@ class JobRecoveryStarted(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobRecoveryStarted:
+    def load(cls, data: Mapping[str, Any]) -> JobRecoveryStartedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -267,7 +267,7 @@ class JobRecoveryCompletedEvent(ZahirEvent):
 
 
 @dataclass
-class JobRecoveryTimeout(ZahirEvent):
+class JobRecoveryTimeoutEvent(ZahirEvent):
     """Indicates that a job recovery has timed out"""
 
     workflow_id: str
@@ -282,7 +282,7 @@ class JobRecoveryTimeout(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobRecoveryTimeout:
+    def load(cls, data: Mapping[str, Any]) -> JobRecoveryTimeoutEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -380,7 +380,9 @@ class SerialisableError:
             module=exc.__class__.__module__,
             message=str(exc),
             args=exc.args,
-            traceback="".join(traceback.format_exception(type(exc), exc, exc.__traceback__)) if exc.__traceback__ else None,
+            traceback="".join(traceback.format_exception(type(exc), exc, exc.__traceback__))
+            if exc.__traceback__
+            else None,
         )
 
     def to_exception(self) -> Exception:
@@ -392,6 +394,7 @@ class SerialisableError:
         except Exception:
             exc = RuntimeError(self.message)
         return exc
+
 
 @dataclass
 class ZahirInternalErrorEvent(ZahirEvent):
@@ -412,6 +415,7 @@ class ZahirInternalErrorEvent(ZahirEvent):
             workflow_id=data.get("workflow_id"),
             error=data.get("error"),
         )
+
 
 @dataclass
 class JobEvent(ZahirEvent):

@@ -8,8 +8,8 @@ from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
 from zahir.dependencies.time import TimeDependency
 from zahir.events import JobOutputEvent
+from zahir.exception import DependencyNotInScopeError, JobNotInScopeError
 from zahir.scope import LocalScope
-from zahir.exception import JobNotInScopeError, DependencyNotInScopeError
 
 
 class SampleJob(Job):

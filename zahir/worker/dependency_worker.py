@@ -33,9 +33,9 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
                 dependencies_state = job.dependencies.satisfied()
 
                 if dependencies_state == DependencyState.SATISFIED:
-                    context.job_registry.set_state(job.job_id, JobState.READY)
+                    context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.READY)
                 elif dependencies_state == DependencyState.IMPOSSIBLE:
-                    context.job_registry.set_state(job.job_id, JobState.IMPOSSIBLE)
+                    context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.IMPOSSIBLE)
 
             time.sleep(1)
     except Exception as err:

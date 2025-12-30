@@ -15,7 +15,18 @@ from zahir.base_types import (
     JobState,
     SerialisedJob,
 )
-from zahir.events import WorkflowOutputEvent
+from zahir.events import (
+    JobCompletedEvent,
+    JobIrrecoverableEvent,
+    JobPausedEvent,
+    JobPrecheckFailedEvent,
+    JobRecoveryCompletedEvent,
+    JobRecoveryStartedEvent,
+    JobRecoveryTimeoutEvent,
+    JobStartedEvent,
+    JobTimeoutEvent,
+    WorkflowOutputEvent,
+)
 
 JOBS_TABLE_SCHEMA = """
 CREATE TABLE IF NOT EXISTS jobs (
@@ -130,7 +141,7 @@ class SQLiteJobRegistry(JobRegistry):
 
         return JobState(row[0])
 
-    def set_state(self, job_id: str, state: JobState) -> str:
+    def set_state(self, job_id: str, workflow_id: str, output_queue, state: JobState, **kwargs) -> str:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
             conn.execute(
@@ -138,9 +149,60 @@ class SQLiteJobRegistry(JobRegistry):
                 (state.value, job_id),
             )
             conn.commit()
+
+        if state == JobState.PRECHECK_FAILED:
+            output_queue.put(
+                JobPrecheckFailedEvent(workflow_id=workflow_id, job_id=job_id, errors=kwargs.get("errors", []))
+            )
+        elif state == JobState.RUNNING:
+            output_queue.put(JobStartedEvent(workflow_id=workflow_id, job_id=job_id))
+        elif state == JobState.PAUSED:
+            output_queue.put(JobPausedEvent(workflow_id=workflow_id, job_id=job_id))
+        elif state == JobState.COMPLETED:
+            output_queue.put(
+                JobCompletedEvent(
+                    job_id=job_id,
+                    workflow_id=workflow_id,
+                    duration_seconds=0.1,
+                )
+            )
+        elif state == JobState.TIMED_OUT:
+            output_queue.put(
+                JobTimeoutEvent(
+                    job_id=job_id,
+                    workflow_id=workflow_id,
+                    duration_seconds=0.1,
+                )
+            )
+        elif state == JobState.RECOVERING:
+            output_queue.put(
+                JobRecoveryStartedEvent(
+                    job_id=job_id,
+                    workflow_id=workflow_id,
+                )
+            )
+        elif state == JobState.RECOVERED:
+            output_queue.put(
+                JobRecoveryCompletedEvent(
+                    job_id=job_id,
+                    workflow_id=workflow_id,
+                    duration_seconds=0.1,
+                )
+            )
+        elif state == JobState.RECOVERY_TIMED_OUT:
+            output_queue.put(
+                JobRecoveryTimeoutEvent(
+                    job_id=job_id,
+                    workflow_id=workflow_id,
+                    duration_seconds=0.1,
+                )
+            )
+        elif state == JobState.IRRECOVERABLE:
+            output_queue.put(JobIrrecoverableEvent(job_id=job_id, workflow_id=workflow_id, error=kwargs["error"]))
+
         return job_id
 
-    def set_output(self, job_id: str, output: Mapping) -> None:
+    def set_output(self, job_id: str, workflow_id: str, output_queue, output: Mapping) -> None:
         serialised_output = json.dumps(output)
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
@@ -153,6 +215,8 @@ class SQLiteJobRegistry(JobRegistry):
                 (job_id, serialised_output),
             )
             conn.commit()
+
+        self.set_state(job_id, workflow_id, output_queue, JobState.COMPLETED)
 
     def get_output(self, job_id: str) -> Mapping | None:
         with self._connect() as conn:
