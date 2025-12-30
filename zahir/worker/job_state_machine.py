@@ -1,8 +1,5 @@
+import signal
 from collections.abc import Iterator
-from concurrent.futures import (
-    ThreadPoolExecutor,
-    TimeoutError as FutureTimeoutError,
-)
 from dataclasses import dataclass
 from enum import StrEnum
 import json
@@ -68,6 +65,11 @@ class StateChange:
 
 GREEN = "\x1b[32m"
 RESET = "\x1b[0m"
+
+
+def times_up(signum, frame):
+    raise TimeoutError("Job execution timed out")
+
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
@@ -300,6 +302,7 @@ class ZahirJobStateMachine:
         # Jobs can only output once, so clear the job and generator
         state.job = None
         state.job_gen = None
+        state.frame = None
 
         return StateChange(ZahirJobState.START, {"message": "Setting job output"}), state
 
@@ -316,6 +319,7 @@ class ZahirJobStateMachine:
 
         state.job = None
         state.job_gen = None
+        state.frame = None
 
         return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "Job completed with no output"}), state
 
@@ -331,6 +335,7 @@ class ZahirJobStateMachine:
 
         state.job = None
         state.job_gen = None
+        state.frame = None
 
         return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "Recovery job completed with no output"}), state
 
@@ -345,6 +350,7 @@ class ZahirJobStateMachine:
 
         state.job = None
         state.job_gen = None
+        state.frame = None
 
         return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": f"Job {type(state.job).__name__} timed out"}), state
 
@@ -358,6 +364,7 @@ class ZahirJobStateMachine:
         )
         state.job = None
         state.job_gen = None
+        state.frame = None
 
         return StateChange(
             ZahirJobState.ENQUEUE_JOB, {"message": f"Recovery job {type(state.job).__name__} timed out"}
@@ -380,6 +387,7 @@ class ZahirJobStateMachine:
         job_type = type(state.job).__name__
         state.job = None
         state.job_gen = None
+        state.frame = None
         state.recovery = False
 
         return StateChange(
@@ -418,56 +426,59 @@ class ZahirJobStateMachine:
         # worker should surface it when execution begins.
         state.context.job_registry.set_state(state.job.job_id, state.workflow_id, state.output_queue, JobState.RUNNING)
 
-        with ThreadPoolExecutor(max_workers=1) as ex:
-            try:
-                job_gen_result = ex.submit(
-                    handle_job_events,
-                    state.job_gen,
-                    job_registry=state.context.job_registry,
-                    output_queue=state.output_queue,
-                    state=state,
-                    workflow_id=state.workflow_id,
-                    job_id=cast(str, state.job.job_id),
-                ).result(timeout=job_timeout)
+        signal.signal(signal.SIGALRM, times_up)
+        signal.alarm(job_timeout) if job_timeout else None
 
-                if isinstance(job_gen_result, JobOutputEvent):
-                    # store the event for the next handler to inspect. I think this should
-                    # be invariant for recover vs normal workflows.
+        try:
+            job_gen_result = handle_job_events(
+                state.job_gen,
+                job_registry=state.context.job_registry,
+                output_queue=state.output_queue,
+                state=state,
+                workflow_id=state.workflow_id,
+                job_id=cast(str, state.job.job_id),
+            )
 
-                    state.last_event = job_gen_result
-                    return StateChange(
-                        ZahirJobState.HANDLE_JOB_OUTPUT, {"message": f"Job {type(state.job).__name__} produced output"}
-                    ), state
-                if isinstance(job_gen_result, Await):
-                    # our job is now awaiting another; switch to that before resuming the first one
-                    # recovery workflows are also allowed await, of course.
-                    state.await_event = job_gen_result
-                    return StateChange(
-                        ZahirJobState.HANDLE_AWAIT,
-                        {"message": f"Job {type(state.job).__name__} is awaiting another job"},
-                    ), state
+            if isinstance(job_gen_result, JobOutputEvent):
+                # store the event for the next handler to inspect. I think this should
+                # be invariant for recover vs normal workflows.
 
-                if job_gen_result is None:
-                    # differs between recovery and normal workflows
-                    return StateChange(
-                        ZahirJobState.HANDLE_JOB_COMPLETE_NO_OUTPUT,
-                        {"message": f"Job {type(state.job).__name__} completed with no output"},
-                    ), state
-
-            except FutureTimeoutError:
-                # differs between recovery and normal workflows
-
+                state.last_event = job_gen_result
                 return StateChange(
-                    ZahirJobState.HANDLE_JOB_TIMEOUT, {"message": f"Job {type(state.job).__name__} timed out"}
+                    ZahirJobState.HANDLE_JOB_OUTPUT, {"message": f"Job {type(state.job).__name__} produced output"}
                 ), state
-            except Exception as err:
-                # differs between recovery and normal workflows
-
-                state.last_event = err
+            if isinstance(job_gen_result, Await):
+                # our job is now awaiting another; switch to that before resuming the first one
+                # recovery workflows are also allowed await, of course.
+                state.await_event = job_gen_result
                 return StateChange(
-                    ZahirJobState.HANDLE_JOB_EXCEPTION,
-                    {"message": f"Job {type(state.job).__name__} raised exception\n{err}"},
+                    ZahirJobState.HANDLE_AWAIT,
+                    {"message": f"Job {type(state.job).__name__} is awaiting another job"},
                 ), state
+
+            if job_gen_result is None:
+                # differs between recovery and normal workflows
+                return StateChange(
+                    ZahirJobState.HANDLE_JOB_COMPLETE_NO_OUTPUT,
+                    {"message": f"Job {type(state.job).__name__} completed with no output"},
+                ), state
+
+        except TimeoutError:
+            # differs between recovery and normal workflows
+
+            return StateChange(
+                ZahirJobState.HANDLE_JOB_TIMEOUT, {"message": f"Job {type(state.job).__name__} timed out"}
+            ), state
+        except Exception as err:
+            # differs between recovery and normal workflows
+
+            state.last_event = err
+            return StateChange(
+                ZahirJobState.HANDLE_JOB_EXCEPTION,
+                {"message": f"Job {type(state.job).__name__} raised exception\n{err}"},
+            ), state
+        finally:
+            signal.alarm(0)
 
         return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "Execution complete, enqueueing"}), state
 
@@ -482,58 +493,57 @@ class ZahirJobStateMachine:
         # worker should surface it when execution begins.
         state.context.job_registry.set_state(state.job.job_id, state.workflow_id, state.output_queue, JobState.RUNNING)
 
-        with ThreadPoolExecutor(max_workers=1) as ex:
-            try:
-                job_gen_result = ex.submit(
-                    handle_job_events,
-                    state.job_gen,
-                    job_registry=state.context.job_registry,
-                    output_queue=state.output_queue,
-                    state=state,
-                    workflow_id=state.workflow_id,
-                    job_id=cast(str, state.job.job_id),
-                ).result(timeout=job_timeout)
+        signal.signal(signal.SIGALRM, times_up)
+        signal.alarm(job_timeout) if job_timeout else None
 
-                if isinstance(job_gen_result, JobOutputEvent):
-                    # store the event for the next handler to inspect. I think this should
-                    # be invariant for recover vs normal workflows.
+        try:
+            job_gen_result = handle_job_events(
+                state.job_gen,
+                job_registry=state.context.job_registry,
+                output_queue=state.output_queue,
+                state=state,
+                workflow_id=state.workflow_id,
+                job_id=cast(str, state.job.job_id),
+            )
 
-                    state.last_event = job_gen_result
-                    return StateChange(
-                        ZahirJobState.HANDLE_JOB_OUTPUT,
-                        {"message": f"Recovery job {type(state.job).__name__} produced output"},
-                    ), state
-                if isinstance(job_gen_result, Await):
-                    # our job is now awaiting another; switch to that before resuming the first one
-                    # recovery workflows are also allowed await, of course.
-                    state.await_event = job_gen_result
-                    return StateChange(
-                        ZahirJobState.HANDLE_AWAIT,
-                        {"message": f"Recovery job {type(state.job).__name__} is awaiting another job"},
-                    ), state
+            if isinstance(job_gen_result, JobOutputEvent):
+                # store the event for the next handler to inspect. I think this should
+                # be invariant for recover vs normal workflows.
 
-                if job_gen_result is None:
-                    # differs between recovery and normal workflows
-                    return StateChange(
-                        ZahirJobState.HANDLE_RECOVERY_JOB_COMPLETE_NO_OUTPUT,
-                        {"message": f"Recovery job {type(state.job).__name__} completed with no output"},
-                    ), state
-
-            except FutureTimeoutError:
-                # differs between recovery and normal workflows
-
+                state.last_event = job_gen_result
                 return StateChange(
-                    ZahirJobState.HANDLE_RECOVERY_JOB_TIMEOUT,
-                    {"message": f"Recovery job {type(state.job).__name__} timed out"},
+                    ZahirJobState.HANDLE_JOB_OUTPUT,
+                    {"message": f"Recovery job {type(state.job).__name__} produced output"},
                 ), state
-            except Exception as err:
-                # differs between recovery and normal workflows
-
-                state.last_event = err
+            if isinstance(job_gen_result, Await):
+                # our job is now awaiting another; switch to that before resuming the first one
+                # recovery workflows are also allowed await, of course.
+                state.await_event = job_gen_result
                 return StateChange(
-                    ZahirJobState.HANDLE_RECOVERY_JOB_EXCEPTION,
-                    {"message": f"Recovery job {type(state.job).__name__} raised exception\n{err}"},
+                    ZahirJobState.HANDLE_AWAIT,
+                    {"message": f"Recovery job {type(state.job).__name__} is awaiting another job"},
                 ), state
+
+            if job_gen_result is None:
+                # differs between recovery and normal workflows
+                return StateChange(
+                    ZahirJobState.HANDLE_RECOVERY_JOB_COMPLETE_NO_OUTPUT,
+                    {"message": f"Recovery job {type(state.job).__name__} completed with no output"},
+                ), state
+
+        except TimeoutError:
+            return StateChange(
+                ZahirJobState.HANDLE_RECOVERY_JOB_TIMEOUT,
+                {"message": f"Recovery job {type(state.job).__name__} timed out"},
+            ), state
+        except Exception as err:
+            state.last_event = err
+            return StateChange(
+                ZahirJobState.HANDLE_RECOVERY_JOB_EXCEPTION,
+                {"message": f"Recovery job {type(state.job).__name__} raised exception\n{err}"},
+            ), state
+        finally:
+            signal.alarm(0)
 
         return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "Recovery execution complete, enqueueing"}), state
 
