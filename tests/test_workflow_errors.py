@@ -5,6 +5,11 @@ import pytest
 from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import (
+    JobIrrecoverableEvent,
+    JobRecoveryStartedEvent,
+    JobStartedEvent,
+    WorkflowCompleteEvent,
+    WorkflowStartedEvent,
     ZahirCustomEvent,
 )
 from zahir.job_registry import SQLiteJobRegistry
@@ -30,5 +35,14 @@ def test_accidental_return():
     workflow = LocalWorkflow(context)
 
     job = JustReturns({}, {})
-    with pytest.raises(TypeError):
-        list(workflow.run(job, all_events=True))
+    events = list(workflow.run(job, all_events=True))
+
+    assert len(events) == 6
+    assert isinstance(events[0], WorkflowStartedEvent)
+    assert isinstance(events[1], JobStartedEvent)
+    assert isinstance(events[2], JobRecoveryStartedEvent)
+    assert isinstance(events[3], JobStartedEvent)
+    assert isinstance(events[4], JobIrrecoverableEvent)
+    assert isinstance(events[5], WorkflowCompleteEvent)
+
+test_accidental_return()
