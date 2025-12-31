@@ -1,9 +1,13 @@
+
+from tblib import pickling_support
+from zahir.exception import exception_to_text_blob
+pickling_support.install()
+
 import multiprocessing
 import time
 
 from zahir.base_types import Context, DependencyState, JobState
 from zahir.events import (
-    SerialisableError,
     WorkflowCompleteEvent,
     ZahirEvent,
     ZahirInternalErrorEvent,
@@ -42,6 +46,6 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
         output_queue.put(
             ZahirInternalErrorEvent(
                 workflow_id=workflow_id,
-                error=SerialisableError.from_exception(err),
+                error=exception_to_text_blob(err),
             )
         )

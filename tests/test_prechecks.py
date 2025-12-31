@@ -66,6 +66,10 @@ def test_awaited_prechecks():
 
     job = ParentJob({}, {})
     events = list(workflow.run(job, all_events=True))
+    for event in events:
+        print(event)
 
     # Check jobirrecoverable failure due to precheck failure
     any(isinstance(event, JobIrrecoverableEvent) for event in events)
+
+test_awaited_prechecks()

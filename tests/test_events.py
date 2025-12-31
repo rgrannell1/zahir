@@ -9,6 +9,7 @@ from zahir.events import (
     JobTimeoutEvent,
     WorkflowCompleteEvent,
 )
+from zahir.exception import JobPrecheckError, exception_from_text_blob, exception_to_text_blob
 
 
 def test_workflow_complete_event_roundtrip():
@@ -98,19 +99,15 @@ def test_job_irrecoverable_event_roundtrip():
 def test_job_precheck_failed_event_roundtrip():
     """Test JobPrecheckFailedEvent save/load roundtrip."""
 
-    event = JobPrecheckFailedEvent(
-        workflow_id="wf-eee",
-        job_id="job-fff",
-        errors=["Error 1", "Error 2", "Error 3"],
-    )
+    serialised_err = exception_to_text_blob(JobPrecheckError("failed"))
+    event = JobPrecheckFailedEvent(workflow_id="wf-eee", job_id="job-fff", error=serialised_err)
 
     saved = event.save()
-    assert saved["errors"] == ["Error 1", "Error 2", "Error 3"]
 
     loaded = JobPrecheckFailedEvent.load(saved)
     assert loaded.workflow_id == "wf-eee"
     assert loaded.job_id == "job-fff"
-    assert loaded.errors == ["Error 1", "Error 2", "Error 3"]
+    assert exception_from_text_blob(loaded.error) == "failed"
 
 
 def test_all_events_save_include_workflow_id():

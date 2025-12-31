@@ -145,7 +145,7 @@ class JobRegistry(ABC):
     """Keeps track of jobs to be run."""
 
     @abstractmethod
-    def add(self, job: "Job") -> str:
+    def add(self, job: "Job", output_queue) -> str:
         """
         Register a job with the job registry, returning a job ID.
 
@@ -219,7 +219,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def claim(self, context: "Context") -> "Job | None":
+    def claim(self, context: "Context", pid: int) -> "Job | None":
         """Claim a pending job for execution.
 
         This method should atomically select a pending job, mark it as claimed,

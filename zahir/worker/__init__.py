@@ -35,10 +35,7 @@ class LocalWorkflow[WorkflowOutputType]:
         - ZahirCustomEvent: any custom events emitted by workflows. Can be used for custom in-band eventing.
         """
 
-        if start is not None:
-            self.context.job_registry.add(start)
-
-        yield from zahir_worker_overseer(self.context, self.max_workers, all_events)
+        yield from zahir_worker_overseer(start, self.context, self.max_workers, all_events)
 
 
 __all__ = ["LocalWorkflow", "zahir_worker_overseer"]

@@ -46,12 +46,11 @@ def test_sqlite_job_registry_lifecycle():
     try:
         registry = SQLiteJobRegistry(db_path)
         job = DummyJob(job_id="job1")
-        job_id = registry.add(job)
+        import multiprocessing
+        dummy_queue = multiprocessing.Queue()
+        job_id = registry.add(job, dummy_queue)
         assert job_id == "job1"
         assert registry.get_state(job_id) == JobState.READY
-        import multiprocessing
-
-        dummy_queue = multiprocessing.Queue()
         registry.set_state(job_id, "wf-test", dummy_queue, JobState.COMPLETED)
         assert registry.get_state(job_id) == JobState.COMPLETED
         registry.set_output(job_id, "wf-test", dummy_queue, {"result": 42})

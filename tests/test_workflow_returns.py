@@ -4,6 +4,7 @@ from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import (
     JobCompletedEvent,
+    JobEvent,
     JobOutputEvent,
     JobStartedEvent,
     WorkflowCompleteEvent,
@@ -37,16 +38,19 @@ def test_nested_async_workflow():
 
     job = JustReturns({}, {})
     events = list(workflow.run(job, all_events=True))
+    for event in events:
+        print(event)
 
-    assert len(events) == 6
+    assert len(events) == 7
     assert isinstance(events[0], WorkflowStartedEvent)
-    assert isinstance(events[1], JobStartedEvent)
-    assert isinstance(events[2], ZahirCustomEvent)
-    assert events[2].output == {"message": "This should be seen"}
+    assert isinstance(events[1], JobEvent)
+    assert isinstance(events[2], JobStartedEvent)
+    assert isinstance(events[3], ZahirCustomEvent)
+    assert events[3].output == {"message": "This should be seen"}
 
-    assert isinstance(events[3], JobOutputEvent)
-    assert isinstance(events[4], JobCompletedEvent)
-    assert isinstance(events[5], WorkflowCompleteEvent)
+    assert isinstance(events[4], JobOutputEvent)
+    assert isinstance(events[5], JobCompletedEvent)
+    assert isinstance(events[6], WorkflowCompleteEvent)
 
 
 test_nested_async_workflow()

@@ -2,10 +2,10 @@ import multiprocessing
 
 from zahir.base_types import Context
 from zahir.events import (
-    SerialisableError,
     ZahirEvent,
     ZahirInternalErrorEvent,
 )
+from zahir.exception import exception_to_text_blob
 from zahir.worker.job_state_machine import StateChange, ZahirJobState, ZahirJobStateMachine, ZahirWorkerState
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
@@ -33,7 +33,7 @@ def zahir_job_worker(context: Context, output_queue: OutputQueue, workflow_id: s
             output_queue.put(
                 ZahirInternalErrorEvent(
                     workflow_id=workflow_id,
-                    error=SerialisableError.from_exception(err),
+                    error=exception_to_text_blob(err),
                 )
             )
             break

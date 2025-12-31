@@ -5,6 +5,7 @@ import pytest
 from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import (
+    JobEvent,
     JobIrrecoverableEvent,
     JobRecoveryStartedEvent,
     JobStartedEvent,
@@ -36,13 +37,14 @@ def test_accidental_return():
 
     job = JustReturns({}, {})
     events = list(workflow.run(job, all_events=True))
+    for event in events:
+        print(event)
 
-    assert len(events) == 6
+    assert len(events) == 7
     assert isinstance(events[0], WorkflowStartedEvent)
-    assert isinstance(events[1], JobStartedEvent)
-    assert isinstance(events[2], JobRecoveryStartedEvent)
-    assert isinstance(events[3], JobStartedEvent)
-    assert isinstance(events[4], JobIrrecoverableEvent)
-    assert isinstance(events[5], WorkflowCompleteEvent)
-
-test_accidental_return()
+    assert isinstance(events[1], JobEvent)
+    assert isinstance(events[2], JobStartedEvent)
+    assert isinstance(events[3], JobRecoveryStartedEvent)
+    assert isinstance(events[4], JobStartedEvent)
+    assert isinstance(events[5], JobIrrecoverableEvent)
+    assert isinstance(events[6], WorkflowCompleteEvent)

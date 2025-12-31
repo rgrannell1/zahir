@@ -23,6 +23,7 @@ classifiers = [
 dependencies = [
     "croniter>=2.0.0",
     "coolname>=2.2.0",
+    "tblib>=1.8.0"
 ]
 
 [project.urls]

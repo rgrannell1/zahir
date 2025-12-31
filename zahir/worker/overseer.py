@@ -1,5 +1,9 @@
 """Workers poll centrally for jobs to run, lease them, and return results back centrally. They report quiescence when there's nothing left to do, so the supervisor task can exit gracefully."""
 
+from tblib import pickling_support
+from zahir.exception import exception_from_text_blob
+pickling_support.install()
+
 from collections.abc import Iterator
 import multiprocessing
 
@@ -47,12 +51,17 @@ EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
 }
 
 
-def zahir_worker_overseer(context, worker_count: int = 4, all_events: bool = False) -> Iterator[ZahirEvent]:
+def zahir_worker_overseer(start, context, worker_count: int = 4, all_events: bool = False) -> Iterator[ZahirEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 
     workflow_id = generate_id(3)
     output_queue: OutputQueue = multiprocessing.Queue()
+
+    output_queue.put(WorkflowStartedEvent(workflow_id=workflow_id))
+
+    if start is not None:
+        context.job_registry.add(start, output_queue)
 
     processes = []
     dep_proc = multiprocessing.Process(
@@ -62,8 +71,6 @@ def zahir_worker_overseer(context, worker_count: int = 4, all_events: bool = Fal
     dep_proc.start()
     processes.append(dep_proc)
 
-    output_queue.put(WorkflowStartedEvent(workflow_id=workflow_id))
-
     for _ in range(worker_count - 1):
         proc = multiprocessing.Process(
             target=zahir_job_worker,
@@ -72,13 +79,13 @@ def zahir_worker_overseer(context, worker_count: int = 4, all_events: bool = Fal
         proc.start()
         processes.append(proc)
 
-    exc: Exception | None = None
+    exc: BaseException | None = None
     try:
         while True:
             event = output_queue.get()
 
             if isinstance(event, ZahirInternalErrorEvent):
-                exc = event.error.to_exception() if event.error else RuntimeError("Unknown internal error in worker")
+                exc = exception_from_text_blob(event.error) if event.error else RuntimeError("Unknown internal error in worker")
                 break
 
             if isinstance(event, WorkflowCompleteEvent):

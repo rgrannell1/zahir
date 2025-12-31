@@ -1,6 +1,10 @@
+
+from tblib import pickling_support
+pickling_support.install()
+
 import signal
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 import json
 import multiprocessing
@@ -12,7 +16,6 @@ from zahir.base_types import Context, Job, JobState
 from zahir.events import (
     Await,
     JobCompletedEvent,
-    JobEvent,
     JobIrrecoverableEvent,
     JobOutputEvent,
     JobPrecheckFailedEvent,
@@ -101,24 +104,39 @@ class ZahirWorkerState:
     """Mutable state held during job execution."""
 
     def __init__(self, context: Context, output_queue: OutputQueue, workflow_id: str):
-        # each entry is (job, job_gen, awaited: bool)
-        self.run_job_stack: list[ZahirStackFrame] = []
-        self.context: Context = context
+        self.job_stack: ZahirCallStack = ZahirCallStack([])
         self.output_queue: OutputQueue = output_queue
+        self.frame: ZahirStackFrame | None = None
+
+        self.context: Context = context
         self.workflow_id: str = workflow_id
         self.await_event: Await | None = None
 
-        self.job_errors: dict[str, Exception] = {}
-        self.job_outputs: dict[str, dict] = {}
-        self.awaiting_jobs: dict[str, str] = {}
-
-        self.frame: ZahirStackFrame | None = None
-        self.recovery: bool = False
-
         # last_event holds a value (e.g. Await or JobOutputEvent) produced by a handler
-        # Dubious LLM suggestion, keeping it for now.
         self.last_event: Any = None
-        self.current_job_wants_output_sent: bool = False
+
+
+@dataclass
+class ZahirCallStack:
+    """Represents this worker process's call-stack of jobs"""
+
+    frames: list["ZahirStackFrame"]
+
+    def push(self, frame: "ZahirStackFrame"):
+        self.frames.append(frame)
+
+    def pop(self) -> "ZahirStackFrame":
+        if not self.frames:
+            raise IndexError("pop from empty call stack")
+        return self.frames.pop()
+
+    def is_empty(self) -> bool:
+        return len(self.frames) == 0
+
+    def top(self) -> "ZahirStackFrame | None":
+        if not self.frames:
+            return None
+        return self.frames[-1]
 
 
 @dataclass
@@ -129,9 +147,9 @@ class ZahirStackFrame:
     """
 
     job: Job
-    job_gen: Iterator
-    awaited: bool
+    job_generator: Iterator
     recovery: bool = False
+    required_jobs: set[str] = field(default_factory=set)
 
     def job_type(self) -> str:
         return type(self.job).__name__
@@ -147,7 +165,8 @@ class ZahirJobStateMachine:
         """Initial state; transition to enqueueing a job."""
 
         if not state.frame:
-            if not state.run_job_stack:
+            # There is no active job; let's either pop one from the stack if something is runnable or enqueue a new one.
+            if state.job_stack.is_empty():
                 return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "No job; enqueueing."}), state
 
             return StateChange(ZahirJobState.POP_JOB, {"message": "No job active, so popping from stack"}), state
@@ -164,19 +183,22 @@ class ZahirJobStateMachine:
     def enqueue_job(cls, state) -> tuple[StateChange, None]:
         """ """
 
+        # TO-DO: this needs to be updated, so that paused jobs with satisfied awaits can be resumed.
+        # We also need to claim new jobs while other jobs are stuck in pending. And keep track of ordering.
+
         # First, let's make sure we have at least one job, by adding it to the stack
-        job = state.context.job_registry.claim(state.context)
+        job = state.context.job_registry.claim(state.context, os.getpid())
         if job is None:
             return StateChange(
                 ZahirJobState.WAIT_FOR_JOB, {"message": "no pending job to claim, so waiting for one to appear"}
             ), state
 
-        job_gen = type(job).run(state.context, job.input, job.dependencies)
-        frame = ZahirStackFrame(job=job, job_gen=job_gen, awaited=False, recovery=False)
+        job_generator = type(job).run(state.context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
         # new top-level job is not awaited by anything on the stack
         # and it's not recovering, it's healthy
-        state.run_job_stack.append(frame)
+        state.job_stack.push(frame)
 
         return StateChange(ZahirJobState.START, {"message": "Appended new job to stack; going to start"}), state
 
@@ -195,19 +217,19 @@ class ZahirJobStateMachine:
     def pop_job(cls, state) -> tuple[StateChange, None]:
         """We need a job; pop one off the stack"""
 
-        frame = state.run_job_stack.pop()
+        frame = state.job_stack.pop()
         state.frame = frame
 
         job_state = state.context.job_registry.get_state(state.frame.job.job_id)
 
-        if job_state == JobState.CLAIMED:
+        if job_state == JobState.READY:
             return StateChange(
                 ZahirJobState.CHECK_PRECONDITIONS,
                 {"message": f"Job {type(state.frame.job).__name__} claimed and active"},
             ), state
         return StateChange(
             ZahirJobState.EXECUTE_JOB,
-            {"message": f"Resuming job {{type(state.frame.job).__name__}} in state '{job_state}'"},
+            {"message": f"Resuming job {type(state.frame.job).__name__} in state '{job_state}'"},
         ), state
 
     @classmethod
@@ -218,7 +240,7 @@ class ZahirJobStateMachine:
         errors = type(state.frame.job).precheck(state.frame.job.input)
 
         if not errors:
-            if state.recovery:
+            if state.frame.recovery:
                 return StateChange(
                     ZahirJobState.EXECUTE_RECOVERY_JOB, {"message": "Prechecks passed; executing recovery job"}
                 ), state
@@ -228,10 +250,16 @@ class ZahirJobStateMachine:
         # Precheck failed; job is no longer on the stack, so
         # let's report and continue.
 
+        precheck_error = JobPrecheckError("\n".join(errors))
+
         state.context.job_registry.set_state(
-            state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.PRECHECK_FAILED
+            state.frame.job.job_id,
+            state.workflow_id,
+            state.output_queue,
+            JobState.PRECHECK_FAILED,
+            error=precheck_error,
         )
-        state.job_errors[state.frame.job.job_id] = JobPrecheckError("\n".join(errors))
+
         state.frame = None
 
         return StateChange(ZahirJobState.START, {"message": "Prechecks failed; cleared job."}), state
@@ -242,14 +270,18 @@ class ZahirJobStateMachine:
         """We received an Await event. We should put out current job back on the stack,
         pause the job formally, then load the awaited job and start executing it."""
 
+        job_stack = state.job_stack
+        job_registry = state.context.job_registry
+
         # Pause the current job, put it back on the worker-process stack and mark it awaited.
-        state.run_job_stack.append(state.frame)
+        job_stack.push(state.frame)
 
         # Current job awaits new job
-        state.awaiting_jobs[state.frame.job.job_id] = state.await_event.job.job_id
+        awaited_job_id = state.await_event.job.job_id
+        state.frame.required_jobs.add(awaited_job_id)
 
-        # Pause the job please
-        state.context.job_registry.set_state(
+        # Pause the current job please in the registry
+        job_registry.set_state(
             state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.PAUSED
         )
 
@@ -257,15 +289,18 @@ class ZahirJobStateMachine:
         assert await_event is not None
 
         job = await_event.job
-        state.context.job_registry.add(job)
-        state.context.job_registry.set_state(job.job_id, state.workflow_id, state.output_queue, JobState.CLAIMED)
+
+        # Add the job, claim it for this process, and set it to pending
+        # So that the dependency manager can check the dependencies actually pass
+        job_registry.add(job, state.output_queue)
+        job_registry.set_claim(job.job_id, os.getpid())
+        job_registry.set_state(job.job_id, state.workflow_id, state.output_queue, JobState.PENDING)
 
         # ...then, let's instantiate the `run` generator
         # this new job is not awaited yet (it's the awaited target)
         state.frame = ZahirStackFrame(
             job=job,
-            job_gen=type(job).run(state.context, job.input, job.dependencies),
-            awaited=True,
+            job_generator=type(job).run(state.context, job.input, job.dependencies),
             recovery=False,
         )
 
@@ -281,7 +316,6 @@ class ZahirJobStateMachine:
         the output to the awaiting job"""
 
         # silly to store twice
-        state.job_outputs[state.frame.job.job_id] = state.last_event.output
         state.context.job_registry.set_output(
             state.frame.job.job_id, state.workflow_id, state.output_queue, state.last_event.output
         )
@@ -363,7 +397,6 @@ class ZahirJobStateMachine:
 
         job_type = state.frame.job_type()
         state.frame = None
-        state.recovery = False
 
         return StateChange(
             ZahirJobState.ENQUEUE_JOB, {"message": f"Recovery job {job_type} irrecoverably failed"}
@@ -378,11 +411,11 @@ class ZahirJobStateMachine:
 
         # Let's fork execution back to the job's recovery mechanism
         # we keep the same process ID. We should update the job registry.
-        state.frame.job_gen = job_class.recover(
+        state.frame.job_generator = job_class.recover(
             state.context, state.frame.job.input, state.frame.job.dependencies, state.last_event
         )
 
-        state.recovery = True
+        state.frame.recovery = True
         state.context.job_registry.set_state(
             state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.RECOVERING
         )
@@ -409,8 +442,8 @@ class ZahirJobStateMachine:
         job_type = state.frame.job_type()
 
         try:
-            job_gen_result = handle_job_events(
-                state.frame.job_gen,
+            job_generator_result = read_job_events(
+                state.frame.job_generator,
                 job_registry=state.context.job_registry,
                 output_queue=state.output_queue,
                 state=state,
@@ -418,24 +451,24 @@ class ZahirJobStateMachine:
                 job_id=cast(str, state.frame.job.job_id),
             )
 
-            if isinstance(job_gen_result, JobOutputEvent):
+            if isinstance(job_generator_result, JobOutputEvent):
                 # store the event for the next handler to inspect. I think this should
                 # be invariant for recover vs normal workflows.
 
-                state.last_event = job_gen_result
+                state.last_event = job_generator_result
                 return StateChange(
                     ZahirJobState.HANDLE_JOB_OUTPUT, {"message": f"Job {job_type} produced output"}
                 ), state
-            if isinstance(job_gen_result, Await):
+            if isinstance(job_generator_result, Await):
                 # our job is now awaiting another; switch to that before resuming the first one
                 # recovery workflows are also allowed await, of course.
-                state.await_event = job_gen_result
+                state.await_event = job_generator_result
                 return StateChange(
                     ZahirJobState.HANDLE_AWAIT,
                     {"message": f"Job {job_type} is awaiting another job"},
                 ), state
 
-            if job_gen_result is None:
+            if job_generator_result is None:
                 # differs between recovery and normal workflows
                 return StateChange(
                     ZahirJobState.HANDLE_JOB_COMPLETE_NO_OUTPUT,
@@ -477,8 +510,8 @@ class ZahirJobStateMachine:
         job_type = state.frame.job_type()
 
         try:
-            job_gen_result = handle_job_events(
-                state.frame.job_gen,
+            job_generator_result = read_job_events(
+                state.frame.job_generator,
                 job_registry=state.context.job_registry,
                 output_queue=state.output_queue,
                 state=state,
@@ -486,25 +519,25 @@ class ZahirJobStateMachine:
                 job_id=cast(str, state.frame.job.job_id),
             )
 
-            if isinstance(job_gen_result, JobOutputEvent):
+            if isinstance(job_generator_result, JobOutputEvent):
                 # store the event for the next handler to inspect. I think this should
                 # be invariant for recover vs normal workflows.
 
-                state.last_event = job_gen_result
+                state.last_event = job_generator_result
                 return StateChange(
                     ZahirJobState.HANDLE_JOB_OUTPUT,
                     {"message": f"Recovery job {job_type} produced output"},
                 ), state
-            if isinstance(job_gen_result, Await):
+            if isinstance(job_generator_result, Await):
                 # our job is now awaiting another; switch to that before resuming the first one
                 # recovery workflows are also allowed await, of course.
-                state.await_event = job_gen_result
+                state.await_event = job_generator_result
                 return StateChange(
                     ZahirJobState.HANDLE_AWAIT,
                     {"message": f"Recovery job {job_type} is awaiting another job"},
                 ), state
 
-            if job_gen_result is None:
+            if job_generator_result is None:
                 # differs between recovery and normal workflows
                 return StateChange(
                     ZahirJobState.HANDLE_RECOVERY_JOB_COMPLETE_NO_OUTPUT,
@@ -532,33 +565,35 @@ class ZahirJobStateMachine:
         return getattr(cls, state_name.value)
 
 
-def handle_job_events(gen, *, job_registry, output_queue, state, workflow_id, job_id) -> Await | JobOutputEvent | None:
+def read_job_events(gen, *, job_registry, output_queue, state, workflow_id, job_id) -> Await | JobOutputEvent | None:
     """Sent job output items to the output queue."""
 
     if not isinstance(gen, Iterator):
         raise TypeError("gen must be an Iterator")
 
     queue: list[ZahirEvent | Job] = []
-    if waiting_for_pid := state.awaiting_jobs.get(state.frame.job.job_id):
-        output = state.job_outputs.get(waiting_for_pid)
-        error = state.job_errors.get(waiting_for_pid)
+    current_pid = state.frame.job.job_id
 
-        if error is not None:
-            event = state.frame.job_gen.throw(error)
+    # TO-DO: support awaitmany semantics by collecting inputs
+    required_pids = list(state.frame.required_jobs)
+    required_pid = required_pids[0] if required_pids else None
+
+    if required_pid:
+        # Get the errors and outputs for the pid on which we were waiting...
+        output = job_registry.get_output(required_pid)
+        errors = job_registry.get_errors(required_pid)
+
+        # send or throw into the generator
+        if errors:
+            event = state.frame.job_generator.throw(errors[-1])
         else:
-            event = state.frame.job_gen.send(output)
+            event = state.frame.job_generator.send(output)
 
+        # something happens afterwards, so enqueue it and proceed
         queue.append(event)
 
         # we might have further awaits, so tidy up the state so we can await yet again!
-        del state.awaiting_jobs[state.frame.job.job_id]
-
-        if waiting_for_pid in state.job_outputs:
-            del state.job_outputs[waiting_for_pid]
-
-        if waiting_for_pid in state.job_errors:
-            # The user might try-catch, so several errors can be thrown into the job
-            del state.job_errors[waiting_for_pid]
+        state.frame.required_jobs = set()
 
     while True:
         # deal with the send event, if we have one
@@ -600,11 +635,5 @@ def handle_job_events(gen, *, job_registry, output_queue, state, workflow_id, jo
 
         elif isinstance(item, Job):
             # new subjob, yield as a serialised event upstream
-
-            output_queue.put(
-                JobEvent(
-                    job=item.save(),
-                )
-            )
-
+            job_registry.add(item, output_queue)
             continue

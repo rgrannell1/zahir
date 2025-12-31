@@ -17,6 +17,7 @@ from zahir.base_types import (
 )
 from zahir.events import (
     JobCompletedEvent,
+    JobEvent,
     JobIrrecoverableEvent,
     JobPausedEvent,
     JobPrecheckFailedEvent,
@@ -27,25 +28,43 @@ from zahir.events import (
     JobTimeoutEvent,
     WorkflowOutputEvent,
 )
+from zahir.exception import exception_from_text_blob, exception_to_text_blob
 
 JOBS_TABLE_SCHEMA = """
-CREATE TABLE IF NOT EXISTS jobs (
-    job_id                    TEXT PRIMARY KEY,
-    serialised_job            TEXT NOT NULL,
-    state                     TEXT NOT NULL,
-    created_at                TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    started_at                TIMESTAMP,
-    completed_at              TIMESTAMP,
-    duration_seconds          REAL,
-    recovery_duration_seconds REAL
+create table if not exists jobs (
+    job_id                    text primary key,
+    serialised_job            text not null,
+    state                     text not null,
+    created_at                timestamp default current_timestamp,
+    started_at                timestamp,
+    completed_at              timestamp,
+    duration_seconds          real,
+    recovery_duration_seconds real
 );
 """
 
 JOB_OUTPUTS_TABLE_SCHEMA = """
-CREATE TABLE IF NOT EXISTS job_outputs (
-    job_id                    TEXT PRIMARY KEY,
-    output                    TEXT NOT NULL,
-    FOREIGN KEY (job_id) REFERENCES jobs(job_id)
+create table if not exists job_outputs (
+    job_id                    text primary key,
+    output                    text not null,
+    foreign key (job_id) references jobs(job_id)
+);
+"""
+
+JOB_ERRORS_TABLE_SCHEMA = """
+create table if not exists job_errors (
+    job_id                    text,
+    error                     text not null,
+    foreign key (job_id) references jobs(job_id)
+);
+"""
+
+CLAIMED_JOBS_TABLE_SCHEMA = """
+create table if not exists claimed_jobs (
+    job_id                    text primary key,
+    claimed_at                timestamp default current_timestamp,
+    claimed_by                text not null,
+    foreign key (job_id) references jobs(job_id)
 );
 """
 
@@ -58,6 +77,7 @@ class SQLiteJobRegistry(JobRegistry):
     def __init__(self, db_path: str | Path) -> None:
         self.db_path = Path(db_path)
         self._init_db()
+        self.clear_claims()
 
     def _connect(self) -> sqlite3.Connection:
         conn = sqlite3.connect(self.db_path, timeout=30)
@@ -69,51 +89,91 @@ class SQLiteJobRegistry(JobRegistry):
 
         return conn
 
+    def clear_claims(self) -> None:
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+            conn.execute("DELETE FROM claimed_jobs;")
+            conn.commit()
+
     def _init_db(self) -> None:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
-            conn.execute(JOBS_TABLE_SCHEMA)
-            conn.execute(JOB_OUTPUTS_TABLE_SCHEMA)
-            conn.execute(JOBS_INDEX)
+
+            for schema in [
+                JOBS_TABLE_SCHEMA,
+                JOB_OUTPUTS_TABLE_SCHEMA,
+                JOB_ERRORS_TABLE_SCHEMA,
+                CLAIMED_JOBS_TABLE_SCHEMA,
+                JOBS_INDEX,
+            ]:
+                conn.execute(schema)
+
             conn.commit()
 
-    def claim(self, context: Context) -> Job | None:
-        """Atomically claim a ready job and set its state to CLAIMED."""
+    def set_claim(self, job_id: str, pid: int) -> bool:
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
-            row = conn.execute(
+
+            insert_cursor = conn.execute(
                 """
-                UPDATE jobs
-                SET state = ?
-                WHERE job_id = (
-                    SELECT job_id
-                    FROM jobs
-                    WHERE state = ?
-                    ORDER BY created_at
-                    LIMIT 1
-                )
-                AND state = ?
-                RETURNING job_id, serialised_job
+                INSERT OR IGNORE INTO claimed_jobs (job_id, claimed_by)
+                VALUES (?, ?)
                 """,
-                (
-                    JobState.CLAIMED.value,
-                    JobState.READY.value,
-                    JobState.READY.value,
-                ),
-            ).fetchone()
+                (job_id, str(pid)),
+            )
             conn.commit()
 
-        if row is None:
+            return insert_cursor.rowcount == 1
+
+    def claim(self, context: Context, pid: int) -> Job | None:
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+
+            # Atomically: choose the oldest READY unclaimed job (FIFO is fair)
+            # insert a claim row, return job_id.
+            claimed_row = conn.execute(
+                """
+                INSERT INTO claimed_jobs (job_id, claimed_by)
+                SELECT jobs.job_id, ?
+                FROM jobs
+                LEFT JOIN claimed_jobs
+                    ON claimed_jobs.job_id = jobs.job_id
+                WHERE jobs.state = ?
+                AND claimed_jobs.job_id IS NULL
+                ORDER BY jobs.created_at
+                LIMIT 1
+                RETURNING job_id
+                """,
+                (str(pid), JobState.READY.value),
+            ).fetchone()
+
+            if claimed_row is None:
+                conn.commit()
+                return None
+
+            (job_id,) = claimed_row
+
+            # Still within the same transaction: fetch the serialised job we just claimed.
+            job_row = conn.execute(
+                "SELECT serialised_job FROM jobs WHERE job_id = ?",
+                (job_id,),
+            ).fetchone()
+
+            conn.commit()
+
+        if job_row is None:
+            # Extremely unlikely unless the jobs row was deleted outside FK enforcement.
             return None
 
-        _, serialised_job = row
+        (serialised_job,) = job_row
         job_data = json.loads(serialised_job)
         job_class = context.scope.get_job_class(job_data["type"])
         return job_class.load(context, job_data)
 
-    def add(self, job: Job) -> str:
+    def add(self, job: Job, output_queue) -> str:
         job_id = job.job_id
-        serialised = json.dumps(job.save())
+        saved_job = job.save()
+        serialised = json.dumps(saved_job)
 
         # Jobs need their dependencies verified to have passed before they can run;
         # so by default they start as PENDING unless they have no dependencies.
@@ -126,6 +186,7 @@ class SQLiteJobRegistry(JobRegistry):
                 (job_id, serialised, job_state),
             )
             conn.commit()
+            output_queue.put(JobEvent(job=saved_job))
 
         return job_id
 
@@ -151,8 +212,13 @@ class SQLiteJobRegistry(JobRegistry):
             conn.commit()
 
         if state == JobState.PRECHECK_FAILED:
+            error = kwargs["error"]
+
+            self.set_error(job_id, error)
             output_queue.put(
-                JobPrecheckFailedEvent(workflow_id=workflow_id, job_id=job_id, errors=kwargs.get("errors", []))
+                JobPrecheckFailedEvent(
+                    workflow_id=workflow_id, job_id=job_id, error=exception_to_text_blob(error)
+                )
             )
         elif state == JobState.RUNNING:
             output_queue.put(JobStartedEvent(workflow_id=workflow_id, job_id=job_id))
@@ -198,12 +264,16 @@ class SQLiteJobRegistry(JobRegistry):
                 )
             )
         elif state == JobState.IRRECOVERABLE:
-            output_queue.put(JobIrrecoverableEvent(job_id=job_id, workflow_id=workflow_id, error=kwargs["error"]))
+            error = kwargs["error"]
+            self.set_error(job_id, error)
+            output_queue.put(JobIrrecoverableEvent(job_id=job_id, workflow_id=workflow_id, error=error))
 
         return job_id
 
     def set_output(self, job_id: str, workflow_id: str, output_queue, output: Mapping) -> None:
         serialised_output = json.dumps(output)
+
+        # Insufficiently isolated; use a transaction to set to complete too
         with self._connect() as conn:
             conn.execute("BEGIN IMMEDIATE;")
             conn.execute(
@@ -229,6 +299,37 @@ class SQLiteJobRegistry(JobRegistry):
             return None
         return json.loads(row[0])
 
+    def set_error(self, job_id: str, error: Exception) -> None:
+        serialised_error = exception_to_text_blob(error)
+
+        with self._connect() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+            conn.execute(
+                """
+                INSERT INTO job_errors (job_id, error)
+                VALUES (?, ?)
+                """,
+                (job_id, serialised_error),
+            )
+            conn.commit()
+
+    def get_errors(self, job_id: str) -> list[BaseException]:
+        """Get all errors associated with a job."""
+
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT error FROM job_errors WHERE job_id = ?",
+                (job_id,),
+            ).fetchall()
+
+        errors: list[BaseException] = []
+
+        for (serialised_error,) in rows:
+            error = exception_from_text_blob(serialised_error)
+            errors.append(error)
+
+        return errors
+
     def workflow_outputs(self, workflow_id: str) -> Iterator["WorkflowOutputEvent"]:
         output_dict: dict[str, dict] = {}
         with self._connect() as conn:
@@ -245,7 +346,6 @@ class SQLiteJobRegistry(JobRegistry):
         active_states = [
             JobState.PENDING.value,
             JobState.READY.value,
-            JobState.CLAIMED.value,
             JobState.RUNNING.value,
             JobState.RECOVERING.value,
             JobState.PAUSED.value,
