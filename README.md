@@ -160,7 +160,14 @@ Zahir jobs are generators; they can await other Zahir jobs using the `Await` eve
 - Job A is paused, and we execute `NewJob` through Zahir and capture its output
 - Job A is resumed with the output of `NewJob`
 
-Note that once a job is started, we cannot serialise it in "half-completed" state. So it remains in-memory until it's completed.
+Note that once Job A is started, we cannot serialise it in "half-completed" state. So it remains in-memory until it's completed. The engine waits for the new task's dependencies to resolve & for the 
+job to complete before resuming Job A. `Promise.all([])` style execution is also supported
+
+- Job A runs `result = yield Await([ job_b, job_c, ... ])`
+- Job A is paused until the new jobs are completed
+- Job A is resumed with a list of outputs, one per job.
+
+Awaited jobs may also throw exceptions if they were given invalid input, threw an non-recoverable exception, or timed-out.
 
 Jobs should have most of their logic factored out into plain functions; the job itself should just take input, call the necessary library functions, event, and delegate to other jobs.
 
