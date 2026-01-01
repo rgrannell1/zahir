@@ -1,11 +1,10 @@
 """Workers poll centrally for jobs to run, lease them, and return results back centrally. They report quiescence when there's nothing left to do, so the supervisor task can exit gracefully."""
 
-from tblib import pickling_support
-from zahir.exception import exception_from_text_blob
-pickling_support.install()
 
 from collections.abc import Iterator
 import multiprocessing
+
+from tblib import pickling_support  # type: ignore[import-untyped]
 
 from zahir.base_types import JobState
 from zahir.events import (
@@ -23,11 +22,14 @@ from zahir.events import (
     ZahirEvent,
     ZahirInternalErrorEvent,
 )
+from zahir.exception import exception_from_text_blob
 from zahir.utils.id_generator import generate_id
 from zahir.worker.dependency_worker import zahir_dependency_worker
 from zahir.worker.job_worker import zahir_job_worker
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
+
+pickling_support.install()
 
 type JobStateEvent = (
     JobStartedEvent
@@ -49,6 +51,14 @@ EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
     JobCompletedEvent: JobState.COMPLETED,
     JobPausedEvent: JobState.PAUSED,
 }
+
+
+def shutdown(processes: list[multiprocessing.Process]) -> None:
+    for proc in processes:
+        if proc.is_alive():
+            proc.terminate()
+    for proc in processes:
+        proc.join(timeout=5)
 
 
 def zahir_worker_overseer(start, context, worker_count: int = 4, all_events: bool = False) -> Iterator[ZahirEvent]:
@@ -85,7 +95,11 @@ def zahir_worker_overseer(start, context, worker_count: int = 4, all_events: boo
             event = output_queue.get()
 
             if isinstance(event, ZahirInternalErrorEvent):
-                exc = exception_from_text_blob(event.error) if event.error else RuntimeError("Unknown internal error in worker")
+                exc = (
+                    exception_from_text_blob(event.error)
+                    if event.error
+                    else RuntimeError("Unknown internal error in worker")
+                )
                 break
 
             if isinstance(event, WorkflowCompleteEvent):
@@ -99,11 +113,7 @@ def zahir_worker_overseer(start, context, worker_count: int = 4, all_events: boo
     except KeyboardInterrupt:
         pass
     finally:
-        for proc in processes:
-            if proc.is_alive():
-                proc.terminate()
-        for proc in processes:
-            proc.join(timeout=5)
+        shutdown(processes)
 
     if exc is not None:
         raise exc

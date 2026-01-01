@@ -65,6 +65,9 @@ ignore = [
     "TRY301",   # abstract raise
     "S101",     # assert usage
     "DTZ005",   # timezone naive .now()
+    "E402",     # Annoyed me,
+    "A002",     # `input`,
+    "S301",     # pickle is horrible, but we use it for exceptions
 ]
 
 

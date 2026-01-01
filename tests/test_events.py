@@ -107,7 +107,7 @@ def test_job_precheck_failed_event_roundtrip():
     loaded = JobPrecheckFailedEvent.load(saved)
     assert loaded.workflow_id == "wf-eee"
     assert loaded.job_id == "job-fff"
-    assert exception_from_text_blob(loaded.error) == "failed"
+    assert str(exception_from_text_blob(loaded.error)) == "failed"
 
 
 def test_all_events_save_include_workflow_id():

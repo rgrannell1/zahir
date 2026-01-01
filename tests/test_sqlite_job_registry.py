@@ -47,6 +47,7 @@ def test_sqlite_job_registry_lifecycle():
         registry = SQLiteJobRegistry(db_path)
         job = DummyJob(job_id="job1")
         import multiprocessing
+
         dummy_queue = multiprocessing.Queue()
         job_id = registry.add(job, dummy_queue)
         assert job_id == "job1"

@@ -1,6 +1,7 @@
+from tblib import pickling_support  # type: ignore[import-untyped]
 
-from tblib import pickling_support
 from zahir.exception import exception_to_text_blob
+
 pickling_support.install()
 
 import multiprocessing

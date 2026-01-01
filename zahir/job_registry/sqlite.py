@@ -216,9 +216,7 @@ class SQLiteJobRegistry(JobRegistry):
 
             self.set_error(job_id, error)
             output_queue.put(
-                JobPrecheckFailedEvent(
-                    workflow_id=workflow_id, job_id=job_id, error=exception_to_text_blob(error)
-                )
+                JobPrecheckFailedEvent(workflow_id=workflow_id, job_id=job_id, error=exception_to_text_blob(error))
             )
         elif state == JobState.RUNNING:
             output_queue.put(JobStartedEvent(workflow_id=workflow_id, job_id=job_id))

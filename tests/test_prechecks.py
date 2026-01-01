@@ -4,6 +4,7 @@ from zahir.base_types import Context, Job
 from zahir.context import MemoryContext
 from zahir.events import (
     Await,
+    JobEvent,
     JobIrrecoverableEvent,
     JobOutputEvent,
     JobPrecheckFailedEvent,
@@ -17,7 +18,7 @@ from zahir.tasks.decorator import job
 from zahir.worker import LocalWorkflow
 
 
-class PrecheckJob(Job):
+class PrecheckFailsJob(Job):
     """Interyield to another job"""
 
     @staticmethod
@@ -33,7 +34,7 @@ class PrecheckJob(Job):
 def ParentJob(cls, context: Context, input, dependencies):
     """A parent job that yields to the inner async job. Proves nested awaits work."""
 
-    _ = yield Await(PrecheckJob({"test": 1234}, {}))
+    _ = yield Await(PrecheckFailsJob({"test": 1234}, {}))
     yield ZahirCustomEvent(output={"message": "Should never see this."})
 
 
@@ -43,16 +44,19 @@ def test_failed_prechecks():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
-    context = MemoryContext(scope=LocalScope(jobs=[PrecheckJob]), job_registry=SQLiteJobRegistry(tmp_file))
+    context = MemoryContext(scope=LocalScope(jobs=[PrecheckFailsJob]), job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context)
 
-    job = PrecheckJob({"test": 1234}, {})
+    job = PrecheckFailsJob({"test": 1234}, {})
     events = list(workflow.run(job, all_events=True))
+    for event in events:
+        print(event)
 
-    assert len(events) == 3
+    assert len(events) == 4
     assert isinstance(events[0], WorkflowStartedEvent)
-    assert isinstance(events[1], JobPrecheckFailedEvent)
-    assert isinstance(events[2], WorkflowCompleteEvent)
+    assert isinstance(events[1], JobEvent)
+    assert isinstance(events[2], JobPrecheckFailedEvent)
+    assert isinstance(events[3], WorkflowCompleteEvent)
 
 
 def test_awaited_prechecks():
@@ -61,7 +65,9 @@ def test_awaited_prechecks():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
-    context = MemoryContext(scope=LocalScope(jobs=[PrecheckJob, ParentJob]), job_registry=SQLiteJobRegistry(tmp_file))
+    context = MemoryContext(
+        scope=LocalScope(jobs=[PrecheckFailsJob, ParentJob]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
     workflow = LocalWorkflow(context, max_workers=2)
 
     job = ParentJob({}, {})
@@ -71,5 +77,3 @@ def test_awaited_prechecks():
 
     # Check jobirrecoverable failure due to precheck failure
     any(isinstance(event, JobIrrecoverableEvent) for event in events)
-
-test_awaited_prechecks()

@@ -1,7 +1,5 @@
 import tempfile
 
-import pytest
-
 from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import (

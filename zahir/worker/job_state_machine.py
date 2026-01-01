@@ -1,16 +1,5 @@
 
-from tblib import pickling_support
-pickling_support.install()
-
-import signal
-from collections.abc import Iterator
-from dataclasses import dataclass, field
-from enum import StrEnum
-import json
-import multiprocessing
-import os
-import time
-from typing import Any, cast
+from tblib import pickling_support  # type: ignore[import-untyped]
 
 from zahir.base_types import Context, Job, JobState
 from zahir.events import (
@@ -28,6 +17,19 @@ from zahir.events import (
     ZahirEvent,
 )
 from zahir.exception import JobPrecheckError
+
+pickling_support.install()
+
+from collections.abc import Iterator
+from dataclasses import dataclass, field
+from enum import StrEnum
+import json
+import logging
+import multiprocessing
+import os
+import signal
+import time
+from typing import Any, cast
 
 
 class ZahirJobState(StrEnum):
@@ -70,7 +72,7 @@ GREEN = "\x1b[32m"
 RESET = "\x1b[0m"
 
 
-def times_up(signum, frame):
+def times_up():
     raise TimeoutError("Job execution timed out")
 
 
@@ -92,7 +94,7 @@ def log_call(fn):
             message += f" -> {next_state.state}({json.dumps(next_state.data)})"
 
         message += RESET
-        print(message)
+        logging.info(message)
 
         return result
 
@@ -281,9 +283,7 @@ class ZahirJobStateMachine:
         state.frame.required_jobs.add(awaited_job_id)
 
         # Pause the current job please in the registry
-        job_registry.set_state(
-            state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.PAUSED
-        )
+        job_registry.set_state(state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.PAUSED)
 
         await_event = state.await_event
         assert await_event is not None
@@ -572,7 +572,6 @@ def read_job_events(gen, *, job_registry, output_queue, state, workflow_id, job_
         raise TypeError("gen must be an Iterator")
 
     queue: list[ZahirEvent | Job] = []
-    current_pid = state.frame.job.job_id
 
     # TO-DO: support awaitmany semantics by collecting inputs
     required_pids = list(state.frame.required_jobs)
@@ -585,7 +584,16 @@ def read_job_events(gen, *, job_registry, output_queue, state, workflow_id, job_
 
         # send or throw into the generator
         if errors:
-            event = state.frame.job_generator.throw(errors[-1])
+            # mystery tblib error. The job hangs when I throw a wrapped
+            # exception into the generator. So, unwrap and rethrow.
+            # Loses stack-trace though, so something better is needed
+            not_throwable = errors[-1]
+
+            pickling_support.uninstall()
+            throwable = type(not_throwable)(str(not_throwable))
+
+            event = state.frame.job_generator.throw(throwable)
+            pickling_support.install()
         else:
             event = state.frame.job_generator.send(output)
 

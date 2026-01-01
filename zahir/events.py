@@ -8,7 +8,6 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
-import traceback
 from typing import Any, Generic, TypeVar
 
 OutputType = TypeVar("OutputType", bound=Mapping[str, Any])
@@ -363,6 +362,7 @@ class ZahirCustomEvent[CustomEventOutputType](ZahirEvent):
             workflow_id=data.get("workflow_id"),
             output=data.get("output"),
         )
+
 
 @dataclass
 class ZahirInternalErrorEvent(ZahirEvent):
