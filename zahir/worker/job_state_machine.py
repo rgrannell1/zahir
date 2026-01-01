@@ -28,7 +28,7 @@ import multiprocessing
 import os
 import signal
 import time
-from typing import Any, cast
+from typing import Any, Mapping, cast
 
 
 class ZahirJobState(StrEnum):
@@ -249,9 +249,20 @@ class ZahirJobStateMachine:
         await_event = state.await_event
         assert await_event is not None
 
-        # Update the paused job to await the new job
-        awaited_job_id = await_event.job.job_id
-        state.frame.required_jobs.add(awaited_job_id)
+        # Update the paused job to await the new job(s)
+        awaited_jobs = [await_event.job] if isinstance(await_event.job, Job) else await_event.job
+
+        # Needed to handle types correctly in empty case
+        if isinstance(await_event.job, list):
+            state.frame.await_many = True
+
+        # Tie the current job to the awaited job(s)
+        for awaited_job in awaited_jobs:
+            state.frame.required_jobs.add(awaited_job.job_id)
+
+            # The awaited job can just be run through the normal lifecycle, with the caveat that the _awaiting_
+            # job needs a marker thart it's awaiting the new job.
+            job_registry.add(awaited_job, state.output_queue)
 
         # Pause the current job, and put it back on the registry. `Paused` jobs
         # are awaiting some job or other to be updated.
@@ -260,16 +271,10 @@ class ZahirJobStateMachine:
         job_stack.push(state.frame)
         state.frame = None
 
-        new_awaited_job = await_event.job
-
-        # The awaited job can just be run through the normal lifecycle, with the caveat that the _awaiting_
-        # job needs a marker thart it's awaiting the new job.
-        job_registry.add(new_awaited_job, state.output_queue)
-
         return StateChange(
             ZahirJobState.ENQUEUE_JOB,
             {
-                "message": f"Paused job {frame_job_id}, enqueuing awaited job {awaited_job_id}, and moving on to something else..."
+                "message": f"Paused job {frame_job_id}, enqueuing awaited job(s), and moving on to something else..."
             },
         ), state
 
@@ -553,26 +558,42 @@ def read_job_events(
 
     # TO-DO: support awaitmany semantics by collecting inputs
     required_pids = list(state.frame.required_jobs)
-    required_pid = required_pids[0] if required_pids else None
 
-    # TO-DO: this isn't picking up dependency issues
+    if required_pids or state.frame.await_many:
+        # Get the errors and outputs for the pid on which we were awaiting...
 
-    if required_pid:
-        # Get the errors and outputs for the pid on which we were waiting...
-        output = job_registry.get_output(required_pid)
-        errors = job_registry.get_errors(required_pid)
+        # Not all jobs have to produce an output.
+        outputs: list[Mapping | None] = []
 
-        # send or throw into the generator
+        # Errors are 1:{0,1,...} per job
+        errors: list[BaseException] = []
+
+        # Collate the information for each job
+        for required_pid in required_pids:
+            outputs.append(job_registry.get_output(required_pid))
+            job_errors = job_registry.get_errors(required_pid)
+            errors = errors + job_errors
+
+        # So, this sucks. I ported from a custom serialiser to tblib. Turns out tblib
+        # can't handle throwing into generators. We'll need to port back to a custom serialiser (screw pickle anyway)
+        # to get our error-types and traces back.
+
+        throwable_errors = []
+        for error in errors:
+            throwable_errors.append(Exception(str(error)))
+
         if errors:
-            # mystery tblib error. The job hangs when I throw a wrapped
-            # exception into the generator. So, unwrap and rethrow.
-            # THis is very bad, never use pickle...
-            not_throwable = errors[-1]
+            # Try to throw one exception, but let's not bury information either if there's multiple.
+            throwable = (
+                throwable_errors[0] if len(throwable_errors) == 1 else
+                # we might want a custom ExceptionGroup type
+                ExceptionGroup("Multiple errors", throwable_errors))
 
-            event = state.frame.job_generator.throw(Exception(str(not_throwable)))
-            pickling_support.install()
+            event = state.frame.job_generator.throw(throwable)
         else:
-            event = state.frame.job_generator.send(output)
+            generator_input = None
+            generator_input = outputs[0] if len(required_pids) == 1 else outputs
+            event = state.frame.job_generator.send(generator_input)
 
         # something happens afterwards, so enqueue it and proceed
         queue.append(event)

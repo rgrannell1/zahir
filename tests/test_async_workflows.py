@@ -6,6 +6,7 @@ from zahir.context import MemoryContext
 from zahir.dependencies.time import TimeDependency
 from zahir.events import (
     Await,
+    JobCompletedEvent,
     JobEvent,
     JobIrrecoverableEvent,
     JobOutputEvent,
@@ -103,13 +104,150 @@ def test_impossible_async_workflow():
     assert isinstance(events[0], WorkflowStartedEvent)
     assert isinstance(events[1], JobEvent)
     assert isinstance(events[2], JobStartedEvent)
-    assert isinstance(events[3], JobPausedEvent)
-    assert isinstance(events[4], JobEvent)
+    assert isinstance(events[3], JobEvent)
+    assert isinstance(events[4], JobPausedEvent)
     assert isinstance(events[5], JobStartedEvent)
     assert isinstance(events[6], JobRecoveryStartedEvent)
     assert isinstance(events[7], JobStartedEvent)
     assert isinstance(events[8], JobIrrecoverableEvent)
     assert isinstance(events[9], WorkflowCompleteEvent)
 
+@job
+def AwaitMany(context: Context, input, dependencies):
+    """Interyield to multiple jobs"""
 
-test_impossible_async_workflow()
+    results = yield Await(
+        [
+            AddJob({"count": 10}, {}),
+            AddJob({"count": 20}, {}),
+            AddJob({"count": 30}, {}),
+        ]
+    )
+
+    total = sum(result["count"] for result in results)
+
+    yield WorkflowOutputEvent({"total": total})
+
+def test_await_many_workflow():
+    """Prove that Await can handle multiple jobs"""
+
+    tmp_file = "/tmp/zahir_await_many.db"
+    pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
+    pathlib.Path(tmp_file).touch(exist_ok=True)
+
+    scope = LocalScope(
+        jobs=[AddJob, AwaitMany],
+        dependencies=[],
+    )
+
+    context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+    workflow = LocalWorkflow(context, max_workers=2)
+
+    blocked = AwaitMany({}, {})
+    events = list(workflow.run(blocked, all_events=True))
+
+    assert isinstance(events[0], WorkflowStartedEvent)
+    assert isinstance(events[1], JobEvent)
+    assert isinstance(events[2], JobStartedEvent)
+    assert isinstance(events[3], JobEvent)
+    assert isinstance(events[4], JobEvent)
+    assert isinstance(events[5], JobEvent)
+    assert isinstance(events[6], JobPausedEvent)
+    assert isinstance(events[7], JobStartedEvent)
+    assert isinstance(events[8], JobOutputEvent)
+    assert isinstance(events[9], JobCompletedEvent)
+    assert isinstance(events[10], JobStartedEvent)
+    assert isinstance(events[11], JobOutputEvent)
+    assert isinstance(events[12], JobCompletedEvent)
+    assert isinstance(events[13], JobStartedEvent)
+    assert isinstance(events[14], JobOutputEvent)
+    assert isinstance(events[15], JobCompletedEvent)
+    assert isinstance(events[16], JobStartedEvent)
+    assert isinstance(events[17], WorkflowOutputEvent)
+    assert isinstance(events[18], JobCompletedEvent)
+    assert isinstance(events[19], WorkflowCompleteEvent)
+
+    workflow_output = events[17]
+    assert workflow_output.output["total"] == 63
+
+@job
+def AwaitEmpty(context: Context, input, dependencies):
+    """Interyield to an empty list of jobs"""
+
+    results = yield Await([])
+
+    yield WorkflowOutputEvent({"total": len(results)})
+
+def test_await_empty_workflow():
+    """Prove that Await can handle an empty list of jobs"""
+
+    tmp_file = "/tmp/zahir_await_empty.db"
+    pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
+    pathlib.Path(tmp_file).touch(exist_ok=True)
+
+    scope = LocalScope(
+        jobs=[AwaitEmpty],
+        dependencies=[],
+    )
+
+    context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+    workflow = LocalWorkflow(context)
+
+    blocked = AwaitEmpty({}, {})
+    events = list(workflow.run(blocked, all_events=True))
+
+    assert isinstance(events[0], WorkflowStartedEvent)
+    assert isinstance(events[1], JobEvent)
+    assert isinstance(events[2], JobStartedEvent)
+    assert isinstance(events[3], JobPausedEvent)
+    assert isinstance(events[4], JobStartedEvent)
+    assert isinstance(events[5], WorkflowOutputEvent)
+    assert isinstance(events[6], JobCompletedEvent)
+    assert isinstance(events[7], WorkflowCompleteEvent)
+
+    workflow_output = events[5]
+    assert workflow_output.output["total"] == 0
+
+
+@job
+def FailingJob(context: Context, input, dependencies):
+    """A job that always fails."""
+
+    raise ValueError("This job always fails.")
+    yield iter([])
+
+@job
+def AwaitManyFailing(context: Context, input, dependencies):
+    """Interyield to multiple jobs, one of which fails."""
+
+    try:
+        results = yield Await(
+            [
+                AddJob({"count": 10}, {}),
+                FailingJob({}, {}),
+                AddJob({"count": 30}, {}),
+            ]
+        )
+    except ValueError as err:
+        yield WorkflowOutputEvent({"error": str(err)})
+        return
+
+def test_await_many_failing_workflow():
+    """Prove that Await can handle multiple jobs with one failing"""
+
+    tmp_file = "/tmp/zahir_await_many_failing.db"
+    pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
+    pathlib.Path(tmp_file).touch(exist_ok=True)
+
+    scope = LocalScope(
+        jobs=[AddJob, FailingJob, AwaitManyFailing],
+        dependencies=[],
+    )
+
+    context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+    workflow = LocalWorkflow(context, max_workers=2)
+
+    blocked = AwaitManyFailing({}, {})
+    events = list(workflow.run(blocked, all_events=True))
+
+    raise Exception("this should produce an output, but does not!")

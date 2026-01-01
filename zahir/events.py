@@ -407,11 +407,11 @@ class JobEvent(ZahirEvent):
 class Await(ZahirEvent):
     """Indicates that a job is awaiting some condition before proceeding"""
 
-    job: SerialisedJob
+    job: SerialisedJob | list[SerialisedJob]
 
     def save(self) -> Mapping[str, Any]:
         return {
-            "job": self.job,
+            "job": [self.job] if isinstance(self.job, Job) else self.job,
         }
 
     @classmethod

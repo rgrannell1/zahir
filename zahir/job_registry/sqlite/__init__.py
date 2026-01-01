@@ -16,6 +16,7 @@ from zahir.exception import DuplicateJobError, MissingJobError, MissingJobError,
 from zahir.job_registry.sqlite.tables import CLAIMED_JOBS_TABLE_SCHEMA, JOB_ERRORS_TABLE_SCHEMA, JOB_OUTPUTS_TABLE_SCHEMA, JOBS_INDEX, JOBS_TABLE_SCHEMA
 
 import logging
+import traceback
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
@@ -192,6 +193,9 @@ class SQLiteJobRegistry(JobRegistry):
             conn.execute("update jobs set state = ? where job_id = ?", (state.value, job_id))
 
             if error is not None:
+                error_trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))
+                log.warning(f"Recording error for job {job_id}: {error}\nTraceback:\n{error_trace}")
+
                 serialised_error = exception_to_text_blob(error)
                 conn.execute("insert into job_errors (job_id, error_blob) values (?, ?)", (job_id, serialised_error))
 
