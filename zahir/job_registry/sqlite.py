@@ -5,6 +5,7 @@ from datetime import datetime
 import json
 from pathlib import Path
 import sqlite3
+import time
 from typing import cast
 
 from zahir.base_types import (
@@ -83,24 +84,28 @@ class SQLiteJobRegistry(JobRegistry):
         self.clear_claims()
 
     def _connect(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, timeout=30)
+        conn = sqlite3.connect(
+            self.db_path,
+            timeout=30.0,
+            isolation_level="DEFERRED",  # Use deferred transactions
+            check_same_thread=False
+        )
 
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.execute("PRAGMA synchronous=NORMAL;")
         conn.execute("PRAGMA foreign_keys=ON;")
-        conn.execute("PRAGMA busy_timeout=5000;")
+        conn.execute("PRAGMA busy_timeout=5000;")  # 30 seconds
 
         return conn
 
     def clear_claims(self) -> None:
         with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE;")
             conn.execute("DELETE FROM claimed_jobs;")
             conn.commit()
 
     def _init_db(self) -> None:
         with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE;")
+            # Set WAL mode once during initialization
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
 
             for schema in [
                 JOBS_TABLE_SCHEMA,
@@ -115,8 +120,7 @@ class SQLiteJobRegistry(JobRegistry):
 
     def set_claim(self, job_id: str, pid: int) -> bool:
         with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE;")
-
+            conn.execute("BEGIN IMMEDIATE")
             insert_cursor = conn.execute(
                 """
                 INSERT OR IGNORE INTO claimed_jobs (job_id, claimed_by)
@@ -129,49 +133,64 @@ class SQLiteJobRegistry(JobRegistry):
             return insert_cursor.rowcount == 1
 
     def claim(self, context: Context, pid: int) -> Job | None:
-        with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE;")
+        max_retries = 10
+        base_delay = 0.1  # 100ms
 
-            # Atomically: choose the oldest READY unclaimed job (FIFO is fair)
-            # insert a claim row, return job_id.
-            claimed_row = conn.execute(
-                """
-                INSERT INTO claimed_jobs (job_id, claimed_by)
-                SELECT jobs.job_id, ?
-                FROM jobs
-                LEFT JOIN claimed_jobs
-                    ON claimed_jobs.job_id = jobs.job_id
-                WHERE jobs.state = ?
-                AND claimed_jobs.job_id IS NULL
-                ORDER BY jobs.created_at
-                LIMIT 1
-                RETURNING job_id
-                """,
-                (str(pid), JobState.READY.value),
-            ).fetchone()
+        for attempt in range(max_retries):
+            try:
+                with self._connect() as conn:
+                    conn.execute("BEGIN IMMEDIATE")
 
-            if claimed_row is None:
-                conn.commit()
-                return None
+                    # Atomically: choose the oldest READY unclaimed job (FIFO is fair)
+                    # insert a claim row, return job_id.
+                    claimed_row = conn.execute(
+                        """
+                        INSERT INTO claimed_jobs (job_id, claimed_by)
+                        SELECT jobs.job_id, ?
+                        FROM jobs
+                        LEFT JOIN claimed_jobs
+                            ON claimed_jobs.job_id = jobs.job_id
+                        WHERE jobs.state = ?
+                        AND claimed_jobs.job_id IS NULL
+                        ORDER BY jobs.created_at
+                        LIMIT 1
+                        RETURNING job_id
+                        """,
+                        (str(pid), JobState.READY.value),
+                    ).fetchone()
 
-            (job_id,) = claimed_row
+                    if claimed_row is None:
+                        conn.commit()
+                        return None
 
-            # Still within the same transaction: fetch the serialised job we just claimed.
-            job_row = conn.execute(
-                "SELECT serialised_job FROM jobs WHERE job_id = ?",
-                (job_id,),
-            ).fetchone()
+                    (job_id,) = claimed_row
 
-            conn.commit()
+                    # Still within the same transaction: fetch the serialised job we just claimed.
+                    job_row = conn.execute(
+                        "SELECT serialised_job FROM jobs WHERE job_id = ?",
+                        (job_id,),
+                    ).fetchone()
 
-        if job_row is None:
-            # Extremely unlikely unless the jobs row was deleted outside FK enforcement.
-            return None
+                    conn.commit()
 
-        (serialised_job,) = job_row
-        job_data = json.loads(serialised_job)
-        job_class = context.scope.get_job_class(job_data["type"])
-        return job_class.load(context, job_data)
+                if job_row is None:
+                    # Extremely unlikely unless the jobs row was deleted outside FK enforcement.
+                    return None
+
+                (serialised_job,) = job_row
+                job_data = json.loads(serialised_job)
+                job_class = context.scope.get_job_class(job_data["type"])
+                return job_class.load(context, job_data)
+
+            except (sqlite3.OperationalError, sqlite3.DatabaseError) as exc:
+                if attempt < max_retries - 1:
+                    # Exponential backoff with jitter
+                    delay = base_delay * (2 ** attempt) * (0.5 + 0.5 * time.time() % 1)
+                    time.sleep(delay)
+                    continue
+                else:
+                    # Final attempt failed, re-raise
+                    raise
 
     def add(self, job: Job, output_queue) -> str:
         job_id = job.job_id
@@ -183,7 +202,7 @@ class SQLiteJobRegistry(JobRegistry):
         job_state = JobState.READY.value if job.dependencies.empty() else JobState.PENDING.value
 
         with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE;")
+            conn.execute("BEGIN IMMEDIATE")
             conn.execute(
                 "INSERT INTO jobs (job_id, serialised_job, state) VALUES (?, ?, ?)",
                 (job_id, serialised, job_state),
@@ -210,7 +229,7 @@ class SQLiteJobRegistry(JobRegistry):
 
     def set_state(self, job_id: str, workflow_id: str, output_queue, state: JobState, **kwargs) -> str:
         with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE;")
+            conn.execute("BEGIN IMMEDIATE")
             conn.execute(
                 "UPDATE jobs SET state = ? WHERE job_id = ?",
                 (state.value, job_id),
@@ -289,9 +308,9 @@ class SQLiteJobRegistry(JobRegistry):
     def set_output(self, job_id: str, workflow_id: str, output_queue, output: Mapping) -> None:
         serialised_output = json.dumps(output)
 
-        # Insufficiently isolated; use a transaction to set to complete too
+        # Set output and state in a single transaction
         with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE;")
+            conn.execute("BEGIN IMMEDIATE")
             conn.execute(
                 """
                 INSERT INTO job_outputs (job_id, output)
@@ -300,9 +319,22 @@ class SQLiteJobRegistry(JobRegistry):
                 """,
                 (job_id, serialised_output),
             )
+
+            conn.execute(
+                "UPDATE jobs SET state = ? WHERE job_id = ?",
+                (JobState.COMPLETED.value, job_id),
+            )
+
             conn.commit()
 
-        self.set_state(job_id, workflow_id, output_queue, JobState.COMPLETED)
+        # Emit event after transaction completes
+        output_queue.put(
+            JobCompletedEvent(
+                job_id=job_id,
+                workflow_id=workflow_id,
+                duration_seconds=0.1,
+            )
+        )
 
     def get_output(self, job_id: str) -> Mapping | None:
         with self._connect() as conn:
@@ -319,7 +351,7 @@ class SQLiteJobRegistry(JobRegistry):
         serialised_error = exception_to_text_blob(error)
 
         with self._connect() as conn:
-            conn.execute("BEGIN IMMEDIATE;")
+            conn.execute("BEGIN IMMEDIATE")
             conn.execute(
                 """
                 INSERT INTO job_errors (job_id, error)
