@@ -1,6 +1,6 @@
 
+from collections.abc import Generator
 from dataclasses import dataclass, field
-from typing import Iterator
 
 from zahir.base_types import Job
 
@@ -36,7 +36,7 @@ class ZahirStackFrame:
     """
 
     job: Job
-    job_generator: Iterator
+    job_generator: Generator
     recovery: bool = False
     required_jobs: set[str] = field(default_factory=set)
 

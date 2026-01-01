@@ -199,6 +199,16 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_errors(self, job_id: str) -> list[str]:
+        """Retrieve the errors associated with a job
+
+        @param job_id: The ID of the job
+        @return: A list of error messages
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
     def jobs(self, context: "Context", state: JobState | None = None) -> Iterator[JobInformation]:
         """Get an iterator of all jobs with their information.
 

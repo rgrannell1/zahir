@@ -22,10 +22,9 @@ from zahir.worker.frame import ZahirCallStack, ZahirStackFrame
 pickling_support.install()
 
 from collections.abc import Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import StrEnum
 import json
-import logging
 import multiprocessing
 import os
 import signal
@@ -239,7 +238,7 @@ class ZahirJobStateMachine:
         await_event = state.await_event
         assert await_event is not None
 
-        # Update the paused job to await the new one
+        # Update the paused job to await the new job
         awaited_job_id = await_event.job.job_id
         state.frame.required_jobs.add(awaited_job_id)
 
@@ -533,6 +532,8 @@ def read_job_events(
 
     queue: list[ZahirEvent | Job] = []
 
+    assert state.frame is not None
+
     # TO-DO: support awaitmany semantics by collecting inputs
     required_pids = list(state.frame.required_jobs)
     required_pid = required_pids[0] if required_pids else None
@@ -550,7 +551,7 @@ def read_job_events(
             not_throwable = errors[-1]
 
             pickling_support.uninstall()
-            throwable = type(not_throwable)(str(not_throwable))
+            throwable: BaseException = cast(BaseException, type(not_throwable)(str(not_throwable)))
 
             event = state.frame.job_generator.throw(throwable)
             pickling_support.install()

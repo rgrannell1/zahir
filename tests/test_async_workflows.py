@@ -59,14 +59,16 @@ def test_nested_async_workflow():
     assert isinstance(final_event, WorkflowOutputEvent)
     assert final_event.output["count"] == 2
 
+
 @job
 def ImpossibleParentJob(cls, context: Context, input, dependencies):
     """A parent job that yields to an impossible inner job."""
 
-    dependency = TimeDependency(before=datetime.datetime(2000, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc))
+    dependency = TimeDependency(before=datetime.datetime(2000, 1, 1, 0, 0, 0, tzinfo=datetime.UTC))
 
     yield Await(AddJob({"count": -1}, {"impossible_dependency": dependency}))
     yield ZahirCustomEvent(output={"This should never be reached"})
+
 
 def test_impossible_async_workflow():
     """Prove that an impossible job in an async workflow is handled correctly"""
@@ -89,5 +91,6 @@ def test_impossible_async_workflow():
     events = list(workflow.run(blocked, all_events=True))
     for event in events:
         print(event)
+
 
 test_impossible_async_workflow()
