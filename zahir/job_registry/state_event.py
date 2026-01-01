@@ -1,4 +1,3 @@
-
 from zahir.base_types import JobState
 from zahir.events import (
     JobCompletedEvent,
@@ -15,7 +14,9 @@ from zahir.events import (
 from zahir.exception import exception_to_text_blob
 
 
-def create_state_event(state: JobState, workflow_id: str, job_id: str, error: BaseException | None = None) -> ZahirEvent | None:
+def create_state_event(
+    state: JobState, workflow_id: str, job_id: str, error: BaseException | None = None
+) -> ZahirEvent | None:
     """Create an event based on the job state transition.
 
     Returns None for states that don't emit events.
@@ -37,9 +38,7 @@ def create_state_event(state: JobState, workflow_id: str, job_id: str, error: Ba
             return JobPausedEvent(workflow_id=workflow_id, job_id=job_id)
         case JobState.PRECHECK_FAILED:
             return JobPrecheckFailedEvent(
-                workflow_id=workflow_id,
-                job_id=job_id,
-                error=exception_to_text_blob(error) if error else ""
+                workflow_id=workflow_id, job_id=job_id, error=exception_to_text_blob(error) if error else ""
             )
         case JobState.RUNNING:
             return JobStartedEvent(workflow_id=workflow_id, job_id=job_id)
@@ -75,8 +74,4 @@ def create_state_event(state: JobState, workflow_id: str, job_id: str, error: Ba
         case JobState.IRRECOVERABLE:
             assert error is not None
 
-            return JobIrrecoverableEvent(
-                job_id=job_id,
-                workflow_id=workflow_id,
-                error=error
-            )
+            return JobIrrecoverableEvent(job_id=job_id, workflow_id=workflow_id, error=error)

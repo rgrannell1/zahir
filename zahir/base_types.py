@@ -129,13 +129,8 @@ COMPLETED_JOB_STATES = {
 
 
 # Active, non-terminal job-states
-ACTIVE_JOB_STATES = {
-    JobState.PENDING,
-    JobState.BLOCKED,
-    JobState.READY,
-    JobState.PAUSED,
-    JobState.RECOVERING
-}
+ACTIVE_JOB_STATES = {JobState.PENDING, JobState.BLOCKED, JobState.READY, JobState.PAUSED, JobState.RECOVERING}
+
 
 @dataclass
 class JobInformation:
@@ -213,7 +208,7 @@ class JobRegistry(ABC):
         workflow_id: str,
         output_queue: multiprocessing.Queue,
         state: JobState,
-        error: BaseException | None = None
+        error: BaseException | None = None,
     ) -> str:
         """Set the state of a job by ID."""
 

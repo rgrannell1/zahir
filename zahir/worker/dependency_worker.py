@@ -1,4 +1,5 @@
 import os
+
 from tblib import pickling_support  # type: ignore[import-untyped]
 
 from zahir.exception import ImpossibleDependencyError, exception_to_text_blob

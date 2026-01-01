@@ -20,7 +20,7 @@ from zahir.worker.frame import ZahirCallStack, ZahirStackFrame
 
 pickling_support.install()
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 import json
@@ -28,7 +28,7 @@ import multiprocessing
 import os
 import signal
 import time
-from typing import Any, Mapping, cast
+from typing import Any, cast
 
 
 class ZahirJobState(StrEnum):
@@ -136,8 +136,7 @@ class ZahirJobStateMachine:
 
             if runnable_frame_idx is not None:
                 return StateChange(ZahirJobState.POP_JOB, {"message": "No job active, so popping from stack"}), state
-            else:
-                return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "No job runnable; enqueueing."}), state
+            return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "No job runnable; enqueueing."}), state
 
         job_type = state.frame.job_type()
 
@@ -273,9 +272,7 @@ class ZahirJobStateMachine:
 
         return StateChange(
             ZahirJobState.ENQUEUE_JOB,
-            {
-                "message": f"Paused job {frame_job_id}, enqueuing awaited job(s), and moving on to something else..."
-            },
+            {"message": f"Paused job {frame_job_id}, enqueuing awaited job(s), and moving on to something else..."},
         ), state
 
     @classmethod
@@ -556,7 +553,6 @@ def read_job_events(
 
     assert state.frame is not None
 
-    # TO-DO: support awaitmany semantics by collecting inputs
     required_pids = list(state.frame.required_jobs)
 
     if required_pids or state.frame.await_many:
@@ -585,9 +581,11 @@ def read_job_events(
         if errors:
             # Try to throw one exception, but let's not bury information either if there's multiple.
             throwable = (
-                throwable_errors[0] if len(throwable_errors) == 1 else
+                throwable_errors[0]
+                if len(throwable_errors) == 1
                 # we might want a custom ExceptionGroup type
-                ExceptionGroup("Multiple errors", throwable_errors))
+                else ExceptionGroup("Multiple errors", throwable_errors)
+            )
 
             event = state.frame.job_generator.throw(throwable)
         else:

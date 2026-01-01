@@ -11,14 +11,18 @@ class ZahirError(BaseException):
 class ZahirInternalError(ZahirError):
     """An internal Zahir error has occurred."""
 
+
 class DuplicateJobError(ZahirInternalError):
     """A job with the same ID already exists in the registry."""
+
 
 class MissingJobError(ZahirInternalError):
     """A job could not be found in the registry."""
 
+
 class JobPrecheckError(ZahirError):
     """A job precheck has failed."""
+
 
 class ImpossibleDependencyError(ZahirError):
     """A job has an impossible dependency."""

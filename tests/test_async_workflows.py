@@ -112,21 +112,21 @@ def test_impossible_async_workflow():
     assert isinstance(events[8], JobIrrecoverableEvent)
     assert isinstance(events[9], WorkflowCompleteEvent)
 
+
 @job
 def AwaitMany(context: Context, input, dependencies):
     """Interyield to multiple jobs"""
 
-    results = yield Await(
-        [
-            AddJob({"count": 10}, {}),
-            AddJob({"count": 20}, {}),
-            AddJob({"count": 30}, {}),
-        ]
-    )
+    results = yield Await([
+        AddJob({"count": 10}, {}),
+        AddJob({"count": 20}, {}),
+        AddJob({"count": 30}, {}),
+    ])
 
     total = sum(result["count"] for result in results)
 
     yield WorkflowOutputEvent({"total": total})
+
 
 def test_await_many_workflow():
     """Prove that Await can handle multiple jobs"""
@@ -170,6 +170,7 @@ def test_await_many_workflow():
     workflow_output = events[17]
     assert workflow_output.output["total"] == 63
 
+
 @job
 def AwaitEmpty(context: Context, input, dependencies):
     """Interyield to an empty list of jobs"""
@@ -177,6 +178,7 @@ def AwaitEmpty(context: Context, input, dependencies):
     results = yield Await([])
 
     yield WorkflowOutputEvent({"total": len(results)})
+
 
 def test_await_empty_workflow():
     """Prove that Await can handle an empty list of jobs"""
@@ -216,21 +218,21 @@ def FailingJob(context: Context, input, dependencies):
     raise ValueError("This job always fails.")
     yield iter([])
 
+
 @job
 def AwaitManyFailing(context: Context, input, dependencies):
     """Interyield to multiple jobs, one of which fails."""
 
     try:
-        results = yield Await(
-            [
-                AddJob({"count": 10}, {}),
-                FailingJob({}, {}),
-                AddJob({"count": 30}, {}),
-            ]
-        )
+        results = yield Await([
+            AddJob({"count": 10}, {}),
+            FailingJob({}, {}),
+            AddJob({"count": 30}, {}),
+        ])
     except Exception as err:
         yield WorkflowOutputEvent({"error": str(err)})
         return
+
 
 def test_await_many_failing_workflow():
     """Prove that Await can handle multiple jobs with one failing"""

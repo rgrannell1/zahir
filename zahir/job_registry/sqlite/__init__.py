@@ -1,26 +1,42 @@
-
+from collections.abc import Iterator, Mapping
 from datetime import datetime
 import json
+import logging
 import multiprocessing
 import sqlite3
-from typing import Any, Iterator, Mapping
+import traceback
+from typing import Any
 
-from zahir.base_types import ACTIVE_JOB_STATES, COMPLETED_JOB_STATES, Context, Job, JobInformation, JobRegistry, JobState
-from zahir.events import (
-    JobCompletedEvent,
-    JobEvent
+from zahir.base_types import (
+    ACTIVE_JOB_STATES,
+    COMPLETED_JOB_STATES,
+    Context,
+    Job,
+    JobInformation,
+    JobRegistry,
+    JobState,
+)
+from zahir.events import JobCompletedEvent, JobEvent
+from zahir.exception import (
+    DuplicateJobError,
+    MissingJobError,
+    exception_from_text_blob,
+    exception_to_text_blob,
+)
+from zahir.job_registry.sqlite.tables import (
+    CLAIMED_JOBS_TABLE_SCHEMA,
+    JOB_ERRORS_TABLE_SCHEMA,
+    JOB_OUTPUTS_TABLE_SCHEMA,
+    JOBS_INDEX,
+    JOBS_TABLE_SCHEMA,
 )
 from zahir.job_registry.state_event import create_state_event
 
-from zahir.exception import DuplicateJobError, MissingJobError, MissingJobError, exception_from_text_blob, exception_from_text_blob, exception_to_text_blob
-from zahir.job_registry.sqlite.tables import CLAIMED_JOBS_TABLE_SCHEMA, JOB_ERRORS_TABLE_SCHEMA, JOB_OUTPUTS_TABLE_SCHEMA, JOBS_INDEX, JOBS_TABLE_SCHEMA
-
-import logging
-import traceback
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 log.debug("Loaded SQLiteJobRegistry v2")
+
 
 class SQLiteJobRegistry(JobRegistry):
     conn: sqlite3.Connection
@@ -107,8 +123,8 @@ class SQLiteJobRegistry(JobRegistry):
 
             # Bail and end the transaction if no job was claimed
             if claimed_row is None:
-              conn.commit()
-              return None
+                conn.commit()
+                return None
 
             # Same transaction: fetch the job data
             (job_id,) = claimed_row
@@ -140,15 +156,16 @@ class SQLiteJobRegistry(JobRegistry):
         job_state = JobState.READY.value if job.dependencies.empty() else JobState.PENDING.value
 
         with self.conn as conn:
-
             # Check if the job already exists, complain loudly if you try to add it twice
             existing = conn.execute("select 1 from jobs where job_id = ?", (job_id,)).fetchone()
             if existing is not None:
-              conn.commit()
-              raise DuplicateJobError(f"Job with ID {job_id} already exists in the registry.")
+                conn.commit()
+                raise DuplicateJobError(f"Job with ID {job_id} already exists in the registry.")
 
             conn.execute("begin immediate;")
-            conn.execute("insert into jobs (job_id, serialised_job, state) values (?, ?, ?)", (job_id, serialised, job_state))
+            conn.execute(
+                "insert into jobs (job_id, serialised_job, state) values (?, ?, ?)", (job_id, serialised, job_state)
+            )
             conn.commit()
 
             output_queue.put(JobEvent(job=saved_job))
@@ -182,8 +199,8 @@ class SQLiteJobRegistry(JobRegistry):
         workflow_id: str,
         output_queue: multiprocessing.Queue,
         state: JobState,
-        error: BaseException | None = None
-        ) -> str:
+        error: BaseException | None = None,
+    ) -> str:
         """Set the state of a job. Optionally add an error if transitioning to a failure state."""
 
         log.debug(f"Setting state for job {job_id} to {state}")
@@ -207,7 +224,9 @@ class SQLiteJobRegistry(JobRegistry):
 
         return job_id
 
-    def set_output(self, job_id: str, workflow_id: str, output_queue: multiprocessing.Queue, output: Mapping[str, Any]) -> None:
+    def set_output(
+        self, job_id: str, workflow_id: str, output_queue: multiprocessing.Queue, output: Mapping[str, Any]
+    ) -> None:
         """Set the output of a job. Mark the job as complete, and emit a completion event."""
 
         log.debug(f"Setting output for job {job_id} and marking as completed")
@@ -215,11 +234,14 @@ class SQLiteJobRegistry(JobRegistry):
         serialised_output = json.dumps(output)
         with self.conn as conn:
             conn.execute("begin immediate;")
-            conn.execute("""
+            conn.execute(
+                """
             insert into job_outputs (job_id, output)
             values (?, ?)
             on conflict(job_id) do update set output=excluded.output;
-            """, (job_id, serialised_output))
+            """,
+                (job_id, serialised_output),
+            )
 
             conn.execute("update jobs set state =? where job_id = ?", (JobState.COMPLETED.value, job_id))
             conn.commit()
@@ -293,7 +315,7 @@ class SQLiteJobRegistry(JobRegistry):
         with self.conn as conn:
             q_marks = ",".join("?" for _ in ACTIVE_JOB_STATES)
             row = conn.execute(
-                "select 1 from jobs where state in ({}) limit 1".format(q_marks),
+                f"select 1 from jobs where state in ({q_marks}) limit 1",
                 tuple(state.value for state in ACTIVE_JOB_STATES),
             ).fetchone()
             print(row)
@@ -311,7 +333,7 @@ class SQLiteJobRegistry(JobRegistry):
         log.debug(f"Retrieving jobs from registry with state filter: {state}")
 
         with self.conn as conn:
-          job_list = conn.execute("""
+            job_list = conn.execute("""
           select
             job.job_id,
             job.serialised_job,
@@ -356,4 +378,4 @@ class SQLiteJobRegistry(JobRegistry):
                 completed_at=completed_at,
                 duration_seconds=duration_seconds,
                 recovery_duration_seconds=recovery_duration_seconds,
-        )
+            )

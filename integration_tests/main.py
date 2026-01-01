@@ -1,7 +1,7 @@
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Iterator, Mapping
 import pathlib
 import re
-from typing import Generator, cast
+from typing import cast
 
 from zahir.base_types import Context, Dependency, Job
 from zahir.context import MemoryContext
@@ -80,9 +80,8 @@ def ChapterProcessor(context: Context, input, dependencies) -> Iterator[JobOutpu
 def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
     """Uppercase a list of words."""
 
-    yield JobOutputEvent({
-        "words": [word.upper() for word in input["words"]]
-    })
+    yield JobOutputEvent({"words": [word.upper() for word in input["words"]]})
+
 
 @job
 def LongestWordAssembly(context: Context, input, dependencies) -> Generator[Await | WorkflowOutputEvent]:

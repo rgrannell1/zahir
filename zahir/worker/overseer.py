@@ -33,7 +33,7 @@ import logging
 import sys
 
 logging.basicConfig(
-    level=logging.INFO,      # global default
+    level=logging.INFO,  # global default
     stream=sys.stderr,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )

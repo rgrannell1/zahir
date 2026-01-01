@@ -2,8 +2,7 @@ from collections.abc import Generator
 from dataclasses import dataclass, field
 from typing import Any
 
-from zahir.base_types import Job, JobRegistry, JobState
-from zahir.exception import ZahirInternalError
+from zahir.base_types import Job, JobRegistry
 
 
 @dataclass
@@ -54,9 +53,8 @@ class ZahirCallStack:
                 # All frames are complete. This does not mean the job is healthy.
                 all_done = all(job_registry.is_finished(required_id) for required_id in frame.required_jobs)
                 return idx if all_done else None
-            else:
-                # This Job should be running, I don't think this case can occur.
-                return idx
+            # This Job should be running, I don't think this case can occur.
+            return idx
 
             idx -= 1
 
