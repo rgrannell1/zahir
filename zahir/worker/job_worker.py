@@ -1,4 +1,5 @@
 import multiprocessing
+import os
 
 from zahir.base_types import Context
 from zahir.events import (
@@ -17,6 +18,8 @@ def zahir_job_worker(context: Context, output_queue: OutputQueue, workflow_id: s
     supervisor process.
 
     """
+
+    context.job_registry.init(str(os.getpid()))
 
     state = ZahirWorkerState(context, output_queue, workflow_id)
     current = StateChange(ZahirJobState.START, {"message": "Starting job worker"})

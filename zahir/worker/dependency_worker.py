@@ -1,3 +1,4 @@
+import os
 from tblib import pickling_support  # type: ignore[import-untyped]
 
 from zahir.exception import ImpossibleDependencyError, exception_to_text_blob
@@ -22,8 +23,10 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
 
     try:
         job_registry = context.job_registry
+        job_registry.init(str(os.getpid()))
+
         while True:
-            if not job_registry.active():
+            if not job_registry.is_active():
                 output_queue.put(
                     WorkflowCompleteEvent(
                         workflow_id=workflow_id,

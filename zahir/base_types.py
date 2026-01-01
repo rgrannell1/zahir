@@ -5,6 +5,7 @@ from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
+import multiprocessing
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -87,9 +88,6 @@ class JobState(StrEnum):
     # Ready to run
     READY = "ready"
 
-    # Job has been claimed by a worker, but not yet started
-    CLAIMED = "claimed"
-
     # Claimed, now paused
     PAUSED = "paused"
 
@@ -117,6 +115,7 @@ class JobState(StrEnum):
     # Even rollback failed; this job is irrecoverable
     IRRECOVERABLE = "irrecoverable"
 
+
 # Terminal job-states
 COMPLETED_JOB_STATES = {
     JobState.IMPOSSIBLE,
@@ -128,6 +127,15 @@ COMPLETED_JOB_STATES = {
     JobState.IRRECOVERABLE,
 }
 
+
+# Active, non-terminal job-states
+ACTIVE_JOB_STATES = {
+    JobState.PENDING,
+    JobState.BLOCKED,
+    JobState.READY,
+    JobState.PAUSED,
+    JobState.RECOVERING
+}
 
 @dataclass
 class JobInformation:
@@ -156,6 +164,15 @@ class JobRegistry(ABC):
     """Keeps track of jobs to be run."""
 
     @abstractmethod
+    def init(self, worker_id: str) -> None:
+        """Initialize the job registry for use by a particular worker.
+
+        @param worker_id: The ID of the worker using this registry
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
     def add(self, job: "Job", output_queue) -> str:
         """
         Register a job with the job registry, returning a job ID.
@@ -172,8 +189,14 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def active(self) -> bool:
-        """Return True if any jobs are active (pending, ready, claimed, running, recovering)."""
+    def is_active(self) -> bool:
+        """Return True if any jobs are in a non-terminal state"""
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def is_finished(self, job_id: str) -> bool:
+        """Is the job in a terminal state?"""
 
         raise NotImplementedError
 
@@ -184,24 +207,15 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def is_finished(self, job_id: str) -> bool:
-        """Is the job in a finished state?"""
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_state(self, job_id: str, workflow_id: str, output_queue, state: JobState, **kwargs) -> str:
-        """Set the state of a job by ID"""
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def set_output(self, job_id: str, workflow_id: str, output_queue, output: Mapping) -> None:
-        """Store the output of a completed job
-
-        @param job_id: The ID of the job
-        @param output: The output dictionary produced by the job
-        """
+    def set_state(
+        self,
+        job_id: str,
+        workflow_id: str,
+        output_queue: multiprocessing.Queue,
+        state: JobState,
+        error: BaseException | None = None
+    ) -> str:
+        """Set the state of a job by ID."""
 
         raise NotImplementedError
 
@@ -216,11 +230,22 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_errors(self, job_id: str) -> list[BaseException]:
-        """Retrieve the errors associated with a job
+    def set_output(self, job_id: str, workflow_id: str, output_queue, output: Mapping) -> None:
+        """Store the output of a completed job
 
         @param job_id: The ID of the job
-        @return: A list of error messages
+        @param output: The output dictionary produced by the job
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_errors(self, job_id: str) -> list[BaseException]:
+        """Retrieve the errors associated with a job. A job can have multiple
+        errors potentially (precheck errror, then recovery error).
+
+        @param job_id: The ID of the job
+        @return: A list of errors
         """
 
         raise NotImplementedError
@@ -236,17 +261,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def workflow_outputs(self, workflow_id: str) -> Iterator["WorkflowOutputEvent"]:
-        """Get workflow output event containing all job outputs.
-
-        @param workflow_id: The ID of the workflow
-        @return: An iterator yielding a WorkflowOutputEvent with all outputs
-        """
-
-        raise NotImplementedError
-
-    @abstractmethod
-    def claim(self, context: "Context", pid: int) -> "Job | None":
+    def claim(self, context: "Context", worker_id: str) -> "Job | None":
         """Claim a pending job for execution.
 
         This method should atomically select a pending job, mark it as claimed,

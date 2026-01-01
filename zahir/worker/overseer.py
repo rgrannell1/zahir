@@ -1,8 +1,8 @@
 """Workers poll centrally for jobs to run, lease them, and return results back centrally. They report quiescence when there's nothing left to do, so the supervisor task can exit gracefully."""
 
-
 from collections.abc import Iterator
 import multiprocessing
+import os
 
 from tblib import pickling_support  # type: ignore[import-untyped]
 
@@ -28,6 +28,19 @@ from zahir.worker.dependency_worker import zahir_dependency_worker
 from zahir.worker.job_worker import zahir_job_worker
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
+
+import logging
+import sys
+
+logging.basicConfig(
+    level=logging.INFO,      # global default
+    stream=sys.stderr,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+
+for h in logging.getLogger().handlers:
+    h.setLevel(logging.INFO)
+
 
 pickling_support.install()
 
@@ -70,6 +83,8 @@ def zahir_worker_overseer(start, context, worker_count: int = 4, all_events: boo
 
     output_queue.put(WorkflowStartedEvent(workflow_id=workflow_id))
 
+    context.job_registry.init(str(os.getpid()))
+    context.job_registry.delete_claims()
     if start is not None:
         context.job_registry.add(start, output_queue)
 

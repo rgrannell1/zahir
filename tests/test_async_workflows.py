@@ -4,7 +4,19 @@ import pathlib
 from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.dependencies.time import TimeDependency
-from zahir.events import Await, JobEvent, JobIrrecoverableEvent, JobOutputEvent, JobPausedEvent, JobRecoveryStartedEvent, JobStartedEvent, WorkflowCompleteEvent, WorkflowOutputEvent, WorkflowStartedEvent, ZahirCustomEvent
+from zahir.events import (
+    Await,
+    JobEvent,
+    JobIrrecoverableEvent,
+    JobOutputEvent,
+    JobPausedEvent,
+    JobRecoveryStartedEvent,
+    JobStartedEvent,
+    WorkflowCompleteEvent,
+    WorkflowOutputEvent,
+    WorkflowStartedEvent,
+    ZahirCustomEvent,
+)
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.tasks.decorator import job
@@ -81,9 +93,7 @@ def test_impossible_async_workflow():
         jobs=[AddJob, YieldMany, ImpossibleParentJob],
         dependencies=[TimeDependency],
     )
-    context = MemoryContext(
-        scope=scope, job_registry=SQLiteJobRegistry(tmp_file)
-    )
+    context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
     workflow = LocalWorkflow(context)
 

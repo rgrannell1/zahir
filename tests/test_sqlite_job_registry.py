@@ -45,6 +45,7 @@ def test_sqlite_job_registry_lifecycle():
         db_path = tmp.name
     try:
         registry = SQLiteJobRegistry(db_path)
+        registry.init('test-worker')
         job = DummyJob(job_id="job1")
         import multiprocessing
 

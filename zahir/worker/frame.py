@@ -1,9 +1,9 @@
-
 from collections.abc import Generator
 from dataclasses import dataclass, field
 
 from zahir.base_types import Job, JobRegistry, JobState
 from zahir.exception import ZahirInternalError
+
 
 @dataclass
 class ZahirCallStack:
@@ -51,10 +51,7 @@ class ZahirCallStack:
             # This job is `Paused`` and awaiting other jobs
             if frame.required_jobs:
                 # All frames are complete. This does not mean the job is healthy.
-                all_done = all(
-                    job_registry.is_finished(required_id)
-                    for required_id in frame.required_jobs
-                )
+                all_done = all(job_registry.is_finished(required_id) for required_id in frame.required_jobs)
                 return idx if all_done else None
             else:
                 # This Job should be running, I don't think this case can occur.

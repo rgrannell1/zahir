@@ -1,0 +1,355 @@
+
+from datetime import datetime
+import json
+import multiprocessing
+import sqlite3
+from typing import Any, Iterator, Mapping
+
+from zahir.base_types import ACTIVE_JOB_STATES, COMPLETED_JOB_STATES, Context, Job, JobInformation, JobRegistry, JobState
+from zahir.events import (
+    JobCompletedEvent,
+    JobEvent
+)
+from zahir.job_registry.state_event import create_state_event
+
+from zahir.exception import DuplicateJobError, MissingJobError, MissingJobError, exception_from_text_blob, exception_from_text_blob, exception_to_text_blob
+from zahir.job_registry.sqlite.tables import CLAIMED_JOBS_TABLE_SCHEMA, JOB_ERRORS_TABLE_SCHEMA, JOB_OUTPUTS_TABLE_SCHEMA, JOBS_INDEX, JOBS_TABLE_SCHEMA
+
+import logging
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
+log.debug("Loaded SQLiteJobRegistry v2")
+
+class SQLiteJobRegistry(JobRegistry):
+    conn: sqlite3.Connection
+
+    def __init__(self, db_path: str):
+        self._db_path = db_path
+
+    def _create_connection(self) -> sqlite3.Connection:
+        """Create and configure a new database connection."""
+
+        log.debug(f"Creating new database connection to {self._db_path}")
+        conn = sqlite3.connect(self._db_path, timeout=5.0, isolation_level="IMMEDIATE", check_same_thread=False)
+
+        # WAL-mode for concurrent reads and writes
+        conn.execute("PRAGMA journal_mode=WAL;")
+        # We do want foreign key constraints
+        conn.execute("PRAGMA foreign_keys=ON;")
+        # Not too long to wait
+        conn.execute("PRAGMA busy_timeout=5000;")
+
+        return conn
+
+    def init(self, worker_id: str) -> None:
+        """Establish a database connection, create tables, and clear per-run data."""
+
+        self.conn = self._create_connection()
+        log.debug(f"Database connection established to {self._db_path} for {worker_id}")
+
+        with self.conn as conn:
+            for schema in [
+                JOBS_TABLE_SCHEMA,
+                JOB_OUTPUTS_TABLE_SCHEMA,
+                JOB_ERRORS_TABLE_SCHEMA,
+                CLAIMED_JOBS_TABLE_SCHEMA,
+                JOBS_INDEX,
+            ]:
+                conn.execute(schema)
+            conn.commit()
+
+    def delete_claims(self) -> None:
+        """Delete all job claims. Used at startup to clear any stale claims."""
+
+        log.debug("Clearing all job claims from previous runs")
+
+        with self.conn as conn:
+            conn.execute("delete from claimed_jobs;")
+            conn.commit()
+
+    def set_claim(self, job_id: str, worker_id: str) -> bool:
+        """Set a claim for a job by a worker."""
+
+        log.debug(f"Setting claim for job {job_id} by worker {worker_id}")
+
+        with self.conn as conn:
+            cursor = conn.execute(
+                "insert into claimed_jobs (job_id, worker_id) values (?, ?);",
+                (job_id, worker_id),
+            )
+
+            return cursor.lastrowid == 1
+
+    def claim(self, context: Context, worker_id: str) -> Job | None:
+        """Claim a job for processing by a worker."""
+
+        log.debug(f"Worker {worker_id} attempting to claim a job")
+
+        with self.conn as conn:
+            conn.execute("begin immediate;")
+            claimed_row = conn.execute(
+                """
+                insert into claimed_jobs (job_id, claimed_by)
+                  select jobs.job_id, ?
+                  from jobs
+                  left join claimed_jobs
+                      on claimed_jobs.job_id = jobs.job_id
+                  where jobs.state = ?
+                  and claimed_jobs.job_id is null
+                  order by jobs.created_at
+                  limit 1
+                  returning job_id
+                """,
+                (worker_id, JobState.READY.value),
+            ).fetchone()
+
+            # Bail and end the transaction if no job was claimed
+            if claimed_row is None:
+              conn.commit()
+              return None
+
+            # Same transaction: fetch the job data
+            (job_id,) = claimed_row
+            job_row = conn.execute("select serialised_job from jobs where job_id = ?", (job_id,)).fetchone()
+
+            conn.commit()
+
+            if job_row is None:
+                return None
+
+            # Load the job data
+            (serialised_job,) = job_row
+            job_data = json.loads(serialised_job)
+            job_class = context.scope.get_job_class(job_data["type"])
+
+            return job_class.load(context, job_data)
+
+    def add(self, job: Job, output_queue: multiprocessing.Queue) -> str:
+        """Add the job to the database exactly once"""
+
+        log.debug(f"Adding job {job.job_id} to registry")
+
+        job_id = job.job_id
+        saved_job = job.save()
+        serialised = json.dumps(saved_job)
+
+        # Jobs need their dependencies verified to have passed before they can run;
+        # so by default they start as PENDING unless they have no dependencies.
+        job_state = JobState.READY.value if job.dependencies.empty() else JobState.PENDING.value
+
+        with self.conn as conn:
+
+            # Check if the job already exists, complain loudly if you try to add it twice
+            existing = conn.execute("select 1 from jobs where job_id = ?", (job_id,)).fetchone()
+            if existing is not None:
+              conn.commit()
+              raise DuplicateJobError(f"Job with ID {job_id} already exists in the registry.")
+
+            conn.execute("begin immediate;")
+            conn.execute("insert into jobs (job_id, serialised_job, state) values (?, ?, ?)", (job_id, serialised, job_state))
+            conn.commit()
+
+            output_queue.put(JobEvent(job=saved_job))
+
+        return job_id
+
+    def get_state(self, job_id: str) -> JobState:
+        """Get the current state of a job. Error if the job is not found."""
+
+        log.debug(f"Getting state for job {job_id}")
+
+        with self.conn as conn:
+            row = conn.execute("select state from jobs where job_id = ?", (job_id,)).fetchone()
+
+            if row is None:
+                raise MissingJobError(f"Job with ID {job_id} not found in registry.")
+
+            (state_str,) = row
+            return JobState(state_str)
+
+    def is_finished(self, job_id: str) -> bool:
+        """Is the job in a terminal state?"""
+
+        log.debug(f"Checking if job {job_id} is finished")
+
+        return self.get_state(job_id) in COMPLETED_JOB_STATES
+
+    def set_state(
+        self,
+        job_id: str,
+        workflow_id: str,
+        output_queue: multiprocessing.Queue,
+        state: JobState,
+        error: BaseException | None = None
+        ) -> str:
+        """Set the state of a job. Optionally add an error if transitioning to a failure state."""
+
+        log.debug(f"Setting state for job {job_id} to {state}")
+
+        with self.conn as conn:
+            conn.execute("begin immediate;")
+            conn.execute("update jobs set state = ? where job_id = ?", (state.value, job_id))
+
+            if error is not None:
+                serialised_error = exception_to_text_blob(error)
+                conn.execute("insert into job_errors (job_id, error_blob) values (?, ?)", (job_id, serialised_error))
+
+            conn.commit()
+
+        event = create_state_event(state, workflow_id, job_id, error=error)
+        if event is not None:
+            output_queue.put(event)
+
+        return job_id
+
+    def set_output(self, job_id: str, workflow_id: str, output_queue: multiprocessing.Queue, output: Mapping[str, Any]) -> None:
+        """Set the output of a job. Mark the job as complete, and emit a completion event."""
+
+        log.debug(f"Setting output for job {job_id} and marking as completed")
+
+        serialised_output = json.dumps(output)
+        with self.conn as conn:
+            conn.execute("begin immediate;")
+            conn.execute("""
+            insert into job_outputs (job_id, output)
+            values (?, ?)
+            on conflict(job_id) do update set output=excluded.output;
+            """, (job_id, serialised_output))
+
+            conn.execute("update jobs set state =? where job_id = ?", (JobState.COMPLETED.value, job_id))
+            conn.commit()
+
+        # Emit event after transaction completes
+        output_queue.put(
+            JobCompletedEvent(
+                job_id=job_id,
+                workflow_id=workflow_id,
+                duration_seconds=0.1,
+            )
+        )
+
+    def get_output(self, job_id: str) -> Mapping[str, Any] | None:
+        """Get the output of a completed job.
+
+        @param job_id: The ID of the job to get the output for.
+        @return: The output mapping, or None if no output is found.
+        """
+
+        log.debug(f"Getting output for job {job_id}")
+
+        with self.conn as conn:
+            row = conn.execute("select output from job_outputs where job_id = ?", (job_id,)).fetchone()
+
+            if row is None:
+                return None
+
+            (serialised_output,) = row
+            return json.loads(serialised_output)
+
+    def add_error(self, job_id: str, error: BaseException) -> None:
+        """Add an error for the job."""
+
+        log.debug(f"Adding error for job {job_id}")
+
+        serialised_error = exception_to_text_blob(error)
+
+        with self.conn as conn:
+            conn.execute("begin immediate;")
+            conn.execute("insert into job_errors (job_id, error_blob) values (?, ?)", (job_id, serialised_error))
+            conn.commit()
+
+    def get_errors(self, job_id: str) -> list[BaseException]:
+        """Get all errors for a job.
+
+        @param job_id: The ID of the job to get errors for.
+        @return: A list of exceptions associated with the job.
+        """
+
+        log.debug(f"Getting errors for job {job_id}")
+
+        with self.conn as conn:
+            rows = conn.execute("select error_blob from job_errors where job_id = ?", (job_id,)).fetchall()
+
+            errors: list[BaseException] = []
+            for (error_blob,) in rows:
+                error = exception_from_text_blob(error_blob)
+                errors.append(error)
+
+            return errors
+
+    def is_active(self) -> bool:
+        """Are any jobs active in the registry?
+
+        @return: True if there are any jobs in non-terminal states.
+        """
+
+        log.debug("Checking if any jobs are active in the registry")
+
+        with self.conn as conn:
+            q_marks = ",".join("?" for _ in ACTIVE_JOB_STATES)
+            row = conn.execute(
+                "select 1 from jobs where state in ({}) limit 1".format(q_marks),
+                tuple(state.value for state in ACTIVE_JOB_STATES),
+            ).fetchone()
+            print(row)
+
+        return row is not None
+
+    def jobs(self, context: Context, state: JobState | None = None) -> Iterator[JobInformation]:
+        """Retrieve all jobs, optionally filtered by state.
+
+        @param context: The context to use for loading job classes.
+        @param state: Optional state to filter jobs by.
+        @return: A list of job information
+        """
+
+        log.debug(f"Retrieving jobs from registry with state filter: {state}")
+
+        with self.conn as conn:
+          job_list = conn.execute("""
+          select
+            job.job_id,
+            job.serialised_job,
+            job.state,
+            out.output,
+            job.started_at,
+            job.completed_at,
+            job.duration_seconds,
+            job.recovery_duration_seconds
+          from jobs as job
+          left join job_outputs as out on out.job_id = job.job_id
+          """).fetchall()
+
+        for (
+            job_id,
+            serialised_job,
+            state_str,
+            serialised_output,
+            started_at,
+            completed_at,
+            duration_seconds,
+            recovery_duration_seconds,
+        ) in job_list:
+            job_data = json.loads(serialised_job)
+            job_class = context.scope.get_job_class(job_data["type"])
+            job = job_class.load(context, job_data)
+
+            job_state = JobState(state_str)
+            output = json.loads(serialised_output) if serialised_output is not None else None
+            started_at = datetime.fromisoformat(started_at) if started_at is not None else None
+            completed_at = datetime.fromisoformat(completed_at) if completed_at is not None else None
+
+            if state is not None and job_state != state:
+                continue
+
+            yield JobInformation(
+                job_id=job_id,
+                job=job,
+                state=job_state,
+                output=output,
+                started_at=started_at,
+                completed_at=completed_at,
+                duration_seconds=duration_seconds,
+                recovery_duration_seconds=recovery_duration_seconds,
+        )

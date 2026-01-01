@@ -7,8 +7,15 @@ import pickle
 class ZahirError(BaseException):
     """Base exception for Zahir-related errors."""
 
+
 class ZahirInternalError(ZahirError):
     """An internal Zahir error has occurred."""
+
+class DuplicateJobError(ZahirInternalError):
+    """A job with the same ID already exists in the registry."""
+
+class MissingJobError(ZahirInternalError):
+    """A job could not be found in the registry."""
 
 class JobPrecheckError(ZahirError):
     """A job precheck has failed."""
@@ -16,14 +23,18 @@ class JobPrecheckError(ZahirError):
 class ImpossibleDependencyError(ZahirError):
     """A job has an impossible dependency."""
 
+
 class DependencyMissingError(ZahirError):
     """A dependency required by a job is missing."""
+
 
 class JobTimeoutError(ZahirError):
     """A job has exceeded its allowed execution time."""
 
+
 class JobRecoveryTimeoutError(ZahirError):
     """A job recovery attempt has exceeded its allowed time."""
+
 
 class NotInScopeError(ZahirError):
     """A class was not found in the current scope."""

@@ -1,4 +1,3 @@
-
 from tblib import pickling_support  # type: ignore[import-untyped]
 
 from zahir.base_types import Context, Job, JobRegistry, JobState
@@ -156,7 +155,8 @@ class ZahirJobStateMachine:
         # We also need to claim new jobs while other jobs are stuck in pending. And keep track of ordering.
 
         # First, let's make sure we have at least one job, by adding it to the stack
-        job = state.context.job_registry.claim(state.context, os.getpid())
+        job = state.context.job_registry.claim(state.context, str(os.getpid()))
+
         if job is None:
             return StateChange(
                 ZahirJobState.WAIT_FOR_JOB, {"message": "no pending job to claim, so waiting for one to appear"}
@@ -268,7 +268,9 @@ class ZahirJobStateMachine:
 
         return StateChange(
             ZahirJobState.ENQUEUE_JOB,
-            {"message": f"Paused job {frame_job_id}, enqueuing awaited job {awaited_job_id}, and moving on to something else..."},
+            {
+                "message": f"Paused job {frame_job_id}, enqueuing awaited job {awaited_job_id}, and moving on to something else..."
+            },
         ), state
 
     @classmethod
@@ -324,8 +326,7 @@ class ZahirJobStateMachine:
         error = JobTimeoutError("Job execution timed out")
 
         state.context.job_registry.set_state(
-            state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.TIMED_OUT,
-            error=error
+            state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.TIMED_OUT, error=error
         )
 
         job_type = state.frame.job_type()
@@ -341,8 +342,7 @@ class ZahirJobStateMachine:
         error = JobRecoveryTimeoutError("Recovery job execution timed out")
 
         state.context.job_registry.set_state(
-            state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.RECOVERY_TIMED_OUT,
-            error=error
+            state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.RECOVERY_TIMED_OUT, error=error
         )
         job_type = state.frame.job_type()
         state.frame = None
@@ -540,7 +540,7 @@ def read_job_events(
     output_queue: OutputQueue,
     state: ZahirWorkerState,
     workflow_id: str,
-    job_id: str
+    job_id: str,
 ) -> Await | JobOutputEvent | None:
     """Sent job output items to the output queue."""
 
