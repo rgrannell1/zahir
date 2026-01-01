@@ -18,10 +18,14 @@ def job(fn: Callable[..., Any]):
     qual = qual.rsplit(".", 1)[0] if isinstance(qual, str) else class_name
     class_qualname = f"{mod}.{qual}.{class_name}" if qual else f"{mod}.{class_name}"
 
+    # Wrapper that adds cls parameter for the classmethod
+    def run_wrapper(cls, context, input, dependencies):
+        return fn(context, input, dependencies)
+
     ns: dict[str, Any] = {}
 
     # the main requirement; define `run`
-    ns["run"] = classmethod(fn)
+    ns["run"] = classmethod(run_wrapper)
 
     ns["__module__"] = mod
     ns["__qualname__"] = class_qualname

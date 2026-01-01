@@ -18,7 +18,7 @@ from zahir.worker import LocalWorkflow
 
 
 @job
-def JustReturns(cls, context: Context, input, dependencies):
+def JustReturns(context: Context, input, dependencies):
     """Interyield to another job"""
 
     yield ZahirCustomEvent(output={"message": "This should be seen"})

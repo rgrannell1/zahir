@@ -31,7 +31,7 @@ class PrecheckFailsJob(Job):
 
 
 @job
-def ParentJob(cls, context: Context, input, dependencies):
+def ParentJob(context: Context, input, dependencies):
     """A parent job that yields to the inner async job. Proves nested awaits work."""
 
     _ = yield Await(PrecheckFailsJob({"test": 1234}, {}))

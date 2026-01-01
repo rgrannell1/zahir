@@ -24,14 +24,14 @@ from zahir.worker import LocalWorkflow
 
 
 @job
-def AddJob(cls, context: Context, input, dependencies):
+def AddJob(context: Context, input, dependencies):
     """Add to the input count and yield it"""
 
     yield JobOutputEvent({"count": input["count"] + 1})
 
 
 @job
-def YieldMany(cls, context: Context, input, dependencies):
+def YieldMany(context: Context, input, dependencies):
     """Interyield to another job"""
 
     count = 0
@@ -44,7 +44,7 @@ def YieldMany(cls, context: Context, input, dependencies):
 
 
 @job
-def ParentJob(cls, context: Context, input, dependencies):
+def ParentJob(context: Context, input, dependencies):
     """A parent job that yields to the inner async job. Proves nested awaits work."""
 
     subcount = yield Await(YieldMany({}, {}))
@@ -73,7 +73,7 @@ def test_nested_async_workflow():
 
 
 @job
-def ImpossibleParentJob(cls, context: Context, input, dependencies):
+def ImpossibleParentJob(context: Context, input, dependencies):
     """A parent job that yields to an impossible inner job."""
 
     dependency = TimeDependency(before=datetime.datetime(2000, 1, 1, 0, 0, 0, tzinfo=datetime.UTC))
