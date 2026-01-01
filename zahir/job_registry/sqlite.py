@@ -237,6 +237,9 @@ class SQLiteJobRegistry(JobRegistry):
                 )
             )
         elif state == JobState.TIMED_OUT:
+            error = kwargs["error"]
+            self.set_error(job_id, error)
+
             output_queue.put(
                 JobTimeoutEvent(
                     job_id=job_id,
@@ -260,6 +263,9 @@ class SQLiteJobRegistry(JobRegistry):
                 )
             )
         elif state == JobState.RECOVERY_TIMED_OUT:
+            error = kwargs["error"]
+            self.set_error(job_id, error)
+
             output_queue.put(
                 JobRecoveryTimeoutEvent(
                     job_id=job_id,
@@ -270,9 +276,15 @@ class SQLiteJobRegistry(JobRegistry):
         elif state == JobState.IRRECOVERABLE:
             error = kwargs["error"]
             self.set_error(job_id, error)
+
             output_queue.put(JobIrrecoverableEvent(job_id=job_id, workflow_id=workflow_id, error=error))
+        elif state == JobState.IMPOSSIBLE:
+            error = kwargs["error"]
+            self.set_error(job_id, error)
+
 
         return job_id
+
 
     def set_output(self, job_id: str, workflow_id: str, output_queue, output: Mapping) -> None:
         serialised_output = json.dumps(output)

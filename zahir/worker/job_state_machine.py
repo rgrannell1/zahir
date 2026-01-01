@@ -566,13 +566,10 @@ def read_job_events(
         if errors:
             # mystery tblib error. The job hangs when I throw a wrapped
             # exception into the generator. So, unwrap and rethrow.
-            # Loses stack-trace though, so something better is needed
+            # THis is very bad, never use pickle...
             not_throwable = errors[-1]
 
-            pickling_support.uninstall()
-            throwable: BaseException = cast(BaseException, type(not_throwable)(str(not_throwable)))
-
-            event = state.frame.job_generator.throw(throwable)
+            event = state.frame.job_generator.throw(Exception(str(not_throwable)))
             pickling_support.install()
         else:
             event = state.frame.job_generator.send(output)

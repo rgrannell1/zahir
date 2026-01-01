@@ -4,7 +4,7 @@ import pathlib
 from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.dependencies.time import TimeDependency
-from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent, ZahirCustomEvent
+from zahir.events import Await, JobEvent, JobIrrecoverableEvent, JobOutputEvent, JobPausedEvent, JobRecoveryStartedEvent, JobStartedEvent, WorkflowCompleteEvent, WorkflowOutputEvent, WorkflowStartedEvent, ZahirCustomEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.tasks.decorator import job
@@ -89,8 +89,17 @@ def test_impossible_async_workflow():
 
     blocked = ImpossibleParentJob({}, {})
     events = list(workflow.run(blocked, all_events=True))
-    for event in events:
-        print(event)
+
+    assert isinstance(events[0], WorkflowStartedEvent)
+    assert isinstance(events[1], JobEvent)
+    assert isinstance(events[2], JobStartedEvent)
+    assert isinstance(events[3], JobPausedEvent)
+    assert isinstance(events[4], JobEvent)
+    assert isinstance(events[5], JobStartedEvent)
+    assert isinstance(events[6], JobRecoveryStartedEvent)
+    assert isinstance(events[7], JobStartedEvent)
+    assert isinstance(events[8], JobIrrecoverableEvent)
+    assert isinstance(events[9], WorkflowCompleteEvent)
 
 
 test_impossible_async_workflow()
