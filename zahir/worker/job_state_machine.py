@@ -131,7 +131,14 @@ class ZahirJobStateMachine:
             if state.job_stack.is_empty():
                 return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "No job; enqueueing."}), state
 
-            return StateChange(ZahirJobState.POP_JOB, {"message": "No job active, so popping from stack"}), state
+            # We _could_ run this job by popping it of the frame. It's possible we'll actually run a
+            # differenet one when we pop a job, which is also fine.
+            runnable_frame_idx = state.job_stack.runnable_frame_idx(state.context.job_registry)
+
+            if runnable_frame_idx is not None:
+                return StateChange(ZahirJobState.POP_JOB, {"message": "No job active, so popping from stack"}), state
+            else:
+                return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "No job runnable; enqueueing."}), state
 
         job_type = state.frame.job_type()
 

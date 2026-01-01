@@ -7,10 +7,14 @@ import pickle
 class ZahirError(BaseException):
     """Base exception for Zahir-related errors."""
 
+class ZahirInternalError(ZahirError):
+    """An internal Zahir error has occurred."""
 
 class JobPrecheckError(ZahirError):
     """A job precheck has failed."""
 
+class ImpossibleDependencyError(ZahirError):
+    """A job has an impossible dependency."""
 
 class DependencyMissingError(ZahirError):
     """A dependency required by a job is missing."""

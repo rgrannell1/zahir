@@ -117,6 +117,17 @@ class JobState(StrEnum):
     # Even rollback failed; this job is irrecoverable
     IRRECOVERABLE = "irrecoverable"
 
+# Terminal job-states
+COMPLETED_JOB_STATES = {
+    JobState.IMPOSSIBLE,
+    JobState.PRECHECK_FAILED,
+    JobState.COMPLETED,
+    JobState.RECOVERED,
+    JobState.TIMED_OUT,
+    JobState.RECOVERY_TIMED_OUT,
+    JobState.IRRECOVERABLE,
+}
+
 
 @dataclass
 class JobInformation:
@@ -173,7 +184,13 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_state(self, job_id: str, workflow_id: str, output_queue, state: JobState) -> str:
+    def is_finished(self, job_id: str) -> bool:
+        """Is the job in a finished state?"""
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def set_state(self, job_id: str, workflow_id: str, output_queue, state: JobState, **kwargs) -> str:
         """Set the state of a job by ID"""
 
         raise NotImplementedError
@@ -199,7 +216,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_errors(self, job_id: str) -> list[str]:
+    def get_errors(self, job_id: str) -> list[BaseException]:
         """Retrieve the errors associated with a job
 
         @param job_id: The ID of the job

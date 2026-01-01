@@ -8,6 +8,7 @@ import sqlite3
 from typing import cast
 
 from zahir.base_types import (
+    COMPLETED_JOB_STATES,
     Context,
     Job,
     JobInformation,
@@ -71,6 +72,8 @@ create table if not exists claimed_jobs (
 JOBS_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs(state)
 """
+
+
 
 
 class SQLiteJobRegistry(JobRegistry):
@@ -201,6 +204,9 @@ class SQLiteJobRegistry(JobRegistry):
             raise KeyError(f"Job ID {job_id} not found in registry")
 
         return JobState(row[0])
+
+    def is_finished(self, job_id: str) -> bool:
+        return self.get_state(job_id) in COMPLETED_JOB_STATES
 
     def set_state(self, job_id: str, workflow_id: str, output_queue, state: JobState, **kwargs) -> str:
         with self._connect() as conn:

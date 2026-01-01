@@ -1,6 +1,6 @@
 from tblib import pickling_support  # type: ignore[import-untyped]
 
-from zahir.exception import exception_to_text_blob
+from zahir.exception import ImpossibleDependencyError, exception_to_text_blob
 
 pickling_support.install()
 
@@ -21,8 +21,9 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
     """Analyse job dependencies and mark jobs as pending."""
 
     try:
+        job_registry = context.job_registry
         while True:
-            if not context.job_registry.active():
+            if not job_registry.active():
                 output_queue.put(
                     WorkflowCompleteEvent(
                         workflow_id=workflow_id,
@@ -32,15 +33,18 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
                 return
 
             # try to find blocked jobs whose dependencies are now satisfied
-            for job_info in context.job_registry.jobs(context, state=JobState.PENDING):
+            for job_info in job_registry.jobs(context, state=JobState.PENDING):
                 job = job_info.job
 
                 dependencies_state = job.dependencies.satisfied()
 
                 if dependencies_state == DependencyState.SATISFIED:
-                    context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.READY)
+                    job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.READY)
                 elif dependencies_state == DependencyState.IMPOSSIBLE:
-                    context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.IMPOSSIBLE)
+                    # Set an error, as awaited jobs cannot be run if impossible dependencies are present.
+
+                    error = ImpossibleDependencyError(f"Job {job.job_id} has impossible dependencies.")
+                    job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.IMPOSSIBLE, error=error)
 
             time.sleep(1)
     except Exception as err:
