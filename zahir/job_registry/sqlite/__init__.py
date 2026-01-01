@@ -35,8 +35,6 @@ from zahir.job_registry.state_event import create_state_event
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
-log.debug("Loaded SQLiteJobRegistry v2")
-
 
 class SQLiteJobRegistry(JobRegistry):
     conn: sqlite3.Connection

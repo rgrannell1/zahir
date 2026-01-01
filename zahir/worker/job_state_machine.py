@@ -1,3 +1,5 @@
+import logging
+
 from tblib import pickling_support  # type: ignore[import-untyped]
 
 from zahir.base_types import Context, Job, JobRegistry, JobState
@@ -29,6 +31,9 @@ import os
 import signal
 import time
 from typing import Any, cast
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 
 class ZahirJobState(StrEnum):
@@ -93,7 +98,7 @@ def log_call(fn):
             message += f" -> {next_state.state}({json.dumps(next_state.data)})"
 
         message += RESET
-        print(message)
+        log.info(message)
 
         return result
 
@@ -568,7 +573,7 @@ def read_job_events(
         for required_pid in required_pids:
             outputs.append(job_registry.get_output(required_pid))
             job_errors = job_registry.get_errors(required_pid)
-            errors = errors + job_errors
+            errors += job_errors
 
         # So, this sucks. I ported from a custom serialiser to tblib. Turns out tblib
         # can't handle throwing into generators. We'll need to port back to a custom serialiser (screw pickle anyway)
