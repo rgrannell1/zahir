@@ -395,7 +395,7 @@ requires-dist = [
     { name = "freezegun", marker = "extra == 'test'" },
     { name = "pytest", marker = "extra == 'test'" },
     { name = "pytest-cov", marker = "extra == 'test'" },
-    { name = "tblib", specifier = ">=1.8.0" },
+    { name = "tblib", specifier = ">=3.2.2" },
 ]
 provides-extras = ["test"]
 

@@ -1,3 +1,7 @@
+"""
+State changes correspond to events that get emitted.
+"""
+
 from zahir.base_types import JobState
 from zahir.events import (
     JobCompletedEvent,
