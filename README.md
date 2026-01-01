@@ -98,6 +98,7 @@ def LongestWordAssembly(context: Context, input, dependencies) -> Generator[Awai
             long_words.add(summary["longest_word"])
 
     # we can also just pause a task, delegate to another job, and get the result back!
+    # you can also await a list of jobs; the results are collected into an ordered list
     uppercased = yield Await(UppercaseWords({"words": list(long_words)}, {}))
 
     yield WorkflowOutputEvent({"longest_words_by_chapter": sorted(uppercased["words"], key=len)})
