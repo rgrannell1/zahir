@@ -1,8 +1,10 @@
+import datetime
 import pathlib
 
 from zahir.base_types import Context
 from zahir.context import MemoryContext
-from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
+from zahir.dependencies.time import TimeDependency
+from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent, ZahirCustomEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.tasks.decorator import job
@@ -56,3 +58,36 @@ def test_nested_async_workflow():
     final_event = events[0]
     assert isinstance(final_event, WorkflowOutputEvent)
     assert final_event.output["count"] == 2
+
+@job
+def ImpossibleParentJob(cls, context: Context, input, dependencies):
+    """A parent job that yields to an impossible inner job."""
+
+    dependency = TimeDependency(before=datetime.datetime(2000, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc))
+
+    yield Await(AddJob({"count": -1}, {"impossible_dependency": dependency}))
+    yield ZahirCustomEvent(output={"This should never be reached"})
+
+def test_impossible_async_workflow():
+    """Prove that an impossible job in an async workflow is handled correctly"""
+
+    tmp_file = "/tmp/zahir_yield_many_impossible.db"
+    pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
+    pathlib.Path(tmp_file).touch(exist_ok=True)
+
+    scope = LocalScope(
+        jobs=[AddJob, YieldMany, ImpossibleParentJob],
+        dependencies=[TimeDependency],
+    )
+    context = MemoryContext(
+        scope=scope, job_registry=SQLiteJobRegistry(tmp_file)
+    )
+
+    workflow = LocalWorkflow(context)
+
+    blocked = ImpossibleParentJob({}, {})
+    events = list(workflow.run(blocked, all_events=True))
+    for event in events:
+        print(event)
+
+test_impossible_async_workflow()

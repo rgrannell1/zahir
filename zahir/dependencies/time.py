@@ -23,7 +23,7 @@ class TimeDependency(Dependency):
     # What date must this job run after?
     after: datetime | None
 
-    def __init__(self, before: datetime | None, after: datetime | None) -> None:
+    def __init__(self, before: datetime | None = None, after: datetime | None = None) -> None:
         self.before = before
         self.after = after
 

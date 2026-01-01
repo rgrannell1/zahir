@@ -1,7 +1,7 @@
 
 from tblib import pickling_support  # type: ignore[import-untyped]
 
-from zahir.base_types import Context, Job, JobState
+from zahir.base_types import Context, Job, JobRegistry, JobState
 from zahir.events import (
     Await,
     JobCompletedEvent,
@@ -17,6 +17,7 @@ from zahir.events import (
     ZahirEvent,
 )
 from zahir.exception import JobPrecheckError
+from zahir.worker.frame import ZahirCallStack, ZahirStackFrame
 
 pickling_support.install()
 
@@ -72,7 +73,7 @@ GREEN = "\x1b[32m"
 RESET = "\x1b[0m"
 
 
-def times_up():
+def times_up(_signum, _frame):
     raise TimeoutError("Job execution timed out")
 
 
@@ -94,14 +95,13 @@ def log_call(fn):
             message += f" -> {next_state.state}({json.dumps(next_state.data)})"
 
         message += RESET
-        logging.info(message)
+        print(message)
 
         return result
 
     return wrapper
 
 
-# TODO update to just state.frame to simplify context switches
 class ZahirWorkerState:
     """Mutable state held during job execution."""
 
@@ -116,45 +116,6 @@ class ZahirWorkerState:
 
         # last_event holds a value (e.g. Await or JobOutputEvent) produced by a handler
         self.last_event: Any = None
-
-
-@dataclass
-class ZahirCallStack:
-    """Represents this worker process's call-stack of jobs"""
-
-    frames: list["ZahirStackFrame"]
-
-    def push(self, frame: "ZahirStackFrame"):
-        self.frames.append(frame)
-
-    def pop(self) -> "ZahirStackFrame":
-        if not self.frames:
-            raise IndexError("pop from empty call stack")
-        return self.frames.pop()
-
-    def is_empty(self) -> bool:
-        return len(self.frames) == 0
-
-    def top(self) -> "ZahirStackFrame | None":
-        if not self.frames:
-            return None
-        return self.frames[-1]
-
-
-@dataclass
-class ZahirStackFrame:
-    """An instantiated job, its run or recovery generator, and whether it's awaited.
-
-    Zahir job workers maintain a stack of call-frames for nested job execution.
-    """
-
-    job: Job
-    job_generator: Iterator
-    recovery: bool = False
-    required_jobs: set[str] = field(default_factory=set)
-
-    def job_type(self) -> str:
-        return type(self.job).__name__
 
 
 class ZahirJobStateMachine:
@@ -275,38 +236,29 @@ class ZahirJobStateMachine:
         job_stack = state.job_stack
         job_registry = state.context.job_registry
 
-        # Pause the current job, put it back on the worker-process stack and mark it awaited.
-        job_stack.push(state.frame)
-
-        # Current job awaits new job
-        awaited_job_id = state.await_event.job.job_id
-        state.frame.required_jobs.add(awaited_job_id)
-
-        # Pause the current job please in the registry
-        job_registry.set_state(state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.PAUSED)
-
         await_event = state.await_event
         assert await_event is not None
 
-        job = await_event.job
+        # Update the paused job to await the new one
+        awaited_job_id = await_event.job.job_id
+        state.frame.required_jobs.add(awaited_job_id)
 
-        # Add the job, claim it for this process, and set it to pending
-        # So that the dependency manager can check the dependencies actually pass
-        job_registry.add(job, state.output_queue)
-        job_registry.set_claim(job.job_id, os.getpid())
-        job_registry.set_state(job.job_id, state.workflow_id, state.output_queue, JobState.PENDING)
+        # Pause the current job, and put it back on the registry. `Paused` jobs
+        # are awaiting some job or other to be updated.
+        frame_job_id = state.frame.job.job_id
+        job_registry.set_state(frame_job_id, state.workflow_id, state.output_queue, JobState.PAUSED)
+        job_stack.push(state.frame)
+        state.frame = None
 
-        # ...then, let's instantiate the `run` generator
-        # this new job is not awaited yet (it's the awaited target)
-        state.frame = ZahirStackFrame(
-            job=job,
-            job_generator=type(job).run(state.context, job.input, job.dependencies),
-            recovery=False,
-        )
+        new_awaited_job = await_event.job
+
+        # The awaited job can just be run through the normal lifecycle, with the caveat that the _awaiting_
+        # job needs a marker thart it's awaiting the new job.
+        job_registry.add(new_awaited_job, state.output_queue)
 
         return StateChange(
-            ZahirJobState.CHECK_PRECONDITIONS,
-            {"message": f"Checking preconditions for awaited job '{type(job).__name__}'"},
+            ZahirJobState.ENQUEUE_JOB,
+            {"message": f"Paused job {frame_job_id}, enqueuing awaited job {awaited_job_id}, and moving on to something else..."},
         ), state
 
     @classmethod
@@ -565,7 +517,15 @@ class ZahirJobStateMachine:
         return getattr(cls, state_name.value)
 
 
-def read_job_events(gen, *, job_registry, output_queue, state, workflow_id, job_id) -> Await | JobOutputEvent | None:
+def read_job_events(
+    gen: Iterator,
+    *,
+    job_registry: JobRegistry,
+    output_queue: OutputQueue,
+    state: ZahirWorkerState,
+    workflow_id: str,
+    job_id: str
+) -> Await | JobOutputEvent | None:
     """Sent job output items to the output queue."""
 
     if not isinstance(gen, Iterator):
