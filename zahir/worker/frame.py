@@ -14,10 +14,15 @@ class ZahirCallStack:
     def push(self, frame: "ZahirStackFrame"):
         self.frames.append(frame)
 
-    def pop(self) -> "ZahirStackFrame":
+    def pop(self, index: int | None = None) -> "ZahirStackFrame":
+        """Pop a frame from the stack at the specified index, or from the top if no index is provided."""
         if not self.frames:
             raise IndexError("pop from empty call stack")
-        return self.frames.pop()
+
+        if index is None:
+            return self.frames.pop()
+
+        return self.frames.pop(index)
 
     def is_empty(self) -> bool:
         return len(self.frames) == 0

@@ -19,6 +19,11 @@ class ImpossibleDependencyError(ZahirError):
 class DependencyMissingError(ZahirError):
     """A dependency required by a job is missing."""
 
+class JobTimeoutError(ZahirError):
+    """A job has exceeded its allowed execution time."""
+
+class JobRecoveryTimeoutError(ZahirError):
+    """A job recovery attempt has exceeded its allowed time."""
 
 class NotInScopeError(ZahirError):
     """A class was not found in the current scope."""

@@ -16,7 +16,7 @@ from zahir.events import (
     ZahirCustomEvent,
     ZahirEvent,
 )
-from zahir.exception import JobPrecheckError
+from zahir.exception import JobPrecheckError, JobRecoveryTimeoutError, JobTimeoutError
 from zahir.worker.frame import ZahirCallStack, ZahirStackFrame
 
 pickling_support.install()
@@ -132,7 +132,7 @@ class ZahirJobStateMachine:
                 return StateChange(ZahirJobState.ENQUEUE_JOB, {"message": "No job; enqueueing."}), state
 
             # We _could_ run this job by popping it of the frame. It's possible we'll actually run a
-            # differenet one when we pop a job, which is also fine.
+            # different one when we pop a job, which is also fine.
             runnable_frame_idx = state.job_stack.runnable_frame_idx(state.context.job_registry)
 
             if runnable_frame_idx is not None:
@@ -186,8 +186,11 @@ class ZahirJobStateMachine:
     def pop_job(cls, state) -> tuple[StateChange, None]:
         """We need a job; pop one off the stack"""
 
-        frame = state.job_stack.pop()
-        state.frame = frame
+        # different one when we pop a job, which is also fine.
+        runnable_frame_idx = state.job_stack.runnable_frame_idx(state.context.job_registry)
+        assert runnable_frame_idx is not None
+
+        state.frame = state.job_stack.pop(runnable_frame_idx)
 
         job_state = state.context.job_registry.get_state(state.frame.job.job_id)
 
@@ -196,6 +199,7 @@ class ZahirJobStateMachine:
                 ZahirJobState.CHECK_PRECONDITIONS,
                 {"message": f"Job {type(state.frame.job).__name__} claimed and active"},
             ), state
+
         return StateChange(
             ZahirJobState.EXECUTE_JOB,
             {"message": f"Resuming job {type(state.frame.job).__name__} in state '{job_state}'"},
@@ -317,8 +321,11 @@ class ZahirJobStateMachine:
     def handle_job_timeout(cls, state) -> tuple[StateChange, None]:
         """The job timed out. Emit a timeout event, null out the job, and start over."""
 
+        error = JobTimeoutError("Job execution timed out")
+
         state.context.job_registry.set_state(
-            state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.TIMED_OUT
+            state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.TIMED_OUT,
+            error=error
         )
 
         job_type = state.frame.job_type()
@@ -331,8 +338,11 @@ class ZahirJobStateMachine:
     def handle_recovery_job_timeout(cls, state) -> tuple[StateChange, None]:
         """The recovery job timed out. Emit a recovery timeout event, null out the job, and start over."""
 
+        error = JobRecoveryTimeoutError("Recovery job execution timed out")
+
         state.context.job_registry.set_state(
-            state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.RECOVERY_TIMED_OUT
+            state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.RECOVERY_TIMED_OUT,
+            error=error
         )
         job_type = state.frame.job_type()
         state.frame = None
@@ -544,6 +554,8 @@ def read_job_events(
     # TO-DO: support awaitmany semantics by collecting inputs
     required_pids = list(state.frame.required_jobs)
     required_pid = required_pids[0] if required_pids else None
+
+    # TO-DO: this isn't picking up dependency issues
 
     if required_pid:
         # Get the errors and outputs for the pid on which we were waiting...
