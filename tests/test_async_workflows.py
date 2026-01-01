@@ -228,7 +228,7 @@ def AwaitManyFailing(context: Context, input, dependencies):
                 AddJob({"count": 30}, {}),
             ]
         )
-    except ValueError as err:
+    except Exception as err:
         yield WorkflowOutputEvent({"error": str(err)})
         return
 
@@ -250,4 +250,27 @@ def test_await_many_failing_workflow():
     blocked = AwaitManyFailing({}, {})
     events = list(workflow.run(blocked, all_events=True))
 
-    raise Exception("this should produce an output, but does not!")
+    assert isinstance(events[0], WorkflowStartedEvent)
+    assert isinstance(events[1], JobEvent)
+    assert isinstance(events[2], JobStartedEvent)
+    assert isinstance(events[3], JobEvent)
+    assert isinstance(events[4], JobEvent)
+    assert isinstance(events[5], JobEvent)
+    assert isinstance(events[6], JobPausedEvent)
+    assert isinstance(events[7], JobStartedEvent)
+    assert isinstance(events[8], JobOutputEvent)
+    assert isinstance(events[9], JobCompletedEvent)
+    assert isinstance(events[10], JobStartedEvent)
+    assert isinstance(events[11], JobRecoveryStartedEvent)
+    assert isinstance(events[12], JobStartedEvent)
+    assert isinstance(events[13], JobIrrecoverableEvent)
+    assert isinstance(events[14], JobStartedEvent)
+    assert isinstance(events[15], JobOutputEvent)
+    assert isinstance(events[16], JobCompletedEvent)
+    assert isinstance(events[17], JobStartedEvent)
+    assert isinstance(events[18], WorkflowOutputEvent)
+    assert isinstance(events[19], JobCompletedEvent)
+    assert isinstance(events[20], WorkflowCompleteEvent)
+
+    workflow_output = events[18]
+    assert workflow_output.output["error"] == "This job always fails."
