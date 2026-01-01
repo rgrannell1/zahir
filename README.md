@@ -49,26 +49,6 @@ So Zahir is maximally expressive and extensible, at some cost to static analysab
 The following example workflow reads the text of a book, splits it into chapters, and `ChapterProcessor` computes the longest word in each chapter. `LongestWordAssembly` depends on these results, aggregates them, and emits an output event with the longest words by chapter.
 
 ```python
-
-@job
-def BookProcessor(context: Context, input, dependencies) -> Iterator[Job | JobOutputEvent]:
-    pids = []
-    chapters = read_chapters(input["file_path"])
-
-    for chapter_lines in chapters:
-        chapter_job = ChapterProcessor({"lines": chapter_lines}, {})
-        yield chapter_job
-
-        pids.append(chapter_job.job_id)
-
-    assembly_deps: dict[str, list[Dependency]] = {
-        "chapters": [JobDependency(pid, context.job_registry) for pid in pids]
-    }
-
-    # continue processing the job results, compute the list of longest words in the books
-    yield LongestWordAssembly({}, assembly_deps)
-
-
 @job
 def ChapterProcessor(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
     """For each chapter, find the longest word."""
@@ -76,32 +56,27 @@ def ChapterProcessor(context: Context, input, dependencies) -> Iterator[JobOutpu
     # return the longest word found in the chapter
     yield JobOutputEvent({"longest_word": get_longest_word(input["lines"])})
 
+@job
+def BookProcessor(context: Context, input, dependencies) -> Generator[Await | Job | JobOutputEvent]:
+    longest_words = yield Await([
+        ChapterProcessor({"lines": chapter_lines}, {}) for chapter_lines in read_chapters(input["file_path"])
+    ])
+
+    long_words = set()
+
+    for summary in longest_words:
+        if summary is not None:
+            long_words.add(summary["longest_word"])
+
+    uppercased = yield Await(UppercaseWords({"words": list(long_words)}, {}))
+
+    yield WorkflowOutputEvent({"longest_words": uppercased["words"]})
 
 @job
 def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
     """Uppercase a list of words."""
 
-    yield JobOutputEvent({
-        "words": [word.upper() for word in input["words"]]
-    })
-
-@job
-def LongestWordAssembly(context: Context, input, dependencies) -> Generator[Await | WorkflowOutputEvent]:
-    """Assemble the longest words from each chapter into a unique list."""
-
-    long_words = set()
-    chapters = cast(list[JobDependency[Mapping]], dependencies.get("chapters"))
-
-    for dep in chapters:
-        summary = dep.output(context)
-        if summary is not None:
-            long_words.add(summary["longest_word"])
-
-    # we can also just pause a task, delegate to another job, and get the result back!
-    # you can also await a list of jobs; the results are collected into an ordered list
-    uppercased = yield Await(UppercaseWords({"words": list(long_words)}, {}))
-
-    yield WorkflowOutputEvent({"longest_words_by_chapter": sorted(uppercased["words"], key=len)})
+    yield JobOutputEvent({"words": [word.upper() for word in input["words"]]})
 ```
 
 The boilerplate to start jobs is likely to be reduced, but is currently:
@@ -109,7 +84,7 @@ The boilerplate to start jobs is likely to be reduced, but is currently:
 ```py
 # Ensure we can translate serialised data back to classes
 scope = LocalScope(
-    jobs=[BookProcessor, ChapterProcessor, LongestWordAssembly, UppercaseWords],
+    jobs=[BookProcessor, ChapterProcessor, UppercaseWords],
     dependencies=[DependencyGroup, JobDependency],
 )
 
