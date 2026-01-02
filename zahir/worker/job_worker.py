@@ -7,7 +7,8 @@ from zahir.events import (
     ZahirInternalErrorEvent,
 )
 from zahir.exception import exception_to_text_blob
-from zahir.worker.job_state_machine import StateChange, ZahirJobState, ZahirJobStateMachine, ZahirWorkerState
+from zahir.worker.job_state_machine import ZahirJobStateMachine, ZahirWorkerState
+from zahir.worker.state_machine.states import StartStateChange
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
@@ -22,7 +23,7 @@ def zahir_job_worker(context: Context, output_queue: OutputQueue, workflow_id: s
     context.job_registry.init(str(os.getpid()))
 
     state = ZahirWorkerState(context, output_queue, workflow_id)
-    current = StateChange(ZahirJobState.START, {"message": "Starting job worker"})
+    current = StartStateChange({"message": "Starting job worker"})
 
     # ...so I put a workflow engine inside your workflow engine
     while True:

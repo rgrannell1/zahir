@@ -165,7 +165,8 @@ class SQLiteJobRegistry(JobRegistry):
             conn.execute("begin immediate;")
             created_at = datetime.now(tz=timezone.utc).isoformat()
             conn.execute(
-                "insert into jobs (job_id, serialised_job, state, created_at) values (?, ?, ?, ?)", (job_id, serialised, job_state, created_at)
+                "insert into jobs (job_id, serialised_job, state, created_at) values (?, ?, ?, ?)",
+                (job_id, serialised, job_state, created_at),
             )
 
             conn.commit()
@@ -214,12 +215,16 @@ class SQLiteJobRegistry(JobRegistry):
             if state == JobState.RUNNING:
                 # We're starting the job, set ther start-time if not already set
                 started_at = datetime.now(tz=timezone.utc).isoformat()
-                conn.execute("update jobs set started_at = ? where job_id = ? and started_at is null", (started_at, job_id))
+                conn.execute(
+                    "update jobs set started_at = ? where job_id = ? and started_at is null", (started_at, job_id)
+                )
 
             if state in COMPLETED_JOB_STATES:
                 # Job is in a terminal-state; set completed time if not already set
                 completed_at = datetime.now(tz=timezone.utc).isoformat()
-                conn.execute("update jobs set completed_at = ? where job_id = ? and completed_at is null", (completed_at, job_id))
+                conn.execute(
+                    "update jobs set completed_at = ? where job_id = ? and completed_at is null", (completed_at, job_id)
+                )
 
             if error is not None:
                 error_trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))
@@ -256,7 +261,9 @@ class SQLiteJobRegistry(JobRegistry):
             )
 
             now = datetime.now(tz=timezone.utc).isoformat()
-            conn.execute("update jobs set state = ?, completed_at = ? where job_id = ?", (JobState.COMPLETED.value, now, job_id))
+            conn.execute(
+                "update jobs set state = ?, completed_at = ? where job_id = ?", (JobState.COMPLETED.value, now, job_id)
+            )
             conn.commit()
 
         # Emit event after transaction completes

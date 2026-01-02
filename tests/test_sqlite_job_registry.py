@@ -51,10 +51,7 @@ def test_sqlite_job_registry_lifecycle():
 
         # Use a real Context with dummy event registry and logger
         scope = LocalScope(jobs=[DummyJob])
-        dummy_context = Context(
-            scope=scope,
-            job_registry=registry
-        )
+        dummy_context = Context(scope=scope, job_registry=registry)
         info = list(registry.jobs(dummy_context))
         assert any(j.job_id == job_id for j in info)
     finally:
