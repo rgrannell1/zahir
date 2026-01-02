@@ -117,18 +117,18 @@ class ZahirJobStateMachine:
 
     @classmethod
     @log_call
-    def enqueue_job(cls, state) -> tuple[WaitForJobStateChange | StartStateChange, None]:
-        """ """
-
-        return enqueue_job(state)
-
-    @classmethod
-    @log_call
     def wait_for_job(cls, state) -> tuple[StartStateChange, None]:
         """No jobs available; for the moment let's just sleep. In future, be cleverer
         and have dependencies suggest nap-times"""
 
         return wait_for_job(state)
+
+    @classmethod
+    @log_call
+    def enqueue_job(cls, state) -> tuple[WaitForJobStateChange | StartStateChange, None]:
+        """ """
+
+        return enqueue_job(state)
 
     @classmethod
     @log_call

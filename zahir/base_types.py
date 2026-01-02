@@ -379,6 +379,8 @@ class JobOptions:
 class Job[ArgsType, OutputType](ABC):
     """Jobs can depend on other jobs."""
 
+    job_options: JobOptions | None
+
     # Optional parent job ID for traceability
     parent_id: str | None
 
@@ -406,7 +408,7 @@ class Job[ArgsType, OutputType](ABC):
         self.job_id = job_id if job_id is not None else generate_id(3)
         self.input = input
         self.dependencies = dependencies if isinstance(dependencies, DependencyGroup) else DependencyGroup(dependencies)
-        self.options = options
+        self.job_options = options
 
     @staticmethod
     def precheck(input: ArgsType) -> list[str]:
@@ -480,7 +482,7 @@ class Job[ArgsType, OutputType](ABC):
             "parent_id": self.parent_id,
             "input": cast(Mapping[str, Any], self.input),
             "dependencies": self.dependencies.save(),
-            "options": self.options.save() if self.options else None,
+            "options": self.job_options.save() if self.job_options else None,
         }
 
     @classmethod
@@ -518,7 +520,7 @@ class Job[ArgsType, OutputType](ABC):
         return self.__class__(
             input=self.input,
             dependencies=extended_dependencies,
-            options=self.options,
+            options=self.job_options,
             parent_id=self.job_id,
         )
 
@@ -531,7 +533,7 @@ class Job[ArgsType, OutputType](ABC):
         return self.__class__(
             input=self.input,
             dependencies=self.dependencies,
-            options=self.options,
+            options=self.job_options,
             parent_id=self.job_id,
         )
 

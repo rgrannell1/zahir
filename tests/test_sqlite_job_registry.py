@@ -21,7 +21,7 @@ class DummyJob(Job):
     def __init__(self, input=None, dependencies=None, options=None, job_id=None, parent_id=None):
         self.input = input if input is not None else {}
         self.dependencies = dependencies if dependencies is not None else DependencyGroup({})
-        self.options = options
+        self.job_options = options
         self.job_id = job_id if job_id is not None else "dummy"
         self.parent_id = parent_id
 

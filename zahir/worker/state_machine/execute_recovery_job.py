@@ -31,7 +31,7 @@ def execute_recovery_job(
 ]:
     """Execute a recovery job. Similar to execute_job, but different eventing on failure/completion."""
 
-    job_timeout = state.frame.job.options.job_timeout if state.frame.job.options else None
+    job_timeout = state.frame.job.job_options.job_timeout if state.frame.job.job_options else None
 
     # Emit a JobStartedEvent when we begin executing the claimed job.
     # Some job implementations don't emit this implicitly, so the
