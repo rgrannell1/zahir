@@ -18,15 +18,15 @@ from zahir.worker.state_machine.states import StartStateChange
 
 def test_wait_for_job_returns_start_state_change():
     """Test that wait_for_job returns StartStateChange."""
-    
+
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
-    
+
     context = MemoryContext(
-        scope=LocalScope(jobs=[]), 
+        scope=LocalScope(jobs=[]),
         job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
@@ -44,15 +44,15 @@ def test_wait_for_job_returns_start_state_change():
 
 def test_wait_for_job_preserves_state():
     """Test that wait_for_job returns the same state object unchanged."""
-    
+
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
-    
+
     context = MemoryContext(
-        scope=LocalScope(jobs=[]), 
+        scope=LocalScope(jobs=[]),
         job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
@@ -69,15 +69,15 @@ def test_wait_for_job_preserves_state():
 
 def test_wait_for_job_sleeps():
     """Test that wait_for_job actually sleeps for approximately 1 second."""
-    
+
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
-    
+
     context = MemoryContext(
-        scope=LocalScope(jobs=[]), 
+        scope=LocalScope(jobs=[]),
         job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
@@ -97,22 +97,22 @@ def test_wait_for_job_sleeps():
 
 def test_wait_for_job_with_empty_stack():
     """Test wait_for_job works correctly when job stack is empty."""
-    
+
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
-    
+
     context = MemoryContext(
-        scope=LocalScope(jobs=[]), 
+        scope=LocalScope(jobs=[]),
         job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
     worker_state = ZahirWorkerState(context, output_queue, workflow_id)
-    
+
     # Verify stack is empty
     assert worker_state.job_stack.is_empty()
 
@@ -127,22 +127,22 @@ def test_wait_for_job_with_empty_stack():
 
 def test_wait_for_job_with_no_frame():
     """Test wait_for_job when there's no active frame."""
-    
+
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
-    
+
     context = MemoryContext(
-        scope=LocalScope(jobs=[]), 
+        scope=LocalScope(jobs=[]),
         job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
     worker_state = ZahirWorkerState(context, output_queue, workflow_id)
-    
+
     # Verify no active frame
     assert worker_state.frame is None
 
@@ -157,15 +157,15 @@ def test_wait_for_job_with_no_frame():
 
 def test_wait_for_job_idempotent():
     """Test that calling wait_for_job multiple times behaves consistently."""
-    
+
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
-    
+
     context = MemoryContext(
-        scope=LocalScope(jobs=[]), 
+        scope=LocalScope(jobs=[]),
         job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
@@ -182,7 +182,7 @@ def test_wait_for_job_idempotent():
     assert isinstance(result1, StartStateChange)
     assert isinstance(result2, StartStateChange)
     assert isinstance(result3, StartStateChange)
-    
+
     # All should have the same message
     assert result1.data["message"] == result2.data["message"]
     assert result2.data["message"] == result3.data["message"]
