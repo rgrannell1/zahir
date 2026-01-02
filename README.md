@@ -202,11 +202,25 @@ Zahir does not have a dedicated scheduling feature, since there's many ways to a
 
 We often want to run a workflow job to achieve a certain state (e.g create a resource). To ensure we only do this once, construct a dependency that is `impossible` when the resource already exists, and attach it to the creation job. This ensures we'll only attempt to construct the resource once.
 
+### Checkpointing
+
+There are a few overlapping terms here, but each is worth addressing:
+- Job-level checkpointing: each step of workflow execution is persisted to disk (with the exception of mid-run tasks that use `Await`).
+- Job-level rollback: supported via a mix of `recover` method, which handles unhandled job-exceptions, and just try-catching in your job on actions that might fail then remediating by scheduling cleanup jobs
+- Branch-level checkpointing / rollbacks: "try to do XYZ, if that fails recover in this fashion" is possible using `Await`. Attempt to complete the branch, try-catch for failure, and on failure schedule an alternative course of action. Exceptions are not required for this branching logic; it's perfectly valid to `if-else` based on the output of a job's awaited output into different conditional branches of job-execution.
+
+```
+try:
+    result = yield Await(YourBranchJob(...))
+except Exception as err:
+    ... # tidy-up
+```
+
 ### Job-Expiration
 
 Jobs generally have a useful period in which we'd like to execute them (today, not a week from now, for example). This can be codified by using a `TimeDependency` with a before condition
 
-### API Access
+### Parallel API Access
 
 Use a `ConcurrencyLimit` with the appropriate concurrency limit and slots (roughly, how many calls we'll make) to make API calls within a concurrency limit.
 

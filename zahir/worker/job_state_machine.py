@@ -605,7 +605,7 @@ def read_job_events(
         state.frame.required_jobs = set()
 
     while True:
-        # deal with the send event, if we have one
+        # deal with the `send` or `throw` event, if we have one
         item = queue.pop(0) if queue else None
 
         if item is None:
@@ -618,6 +618,7 @@ def read_job_events(
         if isinstance(item, Await):
             return item
 
+        # TO-DO improve this
         if isinstance(
             item,
             (

@@ -1,7 +1,7 @@
 from collections.abc import Generator, Iterator, Mapping
 import pathlib
 import re
-from typing import cast
+from typing import Any, TypedDict, cast
 
 from zahir.base_types import Context, Dependency, Job
 from zahir.context import MemoryContext
@@ -50,31 +50,36 @@ def get_longest_word(words: list[str]) -> str:
 
 
 @job
-def BookProcessor(context: Context, input, dependencies) -> Iterator[Job | JobOutputEvent]:
-    pids = []
-    chapters = read_chapters(input["file_path"])
-
-    for chapter_lines in chapters:
-        chapter_job = ChapterProcessor({"lines": chapter_lines}, {})
-        yield chapter_job
-
-        pids.append(chapter_job.job_id)
-
-    assembly_deps: dict[str, list[Dependency]] = {
-        "chapters": [JobDependency(pid, context.job_registry) for pid in pids]
-    }
-
-    # continue processing the job results, compute the list of longest words in the books
-    yield LongestWordAssembly({}, assembly_deps)
-
-
-@job
 def ChapterProcessor(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
     """For each chapter, find the longest word."""
 
     # return the longest word found in the chapter
     yield JobOutputEvent({"longest_word": get_longest_word(input["lines"])})
 
+
+class ChapterProcessorOutput(TypedDict):
+    longest_word: str
+
+class BookProcessorOutput(TypedDict):
+    longest_words: list[str]
+
+@job
+def BookProcessor(context: Context, input, dependencies) -> Generator[
+    Await | Job | WorkflowOutputEvent,
+    ChapterProcessorOutput | BookProcessorOutput, None]:
+    longest_words = yield Await([
+        ChapterProcessor({"lines": chapter_lines}, {}) for chapter_lines in read_chapters(input["file_path"])
+    ])
+
+    long_words: set[str] = set()
+
+    for summary in longest_words:
+        if summary is not None:
+            long_words.add(summary["longest_word"])
+
+    uppercased = yield Await(UppercaseWords({"words": list(long_words)}, {}))
+
+    yield WorkflowOutputEvent({"longest_words": uppercased["words"]})
 
 @job
 def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
@@ -83,25 +88,8 @@ def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputE
     yield JobOutputEvent({"words": [word.upper() for word in input["words"]]})
 
 
-@job
-def LongestWordAssembly(context: Context, input, dependencies) -> Generator[Await | WorkflowOutputEvent]:
-    """Assemble the longest words from each chapter into a unique list."""
-
-    long_words = set()
-    chapters = cast(list[JobDependency[Mapping]], dependencies.get("chapters"))
-
-    for dep in chapters:
-        summary = dep.output(context)
-        if summary is not None:
-            long_words.add(summary["longest_word"])
-
-    uppercased = yield Await(UppercaseWords({"words": list(long_words)}, {}))
-
-    yield WorkflowOutputEvent({"longest_words_by_chapter": sorted(uppercased["words"], key=len)})
-
-
 scope = LocalScope(
-    jobs=[BookProcessor, ChapterProcessor, LongestWordAssembly, UppercaseWords],
+    jobs=[BookProcessor, ChapterProcessor, UppercaseWords],
     dependencies=[DependencyGroup, JobDependency],
 )
 
