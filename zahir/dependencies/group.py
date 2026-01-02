@@ -1,4 +1,5 @@
 from collections.abc import Mapping
+from typing import Self
 
 from zahir.base_types import Dependency, DependencyState
 
@@ -26,6 +27,21 @@ class DependencyGroup(Dependency):
                     return DependencyState.IMPOSSIBLE
 
         return DependencyState.SATISFIED
+
+    def request_extenstion(self, extra_seconds: float) -> Self:
+        """Ask each dependency for a time-extension and return
+        the resulting DependencyGroup."""
+
+        return type(self)(
+            {
+                name: (
+                    [dep.request_extenstion(extra_seconds) for dep in deps]
+                    if isinstance(deps, list)
+                    else deps.request_extenstion(extra_seconds)
+                )
+                for name, deps in self.dependencies.items()
+            }
+        )
 
     def save(self) -> Mapping:
         """Save all subdependencies to a dictionary."""

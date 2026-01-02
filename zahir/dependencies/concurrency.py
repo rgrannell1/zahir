@@ -39,6 +39,9 @@ class ConcurrencyLimit(Dependency):
                 DependencyState.SATISFIED if self.claimed <= (self.limit - self.slots) else DependencyState.UNSATISFIED
             )
 
+    def request_extenstion(self, extra_seconds: float) -> Self:
+        return self
+
     def save(self) -> Mapping[str, Any]:
         """Save the concurrency limit to a dictionary."""
 

@@ -54,6 +54,18 @@ class Dependency(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def request_extenstion(self, extra_seconds: float) -> Self:
+        """A dependency may, if it chooses, allow you to request that it's valid longer
+        than initially defined. This applies to time-based dependencies; other dependencies
+        can just return themselves unchanged. Dependencies do not have to honour extension
+        requests (sometimes we want hard-stops).
+
+        The main use of these extensions is to support retries and backoff for jobs that use
+        time-dependencies for scheduling.
+        """
+        ...
+
+    @abstractmethod
     def save(self) -> Mapping[str, Any]:
         """Serialize the dependency to a dictionary.
 

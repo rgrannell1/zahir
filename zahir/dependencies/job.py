@@ -1,5 +1,5 @@
 from collections.abc import Mapping
-from typing import Any, TypedDict, TypeVar, cast
+from typing import Any, Self, TypedDict, TypeVar, cast
 
 from zahir.base_types import Context, Dependency, DependencyState, JobRegistry, JobState
 
@@ -50,6 +50,9 @@ class JobDependency[OutputType](Dependency):
         if state in self.satisfied_states:
             return DependencyState.SATISFIED
         return DependencyState.UNSATISFIED
+
+    def request_extenstion(self, extra_seconds: float) -> Self:
+        return self
 
     def save(self) -> dict[str, Any]:
         """Save the job dependency to a dictionary."""
