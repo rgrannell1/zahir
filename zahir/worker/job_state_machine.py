@@ -18,7 +18,7 @@ from zahir.events import (
     ZahirEvent,
 )
 from zahir.exception import JobPrecheckError, JobRecoveryTimeoutError, JobTimeoutError
-from zahir.worker.frame import ZahirCallStack, ZahirStackFrame
+from zahir.worker.call_frame import ZahirCallStack, ZahirStackFrame
 
 pickling_support.install()
 

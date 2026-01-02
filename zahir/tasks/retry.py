@@ -135,6 +135,7 @@ def retryable(
     impossible_states: frozenset[JobState] = frozenset({JobState.COMPLETED}),
 ) -> Iterable[Job]:
     """Retry a job if it enters a failure state."""
+
     yield task
 
     if retry_opts is None:

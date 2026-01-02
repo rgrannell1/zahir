@@ -25,6 +25,7 @@ class ExtensionMode(StrEnum):
     # We allow both before and after to be extended.
     BOTH = "both"
 
+
 class TimeDependency(Dependency):
     """A dependency on a particular time-range.
 
@@ -38,7 +39,12 @@ class TimeDependency(Dependency):
     # Do we allow time-extensions?
     allow_extensions: ExtensionMode
 
-    def __init__(self, before: datetime | None = None, after: datetime | None = None, allow_extensions: ExtensionMode = ExtensionMode.BOTH) -> None:
+    def __init__(
+        self,
+        before: datetime | None = None,
+        after: datetime | None = None,
+        allow_extensions: ExtensionMode = ExtensionMode.BOTH,
+    ) -> None:
         self.before = before
         self.after = after
         self.allow_extensions = allow_extensions

@@ -5,3 +5,4 @@
 - Run tests with `rs test`
 - Lint with `rs lint`
 - Type check with `rs check && rs check:mypy`
+- I name exceptions `err` and indices `idx`, `jdx`, etc.

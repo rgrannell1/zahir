@@ -1,9 +1,9 @@
-from collections.abc import Generator, Iterator, Mapping
+from collections.abc import Generator, Iterator
 import pathlib
 import re
-from typing import Any, TypedDict, cast
+from typing import TypedDict, cast
 
-from zahir.base_types import Context, Dependency, Job
+from zahir.base_types import Context, Job
 from zahir.context import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
@@ -60,13 +60,15 @@ def ChapterProcessor(context: Context, input, dependencies) -> Iterator[JobOutpu
 class ChapterProcessorOutput(TypedDict):
     longest_word: str
 
+
 class BookProcessorOutput(TypedDict):
     longest_words: list[str]
 
+
 @job
-def BookProcessor(context: Context, input, dependencies) -> Generator[
-    Await | Job | WorkflowOutputEvent,
-    ChapterProcessorOutput | BookProcessorOutput, None]:
+def BookProcessor(
+    context: Context, input, dependencies
+) -> Generator[Await | Job | WorkflowOutputEvent, ChapterProcessorOutput | BookProcessorOutput]:
     longest_words = yield Await([
         ChapterProcessor({"lines": chapter_lines}, {}) for chapter_lines in read_chapters(input["file_path"])
     ])
@@ -80,6 +82,7 @@ def BookProcessor(context: Context, input, dependencies) -> Generator[
     uppercased = yield Await(UppercaseWords({"words": list(long_words)}, {}))
 
     yield WorkflowOutputEvent({"longest_words": uppercased["words"]})
+
 
 @job
 def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:

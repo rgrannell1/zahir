@@ -69,11 +69,13 @@ class ZahirStackFrame:
     """
 
     job: Job
+
     # This is gross, but I'm not sure we can preserve input and output type-hints in Zahir to begin with.
     # It's a bit too dynamic.
     job_generator: Generator[Any, Any, Any]
     recovery: bool = False
     required_jobs: set[str] = field(default_factory=set)
+
     # awaiting multiple jobs? Used to type result = Await([]) as a list.
     await_many: bool = False
 

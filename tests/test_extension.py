@@ -1,6 +1,6 @@
 """Tests for dependency extension functionality"""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 
 from freezegun import freeze_time
 
@@ -18,11 +18,7 @@ def test_time_dependency_extension_before_only():
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
     after_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
 
-    dep = TimeDependency(
-        before=before_time,
-        after=after_time,
-        allow_extensions=ExtensionMode.BEFORE
-    )
+    dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.BEFORE)
 
     # Request 1 hour (3600 seconds) extension
     extended = dep.request_extenstion(3600)
@@ -40,11 +36,7 @@ def test_time_dependency_extension_after_only():
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
     after_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
 
-    dep = TimeDependency(
-        before=before_time,
-        after=after_time,
-        allow_extensions=ExtensionMode.AFTER
-    )
+    dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.AFTER)
 
     # Request 1 hour (3600 seconds) extension
     extended = dep.request_extenstion(3600)
@@ -62,11 +54,7 @@ def test_time_dependency_extension_both():
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
     after_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
 
-    dep = TimeDependency(
-        before=before_time,
-        after=after_time,
-        allow_extensions=ExtensionMode.BOTH
-    )
+    dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.BOTH)
 
     # Request 2 hours (7200 seconds) extension
     extended = dep.request_extenstion(7200)
@@ -83,11 +71,7 @@ def test_time_dependency_extension_none():
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
     after_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
 
-    dep = TimeDependency(
-        before=before_time,
-        after=after_time,
-        allow_extensions=ExtensionMode.NONE
-    )
+    dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.NONE)
 
     # Request 1 hour extension
     extended = dep.request_extenstion(3600)
@@ -103,9 +87,7 @@ def test_time_dependency_extension_with_none_values():
     """Test extending when before or after are None."""
     # Only 'before' is set
     dep1 = TimeDependency(
-        before=datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC),
-        after=None,
-        allow_extensions=ExtensionMode.BOTH
+        before=datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC), after=None, allow_extensions=ExtensionMode.BOTH
     )
 
     extended1 = dep1.request_extenstion(3600)
@@ -114,9 +96,7 @@ def test_time_dependency_extension_with_none_values():
 
     # Only 'after' is set
     dep2 = TimeDependency(
-        before=None,
-        after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC),
-        allow_extensions=ExtensionMode.BOTH
+        before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC), allow_extensions=ExtensionMode.BOTH
     )
 
     extended2 = dep2.request_extenstion(3600)
@@ -131,11 +111,7 @@ def test_time_dependency_extension_prevents_impossible():
     before_time = datetime(2025, 1, 1, 12, 30, 0, tzinfo=UTC)
     after_time = datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC)
 
-    dep = TimeDependency(
-        before=before_time,
-        after=after_time,
-        allow_extensions=ExtensionMode.BEFORE
-    )
+    dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.BEFORE)
 
     # Currently satisfied (after 11:00, before 12:30)
     assert dep.satisfied() == DependencyState.SATISFIED
@@ -251,14 +227,9 @@ def test_dependency_group_extension_nested():
     """Test that DependencyGroup propagates extensions to nested groups."""
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
 
-    inner_group = DependencyGroup({
-        "time": TimeDependency(before=before_time, allow_extensions=ExtensionMode.BEFORE)
-    })
+    inner_group = DependencyGroup({"time": TimeDependency(before=before_time, allow_extensions=ExtensionMode.BEFORE)})
 
-    outer_group = DependencyGroup({
-        "inner": inner_group,
-        "limit": ConcurrencyLimit(limit=3, slots=1)
-    })
+    outer_group = DependencyGroup({"inner": inner_group, "limit": ConcurrencyLimit(limit=3, slots=1)})
 
     # Request 1 hour extension
     extended = outer_group.request_extenstion(3600)
@@ -276,11 +247,7 @@ def test_extension_use_case_retry_with_backoff():
     after_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
 
-    dep = TimeDependency(
-        before=before_time,
-        after=after_time,
-        allow_extensions=ExtensionMode.BEFORE
-    )
+    dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.BEFORE)
 
     # Currently at 12:00, dependency is satisfied
     assert dep.satisfied() == DependencyState.SATISFIED
