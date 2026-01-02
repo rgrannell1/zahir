@@ -122,16 +122,6 @@ Rollbacks are also not separate abstractions; if something goes wrong, detect it
 
 Jobs generally pass data to child-jobs through parameters, then yield those jobs to continue the workflow. This somewhat mimics the callback-pattern / continuation-style-passing found in JavaScript. I don't remember this pattern fondly. So, Zahir has friendlier concurrency tools:
 
-**JobDependencies**
-
-Jobs may, ultimately, yield a `JobOutputEvent` dictionary. We can access this in a few ways.
-
-- Job A spawns N batch jobs
-- Job B awaits this jobs via `list[JobDependency]`
-- On completion, Job B can access the output data from this array of jobs
-
-This is the simplest way to implement "fan-out, then aggregate" pattern in Zahir. In a similar way, workflow-level output can be yielded with `WorkflowOutputEvent`.
-
 **Awaiting**
 
 Zahir jobs are generators; they can await other Zahir jobs using the `Await` event in the following manner:
@@ -150,6 +140,16 @@ job to complete before resuming Job A. `Promise.all([])` style execution is also
 Awaited jobs may also throw exceptions if they were given invalid input, threw an non-recoverable exception, or timed-out.
 
 Jobs should have most of their logic factored out into plain functions; the job itself should just take input, call the necessary library functions, event, and delegate to other jobs.
+
+**JobDependencies**
+
+We can access the output of a job, if any, by inspecting the job-dependency a task might take.
+
+- Job A spawns N batch jobs
+- Job B awaits this jobs via `list[JobDependency]`
+- On completion, Job B can access the output data from this array of jobs
+
+This is a second way in which a "fan-out, then aggregate" pattern can be implemented in Zahir.
 
 ### Dependencies - Await some precondition before doing things
 

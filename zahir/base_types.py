@@ -516,6 +516,19 @@ class Job[ArgsType, OutputType](ABC):
             parent_id=self.job_id,
         )
 
+    def copy(self) -> Self:
+        """Create a copy of this job instance.
+
+        @return: A new Job instance with the same properties. The job-id will differ.
+        """
+
+        return self.__class__(
+            input=self.input,
+            dependencies=self.dependencies,
+            options=self.options,
+            parent_id=self.job_id,
+        )
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Scope +++++++++++++++++++++++++++++++++++++
