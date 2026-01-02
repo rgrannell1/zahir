@@ -1,0 +1,18 @@
+from zahir.base_types import JobState
+from zahir.exception import JobTimeoutError
+from zahir.worker.state_machine.states import EnqueueJobStateChange, StateChange
+
+
+def handle_job_timeout(state) -> tuple[StateChange, None]:
+    """The job timed out. Emit a timeout event, null out the job, and start over."""
+
+    error = JobTimeoutError("Job execution timed out")
+
+    state.context.job_registry.set_state(
+        state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.TIMED_OUT, error=error
+    )
+
+    job_type = state.frame.job_type()
+    state.frame = None
+
+    return EnqueueJobStateChange({"message": f"Job {job_type} timed out"}), state

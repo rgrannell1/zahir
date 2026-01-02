@@ -1,9 +1,4 @@
-from zahir.worker.state_machine.states import (
-    CheckPreconditionsStateChange,
-    EnqueueJobStateChange,
-    PopJobStateChange,
-    StateChange,
-)
+from zahir.worker.state_machine.states import CheckPreconditionsStateChange, EnqueueJobStateChange, PopJobStateChange
 
 
 def start(state) -> tuple[EnqueueJobStateChange | PopJobStateChange | CheckPreconditionsStateChange, None]:

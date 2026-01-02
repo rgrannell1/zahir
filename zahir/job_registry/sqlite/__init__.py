@@ -1,5 +1,5 @@
 from collections.abc import Iterator, Mapping
-from datetime import datetime, timezone
+from datetime import UTC, datetime, timezone
 import json
 import logging
 import multiprocessing
@@ -88,7 +88,7 @@ class SQLiteJobRegistry(JobRegistry):
 
         log.debug(f"Setting claim for job {job_id} by worker {worker_id}")
 
-        claimed_at = datetime.now(tz=timezone.utc).isoformat()
+        claimed_at = datetime.now(tz=UTC).isoformat()
         with self.conn as conn:
             cursor = conn.execute(
                 "insert into claimed_jobs (job_id, claimed_at, claimed_by) values (?, ?, ?);",
@@ -102,7 +102,7 @@ class SQLiteJobRegistry(JobRegistry):
 
         log.debug(f"Worker {worker_id} attempting to claim a job")
 
-        claimed_at = datetime.now(tz=timezone.utc).isoformat()
+        claimed_at = datetime.now(tz=UTC).isoformat()
         with self.conn as conn:
             conn.execute("begin immediate;")
             claimed_row = conn.execute(
@@ -163,7 +163,7 @@ class SQLiteJobRegistry(JobRegistry):
                 raise DuplicateJobError(f"Job with ID {job_id} already exists in the registry.")
 
             conn.execute("begin immediate;")
-            created_at = datetime.now(tz=timezone.utc).isoformat()
+            created_at = datetime.now(tz=UTC).isoformat()
             conn.execute(
                 "insert into jobs (job_id, serialised_job, state, created_at) values (?, ?, ?, ?)",
                 (job_id, serialised, job_state, created_at),
@@ -214,14 +214,14 @@ class SQLiteJobRegistry(JobRegistry):
 
             if state == JobState.RUNNING:
                 # We're starting the job, set ther start-time if not already set
-                started_at = datetime.now(tz=timezone.utc).isoformat()
+                started_at = datetime.now(tz=UTC).isoformat()
                 conn.execute(
                     "update jobs set started_at = ? where job_id = ? and started_at is null", (started_at, job_id)
                 )
 
             if state in COMPLETED_JOB_STATES:
                 # Job is in a terminal-state; set completed time if not already set
-                completed_at = datetime.now(tz=timezone.utc).isoformat()
+                completed_at = datetime.now(tz=UTC).isoformat()
                 conn.execute(
                     "update jobs set completed_at = ? where job_id = ? and completed_at is null", (completed_at, job_id)
                 )
@@ -260,7 +260,7 @@ class SQLiteJobRegistry(JobRegistry):
                 (job_id, serialised_output),
             )
 
-            now = datetime.now(tz=timezone.utc).isoformat()
+            now = datetime.now(tz=UTC).isoformat()
             conn.execute(
                 "update jobs set state = ?, completed_at = ? where job_id = ?", (JobState.COMPLETED.value, now, job_id)
             )

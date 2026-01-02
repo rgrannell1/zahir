@@ -578,6 +578,3 @@ class Context:
     scope: Scope
     # Keep track of jobs
     job_registry: JobRegistry
-
-
-#
