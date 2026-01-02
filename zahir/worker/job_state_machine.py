@@ -25,7 +25,6 @@ pickling_support.install()
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-import json
 import multiprocessing
 import os
 import signal
@@ -621,30 +620,17 @@ def read_job_events(
         if isinstance(item, Await):
             return item
 
-        # TO-DO improve this
-        if isinstance(
-            item,
-            (
-                JobOutputEvent,
-                WorkflowOutputEvent,
-                JobCompletedEvent,
-                JobPrecheckFailedEvent,
-                JobRecoveryStartedEvent,
-                JobRecoveryTimeoutEvent,
-                JobStartedEvent,
-                JobTimeoutEvent,
-                ZahirCustomEvent,
-                JobIrrecoverableEvent,
-            ),
-        ):
+        if isinstance(item, ZahirEvent) and hasattr(item, "workflow_id"):
             item.workflow_id = workflow_id
+
+        if isinstance(item, ZahirEvent) and hasattr(item, "job_id"):
             item.job_id = job_id
 
-            output_queue.put(item)
+        output_queue.put(item)
 
-            if isinstance(item, JobOutputEvent):
-                # Nothing more to be done for this generator
-                return item
+        if isinstance(item, JobOutputEvent):
+            # Nothing more to be done for this generator
+            return item
 
         elif isinstance(item, Job):
             # new subjob, yield as a serialised event upstream
