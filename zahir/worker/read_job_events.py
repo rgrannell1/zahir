@@ -5,7 +5,7 @@ from typing import Any, cast
 from zahir.base_types import Job, JobRegistry
 from zahir.events import Await, JobOutputEvent, ZahirEvent
 
-type OutputQueue = multiprocessing.Queue["ZahirEvent"]
+type OutputQueue = multiprocessing.Queue["ZahirEvent | Job"]
 
 
 def read_job_events(
@@ -20,7 +20,7 @@ def read_job_events(
     """Sent job output items to the output queue."""
 
     if not isinstance(gen, Iterator):
-        raise TypeError("gen must be an Iterator")
+        raise TypeError(f"Non-iterator passed to read_job_events for job-id: {job_id}, type: {type(gen)}")
 
     queue: list[ZahirEvent | Job] = []
 
@@ -99,6 +99,7 @@ def read_job_events(
             return item
 
         if isinstance(item, Job):
+
             # new subjob, yield as a serialised event upstream
             job_registry.add(item, output_queue)
             continue

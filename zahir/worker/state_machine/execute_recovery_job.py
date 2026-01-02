@@ -3,7 +3,7 @@ from typing import cast
 
 from zahir.base_types import JobState
 from zahir.events import Await, JobOutputEvent
-from zahir.worker.state_machine.read_job_events import read_job_events
+from zahir.worker.read_job_events import read_job_events
 from zahir.worker.state_machine.states import (
     EnqueueJobStateChange,
     HandleAwaitStateChange,

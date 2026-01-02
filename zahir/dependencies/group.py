@@ -5,7 +5,7 @@ from zahir.base_types import Dependency, DependencyState
 
 
 class DependencyGroup(Dependency):
-    """Await a all subdependencies."""
+    """Await all subdependencies."""
 
     dependencies: Mapping[str, Dependency | list[Dependency]]
 
