@@ -7,7 +7,7 @@ from zahir.events import (
     ZahirInternalErrorEvent,
 )
 from zahir.exception import exception_to_text_blob
-from zahir.worker.job_state_machine import ZahirJobStateMachine, ZahirWorkerState
+from zahir.worker.state_machine import ZahirJobStateMachine, ZahirWorkerState
 from zahir.worker.state_machine.states import StartStateChange
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
