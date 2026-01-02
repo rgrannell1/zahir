@@ -40,6 +40,7 @@ log.setLevel(logging.DEBUG)
 @dataclass
 class JobTimingInformation:
     started_at: datetime | None
+    recovery_started_at: datetime | None
     completed_at: datetime | None
     duration_seconds: float | None
     recovery_duration_seconds: float | None
@@ -52,6 +53,16 @@ class JobTimingInformation:
 
         now = datetime.now(tz=timezone.utc)
         delta = now - self.started_at
+        return delta.total_seconds()
+
+    def time_since_recovery_started(self) -> float | None:
+        """Get the time since the job recovery started in seconds."""
+
+        if self.recovery_started_at is None:
+            return None
+
+        now = datetime.now(tz=timezone.utc)
+        delta = now - self.recovery_started_at
         return delta.total_seconds()
 
 
@@ -218,6 +229,7 @@ class SQLiteJobRegistry(JobRegistry):
                 """
             select
                 started_at,
+                recovery_started_at,
                 completed_at,
                 duration_seconds,
                 recovery_duration_seconds
@@ -230,13 +242,17 @@ class SQLiteJobRegistry(JobRegistry):
             if row is None:
                 raise MissingJobError(f"Job with ID {job_id} not found in registry.")
 
-            started_at_str, completed_at_str, duration_seconds, recovery_duration_seconds = row
+            started_at_str, recovery_started_at_str, completed_at_str, duration_seconds, recovery_duration_seconds = row
 
             started_at = datetime.fromisoformat(started_at_str) if started_at_str is not None else None
+            recovery_started_at = (
+                datetime.fromisoformat(recovery_started_at_str) if recovery_started_at_str is not None else None
+            )
             completed_at = datetime.fromisoformat(completed_at_str) if completed_at_str is not None else None
 
             return JobTimingInformation(
                 started_at=started_at,
+                recovery_started_at=recovery_started_at,
                 completed_at=completed_at,
                 duration_seconds=duration_seconds,
                 recovery_duration_seconds=recovery_duration_seconds,
@@ -270,6 +286,14 @@ class SQLiteJobRegistry(JobRegistry):
                 started_at = datetime.now(tz=UTC).isoformat()
                 conn.execute(
                     "update jobs set started_at = ? where job_id = ? and started_at is null", (started_at, job_id)
+                )
+
+            if state == JobState.RECOVERING:
+                # We're starting recovery, set the recovery start-time if not already set
+                recovery_started_at = datetime.now(tz=UTC).isoformat()
+                conn.execute(
+                    "update jobs set recovery_started_at = ? where job_id = ? and recovery_started_at is null",
+                    (recovery_started_at, job_id),
                 )
 
             if state in COMPLETED_JOB_STATES:

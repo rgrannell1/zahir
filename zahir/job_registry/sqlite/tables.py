@@ -5,6 +5,7 @@ create table if not exists jobs (
     state                     text not null,
     created_at                text,
     started_at                text,
+    recovery_started_at       text,
     completed_at              text,
     duration_seconds          real,
     recovery_duration_seconds real
