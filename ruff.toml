@@ -68,6 +68,7 @@ ignore = [
     "E402",     # Annoyed me,
     "A002",     # `input`,
     "S301",     # pickle is horrible, but we use it for exceptions
+    "ARG002",   # clashes with baseclasses
 ]
 
 

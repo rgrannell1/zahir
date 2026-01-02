@@ -1,3 +1,4 @@
+import multiprocessing
 import pathlib
 import tempfile
 
@@ -11,8 +12,6 @@ from zahir.scope import LocalScope
 
 class DummyEventRegistry(EventRegistry):
     def __init__(self):
-        import multiprocessing
-
         self.queue = multiprocessing.Queue()
 
     def register(self, event):
@@ -47,7 +46,6 @@ def test_sqlite_job_registry_lifecycle():
         registry = SQLiteJobRegistry(db_path)
         registry.init("test-worker")
         job = DummyJob(job_id="job1")
-        import multiprocessing
 
         dummy_queue = multiprocessing.Queue()
         job_id = registry.add(job, dummy_queue)

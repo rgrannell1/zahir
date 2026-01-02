@@ -23,12 +23,11 @@ def longest_word_sequence(text: str) -> str:
 def read_chapters(file_path: str) -> Iterator[list[str]]:
     chapter_lines: list[str] = []
 
-    with pathlib.Path(file_path).open() as file:
+    with pathlib.Path(file_path).open(encoding="utf-8") as file:
         for line in file:
-            if "CHAPTER" in line:
-                if chapter_lines:
-                    yield chapter_lines
-                    chapter_lines = []
+            if "CHAPTER" in line and chapter_lines:
+                yield chapter_lines
+                chapter_lines = []
 
             chapter_lines.append(line)
 

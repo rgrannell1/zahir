@@ -17,7 +17,6 @@ class SampleJob(Job):
 
     @classmethod
     def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-        from zahir.events import JobOutputEvent
 
         yield JobOutputEvent({"result": "test"})
 
@@ -27,7 +26,6 @@ class AnotherSampleJob(Job):
 
     @classmethod
     def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-        from zahir.events import JobOutputEvent
 
         yield JobOutputEvent({"result": "another"})
 
