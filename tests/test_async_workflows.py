@@ -20,7 +20,7 @@ from zahir.events import (
 )
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.scope import LocalScope
-from zahir.tasks.decorator import job
+from zahir.jobs.decorator import job
 from zahir.worker import LocalWorkflow
 
 

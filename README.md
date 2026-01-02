@@ -22,12 +22,18 @@ src/
         job.py                 await a particular job-state
     job_registry/
         sqlite.py              register jobs in SQLite
+    jobs/
+        decorator.py           a decorator to construct basic jobs from a function
     utils/
         id_generator.py        adjective-noun ids
     worker/
+        call_frame.py          call-frame definitions used to manage paused jobs
         dependency_worker.py   check if dependencies are satistfied
         job_worker.py          claim and run a job freom the job registry
         overseer.py            manage the overall workflow execution
+        read_job_events.py     handle job execution output
+        state_machine/
+            ...                each job-state and how it's handled
 
     base_types.py              abstract types for key Zahir abstractions
     events.py                  events describing workflow state-updates
