@@ -316,7 +316,6 @@ class SQLiteJobRegistry(JobRegistry):
                 f"select 1 from jobs where state in ({q_marks}) limit 1",
                 tuple(state.value for state in ACTIVE_JOB_STATES),
             ).fetchone()
-            print(row)
 
         return row is not None
 
@@ -361,8 +360,8 @@ class SQLiteJobRegistry(JobRegistry):
 
             job_state = JobState(state_str)
             output = json.loads(serialised_output) if serialised_output is not None else None
-            started_at = datetime.fromisoformat(started_at) if started_at is not None else None
-            completed_at = datetime.fromisoformat(completed_at) if completed_at is not None else None
+            parsed_started_at = datetime.fromisoformat(started_at) if started_at is not None else None
+            parsed_completed_at = datetime.fromisoformat(completed_at) if completed_at is not None else None
 
             if state is not None and job_state != state:
                 continue
@@ -372,8 +371,8 @@ class SQLiteJobRegistry(JobRegistry):
                 job=job,
                 state=job_state,
                 output=output,
-                started_at=started_at,
-                completed_at=completed_at,
+                started_at=parsed_started_at,
+                completed_at=parsed_completed_at,
                 duration_seconds=duration_seconds,
                 recovery_duration_seconds=recovery_duration_seconds,
             )

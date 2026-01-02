@@ -224,7 +224,7 @@ def AwaitManyFailing(context: Context, input, dependencies):
     """Interyield to multiple jobs, one of which fails."""
 
     try:
-        results = yield Await([
+        yield Await([
             AddJob({"count": 10}, {}),
             FailingJob({}, {}),
             AddJob({"count": 30}, {}),

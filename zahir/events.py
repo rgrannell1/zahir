@@ -131,7 +131,7 @@ class JobCompletedEvent(ZahirEvent):
 
 
 @dataclass
-class JobOutputEvent(ZahirEvent, Generic[OutputType]):
+class JobOutputEvent[OutputType](ZahirEvent):
     """Indicates that a job has produced output"""
 
     output: OutputType  # type: ignore[misc]
@@ -410,6 +410,8 @@ class Await(ZahirEvent):
     job: SerialisedJob | list[SerialisedJob]
 
     def save(self) -> Mapping[str, Any]:
+        from zahir.base_types.job import Job
+
         return {
             "job": [self.job] if isinstance(self.job, Job) else self.job,
         }

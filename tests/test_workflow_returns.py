@@ -38,8 +38,6 @@ def test_nested_async_workflow():
 
     job = JustReturns({}, {})
     events = list(workflow.run(job, all_events=True))
-    for event in events:
-        print(event)
 
     assert len(events) == 7
     assert isinstance(events[0], WorkflowStartedEvent)

@@ -109,7 +109,7 @@ def test_dependency_group_save_load_roundtrip():
 
     context = Mock()
     # Return the class, not the result of .load
-    context.scope.get_dependency_class.side_effect = lambda type_name: TimeDependency
+    context.scope.get_dependency_class.side_effect = lambda _type_name: TimeDependency
 
     loaded = DependencyGroup.load(context, saved)
 

@@ -49,8 +49,6 @@ def test_failed_prechecks():
 
     job = PrecheckFailsJob({"test": 1234}, {})
     events = list(workflow.run(job, all_events=True))
-    for event in events:
-        print(event)
 
     assert len(events) == 4
     assert isinstance(events[0], WorkflowStartedEvent)
@@ -72,8 +70,6 @@ def test_awaited_prechecks():
 
     job = ParentJob({}, {})
     events = list(workflow.run(job, all_events=True))
-    for event in events:
-        print(event)
 
     # Check jobirrecoverable failure due to precheck failure
     any(isinstance(event, JobIrrecoverableEvent) for event in events)
