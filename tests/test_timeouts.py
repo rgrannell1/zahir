@@ -3,7 +3,7 @@ import tempfile
 import time
 from zahir.base_types import JobOptions
 from zahir.context.memory import MemoryContext
-from zahir.events import Await, JobOutputEvent, ZahirCustomEvent
+from zahir.events import Await, JobEvent, JobIrrecoverableEvent, JobOutputEvent, JobPausedEvent, JobRecoveryStartedEvent, JobStartedEvent, JobTimeoutEvent, WorkflowCompleteEvent, WorkflowStartedEvent, ZahirCustomEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.jobs.decorator import job
 from zahir.scope import LocalScope
@@ -37,7 +37,18 @@ def test_timeout():
 
     job = TimeOutRunner({}, {})
     events = list(workflow.run(job, all_events=True))
-    for event in events:
-       print(event)
+
+    assert isinstance(events[0], WorkflowStartedEvent)
+    assert isinstance(events[1], JobEvent)
+    assert isinstance(events[2], JobStartedEvent)
+    assert isinstance(events[3], JobEvent)
+    assert isinstance(events[4], JobPausedEvent)
+    assert isinstance(events[5], JobStartedEvent)
+    assert isinstance(events[6], JobTimeoutEvent)
+    assert isinstance(events[7], JobStartedEvent)
+    assert isinstance(events[8], JobRecoveryStartedEvent)
+    assert isinstance(events[9], JobStartedEvent)
+    assert isinstance(events[10], JobIrrecoverableEvent)
+    assert isinstance(events[11], WorkflowCompleteEvent)
 
 test_timeout()
