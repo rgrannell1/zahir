@@ -31,8 +31,6 @@ def execute_job(
 ]:
     """Execute a job. Handle timeouts, awaits, outputs, exceptions."""
 
-    job_timeout = state.frame.job.job_options.job_timeout if state.frame.job.job_options else None
-
     # Emit a JobStartedEvent when we begin executing the claimed job.
     # Some job implementations don't emit this implicitly, so the
     # worker should surface it when execution begins.
@@ -40,8 +38,14 @@ def execute_job(
         state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.RUNNING
     )
 
+    job_timing = state.context.job_registry.get_job_timing(state.frame.job.job_id)
+    time_since_started = job_timing.time_since_started() if job_timing else None
+    job_timeout = state.frame.job.job_options.job_timeout if state.frame.job.job_options else None
+
+    seconds_until_timeout = max(0, job_timeout - time_since_started) if job_timeout and time_since_started else job_timeout
+
     signal.signal(signal.SIGALRM, times_up)
-    signal.alarm(job_timeout) if job_timeout else None
+    signal.alarm(seconds_until_timeout) if seconds_until_timeout else None
     job_type = state.frame.job_type()
 
     try:
