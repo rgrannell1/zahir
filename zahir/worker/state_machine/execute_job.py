@@ -45,10 +45,10 @@ def execute_job(
     seconds_until_timeout = max(0, job_timeout - time_since_started) if job_timeout and time_since_started else job_timeout
 
     signal.signal(signal.SIGALRM, times_up)
-    signal.alarm(seconds_until_timeout) if seconds_until_timeout else None
     job_type = state.frame.job_type()
 
     try:
+        signal.alarm(seconds_until_timeout) if seconds_until_timeout else None
         job_generator_result = read_job_events(
             state.frame.job_generator,
             job_registry=state.context.job_registry,
