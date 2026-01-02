@@ -2,7 +2,7 @@ import logging
 
 from tblib import pickling_support  # type: ignore[import-untyped]
 
-from zahir.base_types import Context, JobState
+from zahir.base_types import Context
 from zahir.events import (
     Await,
     ZahirEvent,
@@ -13,6 +13,7 @@ from zahir.worker.state_machine.enqueue_job import enqueue_job
 from zahir.worker.state_machine.execute_job import execute_job
 from zahir.worker.state_machine.execute_recovery_job import execute_recovery_job
 from zahir.worker.state_machine.handle_await import handle_await
+from zahir.worker.state_machine.handle_job_complete_no_output import handle_job_complete_no_output
 from zahir.worker.state_machine.handle_job_exception import handle_job_exception
 from zahir.worker.state_machine.handle_job_output import handle_job_output
 from zahir.worker.state_machine.handle_job_timeout import handle_job_timeout
@@ -24,8 +25,19 @@ from zahir.worker.state_machine.start import start
 from zahir.worker.state_machine.states import (
     CheckPreconditionsStateChange,
     EnqueueJobStateChange,
+    ExecuteJobStateChange,
+    ExecuteRecoveryJobStateChange,
+    HandleAwaitStateChange,
+    HandleJobCompleteNoOutputStateChange,
+    HandleJobExceptionStateChange,
+    HandleJobOutputStateChange,
+    HandleJobTimeoutStateChange,
+    HandleRecoveryJobExceptionStateChange,
+    HandleRecoveryJobTimeoutStateChange,
     PopJobStateChange,
+    StartStateChange,
     StateChange,
+    WaitForJobStateChange,
     ZahirJobState,
 )
 from zahir.worker.state_machine.wait_for_job import wait_for_job
@@ -105,14 +117,14 @@ class ZahirJobStateMachine:
 
     @classmethod
     @log_call
-    def enqueue_job(cls, state) -> tuple[StateChange, None]:
+    def enqueue_job(cls, state) -> tuple[WaitForJobStateChange | StartStateChange, None]:
         """ """
 
         return enqueue_job(state)
 
     @classmethod
     @log_call
-    def wait_for_job(cls, state) -> tuple[StateChange, None]:
+    def wait_for_job(cls, state) -> tuple[StartStateChange, None]:
         """No jobs available; for the moment let's just sleep. In future, be cleverer
         and have dependencies suggest nap-times"""
 
@@ -120,21 +132,23 @@ class ZahirJobStateMachine:
 
     @classmethod
     @log_call
-    def pop_job(cls, state) -> tuple[StateChange, None]:
+    def pop_job(cls, state) -> tuple[CheckPreconditionsStateChange | ExecuteJobStateChange, None]:
         """We need a job; pop one off the stack"""
 
         return pop_job(state)
 
     @classmethod
     @log_call
-    def check_preconditions(cls, state) -> tuple[StateChange, None]:
+    def check_preconditions(
+        cls, state
+    ) -> tuple[ExecuteRecoveryJobStateChange | ExecuteJobStateChange | StartStateChange, None]:
         """Can we even run this job? Check the input preconditions first."""
 
         return check_preconditions(state)
 
     @classmethod
     @log_call
-    def handle_await(cls, state) -> tuple[StateChange, None]:
+    def handle_await(cls, state) -> tuple[EnqueueJobStateChange, None]:
         """We received an Await event. We should put out current job back on the stack,
         pause the job formally, then load the awaited job and start executing it."""
 
@@ -142,7 +156,7 @@ class ZahirJobStateMachine:
 
     @classmethod
     @log_call
-    def handle_job_output(cls, state) -> tuple[StateChange, None]:
+    def handle_job_output(cls, state) -> tuple[StartStateChange, None]:
         """We received a job output! It's emitted upstream already; just null out the job state. Persist the output to the state if awaited; we'll pop, then pass
         the output to the awaiting job"""
 
@@ -150,29 +164,21 @@ class ZahirJobStateMachine:
 
     @classmethod
     @log_call
-    def handle_job_complete_no_output(cls, state) -> tuple[StateChange, None]:
+    def handle_job_complete_no_output(cls, state) -> tuple[EnqueueJobStateChange, None]:
         """Mark the job as complete. Emit a completion event. Null out the job. Start over."""
 
-        # Subjob complete, emit a recovery complete or regular compete and null out the stack frame.
-
-        state.context.job_registry.set_state(
-            state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.COMPLETED
-        )
-
-        state.frame = None
-
-        return EnqueueJobStateChange({"message": "Job completed with no output"}), state
+        return handle_job_complete_no_output(state)
 
     @classmethod
     @log_call
-    def handle_recovery_job_complete_no_output(cls, state) -> tuple[StateChange, None]:
+    def handle_recovery_job_complete_no_output(cls, state) -> tuple[EnqueueJobStateChange, None]:
         """Mark the recovery job as complete. Emit a recovery completion event. Null out the job. Start over."""
 
         return handle_recovery_job_complete_no_output(state)
 
     @classmethod
     @log_call
-    def handle_job_timeout(cls, state) -> tuple[StateChange, None]:
+    def handle_job_timeout(cls, state) -> tuple[EnqueueJobStateChange, None]:
         """The job timed out. Emit a timeout event, null out the job, and start over."""
 
         return handle_job_timeout(state)
@@ -186,27 +192,47 @@ class ZahirJobStateMachine:
 
     @classmethod
     @log_call
-    def handle_recovery_job_exception(cls, state) -> tuple[StateChange, None]:
+    def handle_recovery_job_exception(cls, state) -> tuple[EnqueueJobStateChange, None]:
         """The recovery job raised an exception. Emit an irrecoverable event, null out the job, and start over."""
 
         return handle_recovery_job_exception(state)
 
     @classmethod
     @log_call
-    def handle_job_exception(cls, state) -> tuple[StateChange, None]:
+    def handle_job_exception(cls, state) -> tuple[CheckPreconditionsStateChange, None]:
         """The job raised an exception. Emit a recovery started event, and switch to recovery mode."""
 
         return handle_job_exception(state)
 
     @classmethod
     @log_call
-    def execute_job(cls, state) -> tuple[StateChange, None]:
+    def execute_job(
+        cls, state
+    ) -> tuple[
+        HandleJobOutputStateChange
+        | HandleAwaitStateChange
+        | HandleJobCompleteNoOutputStateChange
+        | HandleJobTimeoutStateChange
+        | HandleJobExceptionStateChange
+        | EnqueueJobStateChange,
+        None,
+    ]:
         """Execute a job. Handle timeouts, awaits, outputs, exceptions."""
 
         return execute_job(state)
 
     @classmethod
-    def execute_recovery_job(cls, state) -> tuple[StateChange, None]:
+    def execute_recovery_job(
+        cls, state
+    ) -> tuple[
+        HandleJobOutputStateChange
+        | HandleAwaitStateChange
+        | HandleJobCompleteNoOutputStateChange
+        | HandleRecoveryJobTimeoutStateChange
+        | HandleRecoveryJobExceptionStateChange
+        | EnqueueJobStateChange,
+        None,
+    ]:
         """Execute a recovery job. Similar to execute_job, but different eventing on failure/completion."""
 
         return execute_recovery_job(state)

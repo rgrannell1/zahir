@@ -1,8 +1,8 @@
 from zahir.base_types import JobState
-from zahir.worker.state_machine.states import CheckPreconditionsStateChange, ExecuteJobStateChange, StateChange
+from zahir.worker.state_machine.states import CheckPreconditionsStateChange, ExecuteJobStateChange
 
 
-def pop_job(state) -> tuple[StateChange, None]:
+def pop_job(state) -> tuple[CheckPreconditionsStateChange | ExecuteJobStateChange, None]:
     """We need a job; pop one off the stack"""
 
     # different one when we pop a job, which is also fine.

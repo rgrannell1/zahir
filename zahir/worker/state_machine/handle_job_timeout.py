@@ -1,9 +1,9 @@
 from zahir.base_types import JobState
 from zahir.exception import JobTimeoutError
-from zahir.worker.state_machine.states import EnqueueJobStateChange, StateChange
+from zahir.worker.state_machine.states import EnqueueJobStateChange
 
 
-def handle_job_timeout(state) -> tuple[StateChange, None]:
+def handle_job_timeout(state) -> tuple[EnqueueJobStateChange, None]:
     """The job timed out. Emit a timeout event, null out the job, and start over."""
 
     error = JobTimeoutError("Job execution timed out")

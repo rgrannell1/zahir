@@ -11,7 +11,6 @@ from zahir.worker.state_machine.states import (
     HandleJobExceptionStateChange,
     HandleJobOutputStateChange,
     HandleJobTimeoutStateChange,
-    StateChange,
 )
 
 
@@ -19,7 +18,17 @@ def times_up(_signum, _frame):
     raise TimeoutError("Job execution timed out")
 
 
-def execute_job(state) -> tuple[StateChange, None]:
+def execute_job(
+    state,
+) -> tuple[
+    HandleJobOutputStateChange
+    | HandleAwaitStateChange
+    | HandleJobCompleteNoOutputStateChange
+    | HandleJobTimeoutStateChange
+    | HandleJobExceptionStateChange
+    | EnqueueJobStateChange,
+    None,
+]:
     """Execute a job. Handle timeouts, awaits, outputs, exceptions."""
 
     job_timeout = state.frame.job.options.job_timeout if state.frame.job.options else None

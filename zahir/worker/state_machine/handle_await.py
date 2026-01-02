@@ -1,8 +1,8 @@
 from zahir.base_types import Job, JobState
-from zahir.worker.state_machine.states import EnqueueJobStateChange, StateChange
+from zahir.worker.state_machine.states import EnqueueJobStateChange
 
 
-def handle_await(state) -> tuple[StateChange, None]:
+def handle_await(state) -> tuple[EnqueueJobStateChange, None]:
     """We received an Await event. We should put out current job back on the stack,
     pause the job formally, then load the awaited job and start executing it."""
 

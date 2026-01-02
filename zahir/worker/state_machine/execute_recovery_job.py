@@ -11,7 +11,6 @@ from zahir.worker.state_machine.states import (
     HandleJobOutputStateChange,
     HandleRecoveryJobExceptionStateChange,
     HandleRecoveryJobTimeoutStateChange,
-    StateChange,
 )
 
 
@@ -19,7 +18,17 @@ def times_up(_signum, _frame):
     raise TimeoutError("Job execution timed out")
 
 
-def execute_recovery_job(state) -> tuple[StateChange, None]:
+def execute_recovery_job(
+    state,
+) -> tuple[
+    HandleJobOutputStateChange
+    | HandleAwaitStateChange
+    | HandleJobCompleteNoOutputStateChange
+    | HandleRecoveryJobTimeoutStateChange
+    | HandleRecoveryJobExceptionStateChange
+    | EnqueueJobStateChange,
+    None,
+]:
     """Execute a recovery job. Similar to execute_job, but different eventing on failure/completion."""
 
     job_timeout = state.frame.job.options.job_timeout if state.frame.job.options else None

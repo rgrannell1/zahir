@@ -1,10 +1,10 @@
 import os
 
 from zahir.worker.call_frame import ZahirStackFrame
-from zahir.worker.state_machine.states import StartStateChange, StateChange, WaitForJobStateChange
+from zahir.worker.state_machine.states import StartStateChange, WaitForJobStateChange
 
 
-def enqueue_job(state) -> tuple[StateChange, None]:
+def enqueue_job(state) -> tuple[WaitForJobStateChange | StartStateChange, None]:
     """ """
 
     # TO-DO: this needs to be updated, so that paused jobs with satisfied awaits can be resumed.

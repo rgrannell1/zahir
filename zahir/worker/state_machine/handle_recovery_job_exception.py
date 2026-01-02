@@ -1,8 +1,8 @@
 from zahir.base_types import JobState
-from zahir.worker.state_machine.states import EnqueueJobStateChange, StateChange
+from zahir.worker.state_machine.states import EnqueueJobStateChange
 
 
-def handle_recovery_job_exception(state) -> tuple[StateChange, None]:
+def handle_recovery_job_exception(state) -> tuple[EnqueueJobStateChange, None]:
     """The recovery job raised an exception. Emit an irrecoverable event, null out the job, and start over."""
 
     # well, recovery didn't work. Ah, well.

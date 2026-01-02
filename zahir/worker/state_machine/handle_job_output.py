@@ -1,7 +1,7 @@
-from zahir.worker.state_machine.states import StartStateChange, StateChange
+from zahir.worker.state_machine.states import StartStateChange
 
 
-def handle_job_output(state) -> tuple[StateChange, None]:
+def handle_job_output(state) -> tuple[StartStateChange, None]:
     """We received a job output! It's emitted upstream already; just null out the job state. Persist the output to the state if awaited; we'll pop, then pass
     the output to the awaiting job"""
 

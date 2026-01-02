@@ -1,9 +1,9 @@
 from zahir.base_types import JobState
 from zahir.exception import JobRecoveryTimeoutError
-from zahir.worker.state_machine.states import EnqueueJobStateChange, StateChange
+from zahir.worker.state_machine.states import EnqueueJobStateChange
 
 
-def handle_recovery_job_timeout(state) -> tuple[StateChange, None]:
+def handle_recovery_job_timeout(state) -> tuple[EnqueueJobStateChange, None]:
     """The recovery job timed out. Emit a recovery timeout event, null out the job, and start over."""
 
     error = JobRecoveryTimeoutError("Recovery job execution timed out")

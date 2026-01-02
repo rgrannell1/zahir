@@ -4,11 +4,10 @@ from zahir.worker.state_machine.states import (
     ExecuteJobStateChange,
     ExecuteRecoveryJobStateChange,
     StartStateChange,
-    StateChange,
 )
 
 
-def check_preconditions(state) -> tuple[StateChange, None]:
+def check_preconditions(state) -> tuple[ExecuteRecoveryJobStateChange | ExecuteJobStateChange | StartStateChange, None]:
     """Can we even run this job? Check the input preconditions first."""
 
     errors = type(state.frame.job).precheck(state.frame.job.input)

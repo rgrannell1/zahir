@@ -1,8 +1,8 @@
 from zahir.base_types import JobState
-from zahir.worker.state_machine.states import CheckPreconditionsStateChange, StateChange
+from zahir.worker.state_machine.states import CheckPreconditionsStateChange
 
 
-def handle_job_exception(state) -> tuple[StateChange, None]:
+def handle_job_exception(state) -> tuple[CheckPreconditionsStateChange, None]:
     """The job raised an exception. Emit a recovery started event, and switch to recovery mode."""
 
     job_class = type(state.frame.job)
