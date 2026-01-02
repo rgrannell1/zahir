@@ -12,6 +12,7 @@ from typing import (
     Self,
     TypedDict,
     TypeVar,
+    cast,
 )
 
 from zahir.events import ZahirEvent
@@ -472,7 +473,7 @@ class Job[ArgsType, OutputType](ABC):
             "type": self.__class__.__name__,
             "job_id": self.job_id,
             "parent_id": self.parent_id,
-            "input": self.input,
+            "input": cast(Mapping[str, Any], self.input),
             "dependencies": self.dependencies.save(),
             "options": self.options.save() if self.options else None,
         }

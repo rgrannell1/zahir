@@ -67,6 +67,8 @@ EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
 
 
 def shutdown(processes: list[multiprocessing.Process]) -> None:
+    """Terminate and join all worker processes."""
+
     for proc in processes:
         if proc.is_alive():
             proc.terminate()
