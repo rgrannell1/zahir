@@ -255,7 +255,8 @@ class SQLiteJobRegistry(JobRegistry):
                 (job_id, serialised_output),
             )
 
-            conn.execute("update jobs set state =? where job_id = ?", (JobState.COMPLETED.value, job_id))
+            now = datetime.now(tz=timezone.utc).isoformat()
+            conn.execute("update jobs set state = ?, completed_at = ? where job_id = ?", (JobState.COMPLETED.value, now, job_id))
             conn.commit()
 
         # Emit event after transaction completes
