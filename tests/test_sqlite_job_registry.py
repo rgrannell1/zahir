@@ -57,6 +57,7 @@ def test_sqlite_job_registry_lifecycle():
         info = list(registry.jobs(dummy_context))
         assert any(j.job_id == job_id for j in info)
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -125,6 +126,7 @@ def test_delete_claims():
         registry.set_claim("job-claim-1", "worker-1")
         registry.delete_claims()
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -141,6 +143,7 @@ def test_set_claim():
         result = registry.set_claim("job-claim-2", "worker-2")
         assert isinstance(result, bool)
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -159,6 +162,7 @@ def test_claim_job():
         claimed = registry.claim(context, "worker-3")
         assert isinstance(claimed, (DummyJob, type(None)))
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -174,6 +178,7 @@ def test_claim_no_jobs():
         claimed = registry.claim(context, "worker-4")
         assert claimed is None
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -191,6 +196,7 @@ def test_get_job_timing():
         timing = registry.get_job_timing("job-timing-1")
         assert isinstance(timing, JobTimingInformation)
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -207,6 +213,7 @@ def test_get_job_timing_missing_job():
         except MissingJobError:
             pass
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -224,6 +231,7 @@ def test_is_finished():
         registry.set_state("job-finished-1", "wf-1", dummy_queue, JobState.COMPLETED)
         assert registry.is_finished("job-finished-1")
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -243,6 +251,7 @@ def test_add_duplicate_job():
         except DuplicateJobError:
             pass
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -259,6 +268,7 @@ def test_get_state_missing_job():
         except MissingJobError:
             pass
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -275,6 +285,7 @@ def test_set_state_with_error():
         err = ValueError("test error")
         registry.set_state("job-error-1", "wf-1", dummy_queue, JobState.IRRECOVERABLE, error=err)
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -291,6 +302,7 @@ def test_add_error():
         err = RuntimeError("test error")
         registry.add_error("job-error-2", err)
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -309,6 +321,7 @@ def test_get_errors():
         errors = registry.get_errors("job-error-3")
         assert isinstance(errors, list)
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -326,6 +339,7 @@ def test_is_active():
         registry.set_state("job-active-1", "wf-1", dummy_queue, JobState.COMPLETED)
         assert not registry.is_active()
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -347,6 +361,7 @@ def test_jobs_with_state_filter():
         completed_jobs = list(registry.jobs(context, state=JobState.COMPLETED))
         assert len(completed_jobs) == 1
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -363,6 +378,7 @@ def test_get_output_none():
         output = registry.get_output("job-output-1")
         assert output is None
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -380,6 +396,7 @@ def test_set_state_running():
         timing = registry.get_job_timing("job-running-1")
         assert timing.started_at is not None
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
@@ -397,4 +414,5 @@ def test_set_state_recovering():
         timing = registry.get_job_timing("job-recovery-1")
         assert timing.recovery_started_at is not None
     finally:
+        registry.conn.close()
         pathlib.Path(db_path).unlink()
