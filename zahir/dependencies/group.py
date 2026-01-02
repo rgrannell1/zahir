@@ -28,15 +28,15 @@ class DependencyGroup(Dependency):
 
         return DependencyState.SATISFIED
 
-    def request_extenstion(self, extra_seconds: float) -> Self:
+    def request_extension(self, extra_seconds: float) -> Self:
         """Ask each dependency for a time-extension and return
         the resulting DependencyGroup."""
 
         return type(self)({
             name: (
-                [dep.request_extenstion(extra_seconds) for dep in deps]
+                [dep.request_extension(extra_seconds) for dep in deps]
                 if isinstance(deps, list)
-                else deps.request_extenstion(extra_seconds)
+                else deps.request_extension(extra_seconds)
             )
             for name, deps in self.dependencies.items()
         })

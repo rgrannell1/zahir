@@ -69,7 +69,7 @@ class TimeDependency(Dependency):
 
         return DependencyState.SATISFIED
 
-    def request_extenstion(self, extra_seconds: float) -> Self:
+    def request_extension(self, extra_seconds: float) -> Self:
         """Ask for a time-extension and return the resulting TimeDependency. This
         allows the 'before' and/or 'after' times to be pushed further into the future. We need this
         in order to honour time-dependencies while still allowing for job retries.

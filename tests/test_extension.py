@@ -21,7 +21,7 @@ def test_time_dependency_extension_before_only():
     dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.BEFORE)
 
     # Request 1 hour (3600 seconds) extension
-    extended = dep.request_extenstion(3600)
+    extended = dep.request_extension(3600)
 
     # 'before' should be extended
     assert extended.before == datetime(2025, 1, 1, 15, 0, 0, tzinfo=UTC)
@@ -39,7 +39,7 @@ def test_time_dependency_extension_after_only():
     dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.AFTER)
 
     # Request 1 hour (3600 seconds) extension
-    extended = dep.request_extenstion(3600)
+    extended = dep.request_extension(3600)
 
     # 'before' should remain unchanged
     assert extended.before == before_time
@@ -57,7 +57,7 @@ def test_time_dependency_extension_both():
     dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.BOTH)
 
     # Request 2 hours (7200 seconds) extension
-    extended = dep.request_extenstion(7200)
+    extended = dep.request_extension(7200)
 
     # Both should be extended by 2 hours
     assert extended.before == datetime(2025, 1, 1, 16, 0, 0, tzinfo=UTC)
@@ -74,7 +74,7 @@ def test_time_dependency_extension_none():
     dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.NONE)
 
     # Request 1 hour extension
-    extended = dep.request_extenstion(3600)
+    extended = dep.request_extension(3600)
 
     # Neither should be extended
     assert extended.before == before_time
@@ -90,7 +90,7 @@ def test_time_dependency_extension_with_none_values():
         before=datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC), after=None, allow_extensions=ExtensionMode.BOTH
     )
 
-    extended1 = dep1.request_extenstion(3600)
+    extended1 = dep1.request_extension(3600)
     assert extended1.before == datetime(2025, 1, 1, 15, 0, 0, tzinfo=UTC)
     assert extended1.after is None
 
@@ -99,7 +99,7 @@ def test_time_dependency_extension_with_none_values():
         before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC), allow_extensions=ExtensionMode.BOTH
     )
 
-    extended2 = dep2.request_extenstion(3600)
+    extended2 = dep2.request_extension(3600)
     assert extended2.before is None
     assert extended2.after == datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC)
 
@@ -122,7 +122,7 @@ def test_time_dependency_extension_prevents_impossible():
         assert dep.satisfied() == DependencyState.IMPOSSIBLE
 
         # But with extension applied earlier, still satisfied
-        extended = dep.request_extenstion(3600)  # Extend by 1 hour
+        extended = dep.request_extension(3600)  # Extend by 1 hour
         assert extended.before == datetime(2025, 1, 1, 13, 30, 0, tzinfo=UTC)
         assert extended.satisfied() == DependencyState.SATISFIED
 
@@ -134,15 +134,15 @@ def test_time_dependency_extension_multiple_times():
     dep = TimeDependency(before=before_time, allow_extensions=ExtensionMode.BEFORE)
 
     # First extension: +30 minutes
-    extended1 = dep.request_extenstion(1800)
+    extended1 = dep.request_extension(1800)
     assert extended1.before == datetime(2025, 1, 1, 14, 30, 0, tzinfo=UTC)
 
     # Second extension: +another 30 minutes
-    extended2 = extended1.request_extenstion(1800)
+    extended2 = extended1.request_extension(1800)
     assert extended2.before == datetime(2025, 1, 1, 15, 0, 0, tzinfo=UTC)
 
     # Third extension: +1 hour
-    extended3 = extended2.request_extenstion(3600)
+    extended3 = extended2.request_extension(3600)
     assert extended3.before == datetime(2025, 1, 1, 16, 0, 0, tzinfo=UTC)
 
 
@@ -150,7 +150,7 @@ def test_concurrency_limit_extension_returns_self():
     """Test that ConcurrencyLimit returns itself unchanged for extensions."""
     limit = ConcurrencyLimit(limit=5, slots=2)
 
-    extended = limit.request_extenstion(3600)
+    extended = limit.request_extension(3600)
 
     # Should return itself unchanged
     assert extended is limit
@@ -163,7 +163,7 @@ def test_job_dependency_extension_returns_self():
     registry = SQLiteJobRegistry(":memory:")
     dep = JobDependency("test-job-id", registry)
 
-    extended = dep.request_extenstion(3600)
+    extended = dep.request_extension(3600)
 
     # Should return itself unchanged
     assert extended is dep
@@ -185,7 +185,7 @@ def test_dependency_group_extension_propagates():
     })
 
     # Request 1 hour extension
-    extended = group.request_extenstion(3600)
+    extended = group.request_extension(3600)
 
     # TimeDependency with 'before' should be extended
     time1 = extended.dependencies["time1"]
@@ -213,7 +213,7 @@ def test_dependency_group_extension_with_list():
     })
 
     # Request 30 minute extension
-    extended = group.request_extenstion(1800)
+    extended = group.request_extension(1800)
 
     # Both dependencies in the list should be extended
     times = extended.dependencies["times"]
@@ -232,7 +232,7 @@ def test_dependency_group_extension_nested():
     outer_group = DependencyGroup({"inner": inner_group, "limit": ConcurrencyLimit(limit=3, slots=1)})
 
     # Request 1 hour extension
-    extended = outer_group.request_extenstion(3600)
+    extended = outer_group.request_extension(3600)
 
     # Extension should propagate through nested groups
     inner = extended.dependencies["inner"]
@@ -258,7 +258,7 @@ def test_extension_use_case_retry_with_backoff():
         assert dep.satisfied() == DependencyState.IMPOSSIBLE
 
         # But we can request an extension for retry (e.g., 2 hours backoff)
-        extended = dep.request_extenstion(7200)
+        extended = dep.request_extension(7200)
 
         # Now the dependency should be satisfied with the new window
         assert extended.before == datetime(2025, 1, 1, 16, 0, 0, tzinfo=UTC)

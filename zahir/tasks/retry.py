@@ -66,7 +66,7 @@ class RetryTask(Job):
         super().__init__(input, dependencies)
 
     @classmethod
-    def run(cls, context: Context, input: RetryTaskInput, _: DependencyGroup) -> Iterator[Job]:
+    def run(cls, context: Context, input: RetryTaskInput, dependencies: DependencyGroup) -> Iterator[Job]:
         """Run the retry task."""
 
         # Reconstruct the task from serialized data

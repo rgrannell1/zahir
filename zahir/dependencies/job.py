@@ -51,7 +51,7 @@ class JobDependency[OutputType](Dependency):
             return DependencyState.SATISFIED
         return DependencyState.UNSATISFIED
 
-    def request_extenstion(self, extra_seconds: float) -> Self:
+    def request_extension(self, extra_seconds: float) -> Self:
         return self
 
     def save(self) -> dict[str, Any]:

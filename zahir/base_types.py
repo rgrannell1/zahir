@@ -55,7 +55,7 @@ class Dependency(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def request_extenstion(self, extra_seconds: float) -> Self:
+    def request_extension(self, extra_seconds: float) -> Self:
         """A dependency may, if it chooses, allow you to request that it's valid longer
         than initially defined. This applies to time-based dependencies; other dependencies
         can just return themselves unchanged. Dependencies do not have to honour extension
@@ -500,6 +500,21 @@ class Job[ArgsType, OutputType](ABC):
             options=JobOptions.load(data["options"]) if data["options"] else None,
             job_id=data["job_id"],
             parent_id=data.get("parent_id"),
+        )
+
+    def request_extension(self, extra_seconds: float) -> Self:
+        """Request that all time-based dependencies be extended by the given number of seconds.
+
+        @param extra_seconds: The number of extra seconds to request
+        @return: A new Job instance with extended dependencies
+        """
+
+        extended_dependencies = self.dependencies.request_extension(extra_seconds)
+        return self.__class__(
+            input=self.input,
+            dependencies=extended_dependencies,
+            options=self.options,
+            parent_id=self.job_id,
         )
 
 
