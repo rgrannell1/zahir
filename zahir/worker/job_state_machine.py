@@ -95,7 +95,10 @@ def log_call(fn):
 
         if isinstance(result, tuple):
             next_state = result[0]
-            message += f" -> {next_state.state}({json.dumps(next_state.data)})"
+            data = next_state.data
+
+            message += f" → {next_state.state} | "
+            message += data.get('message', '')
 
         message += RESET
         log.info(message)

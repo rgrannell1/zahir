@@ -32,7 +32,6 @@ src/
     base_types.py              abstract types for key Zahir abstractions
     events.py                  events describing workflow state-updates
     exception.py               exceptions thrown by Zahir
-    logging.py                 output information about the workflow status
     scope.py                   handle translation from serialised data to instances
 ```
 
@@ -163,22 +162,27 @@ Dependency implementations must be serialisable to JSON.
 
 Zahir communicates changes in workflow state as a stream of events emitted by `workflow.run`. These events include metadata. Most are emitted internally by the workflow engine itself:
 
-- `WorkflowCompleteEvent`
 - `JobCompletedEvent`
+- `JobEvent`
+- `JobIrrecoverableEvent`
+- `JobPausedEvent`
+- `JobPrecheckFailedEvent`
+- `JobRecoveryCompletedEvent`
+- `JobRecoveryStartedEvent`
+- `JobRecoveryTimeoutEvent`
 - `JobStartedEvent`
 - `JobTimeoutEvent`
-- `JobRecoveryStarted`
-- `JobRecoveryTimeout`
-- `JobIrrecoverableEvent`
-- `JobPrecheckFailedEvent`
-- `JobEvent`
+- `WorkflowCompleteEvent`
+- `WorkflowStartedEvent`
+- `ZahirEvent`
+- `ZahirInternalErrorEvent`
 
 A few can be used by jobs to communicate with the workflow engine:
 
-- `WorkflowOutputEvent`: yield output from the workflow. Workflows yield a stream of outputs; since many workflows are long-running it's better to yield results as we go
-- `JobOutputEvent`: return output from a job. Treated as a singular return; the task is dropped after this event is yielded.
-- `ZahirCustomEvent`: whatever additional events you'd like to emit
 - `Await`: wait for the result (or an error) from another job before resuming this one
+- `JobOutputEvent`: return output from a job. Treated as a singular return; the task is dropped after this event is yielded.
+- `WorkflowOutputEvent`: yield output from the workflow. Workflows yield a stream of outputs; since many workflows are long-running it's better to yield results as we go
+- `ZahirCustomEvent`: whatever additional events you'd like to emit
 
 ### Registries - Store workflow state
 
@@ -187,10 +191,6 @@ Workflow orchestrators need to store some operational data. The job-registry kee
 ### Scope - Convert from data to classes
 
 We serialise jobs and dependencies to our registries for storage. We need to translate this data back to the associated Python classes. `Scope` implementations handle this translation. Jobs and Dependencies have to be explicitly registered with a scope for a non-local workflow to run.
-
-### Logger - Communicate Job State
-
-Workflows run a long time, so we need to communicate how the workflow is proceeding. The logger can process events and display them in a TUI.
 
 ## Modelling Workflows
 

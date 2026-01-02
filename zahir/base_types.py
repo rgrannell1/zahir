@@ -21,7 +21,6 @@ from zahir.utils.id_generator import generate_id
 if TYPE_CHECKING:
     from zahir.dependencies.group import DependencyGroup
     from zahir.events import JobOutputEvent, WorkflowOutputEvent, ZahirCustomEvent
-    from zahir.logging import ZahirLogger
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Dependency ++++++++++++++++++++++++++++++++
@@ -579,5 +578,4 @@ class Context:
     scope: Scope
     # Keep track of jobs
     job_registry: JobRegistry
-    # Log the progress of the workflow
-    logger: "ZahirLogger"
+#

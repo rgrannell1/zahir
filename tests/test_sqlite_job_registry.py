@@ -6,7 +6,6 @@ from zahir.base_types import Context, EventRegistry, Job, JobState
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import WorkflowOutputEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
-from zahir.logging import ZahirLogger
 from zahir.scope import LocalScope
 
 
@@ -16,14 +15,6 @@ class DummyEventRegistry(EventRegistry):
 
     def register(self, event):
         self.queue.put(event)
-
-
-class DummyLogger(ZahirLogger):
-    def __init__(self, job_registry):
-        super().__init__(job_registry)
-
-    def render(self, context):
-        pass
 
 
 class DummyJob(Job):
@@ -62,8 +53,7 @@ def test_sqlite_job_registry_lifecycle():
         scope = LocalScope(jobs=[DummyJob])
         dummy_context = Context(
             scope=scope,
-            job_registry=registry,
-            logger=DummyLogger(registry),
+            job_registry=registry
         )
         info = list(registry.jobs(dummy_context))
         assert any(j.job_id == job_id for j in info)

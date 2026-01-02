@@ -1,5 +1,4 @@
 from zahir.base_types import Context, JobRegistry, Scope
-from zahir.logging import ZahirLogger
 
 
 class MemoryContext(Context):
@@ -12,4 +11,4 @@ class MemoryContext(Context):
         @param job_registry: The job registry
         """
 
-        super().__init__(scope=scope, job_registry=job_registry, logger=ZahirLogger(job_registry))
+        super().__init__(scope=scope, job_registry=job_registry)
