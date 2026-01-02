@@ -1,8 +1,21 @@
 from zahir.base_types import JobState
-from zahir.worker.state_machine.states import CheckPreconditionsStateChange, ExecuteJobStateChange
+from zahir.worker.state_machine.states import (
+    CheckPreconditionsStateChange,
+    ExecuteJobStateChange,
+    HandleJobTimeoutStateChange,
+    HandleRecoveryJobTimeoutStateChange,
+)
 
 
-def pop_job(state) -> tuple[CheckPreconditionsStateChange | ExecuteJobStateChange, None]:
+def pop_job(
+    state,
+) -> tuple[
+    CheckPreconditionsStateChange
+    | ExecuteJobStateChange
+    | HandleRecoveryJobTimeoutStateChange
+    | HandleJobTimeoutStateChange,
+    None,
+]:
     """We need a job; pop one off the stack"""
 
     # different one when we pop a job, which is also fine.
@@ -10,8 +23,31 @@ def pop_job(state) -> tuple[CheckPreconditionsStateChange | ExecuteJobStateChang
     assert runnable_frame_idx is not None
 
     state.frame = state.job_stack.pop(runnable_frame_idx)
+    job = state.frame.job
 
-    job_state = state.context.job_registry.get_state(state.frame.job.job_id)
+    job_state = state.context.job_registry.get_state(job.job_id)
+
+    # We have two types of timeout, look up the appropriate one. We
+    # timeout based not only on job options if present.
+    timeout: float | None = None
+    if job.job_options:
+        timeout = job.job_options.recovery_timeout if state.frame.recovery else job.job_options.execution_timeout
+
+    # TO-DO start-time needs to be reset for recovery.
+    job_timing = state.context.job_registry.get_job_timing(job.job_id)
+    time_since_start = job_timing.time_since_started()
+
+    if timeout is not None and time_since_start is not None and time_since_start >= timeout:
+        # The job has timed out, let's deal with that
+
+        if state.frame.recovery:
+            return HandleRecoveryJobTimeoutStateChange({
+                "message": f"Popped recovery-job {job.job_id} that has already timed out"
+            }), state
+        else:
+            return HandleJobTimeoutStateChange({
+                "message": f"Popped job {job.job_id} that has already timed out"
+            }), state
 
     if job_state == JobState.READY:
         return CheckPreconditionsStateChange(

@@ -132,7 +132,15 @@ class ZahirJobStateMachine:
 
     @classmethod
     @log_call
-    def pop_job(cls, state) -> tuple[CheckPreconditionsStateChange | ExecuteJobStateChange, None]:
+    def pop_job(
+        cls, state
+    ) -> tuple[
+        CheckPreconditionsStateChange
+        | ExecuteJobStateChange
+        | HandleRecoveryJobTimeoutStateChange
+        | HandleJobTimeoutStateChange,
+        None,
+    ]:
         """We need a job; pop one off the stack"""
 
         return pop_job(state)

@@ -15,6 +15,7 @@ def start(state) -> tuple[EnqueueJobStateChange | PopJobStateChange | CheckPreco
 
         if runnable_frame_idx is not None:
             return PopJobStateChange({"message": "No job active, so popping from stack"}), state
+
         return EnqueueJobStateChange({"message": "No job runnable; enqueueing."}), state
 
     job_type = state.frame.job_type()

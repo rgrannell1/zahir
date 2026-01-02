@@ -1,4 +1,5 @@
 from collections.abc import Iterator, Mapping
+from dataclasses import dataclass
 from datetime import UTC, datetime, timezone
 import json
 import logging
@@ -34,6 +35,24 @@ from zahir.job_registry.state_event import create_state_event
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
+
+
+@dataclass
+class JobTimingInformation:
+    started_at: datetime | None
+    completed_at: datetime | None
+    duration_seconds: float | None
+    recovery_duration_seconds: float | None
+
+    def time_since_started(self) -> float | None:
+        """Get the time since the job started in seconds."""
+
+        if self.started_at is None:
+            return None
+
+        now = datetime.now(tz=timezone.utc)
+        delta = now - self.started_at
+        return delta.total_seconds()
 
 
 class SQLiteJobRegistry(JobRegistry):
@@ -188,6 +207,40 @@ class SQLiteJobRegistry(JobRegistry):
 
             (state_str,) = row
             return JobState(state_str)
+
+    def get_job_timing(self, job_id: str) -> JobTimingInformation:
+        """Get timing information for a job."""
+
+        log.debug(f"Getting timing information for job {job_id}")
+
+        with self.conn as conn:
+            row = conn.execute(
+                """
+            select
+                started_at,
+                completed_at,
+                duration_seconds,
+                recovery_duration_seconds
+            from jobs
+            where job_id = ?
+            """,
+                (job_id,),
+            ).fetchone()
+
+            if row is None:
+                raise MissingJobError(f"Job with ID {job_id} not found in registry.")
+
+            started_at_str, completed_at_str, duration_seconds, recovery_duration_seconds = row
+
+            started_at = datetime.fromisoformat(started_at_str) if started_at_str is not None else None
+            completed_at = datetime.fromisoformat(completed_at_str) if completed_at_str is not None else None
+
+            return JobTimingInformation(
+                started_at=started_at,
+                completed_at=completed_at,
+                duration_seconds=duration_seconds,
+                recovery_duration_seconds=recovery_duration_seconds,
+            )
 
     def is_finished(self, job_id: str) -> bool:
         """Is the job in a terminal state?"""

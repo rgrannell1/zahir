@@ -7,10 +7,6 @@ from zahir.worker.state_machine.states import StartStateChange, WaitForJobStateC
 def enqueue_job(state) -> tuple[WaitForJobStateChange | StartStateChange, None]:
     """ """
 
-    # TO-DO: this needs to be updated, so that paused jobs with satisfied awaits can be resumed.
-    # We also need to claim new jobs while other jobs are stuck in pending. And keep track of ordering.
-
-    # First, let's make sure we have at least one job, by adding it to the stack
     job = state.context.job_registry.claim(state.context, str(os.getpid()))
 
     if job is None:

@@ -26,6 +26,7 @@ def job(fn: Callable[..., Any]):
 
     # the main requirement; define `run`
     ns["run"] = classmethod(run_wrapper)
+    ns["job_options"] = None
 
     ns["__module__"] = mod
     ns["__qualname__"] = class_qualname

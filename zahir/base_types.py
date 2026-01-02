@@ -214,6 +214,12 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_job_timing(self, job_id: str) -> "JobTimingInformation":
+        """Get timing information for a job by ID"""
+
+        raise NotImplementedError
+
+    @abstractmethod
     def set_state(
         self,
         job_id: str,
