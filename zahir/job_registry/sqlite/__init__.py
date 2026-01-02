@@ -1,5 +1,5 @@
 from collections.abc import Iterator, Mapping
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import logging
 import multiprocessing
@@ -88,10 +88,11 @@ class SQLiteJobRegistry(JobRegistry):
 
         log.debug(f"Setting claim for job {job_id} by worker {worker_id}")
 
+        claimed_at = datetime.now(tz=timezone.utc).isoformat()
         with self.conn as conn:
             cursor = conn.execute(
-                "insert into claimed_jobs (job_id, worker_id) values (?, ?);",
-                (job_id, worker_id),
+                "insert into claimed_jobs (job_id, claimed_at, claimed_by) values (?, ?, ?);",
+                (job_id, claimed_at, worker_id),
             )
 
             return cursor.lastrowid == 1
@@ -101,12 +102,13 @@ class SQLiteJobRegistry(JobRegistry):
 
         log.debug(f"Worker {worker_id} attempting to claim a job")
 
+        claimed_at = datetime.now(tz=timezone.utc).isoformat()
         with self.conn as conn:
             conn.execute("begin immediate;")
             claimed_row = conn.execute(
                 """
-                insert into claimed_jobs (job_id, claimed_by)
-                  select jobs.job_id, ?
+                insert into claimed_jobs (job_id, claimed_at, claimed_by)
+                  select jobs.job_id, ?, ?
                   from jobs
                   left join claimed_jobs
                       on claimed_jobs.job_id = jobs.job_id
@@ -116,7 +118,7 @@ class SQLiteJobRegistry(JobRegistry):
                   limit 1
                   returning job_id
                 """,
-                (worker_id, JobState.READY.value),
+                (claimed_at, worker_id, JobState.READY.value),
             ).fetchone()
 
             # Bail and end the transaction if no job was claimed
@@ -161,9 +163,11 @@ class SQLiteJobRegistry(JobRegistry):
                 raise DuplicateJobError(f"Job with ID {job_id} already exists in the registry.")
 
             conn.execute("begin immediate;")
+            created_at = datetime.now(tz=timezone.utc).isoformat()
             conn.execute(
-                "insert into jobs (job_id, serialised_job, state) values (?, ?, ?)", (job_id, serialised, job_state)
+                "insert into jobs (job_id, serialised_job, state, created_at) values (?, ?, ?, ?)", (job_id, serialised, job_state, created_at)
             )
+
             conn.commit()
 
             output_queue.put(JobEvent(job=saved_job))
@@ -206,6 +210,16 @@ class SQLiteJobRegistry(JobRegistry):
         with self.conn as conn:
             conn.execute("begin immediate;")
             conn.execute("update jobs set state = ? where job_id = ?", (state.value, job_id))
+
+            if state == JobState.RUNNING:
+                # We're starting the job, set ther start-time if not already set
+                started_at = datetime.now(tz=timezone.utc).isoformat()
+                conn.execute("update jobs set started_at = ? where job_id = ? and started_at is null", (started_at, job_id))
+
+            if state in COMPLETED_JOB_STATES:
+                # Job is in a terminal-state; set completed time if not already set
+                completed_at = datetime.now(tz=timezone.utc).isoformat()
+                conn.execute("update jobs set completed_at = ? where job_id = ? and completed_at is null", (completed_at, job_id))
 
             if error is not None:
                 error_trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))

@@ -5,16 +5,7 @@ from tblib import pickling_support  # type: ignore[import-untyped]
 from zahir.base_types import Context, Job, JobRegistry, JobState
 from zahir.events import (
     Await,
-    JobCompletedEvent,
-    JobIrrecoverableEvent,
     JobOutputEvent,
-    JobPrecheckFailedEvent,
-    JobRecoveryStartedEvent,
-    JobRecoveryTimeoutEvent,
-    JobStartedEvent,
-    JobTimeoutEvent,
-    WorkflowOutputEvent,
-    ZahirCustomEvent,
     ZahirEvent,
 )
 from zahir.exception import JobPrecheckError, JobRecoveryTimeoutError, JobTimeoutError
@@ -621,10 +612,10 @@ def read_job_events(
             return item
 
         if isinstance(item, ZahirEvent) and hasattr(item, "workflow_id"):
-            item.workflow_id = workflow_id
+            cast(Any, item).workflow_id = workflow_id
 
         if isinstance(item, ZahirEvent) and hasattr(item, "job_id"):
-            item.job_id = job_id
+            cast(Any, item).job_id = job_id
 
         output_queue.put(item)
 
