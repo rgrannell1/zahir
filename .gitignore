@@ -11,3 +11,5 @@ wheels/
 integration_tests/data.txt
 *.pyi
 jobs.db*
+.coverage
+coverage.xml
