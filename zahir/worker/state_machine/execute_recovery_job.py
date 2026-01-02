@@ -1,3 +1,4 @@
+from math import ceil
 import signal
 from typing import cast
 
@@ -40,7 +41,7 @@ def execute_recovery_job(
 
     job_timing = state.context.job_registry.get_job_timing(state.frame.job.job_id)
     time_since_started = job_timing.time_since_recovery_started() if job_timing else None
-    job_timeout = state.frame.job.job_options.recovery_timeout if state.frame.job.job_options else None
+    job_timeout = state.frame.job.job_options.recover_timeout if state.frame.job.job_options else None
 
     seconds_until_timeout = max(0, job_timeout - time_since_started) if job_timeout and time_since_started else job_timeout
 
@@ -48,7 +49,7 @@ def execute_recovery_job(
     job_type = state.frame.job_type()
 
     try:
-        signal.alarm(seconds_until_timeout) if seconds_until_timeout else None
+        signal.alarm(ceil(seconds_until_timeout)) if seconds_until_timeout else None
 
         job_generator_result = read_job_events(
             state.frame.job_generator,

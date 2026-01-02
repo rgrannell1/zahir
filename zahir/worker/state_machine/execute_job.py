@@ -1,3 +1,4 @@
+from math import ceil
 import signal
 from typing import cast
 
@@ -48,7 +49,7 @@ def execute_job(
     job_type = state.frame.job_type()
 
     try:
-        signal.alarm(seconds_until_timeout) if seconds_until_timeout else None
+        signal.alarm(ceil(seconds_until_timeout)) if seconds_until_timeout else None
         job_generator_result = read_job_events(
             state.frame.job_generator,
             job_registry=state.context.job_registry,

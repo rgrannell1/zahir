@@ -31,11 +31,10 @@ def pop_job(
     # timeout based not only on job options if present.
     timeout: float | None = None
     if job.job_options:
-        timeout = job.job_options.recovery_timeout if state.frame.recovery else job.job_options.execution_timeout
+        timeout = job.job_options.recover_timeout if state.frame.recovery else job.job_options.job_timeout
 
     job_timing = state.context.job_registry.get_job_timing(job.job_id)
 
-    # TO-DO start-time needs to be reset for recovery.
     time_since_start = (
         job_timing.time_since_recovery_started() if state.frame.recovery else job_timing.time_since_started()
     )
