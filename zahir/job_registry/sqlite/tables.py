@@ -1,3 +1,4 @@
+
 JOBS_TABLE_SCHEMA = """
 create table if not exists jobs (
     job_id                    text primary key,
@@ -6,9 +7,7 @@ create table if not exists jobs (
     created_at                text,
     started_at                text,
     recovery_started_at       text,
-    completed_at              text,
-    duration_seconds          real,
-    recovery_duration_seconds real
+    completed_at              text
 );
 """
 

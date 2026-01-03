@@ -3,11 +3,11 @@ import multiprocessing
 import pathlib
 import tempfile
 
-from zahir.base_types import Context, EventRegistry, Job, JobState
+from zahir.base_types import Context, EventRegistry, Job, JobState, JobTimingInformation
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import WorkflowOutputEvent
 from zahir.exception import DuplicateJobError, MissingJobError
-from zahir.job_registry.sqlite import JobTimingInformation, SQLiteJobRegistry
+from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.scope import LocalScope
 
 
@@ -68,8 +68,6 @@ def test_job_timing_information_time_since_started():
         started_at=started,
         recovery_started_at=None,
         completed_at=None,
-        duration_seconds=None,
-        recovery_duration_seconds=None,
     )
     elapsed = timing.time_since_started()
     assert isinstance(elapsed, float)
@@ -81,8 +79,6 @@ def test_job_timing_information_time_since_started_none():
         started_at=None,
         recovery_started_at=None,
         completed_at=None,
-        duration_seconds=None,
-        recovery_duration_seconds=None,
     )
     assert timing.time_since_started() is None
 
@@ -94,8 +90,6 @@ def test_job_timing_information_time_since_recovery_started():
         started_at=None,
         recovery_started_at=recovery_started,
         completed_at=None,
-        duration_seconds=None,
-        recovery_duration_seconds=None,
     )
     elapsed = timing.time_since_recovery_started()
     assert isinstance(elapsed, float)
@@ -107,8 +101,6 @@ def test_job_timing_information_time_since_recovery_started_none():
         started_at=None,
         recovery_started_at=None,
         completed_at=None,
-        duration_seconds=None,
-        recovery_duration_seconds=None,
     )
     assert timing.time_since_recovery_started() is None
 

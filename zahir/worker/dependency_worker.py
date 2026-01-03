@@ -28,10 +28,11 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
 
         while True:
             if not job_registry.is_active():
+                duration = job_registry.get_workflow_duration() or 0.0
                 output_queue.put(
                     WorkflowCompleteEvent(
                         workflow_id=workflow_id,
-                        duration_seconds=0.0,  # TODO: track duration
+                        duration_seconds=duration,
                     )
                 )
                 return

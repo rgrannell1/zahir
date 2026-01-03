@@ -16,6 +16,7 @@ from zahir.base_types import (
     JobInformation,
     JobRegistry,
     JobState,
+    JobTimingInformation,
 )
 from zahir.events import JobCompletedEvent, JobEvent
 from zahir.exception import (
@@ -35,35 +36,6 @@ from zahir.job_registry.state_event import create_state_event
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
-
-
-@dataclass
-class JobTimingInformation:
-    started_at: datetime | None
-    recovery_started_at: datetime | None
-    completed_at: datetime | None
-    duration_seconds: float | None
-    recovery_duration_seconds: float | None
-
-    def time_since_started(self) -> float | None:
-        """Get the time since the job started in seconds."""
-
-        if self.started_at is None:
-            return None
-
-        now = datetime.now(tz=UTC)
-        delta = now - self.started_at
-        return delta.total_seconds()
-
-    def time_since_recovery_started(self) -> float | None:
-        """Get the time since the job recovery started in seconds."""
-
-        if self.recovery_started_at is None:
-            return None
-
-        now = datetime.now(tz=UTC)
-        delta = now - self.recovery_started_at
-        return delta.total_seconds()
 
 
 class SQLiteJobRegistry(JobRegistry):
@@ -230,9 +202,7 @@ class SQLiteJobRegistry(JobRegistry):
             select
                 started_at,
                 recovery_started_at,
-                completed_at,
-                duration_seconds,
-                recovery_duration_seconds
+                completed_at
             from jobs
             where job_id = ?
             """,
@@ -242,7 +212,7 @@ class SQLiteJobRegistry(JobRegistry):
             if row is None:
                 raise MissingJobError(f"Job with ID {job_id} not found in registry.")
 
-            started_at_str, recovery_started_at_str, completed_at_str, duration_seconds, recovery_duration_seconds = row
+            started_at_str, recovery_started_at_str, completed_at_str = row
 
             started_at = datetime.fromisoformat(started_at_str) if started_at_str is not None else None
             recovery_started_at = (
@@ -254,8 +224,6 @@ class SQLiteJobRegistry(JobRegistry):
                 started_at=started_at,
                 recovery_started_at=recovery_started_at,
                 completed_at=completed_at,
-                duration_seconds=duration_seconds,
-                recovery_duration_seconds=recovery_duration_seconds,
             )
 
     def is_finished(self, job_id: str) -> bool:
@@ -312,7 +280,8 @@ class SQLiteJobRegistry(JobRegistry):
 
             conn.commit()
 
-        event = create_state_event(state, workflow_id, job_id, error=error)
+        timing = self.get_job_timing(job_id) if state in COMPLETED_JOB_STATES else None
+        event = create_state_event(state, workflow_id, job_id, error=error, timing=timing)
         if event is not None:
             output_queue.put(event)
 
@@ -344,11 +313,13 @@ class SQLiteJobRegistry(JobRegistry):
             conn.commit()
 
         # Emit event after transaction completes
+        timing = self.get_job_timing(job_id)
+        duration = timing.time_since_started() or 0.0
         output_queue.put(
             JobCompletedEvent(
                 job_id=job_id,
                 workflow_id=workflow_id,
-                duration_seconds=0.1,
+                duration_seconds=duration,
             )
         )
 
@@ -436,9 +407,7 @@ class SQLiteJobRegistry(JobRegistry):
             job.state,
             out.output,
             job.started_at,
-            job.completed_at,
-            job.duration_seconds,
-            job.recovery_duration_seconds
+            job.completed_at
           from jobs as job
           left join job_outputs as out on out.job_id = job.job_id
           """).fetchall()
@@ -450,8 +419,6 @@ class SQLiteJobRegistry(JobRegistry):
             serialised_output,
             started_at,
             completed_at,
-            duration_seconds,
-            recovery_duration_seconds,
         ) in job_list:
             job_data = json.loads(serialised_job)
             job_class = context.scope.get_job_class(job_data["type"])
@@ -472,9 +439,39 @@ class SQLiteJobRegistry(JobRegistry):
                 output=output,
                 started_at=parsed_started_at,
                 completed_at=parsed_completed_at,
-                duration_seconds=duration_seconds,
-                recovery_duration_seconds=recovery_duration_seconds,
             )
+
+    def get_workflow_duration(self) -> float | None:
+        """Get the duration of the workflow based on earliest created_at and latest completed_at.
+
+        @return: The duration in seconds, or None if workflow hasn't completed
+        """
+
+        log.debug("Computing workflow duration")
+
+        with self.conn as conn:
+            row = conn.execute(
+                """
+            select
+                min(created_at) as earliest_created,
+                max(completed_at) as latest_completed
+            from jobs
+            """
+            ).fetchone()
+
+            if row is None:
+                return None
+
+            earliest_created_str, latest_completed_str = row
+
+            if earliest_created_str is None or latest_completed_str is None:
+                return None
+
+            earliest_created = datetime.fromisoformat(earliest_created_str)
+            latest_completed = datetime.fromisoformat(latest_completed_str)
+
+            delta = latest_completed - earliest_created
+            return delta.total_seconds()
 
     def close(self) -> None:
         """Close the database connection."""

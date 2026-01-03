@@ -3,7 +3,8 @@
 from abc import ABC, abstractmethod
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, UTC
+
 from enum import StrEnum
 import multiprocessing
 from typing import (
@@ -161,10 +162,35 @@ class JobInformation:
     started_at: datetime | None = None
     # When did the job complete?
     completed_at: datetime | None = None
-    # How long did the job take to run?
-    duration_seconds: float | None = None
-    # How long did recovery take, if any?
-    recovery_duration_seconds: float | None = None
+
+
+@dataclass
+class JobTimingInformation:
+    """Timing information for a job."""
+
+    started_at: datetime | None
+    recovery_started_at: datetime | None
+    completed_at: datetime | None
+
+    def time_since_started(self) -> float | None:
+        """Get the time since the job started in seconds."""
+
+        if self.started_at is None:
+            return None
+
+        now = datetime.now(tz=UTC)
+        delta = now - self.started_at
+        return delta.total_seconds()
+
+    def time_since_recovery_started(self) -> float | None:
+        """Get the time since the job recovery started in seconds."""
+
+        if self.recovery_started_at is None:
+            return None
+
+        now = datetime.now(tz=UTC)
+        delta = now - self.recovery_started_at
+        return delta.total_seconds()
 
 
 class JobRegistry(ABC):
@@ -282,6 +308,15 @@ class JobRegistry(ABC):
         it should return None.
 
         @return: A tuple of (job_id, Job) if a job was claimed, or None if no pending jobs are available.
+        """
+
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_workflow_duration(self) -> float | None:
+        """Get the duration of the workflow in seconds.
+
+        @return: The duration in seconds, or None if workflow hasn't completed
         """
 
         raise NotImplementedError

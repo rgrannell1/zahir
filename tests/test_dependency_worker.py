@@ -434,13 +434,17 @@ def test_dependency_worker_direct_satisfied_path():
     job = SimpleJob({"test": "data"}, {"time_dep": satisfied_dependency})
     job_id = context.job_registry.add(job, output_queue)
 
-    # Mock is_active to return True twice (to allow processing), then False
+    # Mock is_active to return True until job is READY, then allow one more iteration before stopping
     call_count = [0]
     original_is_active = job_registry.is_active
 
     def mock_is_active():
         call_count[0] += 1
-        if call_count[0] > 2:  # Allow two iterations
+        # Allow processing until job is READY, plus one extra iteration to ensure completion
+        if call_count[0] > 1 and job_registry.get_state(job_id) == JobState.READY:
+            return False
+        # Safety limit to prevent infinite loops
+        if call_count[0] > 10:
             return False
         return original_is_active()
 

@@ -116,16 +116,12 @@ def test_job_information_dataclass():
         output={"result": "success"},
         started_at=datetime(2024, 1, 1, 12, 0, 0),
         completed_at=datetime(2024, 1, 1, 12, 5, 0),
-        duration_seconds=300.0,
-        recovery_duration_seconds=10.0,
     )
 
     assert job_info.job_id == "job-123"
     assert job_info.job == job
     assert job_info.state == JobState.COMPLETED
     assert job_info.output == {"result": "success"}
-    assert job_info.duration_seconds == 300.0
-    assert job_info.recovery_duration_seconds == 10.0
 
 
 def test_context_dataclass():

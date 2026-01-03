@@ -2,7 +2,7 @@
 State changes correspond to events that get emitted.
 """
 
-from zahir.base_types import JobState
+from zahir.base_types import JobState, JobTimingInformation
 from zahir.events import (
     JobCompletedEvent,
     JobIrrecoverableEvent,
@@ -19,7 +19,11 @@ from zahir.exception import exception_to_text_blob
 
 
 def create_state_event(
-    state: JobState, workflow_id: str, job_id: str, error: BaseException | None = None
+    state: JobState,
+    workflow_id: str,
+    job_id: str,
+    error: BaseException | None = None,
+    timing: JobTimingInformation | None = None,
 ) -> ZahirEvent | None:
     """Create an event based on the job state transition.
 
@@ -47,10 +51,11 @@ def create_state_event(
         case JobState.RUNNING:
             return JobStartedEvent(workflow_id=workflow_id, job_id=job_id)
         case JobState.COMPLETED:
+            duration = timing.time_since_started() if timing else 0.0
             return JobCompletedEvent(
                 job_id=job_id,
                 workflow_id=workflow_id,
-                duration_seconds=0.1,
+                duration_seconds=duration or 0.0,
             )
         case JobState.RECOVERING:
             return JobRecoveryStartedEvent(
@@ -58,22 +63,25 @@ def create_state_event(
                 workflow_id=workflow_id,
             )
         case JobState.RECOVERED:
+            duration = timing.time_since_recovery_started() if timing else 0.0
             return JobRecoveryCompletedEvent(
                 job_id=job_id,
                 workflow_id=workflow_id,
-                duration_seconds=0.1,
+                duration_seconds=duration or 0.0,
             )
         case JobState.TIMED_OUT:
+            duration = timing.time_since_started() if timing else 0.0
             return JobTimeoutEvent(
                 job_id=job_id,
                 workflow_id=workflow_id,
-                duration_seconds=0.1,
+                duration_seconds=duration or 0.0,
             )
         case JobState.RECOVERY_TIMED_OUT:
+            duration = timing.time_since_recovery_started() if timing else 0.0
             return JobRecoveryTimeoutEvent(
                 job_id=job_id,
                 workflow_id=workflow_id,
-                duration_seconds=0.1,
+                duration_seconds=duration or 0.0,
             )
         case JobState.IRRECOVERABLE:
             assert error is not None
