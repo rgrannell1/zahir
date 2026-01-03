@@ -388,3 +388,48 @@ def test_pop_job_no_timeout_configured():
 
     # Should not timeout, should check preconditions
     assert isinstance(result, CheckPreconditionsStateChange)
+
+
+def test_pop_job_timeout_recovery_job():
+    """Test that a timed-out recovery job transitions to HandleRecoveryJobTimeoutStateChange."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    job_registry = SQLiteJobRegistry(tmp_file)
+    job_registry.init("test-worker-11")
+
+    context = MemoryContext(
+        scope=LocalScope(jobs=[SimpleJob]),
+        job_registry=job_registry
+    )
+    output_queue = multiprocessing.Queue()
+    workflow_id = "test-workflow-11"
+
+    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+
+    # Add a job with recovery timeout
+    job = SimpleJob({"test": "data"}, {})
+    from zahir.base_types import JobOptions
+    job.job_options = JobOptions()
+    job.job_options.recover_timeout = 0.001
+
+    job_id = context.job_registry.add(job, output_queue)
+    context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.RECOVERING)
+
+    # Sleep to ensure timeout
+    time.sleep(0.01)
+
+    # Push recovery job to stack
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
+    worker_state.job_stack.push(frame)
+
+    # Run pop_job
+    result, _ = pop_job(worker_state)
+
+    # Should handle recovery timeout
+    from zahir.worker.state_machine.states import HandleRecoveryJobTimeoutStateChange
+    assert isinstance(result, HandleRecoveryJobTimeoutStateChange)
+    assert "timed out" in result.data["message"].lower()
+    assert "recovery" in result.data["message"].lower()

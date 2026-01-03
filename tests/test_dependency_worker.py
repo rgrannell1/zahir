@@ -410,3 +410,44 @@ def test_dependency_worker_only_processes_pending_jobs():
     worker_process.join(timeout=3)
     if worker_process.is_alive():
         worker_process.terminate()
+
+
+def test_dependency_worker_handles_internal_error():
+    """Test that dependency worker emits ZahirInternalErrorEvent when an exception occurs."""
+
+    # Create a mock job registry that raises an exception
+    class BrokenJobRegistry:
+        def init(self, worker_id: str) -> None:
+            pass
+
+        def is_active(self):
+            raise RuntimeError("Simulated job registry failure")
+
+    broken_registry = BrokenJobRegistry()
+
+    context = MemoryContext(
+        scope=LocalScope(jobs=[SimpleJob]),
+        job_registry=broken_registry
+    )
+    output_queue = multiprocessing.Queue()
+    workflow_id = "test-workflow-9"
+
+    # Start dependency worker in a separate process
+    worker_process = multiprocessing.Process(
+        target=zahir_dependency_worker,
+        args=(context, output_queue, workflow_id)
+    )
+    worker_process.start()
+
+    # Wait for worker to finish (should exit due to exception)
+    worker_process.join(timeout=3)
+    if worker_process.is_alive():
+        worker_process.terminate()
+
+    # Check that ZahirInternalErrorEvent was emitted
+    event = output_queue.get(timeout=1)
+    assert isinstance(event, ZahirInternalErrorEvent)
+    assert event.workflow_id == workflow_id
+    # error is a pickled blob, just check it exists and is not empty
+    assert event.error
+    assert len(event.error) > 0
