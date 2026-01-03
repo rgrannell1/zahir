@@ -10,6 +10,7 @@ Focusing on uncovered lines:
 - Line 154, 162, 198, 205, 265, 273, 289, 297, etc.: Event load() methods
 """
 
+from zahir.serialisers.job import SerialisedJob
 from zahir.events import (
     JobCompletedEvent,
     JobEvent,
@@ -223,7 +224,6 @@ def test_zahir_internal_error_event_roundtrip():
 
 def test_job_event_roundtrip():
     """Test JobEvent save/load roundtrip."""
-    from zahir.base_types import SerialisedJob
 
     job_data: SerialisedJob = {
         "type": "TestJob",

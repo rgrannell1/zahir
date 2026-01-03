@@ -1,7 +1,7 @@
 """Tests for LocalWorkflow default context creation from calling scope."""
 
 from zahir.base_types import Context, Dependency, DependencyState
-from zahir.events import JobOutputEvent, WorkflowOutputEvent
+from zahir.events import JobOutputEvent
 from zahir.jobs.decorator import job
 from zahir.worker import LocalWorkflow
 

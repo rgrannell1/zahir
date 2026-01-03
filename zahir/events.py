@@ -10,6 +10,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any, TypeVar
 
+from zahir.serialisers.job import SerialisedJob
+
 OutputType = TypeVar("OutputType", bound=Mapping[str, Any])
 CustomEventOutputType = TypeVar("CustomEventOutputType", bound=Mapping[str, Any])
 

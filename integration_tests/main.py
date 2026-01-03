@@ -5,8 +5,6 @@ from typing import TypedDict, cast
 
 from zahir.base_types import Context, Job
 from zahir.context import MemoryContext
-from zahir.dependencies.group import DependencyGroup
-from zahir.dependencies.job import JobDependency
 from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import job
@@ -89,14 +87,11 @@ def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputE
 
     yield JobOutputEvent({"words": [word.upper() for word in input["words"]]})
 
+# TODO debug why implicit scope fails.
 
-scope = LocalScope(
-    jobs=[BookProcessor, ChapterProcessor, UppercaseWords],
-    dependencies=[DependencyGroup, JobDependency],
-)
 
 job_registry = SQLiteJobRegistry("jobs.db")
-context = MemoryContext(scope=scope, job_registry=job_registry)
+context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registry)
 
 start = BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
 
