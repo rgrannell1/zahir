@@ -7,7 +7,7 @@ switches to recovery mode, and transitions to check preconditions.
 import tempfile
 import multiprocessing
 
-from zahir.base_types import Context, JobState, Job, JobOptions
+from zahir.base_types import Context, JobState, Job
 from zahir.context import MemoryContext
 from zahir.events import JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
