@@ -98,10 +98,13 @@ def test_job_worker_handles_handler_returning_none():
     # Mock the state machine to return None
     mock_handler = Mock(return_value=None)
 
-    with patch(
-        "zahir.worker.job_worker.ZahirJobStateMachine.get_state",
-        return_value=mock_handler,
-    ), pytest.raises(RuntimeError, match="returned None unexpectedly"):
+    with (
+        patch(
+            "zahir.worker.job_worker.ZahirJobStateMachine.get_state",
+            return_value=mock_handler,
+        ),
+        pytest.raises(RuntimeError, match="returned None unexpectedly"),
+    ):
         zahir_job_worker(context, output_queue, workflow_id)
 
 
@@ -132,10 +135,13 @@ def test_job_worker_initializes_registry():
     # Mock state machine to exit quickly
     mock_handler = Mock(side_effect=KeyboardInterrupt("Exit"))
 
-    with patch(
-        "zahir.worker.job_worker.ZahirJobStateMachine.get_state",
-        return_value=mock_handler,
-    ), pytest.raises(KeyboardInterrupt):
+    with (
+        patch(
+            "zahir.worker.job_worker.ZahirJobStateMachine.get_state",
+            return_value=mock_handler,
+        ),
+        pytest.raises(KeyboardInterrupt),
+    ):
         zahir_job_worker(context, output_queue, workflow_id)
 
     # Verify init was called with a PID string
@@ -176,10 +182,13 @@ def test_job_worker_state_transitions():
 
         return handler
 
-    with patch(
-        "zahir.worker.job_worker.ZahirJobStateMachine.get_state",
-        side_effect=mock_get_state,
-    ), pytest.raises(KeyboardInterrupt):
+    with (
+        patch(
+            "zahir.worker.job_worker.ZahirJobStateMachine.get_state",
+            side_effect=mock_get_state,
+        ),
+        pytest.raises(KeyboardInterrupt),
+    ):
         zahir_job_worker(context, output_queue, workflow_id)
 
     # Verify we saw the expected state transitions

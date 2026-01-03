@@ -10,7 +10,6 @@ Focusing on uncovered lines:
 - Line 154, 162, 198, 205, 265, 273, 289, 297, etc.: Event load() methods
 """
 
-
 from zahir.events import (
     JobCompletedEvent,
     JobEvent,

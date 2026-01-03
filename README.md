@@ -55,6 +55,20 @@ So Zahir is maximally expressive and extensible, at some cost to static analysab
 The following example workflow reads the text of a book, splits it into chapters, and `ChapterProcessor` computes the longest word in each chapter. `LongestWordAssembly` depends on these results, aggregates them, and emits an output event with the longest words by chapter.
 
 ```python
+from zahir import (
+    Await,
+    Context,
+    DependencyGroup,
+    JobDependency,
+    JobOutputEvent,
+    LocalScope,
+    LocalWorkflow,
+    MemoryContext,
+    SQLiteJobRegistry,
+    WorkflowOutputEvent,
+    job,
+)
+
 @job
 def ChapterProcessor(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
     """For each chapter, find the longest word."""

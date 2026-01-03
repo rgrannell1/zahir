@@ -146,7 +146,7 @@ class JobCompletedEvent(ZahirEvent):
 class JobOutputEvent[OutputType](ZahirEvent):
     """Indicates that a job has produced output"""
 
-    output: OutputType  # type: ignore[misc]
+    output: OutputType
     workflow_id: str | None = None
     job_id: str | None = None
 

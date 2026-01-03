@@ -46,9 +46,7 @@ def pop_job(
             return HandleRecoveryJobTimeoutStateChange({
                 "message": f"Popped recovery-job {job.job_id} that has already timed out"
             }), state
-        return HandleJobTimeoutStateChange({
-            "message": f"Popped job {job.job_id} that has already timed out"
-        }), state
+        return HandleJobTimeoutStateChange({"message": f"Popped job {job.job_id} that has already timed out"}), state
 
     if job_state == JobState.READY:
         return CheckPreconditionsStateChange(
