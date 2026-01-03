@@ -2,7 +2,7 @@
 
 Focusing on uncovered lines:
 - Line 115: isinstance check for ZahirInternalErrorEvent with event.error
-- Line 120: RuntimeError when event.error is None  
+- Line 120: RuntimeError when event.error is None
 - Line 130-131: KeyboardInterrupt exception handling
 - Line 136: exc is not None raise
 """

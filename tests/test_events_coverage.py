@@ -250,4 +250,3 @@ def test_job_event_roundtrip():
 
     loaded = JobEvent.load(saved)
     assert loaded.job == job_data
-
