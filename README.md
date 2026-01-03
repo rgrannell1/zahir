@@ -241,7 +241,7 @@ The overseer constructs worker processes, which poll the job-registry for any jo
 
 Jobs transition through many states during execution. Healthy jobs transition through the chain of states:
 
-Pending → Ready → Claimed → Running → Complete
+Pending → Ready → Running → [Paused] → Complete
 
 ![](./job-lifecycle.png)
 
