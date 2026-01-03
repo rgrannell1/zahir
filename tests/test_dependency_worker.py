@@ -486,13 +486,12 @@ def test_dependency_worker_direct_impossible_path():
 
     # Mock is_active to return True twice (to allow processing), then False
     call_count = [0]
-    original_is_active = job_registry.is_active
 
     def mock_is_active():
         call_count[0] += 1
         if call_count[0] > 2:  # Allow two iterations
             return False
-        return original_is_active()
+        return True  # Force True for first two iterations regardless of actual state
 
     job_registry.is_active = mock_is_active
 
