@@ -475,3 +475,10 @@ class SQLiteJobRegistry(JobRegistry):
                 duration_seconds=duration_seconds,
                 recovery_duration_seconds=recovery_duration_seconds,
             )
+
+    def close(self) -> None:
+        """Close the database connection."""
+
+        log.debug(f"Closing database connection to {self._db_path}")
+        if hasattr(self, "conn") and self.conn is not None:
+            self.conn.close()

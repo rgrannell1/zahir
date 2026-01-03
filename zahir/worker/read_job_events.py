@@ -86,11 +86,8 @@ def read_job_events(
         if isinstance(item, Await):
             return item
 
-        if isinstance(item, ZahirEvent) and hasattr(item, "workflow_id"):
-            cast(Any, item).workflow_id = workflow_id
-
-        if isinstance(item, ZahirEvent) and hasattr(item, "job_id"):
-            cast(Any, item).job_id = job_id
+        if isinstance(item, ZahirEvent):
+            item.set_ids(workflow_id=workflow_id, job_id=job_id)
 
         output_queue.put(item)
 

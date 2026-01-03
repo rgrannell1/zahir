@@ -50,35 +50,37 @@ def test_handle_await_pauses_current_job():
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
+    try:
+        context = MemoryContext(
+            scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
+            job_registry=job_registry
+        )
+        output_queue = multiprocessing.Queue()
+        workflow_id = "test-workflow-1"
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
-        job_registry=job_registry
-    )
-    output_queue = multiprocessing.Queue()
-    workflow_id = "test-workflow-1"
+        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        # Add a job
+        job = AwaitingJob({"test": "data"}, {})
+        job_id = context.job_registry.add(job, output_queue)
 
-    # Add a job
-    job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+        # Set up frame
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+        worker_state.frame = frame
 
-    # Set up frame
-    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
-    worker_state.frame = frame
+        # Set up await event
+        awaited_job = SimpleJob({"test": "data"}, {})
+        worker_state.await_event = Await(awaited_job)
 
-    # Set up await event
-    awaited_job = SimpleJob({"test": "data"}, {})
-    worker_state.await_event = Await(awaited_job)
+        # Run handle_await
+        handle_await(worker_state)
 
-    # Run handle_await
-    handle_await(worker_state)
-
-    # Current job should be paused
-    job_state = context.job_registry.get_state(job_id)
-    assert job_state == JobState.PAUSED
+        # Current job should be paused
+        job_state = context.job_registry.get_state(job_id)
+        assert job_state == JobState.PAUSED
+    finally:
+        job_registry.close()
 
 
 def test_handle_await_adds_awaited_job_to_registry():
@@ -89,36 +91,38 @@ def test_handle_await_adds_awaited_job_to_registry():
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
+    try:
+        context = MemoryContext(
+            scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
+            job_registry=job_registry
+        )
+        output_queue = multiprocessing.Queue()
+        workflow_id = "test-workflow-2"
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
-        job_registry=job_registry
-    )
-    output_queue = multiprocessing.Queue()
-    workflow_id = "test-workflow-2"
+        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        # Add a job
+        job = AwaitingJob({"test": "data"}, {})
+        job_id = context.job_registry.add(job, output_queue)
 
-    # Add a job
-    job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+        # Set up frame
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+        worker_state.frame = frame
 
-    # Set up frame
-    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
-    worker_state.frame = frame
+        # Set up await event
+        awaited_job = SimpleJob({"test": "data"}, {})
+        worker_state.await_event = Await(awaited_job)
 
-    # Set up await event
-    awaited_job = SimpleJob({"test": "data"}, {})
-    worker_state.await_event = Await(awaited_job)
+        # Run handle_await
+        handle_await(worker_state)
 
-    # Run handle_await
-    handle_await(worker_state)
-
-    # Awaited job should be in the registry
-    assert awaited_job.job_id is not None
-    awaited_state = context.job_registry.get_state(awaited_job.job_id)
-    assert awaited_state is not None
+        # Awaited job should be in the registry
+        assert awaited_job.job_id is not None
+        awaited_state = context.job_registry.get_state(awaited_job.job_id)
+        assert awaited_state is not None
+    finally:
+        job_registry.close()
 
 
 def test_handle_await_pushes_frame_to_stack():
@@ -129,38 +133,40 @@ def test_handle_await_pushes_frame_to_stack():
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
+    try:
+        context = MemoryContext(
+            scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
+            job_registry=job_registry
+        )
+        output_queue = multiprocessing.Queue()
+        workflow_id = "test-workflow-3"
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
-        job_registry=job_registry
-    )
-    output_queue = multiprocessing.Queue()
-    workflow_id = "test-workflow-3"
+        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        # Add a job
+        job = AwaitingJob({"test": "data"}, {})
+        job_id = context.job_registry.add(job, output_queue)
 
-    # Add a job
-    job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+        # Set up frame
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+        worker_state.frame = frame
 
-    # Set up frame
-    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
-    worker_state.frame = frame
+        # Verify stack is empty initially
+        assert len(worker_state.job_stack.frames) == 0
 
-    # Verify stack is empty initially
-    assert len(worker_state.job_stack.frames) == 0
+        # Set up await event
+        awaited_job = SimpleJob({"test": "data"}, {})
+        worker_state.await_event = Await(awaited_job)
 
-    # Set up await event
-    awaited_job = SimpleJob({"test": "data"}, {})
-    worker_state.await_event = Await(awaited_job)
+        # Run handle_await
+        handle_await(worker_state)
 
-    # Run handle_await
-    handle_await(worker_state)
-
-    # Frame should be pushed to stack
-    assert len(worker_state.job_stack.frames) == 1
-    assert worker_state.job_stack.frames[0].job.job_id == job_id
+        # Frame should be pushed to stack
+        assert len(worker_state.job_stack.frames) == 1
+        assert worker_state.job_stack.frames[0].job.job_id == job_id
+    finally:
+        job_registry.close()
 
 
 def test_handle_await_clears_current_frame():
@@ -171,37 +177,39 @@ def test_handle_await_clears_current_frame():
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
+    try:
+        context = MemoryContext(
+            scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
+            job_registry=job_registry
+        )
+        output_queue = multiprocessing.Queue()
+        workflow_id = "test-workflow-4"
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
-        job_registry=job_registry
-    )
-    output_queue = multiprocessing.Queue()
-    workflow_id = "test-workflow-4"
+        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        # Add a job
+        job = AwaitingJob({"test": "data"}, {})
+        job_id = context.job_registry.add(job, output_queue)
 
-    # Add a job
-    job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+        # Set up frame
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+        worker_state.frame = frame
 
-    # Set up frame
-    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
-    worker_state.frame = frame
+        # Verify frame is set
+        assert worker_state.frame is not None
 
-    # Verify frame is set
-    assert worker_state.frame is not None
+        # Set up await event
+        awaited_job = SimpleJob({"test": "data"}, {})
+        worker_state.await_event = Await(awaited_job)
 
-    # Set up await event
-    awaited_job = SimpleJob({"test": "data"}, {})
-    worker_state.await_event = Await(awaited_job)
+        # Run handle_await
+        handle_await(worker_state)
 
-    # Run handle_await
-    handle_await(worker_state)
-
-    # Current frame should be cleared
-    assert worker_state.frame is None
+        # Current frame should be cleared
+        assert worker_state.frame is None
+    finally:
+        job_registry.close()
 
 
 def test_handle_await_transitions_to_enqueue():
@@ -212,36 +220,38 @@ def test_handle_await_transitions_to_enqueue():
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
+    try:
+        context = MemoryContext(
+            scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
+            job_registry=job_registry
+        )
+        output_queue = multiprocessing.Queue()
+        workflow_id = "test-workflow-5"
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
-        job_registry=job_registry
-    )
-    output_queue = multiprocessing.Queue()
-    workflow_id = "test-workflow-5"
+        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        # Add a job
+        job = AwaitingJob({"test": "data"}, {})
+        job_id = context.job_registry.add(job, output_queue)
 
-    # Add a job
-    job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+        # Set up frame
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+        worker_state.frame = frame
 
-    # Set up frame
-    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
-    worker_state.frame = frame
+        # Set up await event
+        awaited_job = SimpleJob({"test": "data"}, {})
+        worker_state.await_event = Await(awaited_job)
 
-    # Set up await event
-    awaited_job = SimpleJob({"test": "data"}, {})
-    worker_state.await_event = Await(awaited_job)
+        # Run handle_await
+        result, _ = handle_await(worker_state)
 
-    # Run handle_await
-    result, _ = handle_await(worker_state)
-
-    # Should transition to enqueue state
-    assert isinstance(result, EnqueueJobStateChange)
-    assert "Paused job" in result.data["message"]
-    assert "enqueuing awaited job" in result.data["message"]
+        # Should transition to enqueue state
+        assert isinstance(result, EnqueueJobStateChange)
+        assert "Paused job" in result.data["message"]
+        assert "enqueuing awaited job" in result.data["message"]
+    finally:
+        job_registry.close()
 
 
 def test_handle_await_sets_required_jobs():
@@ -252,39 +262,41 @@ def test_handle_await_sets_required_jobs():
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
+    try:
+        context = MemoryContext(
+            scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
+            job_registry=job_registry
+        )
+        output_queue = multiprocessing.Queue()
+        workflow_id = "test-workflow-6"
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
-        job_registry=job_registry
-    )
-    output_queue = multiprocessing.Queue()
-    workflow_id = "test-workflow-6"
+        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        # Add a job
+        job = AwaitingJob({"test": "data"}, {})
+        job_id = context.job_registry.add(job, output_queue)
 
-    # Add a job
-    job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+        # Set up frame
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+        worker_state.frame = frame
 
-    # Set up frame
-    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
-    worker_state.frame = frame
+        # Verify required_jobs is empty initially
+        assert len(frame.required_jobs) == 0
 
-    # Verify required_jobs is empty initially
-    assert len(frame.required_jobs) == 0
+        # Set up await event
+        awaited_job = SimpleJob({"test": "data"}, {})
+        worker_state.await_event = Await(awaited_job)
 
-    # Set up await event
-    awaited_job = SimpleJob({"test": "data"}, {})
-    worker_state.await_event = Await(awaited_job)
+        # Run handle_await
+        handle_await(worker_state)
 
-    # Run handle_await
-    handle_await(worker_state)
-
-    # Awaited job should be in required_jobs of the pushed frame
-    pushed_frame = worker_state.job_stack.frames[0]
-    assert len(pushed_frame.required_jobs) == 1
-    assert awaited_job.job_id in pushed_frame.required_jobs
+        # Awaited job should be in required_jobs of the pushed frame
+        pushed_frame = worker_state.job_stack.frames[0]
+        assert len(pushed_frame.required_jobs) == 1
+        assert awaited_job.job_id in pushed_frame.required_jobs
+    finally:
+        job_registry.close()
 
 
 def test_handle_await_multiple_jobs():
@@ -295,38 +307,40 @@ def test_handle_await_multiple_jobs():
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
+    try:
+        context = MemoryContext(
+            scope=LocalScope(jobs=[MultiAwaitJob, SimpleJob]),
+            job_registry=job_registry
+        )
+        output_queue = multiprocessing.Queue()
+        workflow_id = "test-workflow-7"
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[MultiAwaitJob, SimpleJob]),
-        job_registry=job_registry
-    )
-    output_queue = multiprocessing.Queue()
-    workflow_id = "test-workflow-7"
+        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        # Add a job
+        job = MultiAwaitJob({"test": "data"}, {})
+        job_id = context.job_registry.add(job, output_queue)
 
-    # Add a job
-    job = MultiAwaitJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+        # Set up frame
+        job_generator = MultiAwaitJob.run(context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+        worker_state.frame = frame
 
-    # Set up frame
-    job_generator = MultiAwaitJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
-    worker_state.frame = frame
+        # Set up await event with multiple jobs
+        awaited_job1 = SimpleJob({"idx": 0}, {})
+        awaited_job2 = SimpleJob({"idx": 1}, {})
+        worker_state.await_event = Await([awaited_job1, awaited_job2])
 
-    # Set up await event with multiple jobs
-    awaited_job1 = SimpleJob({"idx": 0}, {})
-    awaited_job2 = SimpleJob({"idx": 1}, {})
-    worker_state.await_event = Await([awaited_job1, awaited_job2])
+        # Run handle_await
+        handle_await(worker_state)
 
-    # Run handle_await
-    handle_await(worker_state)
-
-    # Both jobs should be in required_jobs
-    pushed_frame = worker_state.job_stack.frames[0]
-    assert len(pushed_frame.required_jobs) == 2
-    assert awaited_job1.job_id in pushed_frame.required_jobs
-    assert awaited_job2.job_id in pushed_frame.required_jobs
+        # Both jobs should be in required_jobs
+        pushed_frame = worker_state.job_stack.frames[0]
+        assert len(pushed_frame.required_jobs) == 2
+        assert awaited_job1.job_id in pushed_frame.required_jobs
+        assert awaited_job2.job_id in pushed_frame.required_jobs
+    finally:
+        job_registry.close()
 
 
 def test_handle_await_multiple_jobs_sets_await_many():
@@ -337,39 +351,41 @@ def test_handle_await_multiple_jobs_sets_await_many():
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
+    try:
+        context = MemoryContext(
+            scope=LocalScope(jobs=[MultiAwaitJob, SimpleJob]),
+            job_registry=job_registry
+        )
+        output_queue = multiprocessing.Queue()
+        workflow_id = "test-workflow-8"
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[MultiAwaitJob, SimpleJob]),
-        job_registry=job_registry
-    )
-    output_queue = multiprocessing.Queue()
-    workflow_id = "test-workflow-8"
+        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        # Add a job
+        job = MultiAwaitJob({"test": "data"}, {})
+        job_id = context.job_registry.add(job, output_queue)
 
-    # Add a job
-    job = MultiAwaitJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+        # Set up frame
+        job_generator = MultiAwaitJob.run(context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+        worker_state.frame = frame
 
-    # Set up frame
-    job_generator = MultiAwaitJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
-    worker_state.frame = frame
+        # Verify await_many is False initially
+        assert frame.await_many is False
 
-    # Verify await_many is False initially
-    assert frame.await_many is False
+        # Set up await event with multiple jobs
+        awaited_job1 = SimpleJob({"idx": 0}, {})
+        awaited_job2 = SimpleJob({"idx": 1}, {})
+        worker_state.await_event = Await([awaited_job1, awaited_job2])
 
-    # Set up await event with multiple jobs
-    awaited_job1 = SimpleJob({"idx": 0}, {})
-    awaited_job2 = SimpleJob({"idx": 1}, {})
-    worker_state.await_event = Await([awaited_job1, awaited_job2])
+        # Run handle_await
+        handle_await(worker_state)
 
-    # Run handle_await
-    handle_await(worker_state)
-
-    # await_many should be set to True
-    pushed_frame = worker_state.job_stack.frames[0]
-    assert pushed_frame.await_many is True
+        # await_many should be set to True
+        pushed_frame = worker_state.job_stack.frames[0]
+        assert pushed_frame.await_many is True
+    finally:
+        job_registry.close()
 
 
 def test_handle_await_preserves_state():
@@ -380,34 +396,36 @@ def test_handle_await_preserves_state():
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-9")
+    try:
+        context = MemoryContext(
+            scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
+            job_registry=job_registry
+        )
+        output_queue = multiprocessing.Queue()
+        workflow_id = "test-workflow-9"
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
-        job_registry=job_registry
-    )
-    output_queue = multiprocessing.Queue()
-    workflow_id = "test-workflow-9"
+        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        # Add a job
+        job = AwaitingJob({"test": "data"}, {})
+        job_id = context.job_registry.add(job, output_queue)
 
-    # Add a job
-    job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+        # Set up frame
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+        worker_state.frame = frame
 
-    # Set up frame
-    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
-    worker_state.frame = frame
+        # Set up await event
+        awaited_job = SimpleJob({"test": "data"}, {})
+        worker_state.await_event = Await(awaited_job)
 
-    # Set up await event
-    awaited_job = SimpleJob({"test": "data"}, {})
-    worker_state.await_event = Await(awaited_job)
+        # Run handle_await
+        result, returned_state = handle_await(worker_state)
 
-    # Run handle_await
-    result, returned_state = handle_await(worker_state)
-
-    # Should return same state object
-    assert returned_state is worker_state
+        # Should return same state object
+        assert returned_state is worker_state
+    finally:
+        job_registry.close()
 
 
 def test_handle_await_workflow_id_used():
@@ -418,32 +436,34 @@ def test_handle_await_workflow_id_used():
 
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-10")
+    try:
+        context = MemoryContext(
+            scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
+            job_registry=job_registry
+        )
+        output_queue = multiprocessing.Queue()
+        workflow_id = "specific-workflow-id-abc"
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleJob]),
-        job_registry=job_registry
-    )
-    output_queue = multiprocessing.Queue()
-    workflow_id = "specific-workflow-id-abc"
+        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        # Add a job
+        job = AwaitingJob({"test": "data"}, {})
+        job_id = context.job_registry.add(job, output_queue)
 
-    # Add a job
-    job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+        # Set up frame
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+        worker_state.frame = frame
 
-    # Set up frame
-    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
-    worker_state.frame = frame
+        # Set up await event
+        awaited_job = SimpleJob({"test": "data"}, {})
+        worker_state.await_event = Await(awaited_job)
 
-    # Set up await event
-    awaited_job = SimpleJob({"test": "data"}, {})
-    worker_state.await_event = Await(awaited_job)
+        # Run handle_await
+        handle_await(worker_state)
 
-    # Run handle_await
-    handle_await(worker_state)
-
-    # Job state should be updated with correct workflow_id
-    job_state = context.job_registry.get_state(job_id)
-    assert job_state == JobState.PAUSED
+        # Job state should be updated with correct workflow_id
+        job_state = context.job_registry.get_state(job_id)
+        assert job_state == JobState.PAUSED
+    finally:
+        job_registry.close()

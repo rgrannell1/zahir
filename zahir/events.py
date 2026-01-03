@@ -35,6 +35,19 @@ class ZahirEvent(ABC):
         """
         raise NotImplementedError
 
+    def set_ids(self, job_id: str | None = None, workflow_id: str | None = None) -> None:
+        """Set the job_id and workflow_id for the event if applicable.
+
+        @param job_id: The job ID to set
+        @param workflow_id: The workflow ID to set
+        """
+        if hasattr(self, "job_id") and job_id is not None:
+            setattr(self, "job_id", job_id)
+
+        if hasattr(self, "workflow_id") and workflow_id is not None:
+            setattr(self, "workflow_id", workflow_id)
+
+
 
 @dataclass
 class WorkflowStartedEvent(ZahirEvent):
