@@ -1,43 +1,82 @@
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 import inspect
-from typing import Any, get_type_hints
+from typing import TYPE_CHECKING, Any, get_type_hints
 
 from zahir.base_types import Job
 
+if TYPE_CHECKING:
+    from zahir.base_types import Context
+    from zahir.dependencies.group import DependencyGroup
+    from zahir.events import JobOutputEvent, WorkflowOutputEvent, ZahirCustomEvent
 
-def job(fn: Callable[..., Any]):
+
+def job(
+    fn: Callable[..., Any] | None = None,
+    *,
+    recovery: Callable[..., Any] | None = None,
+):
     """Construct a Job class from a run function.
 
-    Allow other parameters to be passed as parameters to the
-    decorator.
+    @param fn: The function to wrap as a Job's run method
+    @param recovery: Optional recovery function to use when the job fails
+
+    Examples:
+        # Simple job without recovery
+        @job
+        def MyJob(context, input, dependencies):
+            yield JobOutputEvent({"result": "done"})
+
+        # Job with recovery function
+        def my_recovery(context, input, dependencies, err):
+            yield JobOutputEvent({"recovered": True})
+
+        @job(recovery=my_recovery)
+        def MyJob(context, input, dependencies):
+            yield JobOutputEvent({"result": "done"})
     """
 
-    class_name = getattr(fn, "__name__", fn.__class__.__name__)
-    mod = getattr(fn, "__module__", fn.__class__.__module__)
-    qual = getattr(fn, "__qualname__", None)
-    qual = qual.rsplit(".", 1)[0] if isinstance(qual, str) else class_name
-    class_qualname = f"{mod}.{qual}.{class_name}" if qual else f"{mod}.{class_name}"
+    def decorator(func: Callable[..., Any]) -> type[Job]:
+        class_name = getattr(func, "__name__", func.__class__.__name__)
+        mod = getattr(func, "__module__", func.__class__.__module__)
+        qual = getattr(func, "__qualname__", None)
+        qual = qual.rsplit(".", 1)[0] if isinstance(qual, str) else class_name
+        class_qualname = f"{mod}.{qual}.{class_name}" if qual else f"{mod}.{class_name}"
 
-    # Wrapper that adds cls parameter for the classmethod
-    def run_wrapper(cls, context, input, dependencies):
-        return fn(context, input, dependencies)
+        # Wrapper that adds cls parameter for the classmethod
+        def run_wrapper(cls, context, input, dependencies):
+            return func(context, input, dependencies)
 
-    ns: dict[str, Any] = {}
+        ns: dict[str, Any] = {}
 
-    # the main requirement; define `run`
-    ns["run"] = classmethod(run_wrapper)
-    ns["job_options"] = None
+        # the main requirement; define `run`
+        ns["run"] = classmethod(run_wrapper)
+        ns["job_options"] = None
 
-    ns["__module__"] = mod
-    ns["__qualname__"] = class_qualname
-    ns["__doc__"] = fn.__doc__
+        # A recovery method, if the user wants one too.
+        if recovery is not None:
+            def recovery_wrapper(cls, context, input, dependencies, err):
+                return recovery(context, input, dependencies, err)
 
-    ns["__run_function__"] = fn
-    ns["__signature__"] = inspect.signature(fn)
+            ns["recover"] = classmethod(recovery_wrapper)
 
-    try:
-        ns["__type_hints__"] = get_type_hints(fn, include_extras=True)
-    except Exception:
-        ns["__type_hints__"] = {}
+        ns["__module__"] = mod
+        ns["__qualname__"] = class_qualname
+        ns["__doc__"] = func.__doc__
 
-    return type(class_name, (Job,), ns)
+        ns["__run_function__"] = func
+        ns["__signature__"] = inspect.signature(func)
+
+        try:
+            ns["__type_hints__"] = get_type_hints(func, include_extras=True)
+        except Exception:
+            ns["__type_hints__"] = {}
+
+        return type(class_name, (Job,), ns)
+
+    # Handle both @job and @job(recovery=...)
+    if fn is None:
+        # Called with arguments: @job(recovery=...)
+        return decorator
+    else:
+        # Called without arguments: @job
+        return decorator(fn)
