@@ -48,8 +48,7 @@ def test_dependency_worker_marks_ready_when_satisfied():
     satisfied_dependency = TimeDependency(after=past_time)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]),
-        job_registry=job_registry
+        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
@@ -62,10 +61,7 @@ def test_dependency_worker_marks_ready_when_satisfied():
     assert context.job_registry.get_state(job_id) == JobState.PENDING
 
     # Start dependency worker in a separate process
-    worker_process = multiprocessing.Process(
-        target=zahir_dependency_worker,
-        args=(context, output_queue, workflow_id)
-    )
+    worker_process = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
     worker_process.start()
 
     # Wait a bit for dependency worker to process
@@ -97,8 +93,7 @@ def test_dependency_worker_marks_impossible_when_unsatisfiable():
     impossible_dependency = TimeDependency(before=past_time)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]),
-        job_registry=job_registry
+        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
@@ -111,10 +106,7 @@ def test_dependency_worker_marks_impossible_when_unsatisfiable():
     assert context.job_registry.get_state(job_id) == JobState.PENDING
 
     # Start dependency worker in a separate process
-    worker_process = multiprocessing.Process(
-        target=zahir_dependency_worker,
-        args=(context, output_queue, workflow_id)
-    )
+    worker_process = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
     worker_process.start()
 
     # Wait a bit for dependency worker to process
@@ -138,20 +130,14 @@ def test_dependency_worker_emits_workflow_complete():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
     # Don't add any jobs - worker should complete immediately
 
     # Start dependency worker in a separate process
-    worker_process = multiprocessing.Process(
-        target=zahir_dependency_worker,
-        args=(context, output_queue, workflow_id)
-    )
+    worker_process = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
     worker_process.start()
 
     # Wait for worker to finish
@@ -175,8 +161,7 @@ def test_dependency_worker_handles_job_dependency():
     job_registry.init("test-worker-4")
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]),
-        job_registry=job_registry
+        scope=LocalScope(jobs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
@@ -195,10 +180,7 @@ def test_dependency_worker_handles_job_dependency():
     assert context.job_registry.get_state(job_id2) == JobState.PENDING
 
     # Start dependency worker in a separate process
-    worker_process = multiprocessing.Process(
-        target=zahir_dependency_worker,
-        args=(context, output_queue, workflow_id)
-    )
+    worker_process = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
     worker_process.start()
 
     # Wait a bit for dependency worker to process
@@ -224,8 +206,7 @@ def test_dependency_worker_waits_for_unsatisfied_dependency():
     job_registry.init("test-worker-5")
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]),
-        job_registry=job_registry
+        scope=LocalScope(jobs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
@@ -244,10 +225,7 @@ def test_dependency_worker_waits_for_unsatisfied_dependency():
     assert context.job_registry.get_state(job_id2) == JobState.PENDING
 
     # Start dependency worker in a separate process
-    worker_process = multiprocessing.Process(
-        target=zahir_dependency_worker,
-        args=(context, output_queue, workflow_id)
-    )
+    worker_process = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
     worker_process.start()
 
     # Wait a bit for dependency worker to process
@@ -274,8 +252,7 @@ def test_dependency_worker_marks_impossible_on_failed_job_dependency():
     job_registry.init("test-worker-6")
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]),
-        job_registry=job_registry
+        scope=LocalScope(jobs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
@@ -296,10 +273,7 @@ def test_dependency_worker_marks_impossible_on_failed_job_dependency():
     assert context.job_registry.get_state(job_id2) == JobState.PENDING
 
     # Start dependency worker in a separate process
-    worker_process = multiprocessing.Process(
-        target=zahir_dependency_worker,
-        args=(context, output_queue, workflow_id)
-    )
+    worker_process = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
     worker_process.start()
 
     # Wait a bit for dependency worker to process
@@ -329,8 +303,7 @@ def test_dependency_worker_handles_multiple_jobs():
     impossible_dep = TimeDependency(before=past_time)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]),
-        job_registry=job_registry
+        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
@@ -348,10 +321,7 @@ def test_dependency_worker_handles_multiple_jobs():
     assert context.job_registry.get_state(job_id2) == JobState.PENDING
 
     # Start dependency worker in a separate process
-    worker_process = multiprocessing.Process(
-        target=zahir_dependency_worker,
-        args=(context, output_queue, workflow_id)
-    )
+    worker_process = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
     worker_process.start()
 
     # Wait a bit for dependency worker to process
@@ -381,8 +351,7 @@ def test_dependency_worker_only_processes_pending_jobs():
     satisfied_dep = TimeDependency(after=past_time)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]),
-        job_registry=job_registry
+        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
@@ -393,10 +362,7 @@ def test_dependency_worker_only_processes_pending_jobs():
     context.job_registry.set_state(job_id, workflow_id, output_queue, JobState.RUNNING)
 
     # Start dependency worker in a separate process
-    worker_process = multiprocessing.Process(
-        target=zahir_dependency_worker,
-        args=(context, output_queue, workflow_id)
-    )
+    worker_process = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
     worker_process.start()
 
     # Wait a bit for dependency worker to process
@@ -425,18 +391,12 @@ def test_dependency_worker_handles_internal_error():
 
     broken_registry = BrokenJobRegistry()
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob]),
-        job_registry=broken_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=broken_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-9"
 
     # Start dependency worker in a separate process
-    worker_process = multiprocessing.Process(
-        target=zahir_dependency_worker,
-        args=(context, output_queue, workflow_id)
-    )
+    worker_process = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
     worker_process.start()
 
     # Wait for worker to finish (should exit due to exception)
@@ -449,5 +409,160 @@ def test_dependency_worker_handles_internal_error():
     assert isinstance(event, ZahirInternalErrorEvent)
     assert event.workflow_id == workflow_id
     # error is a pickled blob, just check it exists and is not empty
+    assert event.error
+    assert len(event.error) > 0
+
+
+def test_dependency_worker_direct_satisfied_path():
+    """Direct unit test for dependency worker with satisfied dependency (no multiprocessing)."""
+    from unittest.mock import Mock
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    job_registry = SQLiteJobRegistry(tmp_file)
+    job_registry.init("test-worker-direct-1")
+
+    past_time = datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=datetime.UTC)
+    satisfied_dependency = TimeDependency(after=past_time)
+
+    context = MemoryContext(
+        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
+    )
+    output_queue = multiprocessing.Queue()
+    workflow_id = "test-workflow-direct-1"
+
+    # Add a job with satisfied dependency
+    job = SimpleJob({"test": "data"}, {"time_dep": satisfied_dependency})
+    job_id = context.job_registry.add(job, output_queue)
+
+    # Mock is_active to return True twice (to allow processing), then False
+    call_count = [0]
+    original_is_active = job_registry.is_active
+
+    def mock_is_active():
+        call_count[0] += 1
+        if call_count[0] > 2:  # Allow two iterations
+            return False
+        return original_is_active()
+
+    job_registry.is_active = mock_is_active
+
+    # Run worker directly (not in subprocess) so coverage is tracked
+    zahir_dependency_worker(context, output_queue, workflow_id)
+
+    # Job should have been marked as READY
+    assert context.job_registry.get_state(job_id) == JobState.READY
+
+    # Drain any job state change events from the queue
+    events = []
+    while not output_queue.empty():
+        events.append(output_queue.get(timeout=0.1))
+
+    # WorkflowCompleteEvent should have been emitted (last event)
+    assert len(events) > 0
+    assert isinstance(events[-1], WorkflowCompleteEvent)
+
+
+def test_dependency_worker_direct_impossible_path():
+    """Direct unit test for dependency worker with impossible dependency (no multiprocessing)."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    job_registry = SQLiteJobRegistry(tmp_file)
+    job_registry.init("test-worker-direct-2")
+
+    past_time = datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=datetime.UTC)
+    impossible_dependency = TimeDependency(before=past_time)
+
+    context = MemoryContext(
+        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
+    )
+    output_queue = multiprocessing.Queue()
+    workflow_id = "test-workflow-direct-2"
+
+    # Add a job with impossible dependency
+    job = SimpleJob({"test": "data"}, {"time_dep": impossible_dependency})
+    job_id = context.job_registry.add(job, output_queue)
+
+    # Mock is_active to return True twice (to allow processing), then False
+    call_count = [0]
+    original_is_active = job_registry.is_active
+
+    def mock_is_active():
+        call_count[0] += 1
+        if call_count[0] > 2:  # Allow two iterations
+            return False
+        return original_is_active()
+
+    job_registry.is_active = mock_is_active
+
+    # Run worker directly
+    zahir_dependency_worker(context, output_queue, workflow_id)
+
+    # Job should have been marked as IMPOSSIBLE
+    assert context.job_registry.get_state(job_id) == JobState.IMPOSSIBLE
+
+    # Drain any job state change events from the queue
+    events = []
+    while not output_queue.empty():
+        events.append(output_queue.get(timeout=0.1))
+
+    # WorkflowCompleteEvent should have been emitted (last event)
+    assert len(events) > 0
+    assert isinstance(events[-1], WorkflowCompleteEvent)
+
+
+def test_dependency_worker_direct_no_jobs():
+    """Direct unit test for dependency worker with no jobs."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    job_registry = SQLiteJobRegistry(tmp_file)
+    job_registry.init("test-worker-direct-3")
+
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    output_queue = multiprocessing.Queue()
+    workflow_id = "test-workflow-direct-3"
+
+    # No jobs added - worker should exit immediately
+
+    # Run worker directly
+    zahir_dependency_worker(context, output_queue, workflow_id)
+
+    # WorkflowCompleteEvent should have been emitted
+    event = output_queue.get(timeout=1)
+    assert isinstance(event, WorkflowCompleteEvent)
+    assert event.workflow_id == workflow_id
+
+
+def test_dependency_worker_direct_exception_handling():
+    """Direct unit test for dependency worker exception handling."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    job_registry = SQLiteJobRegistry(tmp_file)
+    job_registry.init("test-worker-direct-4")
+
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    output_queue = multiprocessing.Queue()
+    workflow_id = "test-workflow-direct-4"
+
+    # Make is_active raise an exception
+    def mock_is_active_error():
+        raise RuntimeError("Test exception in is_active")
+
+    job_registry.is_active = mock_is_active_error
+
+    # Run worker directly - should catch exception and emit error event
+    zahir_dependency_worker(context, output_queue, workflow_id)
+
+    # ZahirInternalErrorEvent should have been emitted
+    event = output_queue.get(timeout=1)
+    assert isinstance(event, ZahirInternalErrorEvent)
+    assert event.workflow_id == workflow_id
     assert event.error
     assert len(event.error) > 0

@@ -78,10 +78,7 @@ def test_check_preconditions_pass_normal_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[ValidInputJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[ValidInputJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -113,10 +110,7 @@ def test_check_preconditions_pass_recovery_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[ValidInputJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[ValidInputJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
@@ -144,10 +138,7 @@ def test_check_preconditions_fail_single_error():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[InvalidInputJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[InvalidInputJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
@@ -188,10 +179,7 @@ def test_check_preconditions_fail_multiple_errors():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[MultipleErrorsJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[MultipleErrorsJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
@@ -224,10 +212,7 @@ def test_check_preconditions_timeout_normal_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[TimeoutDuringPrecheckJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[TimeoutDuringPrecheckJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
@@ -237,21 +222,18 @@ def test_check_preconditions_timeout_normal_job():
     job_instance = TimeoutDuringPrecheckJob({"test": "data"}, {})
     # Manually set job timeout to 0.001 seconds
     from zahir.base_types import JobOptions
+
     job_instance.job_options = JobOptions()
     job_instance.job_options.job_timeout = 0.001
 
     job_id = context.job_registry.add(job_instance, output_queue)
 
     # Set job to running state first and record start time
-    context.job_registry.set_state(
-        job_instance.job_id,
-        workflow_id,
-        output_queue,
-        JobState.RUNNING
-    )
+    context.job_registry.set_state(job_instance.job_id, workflow_id, output_queue, JobState.RUNNING)
 
     # Sleep long enough to ensure timeout
     import time
+
     time.sleep(0.01)
 
     job_generator = TimeoutDuringPrecheckJob.run(context, job_instance.input, job_instance.dependencies)
@@ -273,10 +255,7 @@ def test_check_preconditions_timeout_recovery_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[TimeoutDuringPrecheckJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[TimeoutDuringPrecheckJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
@@ -284,20 +263,17 @@ def test_check_preconditions_timeout_recovery_job():
 
     job_instance = TimeoutDuringPrecheckJob({"test": "data"}, {})
     from zahir.base_types import JobOptions
+
     job_instance.job_options = JobOptions()
     job_instance.job_options.recover_timeout = 0.001
 
     job_id = context.job_registry.add(job_instance, output_queue)
 
     # Set job to recovering state
-    context.job_registry.set_state(
-        job_instance.job_id,
-        workflow_id,
-        output_queue,
-        JobState.RECOVERING
-    )
+    context.job_registry.set_state(job_instance.job_id, workflow_id, output_queue, JobState.RECOVERING)
 
     import time
+
     time.sleep(0.01)
 
     job_generator = TimeoutDuringPrecheckJob.recover(context, job_instance.input, job_instance.dependencies, None)
@@ -318,10 +294,7 @@ def test_check_preconditions_no_timeout_configured():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[ValidInputJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[ValidInputJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 

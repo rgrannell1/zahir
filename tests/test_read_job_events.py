@@ -63,10 +63,7 @@ def test_read_job_events_returns_output_event():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJobWithOutput]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithOutput]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -105,10 +102,7 @@ def test_read_job_events_returns_none_for_complete():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[JobWithoutOutput]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[JobWithoutOutput]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
@@ -146,10 +140,7 @@ def test_read_job_events_returns_await():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleJobWithOutput]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJobWithOutput]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
@@ -187,10 +178,7 @@ def test_read_job_events_enqueues_intermediate_events():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[JobWithMultipleEvents]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[JobWithMultipleEvents]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
@@ -250,10 +238,7 @@ def test_read_job_events_sets_workflow_id():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[JobWithMultipleEvents]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[JobWithMultipleEvents]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "specific-workflow-123"
 
@@ -305,10 +290,7 @@ def test_read_job_events_sets_job_id():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[JobWithMultipleEvents]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[JobWithMultipleEvents]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
@@ -360,10 +342,7 @@ def test_read_job_events_raises_on_non_iterator():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJobWithOutput]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithOutput]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
@@ -401,10 +380,7 @@ def test_read_job_events_handles_subjobs():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SubjobCreator, SimpleJobWithOutput]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SubjobCreator, SimpleJobWithOutput]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
 
@@ -465,10 +441,7 @@ def test_read_job_events_sends_awaited_output():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-9")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleJobWithOutput]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJobWithOutput]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-9"
 
@@ -528,10 +501,7 @@ def test_read_job_events_clears_required_jobs():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-10")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleJobWithOutput]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJobWithOutput]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-10"
 

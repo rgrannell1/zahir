@@ -60,10 +60,7 @@ def test_handle_job_exception_sets_recovery_mode():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJobWithRecovery]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -101,10 +98,7 @@ def test_handle_job_exception_updates_job_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJobWithRecovery]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
@@ -139,10 +133,7 @@ def test_handle_job_exception_transitions_to_check_preconditions():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJobWithRecovery]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
@@ -177,10 +168,7 @@ def test_handle_job_exception_replaces_generator():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJobWithRecovery]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
@@ -218,10 +206,7 @@ def test_handle_job_exception_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJobWithRecovery]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
@@ -255,10 +240,7 @@ def test_handle_job_exception_with_custom_exception():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[JobWithCustomRecovery]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[JobWithCustomRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
@@ -294,10 +276,7 @@ def test_handle_job_exception_preserves_job_info():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJobWithRecovery]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
@@ -334,10 +313,7 @@ def test_handle_job_exception_workflow_id_used():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJobWithRecovery]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "specific-workflow-id-456"
 
@@ -372,10 +348,7 @@ def test_handle_job_exception_message_includes_job_type():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-9")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJobWithRecovery]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-9"
 

@@ -81,6 +81,7 @@ class TimeoutJobTest(Job):
     @classmethod
     def run(cls, context, input, dependencies):
         import time
+
         time.sleep(10)
         yield JobOutputEvent({"should_not_reach": True})
 
@@ -95,12 +96,19 @@ def test_get_state_returns_correct_handlers():
     assert ZahirJobStateMachine.get_state(ZahirJobState.POP_JOB) == ZahirJobStateMachine.pop_job
     assert ZahirJobStateMachine.get_state(ZahirJobState.CHECK_PRECONDITIONS) == ZahirJobStateMachine.check_preconditions
     assert ZahirJobStateMachine.get_state(ZahirJobState.EXECUTE_JOB) == ZahirJobStateMachine.execute_job
-    assert ZahirJobStateMachine.get_state(ZahirJobState.EXECUTE_RECOVERY_JOB) == ZahirJobStateMachine.execute_recovery_job
+    assert (
+        ZahirJobStateMachine.get_state(ZahirJobState.EXECUTE_RECOVERY_JOB) == ZahirJobStateMachine.execute_recovery_job
+    )
     assert ZahirJobStateMachine.get_state(ZahirJobState.HANDLE_AWAIT) == ZahirJobStateMachine.handle_await
     assert ZahirJobStateMachine.get_state(ZahirJobState.HANDLE_JOB_OUTPUT) == ZahirJobStateMachine.handle_job_output
-    assert ZahirJobStateMachine.get_state(ZahirJobState.HANDLE_JOB_COMPLETE_NO_OUTPUT) == ZahirJobStateMachine.handle_job_complete_no_output
+    assert (
+        ZahirJobStateMachine.get_state(ZahirJobState.HANDLE_JOB_COMPLETE_NO_OUTPUT)
+        == ZahirJobStateMachine.handle_job_complete_no_output
+    )
     assert ZahirJobStateMachine.get_state(ZahirJobState.HANDLE_JOB_TIMEOUT) == ZahirJobStateMachine.handle_job_timeout
-    assert ZahirJobStateMachine.get_state(ZahirJobState.HANDLE_JOB_EXCEPTION) == ZahirJobStateMachine.handle_job_exception
+    assert (
+        ZahirJobStateMachine.get_state(ZahirJobState.HANDLE_JOB_EXCEPTION) == ZahirJobStateMachine.handle_job_exception
+    )
 
 
 def test_state_machine_simple_job_with_output_lifecycle():
@@ -112,10 +120,7 @@ def test_state_machine_simple_job_with_output_lifecycle():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sm-1")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleOutputJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleOutputJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-1"
 
@@ -175,10 +180,7 @@ def test_state_machine_job_without_output_lifecycle():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sm-2")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[NoOutputJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[NoOutputJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-2"
 
@@ -217,10 +219,7 @@ def test_state_machine_await_handling():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sm-3")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[AwaitingJob, SimpleOutputJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleOutputJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-3"
 
@@ -259,10 +258,7 @@ def test_state_machine_exception_handling():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sm-4")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[ExceptionJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[ExceptionJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-4"
 
@@ -301,10 +297,7 @@ def test_state_machine_timeout_handling():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sm-5")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[TimeoutJobTest]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[TimeoutJobTest]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-5"
 
@@ -343,10 +336,7 @@ def test_state_machine_state_transitions_are_consistent():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sm-6")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleOutputJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleOutputJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-6"
 
@@ -357,15 +347,15 @@ def test_state_machine_state_transitions_are_consistent():
     result = handler(state)
     assert isinstance(result, tuple)
     assert len(result) == 2
-    assert hasattr(result[0], 'state')
-    assert hasattr(result[0], 'data')
+    assert hasattr(result[0], "state")
+    assert hasattr(result[0], "data")
 
     # Test enqueue_job handler
     handler = ZahirJobStateMachine.get_state(ZahirJobState.ENQUEUE_JOB)
     result = handler(state)
     assert isinstance(result, tuple)
     assert len(result) == 2
-    assert hasattr(result[0], 'state')
+    assert hasattr(result[0], "state")
 
 
 def test_state_machine_maintains_state_through_transitions():
@@ -377,10 +367,7 @@ def test_state_machine_maintains_state_through_transitions():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sm-7")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleOutputJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleOutputJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-7"
 
@@ -412,10 +399,7 @@ def test_state_machine_pop_to_execute_flow():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sm-8")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleOutputJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleOutputJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-8"
 
@@ -459,10 +443,7 @@ def test_state_machine_recovery_job_complete_no_output():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sm-9")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[ExceptionJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[ExceptionJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-9"
 
@@ -478,12 +459,14 @@ def test_state_machine_recovery_job_complete_no_output():
 
     # Execute recovery job and get result
     from zahir.worker.state_machine.states import ExecuteRecoveryJobStateChange
+
     current = ExecuteRecoveryJobStateChange({"message": "Executing recovery job"})
     handler = ZahirJobStateMachine.get_state(current.state)
     next_state, _ = handler(state)
 
     # Should handle completion without output
     from zahir.worker.state_machine.states import HandleRecoveryJobCompleteNoOutputStateChange
+
     if isinstance(next_state, HandleRecoveryJobCompleteNoOutputStateChange):
         handler = ZahirJobStateMachine.get_state(next_state.state)
         next_state, _ = handler(state)
@@ -499,10 +482,7 @@ def test_state_machine_recovery_job_timeout():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sm-10")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[TimeoutJobTest]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[TimeoutJobTest]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-10"
 
@@ -514,6 +494,7 @@ def test_state_machine_recovery_job_timeout():
 
     def timeout_generator():
         import time
+
         time.sleep(10)  # This will timeout
         yield JobOutputEvent({"should_not_reach": True})
 
@@ -522,12 +503,14 @@ def test_state_machine_recovery_job_timeout():
 
     # Execute recovery job - should timeout
     from zahir.worker.state_machine.states import ExecuteRecoveryJobStateChange
+
     current = ExecuteRecoveryJobStateChange({"message": "Executing recovery job"})
     handler = ZahirJobStateMachine.get_state(current.state)
     next_state, _ = handler(state)
 
     # Should handle recovery timeout
     from zahir.worker.state_machine.states import HandleRecoveryJobTimeoutStateChange
+
     if isinstance(next_state, HandleRecoveryJobTimeoutStateChange):
         handler = ZahirJobStateMachine.get_state(next_state.state)
         next_state, _ = handler(state)
@@ -557,10 +540,7 @@ def test_state_machine_recovery_job_exception():
             raise RuntimeError("Recovery also failed")
             yield iter([])
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[RecoveryExceptionJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[RecoveryExceptionJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-11"
 
@@ -575,12 +555,14 @@ def test_state_machine_recovery_job_exception():
 
     # Execute recovery job - should raise exception
     from zahir.worker.state_machine.states import ExecuteRecoveryJobStateChange
+
     current = ExecuteRecoveryJobStateChange({"message": "Executing recovery job"})
     handler = ZahirJobStateMachine.get_state(current.state)
     next_state, _ = handler(state)
 
     # Should handle recovery exception
     from zahir.worker.state_machine.states import HandleRecoveryJobExceptionStateChange
+
     if isinstance(next_state, HandleRecoveryJobExceptionStateChange):
         handler = ZahirJobStateMachine.get_state(next_state.state)
         next_state, _ = handler(state)

@@ -42,10 +42,7 @@ def test_handle_recovery_job_complete_no_output_returns_enqueue_state_change():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -76,10 +73,7 @@ def test_handle_recovery_job_complete_no_output_sets_recovered_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
@@ -110,10 +104,7 @@ def test_handle_recovery_job_complete_no_output_clears_frame():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
@@ -146,10 +137,7 @@ def test_handle_recovery_job_complete_no_output_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
@@ -179,10 +167,7 @@ def test_handle_recovery_job_complete_no_output_transitions_to_enqueue():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
@@ -214,10 +199,7 @@ def test_handle_recovery_job_complete_no_output_with_different_jobs():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob, AnotherJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob, AnotherJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
@@ -251,10 +233,7 @@ def test_handle_recovery_job_complete_no_output_message_content():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
@@ -285,10 +264,7 @@ def test_handle_recovery_job_complete_no_output_recovery_flag():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
 

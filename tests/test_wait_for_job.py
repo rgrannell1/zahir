@@ -25,10 +25,7 @@ def test_wait_for_job_returns_start_state_change():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -51,10 +48,7 @@ def test_wait_for_job_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
@@ -76,10 +70,7 @@ def test_wait_for_job_sleeps():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
@@ -104,10 +95,7 @@ def test_wait_for_job_with_empty_stack():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
@@ -134,10 +122,7 @@ def test_wait_for_job_with_no_frame():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
@@ -164,10 +149,7 @@ def test_wait_for_job_idempotent():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(
-        scope=LocalScope(jobs=[]),
-        job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 

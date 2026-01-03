@@ -48,7 +48,6 @@ class ZahirEvent(ABC):
             setattr(self, "workflow_id", workflow_id)
 
 
-
 @dataclass
 class WorkflowStartedEvent(ZahirEvent):
     """Indicates that the workflow has started"""
