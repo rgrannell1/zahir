@@ -9,8 +9,6 @@ Focusing on uncovered lines:
 from collections.abc import Iterator, Mapping
 from typing import Any
 
-import pytest
-
 from zahir.base_types import (
     Context,
     Dependency,
@@ -20,14 +18,12 @@ from zahir.base_types import (
     Job,
     JobInformation,
     JobOptions,
-    JobRegistry,
     JobState,
-    Scope,
 )
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import JobOutputEvent, ZahirEvent
-from zahir.scope import LocalScope
 from zahir.job_registry import SQLiteJobRegistry
+from zahir.scope import LocalScope
 
 
 class MockDependency(Dependency):

@@ -5,21 +5,20 @@ various outcomes: job output, awaits, completion without output, timeouts, and e
 Similar to execute_job but with recovery-specific behavior.
 """
 
+import multiprocessing
 import tempfile
 import time
-import multiprocessing
 
-from zahir.base_types import Context, JobState, Job, JobOptions
+from zahir.base_types import Context, Job, JobOptions, JobState
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.execute_recovery_job import execute_recovery_job
 from zahir.worker.state_machine.states import (
-    EnqueueJobStateChange,
     HandleAwaitStateChange,
     HandleJobCompleteNoOutputStateChange,
     HandleJobOutputStateChange,

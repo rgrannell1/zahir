@@ -7,13 +7,12 @@ from unittest.mock import Mock, patch
 import pytest
 
 from zahir.context import MemoryContext
-from zahir.events import ZahirInternalErrorEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.worker.job_worker import zahir_job_worker
 from zahir.worker.state_machine.states import (
-    PopJobStateChange,
     ExecuteJobStateChange,
+    PopJobStateChange,
 )
 
 
@@ -102,9 +101,8 @@ def test_job_worker_handles_handler_returning_none():
     with patch(
         "zahir.worker.job_worker.ZahirJobStateMachine.get_state",
         return_value=mock_handler,
-    ):
-        with pytest.raises(RuntimeError, match="returned None unexpectedly"):
-            zahir_job_worker(context, output_queue, workflow_id)
+    ), pytest.raises(RuntimeError, match="returned None unexpectedly"):
+        zahir_job_worker(context, output_queue, workflow_id)
 
 
 def test_job_worker_initializes_registry():
@@ -137,9 +135,8 @@ def test_job_worker_initializes_registry():
     with patch(
         "zahir.worker.job_worker.ZahirJobStateMachine.get_state",
         return_value=mock_handler,
-    ):
-        with pytest.raises(KeyboardInterrupt):
-            zahir_job_worker(context, output_queue, workflow_id)
+    ), pytest.raises(KeyboardInterrupt):
+        zahir_job_worker(context, output_queue, workflow_id)
 
     # Verify init was called with a PID string
     assert len(init_called_with) == 1
@@ -182,9 +179,8 @@ def test_job_worker_state_transitions():
     with patch(
         "zahir.worker.job_worker.ZahirJobStateMachine.get_state",
         side_effect=mock_get_state,
-    ):
-        with pytest.raises(KeyboardInterrupt):
-            zahir_job_worker(context, output_queue, workflow_id)
+    ), pytest.raises(KeyboardInterrupt):
+        zahir_job_worker(context, output_queue, workflow_id)
 
     # Verify we saw the expected state transitions
     assert "start" in states_seen

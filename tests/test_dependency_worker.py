@@ -5,20 +5,19 @@ and transitions jobs from PENDING to READY when dependencies are satisfied,
 or to IMPOSSIBLE when dependencies cannot be satisfied.
 """
 
-import tempfile
-import multiprocessing
 import datetime
+import multiprocessing
+import tempfile
 import time
-import pathlib
 
 from zahir.base_types import Context, JobState
 from zahir.context import MemoryContext
-from zahir.dependencies.time import TimeDependency
 from zahir.dependencies.job import JobDependency
+from zahir.dependencies.time import TimeDependency
 from zahir.events import JobOutputEvent, WorkflowCompleteEvent, ZahirInternalErrorEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker.dependency_worker import zahir_dependency_worker
 
 
@@ -415,7 +414,6 @@ def test_dependency_worker_handles_internal_error():
 
 def test_dependency_worker_direct_satisfied_path():
     """Direct unit test for dependency worker with satisfied dependency (no multiprocessing)."""
-    from unittest.mock import Mock
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name

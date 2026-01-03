@@ -42,10 +42,10 @@ class ZahirEvent(ABC):
         @param workflow_id: The workflow ID to set
         """
         if hasattr(self, "job_id") and job_id is not None:
-            setattr(self, "job_id", job_id)
+            self.job_id = job_id
 
         if hasattr(self, "workflow_id") and workflow_id is not None:
-            setattr(self, "workflow_id", workflow_id)
+            self.workflow_id = workflow_id
 
 
 @dataclass

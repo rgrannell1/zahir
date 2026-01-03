@@ -4,19 +4,19 @@ Tests the read_job_events function which processes job generator events,
 handles awaits, outputs, and subjobs.
 """
 
-import tempfile
 import multiprocessing
+import tempfile
 import time
 
-from zahir.base_types import Context, Job
+from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import Await, JobEvent, JobOutputEvent, ZahirCustomEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
-from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.read_job_events import read_job_events
+from zahir.worker.state_machine import ZahirWorkerState
 
 
 @job

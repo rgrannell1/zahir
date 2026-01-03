@@ -4,15 +4,15 @@ Tests the handle_await function which handles Await events, pauses the current j
 and enqueues the awaited job(s).
 """
 
-import tempfile
 import multiprocessing
+import tempfile
 
-from zahir.base_types import Context, JobState, Job
+from zahir.base_types import Context, JobState
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.handle_await import handle_await

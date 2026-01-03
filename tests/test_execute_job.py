@@ -4,21 +4,20 @@ Tests the execute_job function which executes a job and handles various
 outcomes: job output, awaits, completion without output, timeouts, and exceptions.
 """
 
+import multiprocessing
 import tempfile
 import time
-import multiprocessing
 
-from zahir.base_types import Context, JobState, Job, JobOptions
+from zahir.base_types import Context, Job, JobOptions, JobState
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.execute_job import execute_job
 from zahir.worker.state_machine.states import (
-    EnqueueJobStateChange,
     HandleAwaitStateChange,
     HandleJobCompleteNoOutputStateChange,
     HandleJobExceptionStateChange,

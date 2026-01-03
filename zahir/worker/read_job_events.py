@@ -1,6 +1,5 @@
 from collections.abc import Iterator, Mapping
 import multiprocessing
-from typing import Any, cast
 
 from zahir.base_types import Job, JobRegistry
 from zahir.events import Await, JobOutputEvent, ZahirEvent

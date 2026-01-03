@@ -4,16 +4,16 @@ Tests the check_preconditions function which validates job inputs before executi
 This is a critical gate that prevents invalid jobs from running.
 """
 
-import tempfile
 import multiprocessing
+import tempfile
 
 from zahir.base_types import Context, Job, JobState
 from zahir.context import MemoryContext
 from zahir.events import JobOutputEvent
 from zahir.exception import JobPrecheckError
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.check_preconditions import check_preconditions

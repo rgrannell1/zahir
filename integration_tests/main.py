@@ -9,8 +9,8 @@ from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
 from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
 WORD_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)

@@ -51,7 +51,7 @@ class JobTimingInformation:
         if self.started_at is None:
             return None
 
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         delta = now - self.started_at
         return delta.total_seconds()
 
@@ -61,7 +61,7 @@ class JobTimingInformation:
         if self.recovery_started_at is None:
             return None
 
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         delta = now - self.recovery_started_at
         return delta.total_seconds()
 

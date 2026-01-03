@@ -4,15 +4,15 @@ Tests the start function which is the initial state that determines
 what to do next: check preconditions, enqueue a job, or pop from stack.
 """
 
-import tempfile
 import multiprocessing
+import tempfile
 
 from zahir.base_types import Context, JobState
 from zahir.context import MemoryContext
 from zahir.events import JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.start import start

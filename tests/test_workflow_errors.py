@@ -12,8 +12,8 @@ from zahir.events import (
     ZahirCustomEvent,
 )
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
 

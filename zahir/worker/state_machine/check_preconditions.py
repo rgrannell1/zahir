@@ -48,10 +48,9 @@ def check_preconditions(
                 return HandleRecoveryJobTimeoutStateChange({
                     "message": f"Prechecks passed but recovery job {job.job_id} that has already timed out"
                 }), state
-            else:
-                return HandleJobTimeoutStateChange({
-                    "message": f"Prechecks passed but job {job.job_id} that has already timed out"
-                }), state
+            return HandleJobTimeoutStateChange({
+                "message": f"Prechecks passed but job {job.job_id} that has already timed out"
+            }), state
 
         if state.frame.recovery:
             return ExecuteRecoveryJobStateChange({"message": "Prechecks passed; executing recovery job"}), state

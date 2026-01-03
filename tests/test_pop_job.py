@@ -4,16 +4,16 @@ Tests the pop_job function which pops a runnable job from the stack
 and determines the next state based on the job's state and timing.
 """
 
+import multiprocessing
 import tempfile
 import time
-import multiprocessing
 
 from zahir.base_types import Context, JobState
 from zahir.context import MemoryContext
 from zahir.events import JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.pop_job import pop_job
@@ -401,7 +401,6 @@ def test_pop_job_timeout_recovery_job():
     result, _ = pop_job(worker_state)
 
     # Should handle recovery timeout
-    from zahir.worker.state_machine.states import HandleRecoveryJobTimeoutStateChange
 
     assert isinstance(result, HandleRecoveryJobTimeoutStateChange)
     assert "timed out" in result.data["message"].lower()

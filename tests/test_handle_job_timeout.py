@@ -4,16 +4,16 @@ Tests the handle_job_timeout function which handles when a normal job
 exceeds its timeout limit.
 """
 
-import tempfile
 import multiprocessing
+import tempfile
 
 from zahir.base_types import Context, JobState
 from zahir.context import MemoryContext
 from zahir.events import JobOutputEvent
 from zahir.exception import JobTimeoutError
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.handle_job_timeout import handle_job_timeout
@@ -283,4 +283,4 @@ def test_handle_job_timeout_error_message():
     errors = context.job_registry.get_errors(job.job_id)
     assert len(errors) > 0
     error_msg = str(errors[-1])
-    assert "Job execution timed out" == error_msg
+    assert error_msg == "Job execution timed out"

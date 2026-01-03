@@ -10,29 +10,21 @@ Focusing on uncovered lines:
 - Line 154, 162, 198, 205, 265, 273, 289, 297, etc.: Event load() methods
 """
 
-import pytest
 
 from zahir.events import (
-    Await,
     JobCompletedEvent,
     JobEvent,
-    JobIrrecoverableEvent,
     JobOutputEvent,
     JobPausedEvent,
-    JobPrecheckFailedEvent,
     JobRecoveryCompletedEvent,
-    JobRecoveryStartedEvent,
     JobRecoveryTimeoutEvent,
     JobStartedEvent,
-    JobTimeoutEvent,
     WorkflowCompleteEvent,
     WorkflowOutputEvent,
     WorkflowStartedEvent,
     ZahirCustomEvent,
-    ZahirEvent,
     ZahirInternalErrorEvent,
 )
-
 
 # Note: Abstract classes can't be instantiated in Python, so we test
 # them indirectly through their concrete implementations

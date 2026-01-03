@@ -4,16 +4,16 @@ Tests the wait_for_job function which sleeps when no jobs are available.
 This prevents busy-waiting when the job queue is empty.
 """
 
+import multiprocessing
 import tempfile
 import time
-import multiprocessing
 
 from zahir.context import MemoryContext
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.worker.state_machine import ZahirWorkerState
-from zahir.worker.state_machine.wait_for_job import wait_for_job
 from zahir.worker.state_machine.states import StartStateChange
+from zahir.worker.state_machine.wait_for_job import wait_for_job
 
 
 def test_wait_for_job_returns_start_state_change():

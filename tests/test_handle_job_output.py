@@ -4,15 +4,15 @@ Tests the handle_job_output function which handles job output events,
 stores the output, and transitions to the Start state.
 """
 
-import tempfile
 import multiprocessing
+import tempfile
 
-from zahir.base_types import Context, JobState
+from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.handle_job_output import handle_job_output

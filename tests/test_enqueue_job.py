@@ -4,15 +4,15 @@ Tests the enqueue_job function which claims jobs from the registry and pushes th
 This is how new top-level jobs enter the worker's execution flow.
 """
 
-import tempfile
 import multiprocessing
+import tempfile
 
-from zahir.base_types import Context, Job
+from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.scope import LocalScope
 from zahir.jobs.decorator import job
+from zahir.scope import LocalScope
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.enqueue_job import enqueue_job
 from zahir.worker.state_machine.states import StartStateChange, WaitForJobStateChange

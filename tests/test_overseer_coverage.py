@@ -24,8 +24,8 @@ from zahir.events import (
     ZahirInternalErrorEvent,
 )
 from zahir.exception import exception_to_text_blob
-from zahir.scope import LocalScope
 from zahir.job_registry import SQLiteJobRegistry
+from zahir.scope import LocalScope
 from zahir.worker.overseer import shutdown, zahir_worker_overseer
 
 
