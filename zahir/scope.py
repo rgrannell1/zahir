@@ -1,3 +1,5 @@
+import inspect
+from types import ModuleType
 from typing import Self
 
 from zahir.base_types import Dependency, Job, Scope
@@ -74,3 +76,49 @@ class LocalScope(Scope):
             raise DependencyNotInScopeError(f"Dependency class '{type_name}' not found in scope. Did you register it?")
 
         return self.dependencies[type_name]
+
+    @classmethod
+    def from_module(cls, module: ModuleType | None = None) -> Self:
+        """Create a LocalScope by discovering all Job and Dependency classes in a module.
+
+        This method will automatically find and register all classes that inherit from
+        Job or Dependency in the given module. If no module is provided, it will
+        discover from the calling module.
+
+        @param module: The Python module to search for Job and Dependency classes.
+                      If None, discovers from the calling module.
+        @return: A new LocalScope instance with discovered classes registered
+
+        Examples:
+            # Discover from a specific module
+            import my_workflows
+            scope = LocalScope.from_module(my_workflows)
+
+            # Discover from current module
+            scope = LocalScope.from_module()
+        """
+
+        if module is None:
+            # Get the caller's frame and extract their module
+            frame = inspect.currentframe()
+            if frame is None or frame.f_back is None:
+                raise RuntimeError("Cannot determine calling module")
+
+            module = inspect.getmodule(frame.f_back)
+            if module is None:
+                raise RuntimeError("Cannot determine calling module")
+
+        jobs: list[type[Job]] = []
+        dependencies: list[type[Dependency]] = []
+
+        for name, obj in inspect.getmembers(module):
+            if not inspect.isclass(obj):
+                continue
+
+            if issubclass(obj, Job) and obj is not Job:
+                jobs.append(obj)
+
+            elif issubclass(obj, Dependency) and obj is not Dependency:
+                dependencies.append(obj)
+
+        return cls(jobs=jobs, dependencies=dependencies)

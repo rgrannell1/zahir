@@ -99,14 +99,11 @@ def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputE
     yield JobOutputEvent({"words": [word.upper() for word in input["words"]]})
 ```
 
-The boilerplate to start jobs is likely to be reduced, but is currently:
+The boilerplate to start jobs:
 
 ```py
-# Ensure we can translate serialised data back to classes
-scope = LocalScope(
-    jobs=[BookProcessor, ChapterProcessor, UppercaseWords],
-    dependencies=[DependencyGroup, JobDependency],
-)
+# Auto-discover all jobs and dependencies from the current module
+scope = LocalScope.from_module() # or, provide jobs and dependency classes manually
 
 # Somewhere to store job information
 job_registry = SQLiteJobRegistry("jobs.db")
