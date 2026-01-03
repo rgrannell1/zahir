@@ -99,22 +99,12 @@ def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputE
     yield JobOutputEvent({"words": [word.upper() for word in input["words"]]})
 ```
 
-The boilerplate to start jobs:
+Jobs can be started without much boilerplate. By default:
+- Workflows will register all jobs / dependencies loaded in a file to a scope object internally. the `Scope` is needed to translate between classes and serialised data.
+- Job execution will be coordinated in an in-memory SQLite database.
 
 ```py
-# Auto-discover all jobs and dependencies from the current module
-scope = LocalScope.from_module() # or, provide jobs and dependency classes manually
-
-# Somewhere to store job information
-job_registry = SQLiteJobRegistry("jobs.db")
-context = MemoryContext(scope=scope, job_registry=job_registry)
-
-# A starting job
-start = BookProcessor(
-    {"file_path": "./war-and-peace.txt"}, {}
-)
-
-for event in LocalWorkflow(context).run(start):
+for event in LocalWorkflow().run(BookProcessor({"file_path": "./war-and-peace.txt"}, {})):
     print(event) # WorkflowOutputEvent({ "longest_words_by_chapter": [...] })
 ```
 
