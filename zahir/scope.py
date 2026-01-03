@@ -111,7 +111,7 @@ class LocalScope(Scope):
         jobs: list[type[Job]] = []
         dependencies: list[type[Dependency]] = []
 
-        for name, obj in inspect.getmembers(module):
+        for _, obj in inspect.getmembers(module):
             if not inspect.isclass(obj):
                 continue
 

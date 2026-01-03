@@ -11,6 +11,7 @@ The focus is on ensuring:
 4. The state machine maintains consistent behavior through transitions
 """
 
+# Execute recovery job - should raise exception
 import multiprocessing
 import tempfile
 
@@ -26,6 +27,7 @@ from zahir.worker.state_machine.states import (
     CheckPreconditionsStateChange,
     EnqueueJobStateChange,
     ExecuteJobStateChange,
+    ExecuteRecoveryJobStateChange,
     HandleAwaitStateChange,
     HandleJobCompleteNoOutputStateChange,
     HandleJobExceptionStateChange,
@@ -550,9 +552,6 @@ def test_state_machine_recovery_job_exception():
     job_generator = RecoveryExceptionJob.recover(context, job.input, job.dependencies, Exception("test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     state.frame = frame
-
-    # Execute recovery job - should raise exception
-    from zahir.worker.state_machine.states import ExecuteRecoveryJobStateChange
 
     current = ExecuteRecoveryJobStateChange({"message": "Executing recovery job"})
     handler = ZahirJobStateMachine.get_state(current.state)

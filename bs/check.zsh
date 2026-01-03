@@ -1,3 +1,3 @@
 #! /usr/bin/env zsh
 
-uv run ty check
+uv run ty check zahir

@@ -10,7 +10,6 @@ Focusing on uncovered lines:
 - Line 154, 162, 198, 205, 265, 273, 289, 297, etc.: Event load() methods
 """
 
-from zahir.serialisers.job import SerialisedJob
 from zahir.events import (
     JobCompletedEvent,
     JobEvent,
@@ -25,6 +24,7 @@ from zahir.events import (
     ZahirCustomEvent,
     ZahirInternalErrorEvent,
 )
+from zahir.serialisers.job import SerialisedJob
 
 # Note: Abstract classes can't be instantiated in Python, so we test
 # them indirectly through their concrete implementations

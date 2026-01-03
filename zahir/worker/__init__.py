@@ -36,10 +36,7 @@ class LocalWorkflow[WorkflowOutputType]:
             # find which module called this one, and construct a scope based on the
             # jobs and modules in that librart
             caller_frame = inspect.currentframe()
-            if caller_frame and caller_frame.f_back:
-                caller_module = inspect.getmodule(caller_frame.f_back)
-            else:
-                caller_module = None
+            caller_module = inspect.getmodule(caller_frame.f_back) if caller_frame and caller_frame.f_back else None
 
             # Make an in-memory job-registry
             scope = LocalScope.from_module(caller_module)

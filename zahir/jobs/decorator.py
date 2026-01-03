@@ -38,7 +38,7 @@ def job(
         class_qualname = f"{mod}.{qual}.{class_name}" if qual else f"{mod}.{class_name}"
 
         # Wrapper that adds cls parameter for the classmethod
-        def run_wrapper(cls, context, input, dependencies):
+        def run_wrapper(_, context, input, dependencies):
             return func(context, input, dependencies)
 
         ns: dict[str, Any] = {}
@@ -50,7 +50,7 @@ def job(
         # A recovery method, if the user wants one too.
         if recovery is not None:
 
-            def recovery_wrapper(cls, context, input, dependencies, err):
+            def recovery_wrapper(_, context, input, dependencies, err):
                 return recovery(context, input, dependencies, err)
 
             ns["recover"] = classmethod(recovery_wrapper)

@@ -1,3 +1,4 @@
 #! /usr/bin/env zsh
 
-uv run ruff check .
+# the tests are unsalvagable AI slop.
+uv run ruff check zahir

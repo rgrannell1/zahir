@@ -1,5 +1,6 @@
 
-from typing import Any, Mapping, TypedDict
+from collections.abc import Mapping
+from typing import Any, TypedDict
 
 
 class JobOptionsData(TypedDict, total=False):
@@ -9,6 +10,7 @@ class JobOptionsData(TypedDict, total=False):
     job_timeout: float | None
     # Upper-limit on how long the recovery should run for
     recover_timeout: float | None
+
 
 class SerialisedJob(TypedDict):
     """Serialized representation of a Job"""
