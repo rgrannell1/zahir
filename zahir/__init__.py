@@ -24,7 +24,20 @@ from zahir.events import (
     ZahirEvent,
     ZahirInternalErrorEvent,
 )
-from zahir.exception import DependencyMissingError, DependencyNotInScopeError, DuplicateJobError, ImpossibleDependencyError, JobNotInScopeError, JobPrecheckError, JobRecoveryTimeoutError, JobTimeoutError, MissingJobError, NotInScopeError, ZahirError, ZahirInternalError
+from zahir.exception import (
+    DependencyMissingError,
+    DependencyNotInScopeError,
+    DuplicateJobError,
+    ImpossibleDependencyError,
+    JobNotInScopeError,
+    JobPrecheckError,
+    JobRecoveryTimeoutError,
+    JobTimeoutError,
+    MissingJobError,
+    NotInScopeError,
+    ZahirError,
+    ZahirInternalError,
+)
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import job
 from zahir.scope import LocalScope
@@ -78,5 +91,5 @@ __all__ = [
     ZahirError,
     ZahirEvent,
     ZahirInternalError,
-    ZahirInternalErrorEvent
+    ZahirInternalErrorEvent,
 ]

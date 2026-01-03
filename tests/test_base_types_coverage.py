@@ -196,6 +196,7 @@ def test_active_job_states_constant():
 def test_dependency_abstract_methods():
     """Test that abstract Dependency methods raise NotImplementedError when called directly."""
     import pytest
+
     from zahir.base_types import Dependency
 
     # Test the base class method directly by calling it on a mock instance
@@ -210,6 +211,7 @@ def test_dependency_abstract_methods():
 def test_dependency_abstract_save_method():
     """Test that Dependency.save raises NotImplementedError when not overridden."""
     import pytest
+
     from zahir.base_types import Dependency
 
     # Call the abstract method from the base class directly
@@ -222,6 +224,7 @@ def test_dependency_abstract_save_method():
 def test_dependency_abstract_load_method():
     """Test that Dependency.load raises NotImplementedError when not overridden."""
     import pytest
+
     from zahir.base_types import Dependency
 
     scope = LocalScope()
@@ -236,6 +239,7 @@ def test_dependency_abstract_load_method():
 def test_job_registry_abstract_methods():
     """Test that JobRegistry abstract methods raise NotImplementedError."""
     import pytest
+
     from zahir.base_types import JobRegistry
 
     # Use the SQLiteJobRegistry instance and call base class method directly
@@ -247,13 +251,10 @@ def test_job_registry_abstract_methods():
 
 def test_event_registry_abstract_method():
     """Test that EventRegistry.register raises NotImplementedError when not overridden."""
-    import pytest
     from zahir.base_types import EventRegistry
 
     class IncompleteEventRegistry(EventRegistry):
         """Intentionally incomplete to test abstract method errors."""
-
-        pass
 
     # Cannot instantiate abstract class without implementing all abstract methods
     # So we test the method directly would raise if it could be called
@@ -265,8 +266,6 @@ def test_job_abstract_run_method():
 
     class MinimalJob(Job):
         """Job with default run implementation."""
-
-        pass
 
     # The default run implementation returns iter([])
     scope = LocalScope()
@@ -437,8 +436,9 @@ def test_job_copy():
 
 def test_job_request_extension():
     """Test Job.request_extension method."""
+    from datetime import datetime
+
     from zahir.dependencies.time import TimeDependency
-    from datetime import datetime, timedelta
 
     class TestJob(Job):
         @classmethod

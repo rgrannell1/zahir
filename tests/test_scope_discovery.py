@@ -7,7 +7,6 @@ from zahir.events import JobOutputEvent
 from zahir.jobs.decorator import job
 from zahir.scope import LocalScope
 
-
 # Create a fake module for testing
 test_module = ModuleType("test_workflows")
 

@@ -1,13 +1,8 @@
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 import inspect
-from typing import TYPE_CHECKING, Any, get_type_hints
+from typing import Any, get_type_hints
 
 from zahir.base_types import Job
-
-if TYPE_CHECKING:
-    from zahir.base_types import Context
-    from zahir.dependencies.group import DependencyGroup
-    from zahir.events import JobOutputEvent, WorkflowOutputEvent, ZahirCustomEvent
 
 
 def job(
@@ -54,6 +49,7 @@ def job(
 
         # A recovery method, if the user wants one too.
         if recovery is not None:
+
             def recovery_wrapper(cls, context, input, dependencies, err):
                 return recovery(context, input, dependencies, err)
 
@@ -77,6 +73,5 @@ def job(
     if fn is None:
         # Called with arguments: @job(recovery=...)
         return decorator
-    else:
-        # Called without arguments: @job
-        return decorator(fn)
+    # Called without arguments: @job
+    return decorator(fn)
