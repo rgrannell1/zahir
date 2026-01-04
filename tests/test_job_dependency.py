@@ -150,7 +150,7 @@ def test_job_dependency_output():
     output = dep.output(mock_context)
 
     assert output == {"result": "success", "data": 42}
-    mock_registry.get_output.assert_called_with("job-output")
+    mock_registry.get_output.assert_called_with("job-output", recovery=False)
 
 
 def test_job_dependency_output_none():

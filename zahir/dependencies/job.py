@@ -78,9 +78,9 @@ class JobDependency[OutputType](Dependency):
             impossible_states=impossible_states if impossible_states else None,
         )
 
-    def output(self, context: Context) -> OutputType | None:
+    def output(self, context: Context, recovery: bool = False) -> OutputType | None:
         """Get the output of the job, if available, from the registry"""
-        return cast(OutputType | None, context.job_registry.get_output(self.job_id))
+        return cast(OutputType | None, context.job_registry.get_output(self.job_id, recovery=recovery))
 
     def state(self) -> JobState:
         """Get the current state of the job from the registry"""

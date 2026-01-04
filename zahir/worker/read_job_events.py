@@ -1,5 +1,6 @@
-from collections.abc import Iterator, Mapping
 import multiprocessing
+from collections.abc import Iterator, Mapping
+from types import GeneratorType
 
 from zahir.base_types import Job, JobRegistry
 from zahir.events import Await, JobOutputEvent, ZahirEvent
@@ -29,6 +30,11 @@ def read_job_events(
     required_pids = list(state.frame.required_jobs)
 
     if required_pids or state.frame.await_many:
+        if not isinstance(gen, GeneratorType):
+            raise TypeError(
+                f"Job generator for job-id: {job_id} is not a generator function, cannot await jobs. Type is {type(gen)}",
+            )
+
         # Get the errors and outputs for the pid on which we were awaiting...
 
         # Not all jobs have to produce an output.
@@ -39,9 +45,12 @@ def read_job_events(
 
         # Collate the information for each job
         for required_pid in required_pids:
-            outputs.append(job_registry.get_output(required_pid))
-            job_errors = job_registry.get_errors(required_pid)
-            errors += job_errors
+            outputs.append(job_registry.get_output(required_pid, recovery=state.frame.recovery))
+            # Get errors from both recovery contexts since the awaited job may have failed
+            # in either its main execution or its recovery phase
+            job_errors_main = job_registry.get_errors(required_pid, recovery=False)
+            job_errors_recovery = job_registry.get_errors(required_pid, recovery=True)
+            errors += job_errors_main + job_errors_recovery
 
         # So, this sucks. I ported from a custom serialiser to tblib. Turns out tblib
         # can't handle throwing into generators. We'll need to port back to a custom serialiser (screw pickle anyway)
@@ -64,6 +73,9 @@ def read_job_events(
         else:
             generator_input = None
             generator_input = outputs[0] if len(required_pids) == 1 else outputs
+
+            # NOTE: this breaks if the generator is supposedly not started.
+            # I think the bug is due to recovery being sent to the wrong generator.
             event = gen.send(generator_input)
 
         # something happens afterwards, so enqueue it and proceed

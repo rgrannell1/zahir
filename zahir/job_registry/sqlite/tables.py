@@ -1,4 +1,3 @@
-
 JOBS_TABLE_SCHEMA = """
 create table if not exists jobs (
     job_id                    text primary key,
@@ -15,6 +14,7 @@ JOB_OUTPUTS_TABLE_SCHEMA = """
 create table if not exists job_outputs (
     job_id                    text primary key,
     output                    text not null,
+    recovery                  text not null,
     foreign key (job_id)      references jobs(job_id)
 );
 """
@@ -23,6 +23,8 @@ JOB_ERRORS_TABLE_SCHEMA = """
 create table if not exists job_errors (
     job_id                    text,
     error_blob                text not null,
+    error_text                text not null,
+    recovery                  text not null,
     foreign key (job_id)      references jobs(job_id)
 );
 """

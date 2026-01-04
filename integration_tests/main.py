@@ -87,6 +87,7 @@ def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputE
 
     yield JobOutputEvent({"words": [word.upper() for word in input["words"]]})
 
+
 # TODO debug why implicit scope fails.
 
 

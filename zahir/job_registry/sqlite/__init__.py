@@ -239,6 +239,7 @@ class SQLiteJobRegistry(JobRegistry):
         workflow_id: str,
         output_queue: multiprocessing.Queue,
         state: JobState,
+        recovery: bool = False,
         error: BaseException | None = None,
     ) -> str:
         """Set the state of a job. Optionally add an error if transitioning to a failure state."""
@@ -276,7 +277,11 @@ class SQLiteJobRegistry(JobRegistry):
                 log.warning(f"Recording error for job {job_id}: {error}\nTraceback:\n{error_trace}")
 
                 serialised_error = exception_to_text_blob(error)
-                conn.execute("insert into job_errors (job_id, error_blob) values (?, ?)", (job_id, serialised_error))
+                error_text = str(error)
+                conn.execute(
+                    "insert into job_errors (job_id, error_text, error_blob, recovery) values (?, ?, ?, ?)",
+                    (job_id, error_text, serialised_error, int(recovery)),
+                )
 
             conn.commit()
 
@@ -288,7 +293,12 @@ class SQLiteJobRegistry(JobRegistry):
         return job_id
 
     def set_output(
-        self, job_id: str, workflow_id: str, output_queue: multiprocessing.Queue, output: Mapping[str, Any]
+        self,
+        job_id: str,
+        workflow_id: str,
+        output_queue: multiprocessing.Queue,
+        output: Mapping[str, Any],
+        recovery: bool = False,
     ) -> None:
         """Set the output of a job. Mark the job as complete, and emit a completion event."""
 
@@ -299,11 +309,11 @@ class SQLiteJobRegistry(JobRegistry):
             conn.execute("begin immediate;")
             conn.execute(
                 """
-            insert into job_outputs (job_id, output)
-            values (?, ?)
-            on conflict(job_id) do update set output=excluded.output;
+            insert into job_outputs (job_id, output, recovery)
+            values (?, ?, ?)
+            on conflict(job_id) do update set output=excluded.output, recovery=excluded.recovery;
             """,
-                (job_id, serialised_output),
+                (job_id, serialised_output, int(recovery)),
             )
 
             now = datetime.now(tz=UTC).isoformat()
@@ -323,17 +333,20 @@ class SQLiteJobRegistry(JobRegistry):
             )
         )
 
-    def get_output(self, job_id: str) -> Mapping[str, Any] | None:
+    def get_output(self, job_id: str, recovery: bool = False) -> Mapping[str, Any] | None:
         """Get the output of a completed job.
 
         @param job_id: The ID of the job to get the output for.
+        @param recovery: Whether to get the output for a recovery job.
         @return: The output mapping, or None if no output is found.
         """
 
-        log.debug(f"Getting output for job {job_id}")
+        log.debug(f"Getting output for job {job_id} (recovery={recovery})")
 
         with self.conn as conn:
-            row = conn.execute("select output from job_outputs where job_id = ?", (job_id,)).fetchone()
+            row = conn.execute(
+                "select output from job_outputs where job_id = ? and recovery = ?", (job_id, int(recovery))
+            ).fetchone()
 
             if row is None:
                 return None
@@ -341,19 +354,23 @@ class SQLiteJobRegistry(JobRegistry):
             (serialised_output,) = row
             return json.loads(serialised_output)
 
-    def add_error(self, job_id: str, error: BaseException) -> None:
+    def add_error(self, job_id: str, error: BaseException, recovery: bool = False) -> None:
         """Add an error for the job."""
 
         log.debug(f"Adding error for job {job_id}")
 
         serialised_error = exception_to_text_blob(error)
+        error_text = str(error)
 
         with self.conn as conn:
             conn.execute("begin immediate;")
-            conn.execute("insert into job_errors (job_id, error_blob) values (?, ?)", (job_id, serialised_error))
+            conn.execute(
+                "insert into job_errors (job_id, error_text, error_blob, recovery) values (?, ?, ?, ?)",
+                (job_id, error_text, serialised_error, int(recovery)),
+            )
             conn.commit()
 
-    def get_errors(self, job_id: str) -> list[BaseException]:
+    def get_errors(self, job_id: str, recovery: bool = False) -> list[BaseException]:
         """Get all errors for a job.
 
         @param job_id: The ID of the job to get errors for.
@@ -363,7 +380,9 @@ class SQLiteJobRegistry(JobRegistry):
         log.debug(f"Getting errors for job {job_id}")
 
         with self.conn as conn:
-            rows = conn.execute("select error_blob from job_errors where job_id = ?", (job_id,)).fetchall()
+            rows = conn.execute(
+                "select error_blob from job_errors where job_id = ? and recovery = ?", (job_id, int(recovery))
+            ).fetchall()
 
             errors: list[BaseException] = []
             for (error_blob,) in rows:

@@ -9,7 +9,12 @@ def handle_job_timeout(state) -> tuple[EnqueueJobStateChange, None]:
     error = JobTimeoutError("Job execution timed out")
 
     state.context.job_registry.set_state(
-        state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.TIMED_OUT, error=error
+        state.frame.job.job_id,
+        state.workflow_id,
+        state.output_queue,
+        JobState.TIMED_OUT,
+        error=error,
+        recovery=state.frame.recovery,
     )
 
     job_type = state.frame.job_type()

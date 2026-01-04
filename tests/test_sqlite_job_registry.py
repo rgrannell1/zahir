@@ -46,7 +46,7 @@ def test_sqlite_job_registry_lifecycle():
         assert registry.get_state(job_id) == JobState.READY
         registry.set_state(job_id, "wf-test", dummy_queue, JobState.COMPLETED)
         assert registry.get_state(job_id) == JobState.COMPLETED
-        registry.set_output(job_id, "wf-test", dummy_queue, {"result": 42})
+        registry.set_output(job_id, "wf-test", dummy_queue, {"result": 42}, recovery=False)
         output = registry.get_output(job_id)
         assert output is not None, "Output should not be None"
         assert output["result"] == 42
@@ -292,7 +292,7 @@ def test_add_error():
         dummy_queue = multiprocessing.Queue()
         registry.add(job, dummy_queue)
         err = RuntimeError("test error")
-        registry.add_error("job-error-2", err)
+        registry.add_error("job-error-2", err, recovery=False)
     finally:
         registry.conn.close()
         pathlib.Path(db_path).unlink()
@@ -309,7 +309,7 @@ def test_get_errors():
         dummy_queue = multiprocessing.Queue()
         registry.add(job, dummy_queue)
         err = RuntimeError("test error")
-        registry.add_error("job-error-3", err)
+        registry.add_error("job-error-3", err, recovery=False)
         errors = registry.get_errors("job-error-3")
         assert isinstance(errors, list)
     finally:

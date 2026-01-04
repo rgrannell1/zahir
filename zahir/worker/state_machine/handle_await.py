@@ -30,7 +30,9 @@ def handle_await(state) -> tuple[EnqueueJobStateChange, None]:
     # Pause the current job, and put it back on the registry. `Paused` jobs
     # are awaiting some job or other to be updated.
     frame_job_id = state.frame.job.job_id
-    job_registry.set_state(frame_job_id, state.workflow_id, state.output_queue, JobState.PAUSED)
+    job_registry.set_state(
+        frame_job_id, state.workflow_id, state.output_queue, JobState.PAUSED, recovery=state.frame.recovery
+    )
     job_stack.push(state.frame)
     state.frame = None
 

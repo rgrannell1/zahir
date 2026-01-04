@@ -122,7 +122,7 @@ def test_handle_recovery_job_timeout_records_error():
     handle_recovery_job_timeout(worker_state)
 
     # Verify error was recorded
-    errors = context.job_registry.get_errors(job.job_id)
+    errors = context.job_registry.get_errors(job.job_id, recovery=True)
     assert len(errors) > 0
     assert isinstance(errors[-1], JobRecoveryTimeoutError)
     assert "timed out" in str(errors[-1]).lower()
@@ -280,7 +280,7 @@ def test_handle_recovery_job_timeout_error_message():
     handle_recovery_job_timeout(worker_state)
 
     # Verify error message
-    errors = context.job_registry.get_errors(job.job_id)
+    errors = context.job_registry.get_errors(job.job_id, recovery=True)
     assert len(errors) > 0
     error_msg = str(errors[-1])
     assert error_msg == "Recovery job execution timed out"

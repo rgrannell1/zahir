@@ -131,7 +131,7 @@ def test_handle_recovery_job_exception_records_error():
     handle_recovery_job_exception(worker_state)
 
     # Verify error was recorded
-    errors = context.job_registry.get_errors(job.job_id)
+    errors = context.job_registry.get_errors(job.job_id, recovery=True)
     assert len(errors) > 0
     assert isinstance(errors[-1], KeyError)
     assert "specific recovery error" in str(errors[-1])
@@ -307,6 +307,6 @@ def test_handle_recovery_job_exception_with_different_exception_types():
         assert job_state == JobState.IRRECOVERABLE
 
         # Verify error recorded
-        errors = context.job_registry.get_errors(job.job_id)
+        errors = context.job_registry.get_errors(job.job_id, recovery=True)
         assert len(errors) > 0
         assert type(errors[-1]) == type(exc)

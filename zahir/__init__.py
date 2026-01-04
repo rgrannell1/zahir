@@ -1,12 +1,6 @@
 from zahir.base_types import Context, Dependency, DependencyState, Job, JobOptions, JobRegistry, JobState, Scope
 from zahir.context import MemoryContext
-from zahir.dependencies import (
-  DependencyGroup,
-  JobDependency,
-  TimeDependency,
-  ConcurrencyLimit,
-  Semaphore
-)
+from zahir.dependencies import DependencyGroup, JobDependency, TimeDependency, ConcurrencyLimit, Semaphore
 from zahir.events import (
     Await,
     JobCompletedEvent,

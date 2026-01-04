@@ -12,6 +12,7 @@ def handle_recovery_job_exception(state) -> tuple[EnqueueJobStateChange, None]:
         state.output_queue,
         JobState.IRRECOVERABLE,
         error=state.last_event,
+        recovery=state.frame.recovery,
     )
 
     job_type = state.frame.job_type()

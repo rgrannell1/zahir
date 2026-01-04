@@ -252,6 +252,7 @@ class JobRegistry(ABC):
         workflow_id: str,
         output_queue: multiprocessing.Queue,
         state: JobState,
+        recovery: bool = False,
         error: BaseException | None = None,
     ) -> str:
         """Set the state of a job by ID."""
@@ -259,7 +260,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_output(self, job_id: str) -> Mapping | None:
+    def get_output(self, job_id: str, recovery: bool = False) -> Mapping | None:
         """Retrieve the output of a completed job
 
         @param job_id: The ID of the job
@@ -269,17 +270,18 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_output(self, job_id: str, workflow_id: str, output_queue, output: Mapping) -> None:
+    def set_output(self, job_id: str, workflow_id: str, output_queue, output: Mapping, recovery: bool = False) -> None:
         """Store the output of a completed job
 
         @param job_id: The ID of the job
         @param output: The output dictionary produced by the job
+        @param recovery: Whether this output is from a recovery job
         """
 
         raise NotImplementedError
 
     @abstractmethod
-    def get_errors(self, job_id: str) -> list[BaseException]:
+    def get_errors(self, job_id: str, recovery: bool = False) -> list[BaseException]:
         """Retrieve the errors associated with a job. A job can have multiple
         errors potentially (precheck errror, then recovery error).
 

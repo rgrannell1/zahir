@@ -67,6 +67,7 @@ def check_preconditions(
         state.workflow_id,
         state.output_queue,
         JobState.PRECHECK_FAILED,
+        recovery=state.frame.recovery,
         error=precheck_error,
     )
 

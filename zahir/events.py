@@ -426,12 +426,21 @@ class Await(ZahirEvent):
     def save(self) -> Mapping[str, Any]:
         from zahir.base_types.job import Job
 
-        return {
-            "job": [self.job] if isinstance(self.job, Job) else self.job,
-        }
+        if isinstance(self.job, Job):
+            return {
+                "job": self.job.save(),
+                "is_list": False,
+            }
+        else:
+            return {
+                "job": [j.save() for j in self.job],
+                "is_list": True,
+            }
 
     @classmethod
     def load(cls, data: Mapping[str, Any]) -> Await:
-        return cls(
-            job=data["job"],
-        )
+        from zahir.base_types.job import Job
+
+        # This requires context to deserialize jobs, which we don't have here
+        # This is a design issue - load methods need context
+        raise NotImplementedError("Await.load requires context to deserialize Job objects")
