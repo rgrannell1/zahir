@@ -54,7 +54,6 @@ def execute_recovery_job(
         signal.alarm(ceil(seconds_until_timeout)) if seconds_until_timeout else None
 
         job_generator_result = read_job_events(
-            state.frame.job_generator,
             job_registry=state.context.job_registry,
             output_queue=state.output_queue,
             state=state,

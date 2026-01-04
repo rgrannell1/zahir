@@ -401,7 +401,7 @@ class Job[ArgsType, OutputType](ABC):
     def __init__(
         self,
         input: ArgsType,
-        dependencies: "Mapping[str, Dependency | list[Dependency]] | DependencyGroup",
+        dependencies: "Mapping[str, Dependency | list[Dependency]] | DependencyGroup" = {},
         options: JobOptions | None = None,
         job_id: str | None = None,
         parent_id: str | None = None,

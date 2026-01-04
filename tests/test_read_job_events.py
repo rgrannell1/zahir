@@ -80,7 +80,6 @@ def test_read_job_events_returns_output_event():
 
     # Read job events
     result = read_job_events(
-        job_generator,
         job_registry=context.job_registry,
         output_queue=output_queue,
         state=worker_state,
@@ -119,7 +118,6 @@ def test_read_job_events_returns_none_for_complete():
 
     # Read job events
     result = read_job_events(
-        job_generator,
         job_registry=context.job_registry,
         output_queue=output_queue,
         state=worker_state,
@@ -157,7 +155,6 @@ def test_read_job_events_returns_await():
 
     # Read job events
     result = read_job_events(
-        job_generator,
         job_registry=context.job_registry,
         output_queue=output_queue,
         state=worker_state,
@@ -199,7 +196,6 @@ def test_read_job_events_enqueues_intermediate_events():
 
     # Read job events
     result = read_job_events(
-        job_generator,
         job_registry=context.job_registry,
         output_queue=output_queue,
         state=worker_state,
@@ -259,7 +255,6 @@ def test_read_job_events_sets_workflow_id():
 
     # Read job events
     read_job_events(
-        job_generator,
         job_registry=context.job_registry,
         output_queue=output_queue,
         state=worker_state,
@@ -311,7 +306,6 @@ def test_read_job_events_sets_job_id():
 
     # Read job events
     read_job_events(
-        job_generator,
         job_registry=context.job_registry,
         output_queue=output_queue,
         state=worker_state,
@@ -359,7 +353,6 @@ def test_read_job_events_raises_on_non_iterator():
     # Try to read events from non-iterator
     try:
         read_job_events(
-            None,  # Not an iterator
             job_registry=context.job_registry,
             output_queue=output_queue,
             state=worker_state,
@@ -404,7 +397,6 @@ def test_read_job_events_handles_subjobs():
 
     # Read job events
     result = read_job_events(
-        job_generator,
         job_registry=context.job_registry,
         output_queue=output_queue,
         state=worker_state,
@@ -458,7 +450,6 @@ def test_read_job_events_sends_awaited_output():
 
     # First call returns Await
     result1 = read_job_events(
-        job_generator,
         job_registry=context.job_registry,
         output_queue=output_queue,
         state=worker_state,
@@ -479,7 +470,6 @@ def test_read_job_events_sends_awaited_output():
 
     # Second call should send output and return final output
     result2 = read_job_events(
-        job_generator,
         job_registry=context.job_registry,
         output_queue=output_queue,
         state=worker_state,
@@ -518,7 +508,6 @@ def test_read_job_events_clears_required_jobs():
 
     # Get await
     result1 = read_job_events(
-        job_generator,
         job_registry=context.job_registry,
         output_queue=output_queue,
         state=worker_state,
@@ -539,7 +528,6 @@ def test_read_job_events_clears_required_jobs():
 
     # Second call should clear required_jobs
     read_job_events(
-        job_generator,
         job_registry=context.job_registry,
         output_queue=output_queue,
         state=worker_state,

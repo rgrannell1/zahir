@@ -49,6 +49,7 @@ from zahir.worker import LocalWorkflow
 __version__ = "0.1.0"
 
 __all__ = [
+    "job",
     "Await",
     "ConcurrencyLimit",
     "Context",

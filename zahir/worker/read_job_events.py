@@ -8,7 +8,6 @@ type OutputQueue = multiprocessing.Queue["ZahirEvent | Job"]
 
 
 def read_job_events(
-    gen: Iterator,
     *,
     job_registry: JobRegistry,
     output_queue: OutputQueue,
@@ -17,6 +16,8 @@ def read_job_events(
     job_id: str,
 ) -> Await | JobOutputEvent | None:
     """Sent job output items to the output queue."""
+
+    gen = state.frame.job_generator
 
     if not isinstance(gen, Iterator):
         raise TypeError(f"Non-iterator passed to read_job_events for job-id: {job_id}, type: {type(gen)}")
@@ -59,11 +60,11 @@ def read_job_events(
                 else ExceptionGroup("Multiple errors", throwable_errors)
             )
 
-            event = state.frame.job_generator.throw(throwable)
+            event = gen.throw(throwable)
         else:
             generator_input = None
             generator_input = outputs[0] if len(required_pids) == 1 else outputs
-            event = state.frame.job_generator.send(generator_input)
+            event = gen.send(generator_input)
 
         # something happens afterwards, so enqueue it and proceed
         queue.append(event)
