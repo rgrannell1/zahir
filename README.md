@@ -232,6 +232,30 @@ Jobs generally have a useful period in which we'd like to execute them (today, n
 
 Use a `ConcurrencyLimit` with the appropriate concurrency limit and slots (roughly, how many calls we'll make) to make API calls within a concurrency limit.
 
+### Cancellation
+
+Zahir supports two patterns of starting jobs:
+
+- Yielding jobs in a "non-blocking" fashion
+- Awaiting on yielded jobs, which blocks the current task until all subjobs complete
+
+For the latter case, we "cancel" by changing how we execute things after awaited jobs fail or return a certain output. We can re-raise errors futher up the awaited job-stack to propegate failure much like typical procedural program execution.
+
+Cancellation is more relevant for non-blocking jobs, which may be long-lived supervisor jobs that launch subjobs themselves. The following example shows a pattern for propegating cancellation signals; construct a `Semaphore` dependency (`satisfied` by default), and on error mark all consumers of that dependency as impossible to schedule. Any long-running jobs can introspect on the semaphore directly and end when the semaphore is marked as `impossible`
+
+```python
+sem = Semaphore()
+yield MySupervisorJob({}, { "cancelled": sem })
+
+try:
+    yield Await(SomeCriticalStepJob({}, {}))
+except Exception as err:
+    sem.abort()
+    raise err
+```
+
+This prevents new jobs from being scheduled, but does not cancel currently active jobs. Further design work is needed on how that can be achieved.
+
 ## Execution
 
 ![](./engine.png)

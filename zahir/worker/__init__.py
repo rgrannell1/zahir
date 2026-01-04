@@ -60,5 +60,8 @@ class LocalWorkflow[WorkflowOutputType]:
 
         yield from zahir_worker_overseer(start, self.context, self.max_workers, all_events)
 
+    def cancel(self) -> None:
+        ...
+
 
 __all__ = ["LocalWorkflow", "zahir_worker_overseer"]

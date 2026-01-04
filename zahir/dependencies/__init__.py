@@ -8,5 +8,6 @@ from zahir.dependencies.concurrency import ConcurrencyLimit
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
 from zahir.dependencies.time import TimeDependency
+from zahir.dependencies.semaphore import Semaphore
 
-__all__ = ["ConcurrencyLimit", "DependencyGroup", "JobDependency", "TimeDependency"]
+__all__ = ["ConcurrencyLimit", "DependencyGroup", "JobDependency", "TimeDependency", "Semaphore"]
