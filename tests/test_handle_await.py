@@ -19,20 +19,20 @@ from zahir.worker.state_machine.handle_await import handle_await
 from zahir.worker.state_machine.states import EnqueueJobStateChange
 
 
-@job
+@job()
 def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job
+@job()
 def AwaitingJob(context: Context, input, dependencies):
     """A job that awaits another job."""
     result = yield Await(SimpleJob({"test": "data"}, {}))
     yield JobOutputEvent({"result": result})
 
 
-@job
+@job()
 def MultiAwaitJob(context: Context, input, dependencies):
     """A job that awaits multiple jobs."""
     results = yield Await([

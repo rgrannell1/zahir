@@ -32,6 +32,9 @@ Repository = "https://github.com/rgrannell1/zahir"
 [tool.hatch.build.targets.wheel]
 packages = ["zahir"]
 
+[tool.hatch.build.targets.wheel.force-include]
+"zahir/py.typed" = "zahir/py.typed"
+
 [dependency-groups]
 dev = [
     "ruff>=0.14.10",

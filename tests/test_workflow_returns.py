@@ -17,7 +17,7 @@ from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
 
-@job
+@job()
 def JustReturns(context: Context, input, dependencies):
     """Interyield to another job"""
 

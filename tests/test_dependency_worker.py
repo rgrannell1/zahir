@@ -21,13 +21,13 @@ from zahir.scope import LocalScope
 from zahir.worker.dependency_worker import zahir_dependency_worker
 
 
-@job
+@job()
 def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job
+@job()
 def JobWithOutput(context: Context, input, dependencies):
     """A job that produces output."""
     yield JobOutputEvent({"count": input.get("count", 0) + 1})

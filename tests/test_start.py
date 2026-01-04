@@ -23,13 +23,13 @@ from zahir.worker.state_machine.states import (
 )
 
 
-@job
+@job()
 def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job
+@job()
 def AnotherJob(context: Context, input, dependencies):
     """Another job for testing."""
     yield JobOutputEvent({"count": 1})

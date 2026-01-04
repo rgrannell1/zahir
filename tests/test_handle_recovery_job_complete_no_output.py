@@ -21,13 +21,13 @@ from zahir.worker.state_machine.handle_recovery_job_complete_no_output import (
 from zahir.worker.state_machine.states import EnqueueJobStateChange
 
 
-@job
+@job()
 def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job
+@job()
 def AnotherJob(context: Context, input, dependencies):
     """Another job for testing."""
     yield JobOutputEvent({"count": 1})

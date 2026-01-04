@@ -46,7 +46,7 @@ def get_longest_word(words: list[str]) -> str:
     return longest_word
 
 
-@job
+@job()
 def ChapterProcessor(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
     """For each chapter, find the longest word."""
 
@@ -62,7 +62,7 @@ class BookProcessorOutput(TypedDict):
     longest_words: list[str]
 
 
-@job
+@job()
 def BookProcessor(
     context: Context, input, dependencies
 ) -> Generator[Await | Job | WorkflowOutputEvent, ChapterProcessorOutput | BookProcessorOutput]:
@@ -81,7 +81,7 @@ def BookProcessor(
     yield WorkflowOutputEvent({"longest_words": uppercased["words"]})
 
 
-@job
+@job()
 def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
     """Uppercase a list of words."""
 

@@ -45,7 +45,7 @@ class JobWithCustomRecovery(Job):
         yield JobOutputEvent({"error_type": type(err).__name__, "recovered": True})
 
 
-@job
+@job()
 def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})

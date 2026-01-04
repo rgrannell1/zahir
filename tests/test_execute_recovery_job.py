@@ -54,7 +54,7 @@ class RecoveryJobWithoutOutput(Job):
         yield iter([])
 
 
-@job
+@job()
 def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})

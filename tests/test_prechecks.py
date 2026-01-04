@@ -30,7 +30,7 @@ class PrecheckFailsJob(Job):
         yield JobOutputEvent({})
 
 
-@job
+@job()
 def ParentJob(context: Context, input, dependencies):
     """A parent job that yields to the inner async job. Proves nested awaits work."""
 

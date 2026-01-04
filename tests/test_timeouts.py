@@ -23,13 +23,13 @@ from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
 
-@job
+@job()
 def Adder(context, input, dependencies):
     time.sleep(5)
     yield JobOutputEvent({"count": input["count"] + 1})
 
 
-@job
+@job()
 def TimeOutRunner(context, input, dependencies):
     yield Await(Adder(input={"count": 0}, dependencies={}, options=JobOptions(job_timeout=2)))
 
@@ -76,7 +76,7 @@ class FailsThenRecoversSlowly(Job):
         yield JobOutputEvent({"recovered": True})
 
 
-@job
+@job()
 def RecoveryTimeoutRunner(context, input, dependencies):
     yield Await(FailsThenRecoversSlowly(input={}, dependencies={}, options=JobOptions(recover_timeout=2)))
     yield ZahirCustomEvent(output={"message": "this should never be seen"})

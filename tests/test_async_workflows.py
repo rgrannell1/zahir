@@ -24,14 +24,14 @@ from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
 
-@job
+@job()
 def AddJob(context: Context, input, dependencies):
     """Add to the input count and yield it"""
 
     yield JobOutputEvent({"count": input["count"] + 1})
 
 
-@job
+@job()
 def YieldMany(context: Context, input, dependencies):
     """Interyield to another job"""
 
@@ -44,7 +44,7 @@ def YieldMany(context: Context, input, dependencies):
     yield JobOutputEvent({"count": count})
 
 
-@job
+@job()
 def ParentJob(context: Context, input, dependencies):
     """A parent job that yields to the inner async job. Proves nested awaits work."""
 
@@ -73,7 +73,7 @@ def test_nested_async_workflow():
     assert final_event.output["count"] == 2
 
 
-@job
+@job()
 def ImpossibleParentJob(context: Context, input, dependencies):
     """A parent job that yields to an impossible inner job."""
 
@@ -113,7 +113,7 @@ def test_impossible_async_workflow():
     assert isinstance(events[9], WorkflowCompleteEvent)
 
 
-@job
+@job()
 def AwaitMany(context: Context, input, dependencies):
     """Interyield to multiple jobs"""
 
@@ -171,7 +171,7 @@ def test_await_many_workflow():
     assert workflow_output.output["total"] == 63
 
 
-@job
+@job()
 def AwaitEmpty(context: Context, input, dependencies):
     """Interyield to an empty list of jobs"""
 
@@ -211,7 +211,7 @@ def test_await_empty_workflow():
     assert workflow_output.output["total"] == 0
 
 
-@job
+@job()
 def FailingJob(context: Context, input, dependencies):
     """A job that always fails."""
 
@@ -219,7 +219,7 @@ def FailingJob(context: Context, input, dependencies):
     yield iter([])
 
 
-@job
+@job()
 def AwaitManyFailing(context: Context, input, dependencies):
     """Interyield to multiple jobs, one of which fails."""
 

@@ -39,19 +39,19 @@ from zahir.worker.state_machine.states import (
 )
 
 
-@job
+@job()
 def SimpleOutputJob(context: Context, input, dependencies):
     """A job that produces output."""
     yield JobOutputEvent({"result": input.get("value", 42)})
 
 
-@job
+@job()
 def NoOutputJob(context: Context, input, dependencies):
     """A job that completes without output."""
     yield iter([])
 
 
-@job
+@job()
 def AwaitingJob(context: Context, input, dependencies):
     """A job that awaits another job."""
     result = yield Await(SimpleOutputJob({"value": 100}, {}))

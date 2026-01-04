@@ -7,13 +7,13 @@ from zahir.worker import LocalWorkflow
 
 
 # Define jobs and dependencies at module level that should be discovered
-@job
+@job()
 def WorkflowTestJob1(context: Context, input, dependencies):
     """A test job that should be discovered by LocalWorkflow."""
     yield JobOutputEvent({"result": "job1_output"})
 
 
-@job
+@job()
 def WorkflowTestJob2(context: Context, input, dependencies):
     """Another test job that should be discovered by LocalWorkflow."""
     yield JobOutputEvent({"result": "job2_output"})
@@ -136,7 +136,7 @@ def test_localworkflow_respects_provided_context():
     from zahir.scope import LocalScope
 
     # Create a custom context with a custom job
-    @job
+    @job()
     def CustomJob(context: Context, input, dependencies):
         yield JobOutputEvent({"custom": "result"})
 

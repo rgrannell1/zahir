@@ -18,13 +18,13 @@ from zahir.worker.state_machine.enqueue_job import enqueue_job
 from zahir.worker.state_machine.states import StartStateChange, WaitForJobStateChange
 
 
-@job
+@job()
 def SimpleJob(context: Context, input, dependencies):
     """A simple job that yields output."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job
+@job()
 def AnotherJob(context: Context, input, dependencies):
     """Another simple job for testing multiple jobs."""
     yield JobOutputEvent({"count": input.get("count", 0) + 1})

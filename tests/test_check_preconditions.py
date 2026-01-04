@@ -62,7 +62,7 @@ class MultipleErrorsJob(Job):
         yield JobOutputEvent({})
 
 
-@job
+@job()
 def TimeoutDuringPrecheckJob(context: Context, input, dependencies):
     """A job that times out during precheck validation."""
 

@@ -19,13 +19,13 @@ from zahir.worker.state_machine.handle_job_output import handle_job_output
 from zahir.worker.state_machine.states import StartStateChange
 
 
-@job
+@job()
 def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job
+@job()
 def JobWithData(context: Context, input, dependencies):
     """A job that outputs data."""
     yield JobOutputEvent({"count": 42, "name": "test"})

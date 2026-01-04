@@ -69,14 +69,14 @@ from zahir import (
     job,
 )
 
-@job
+@job()
 def ChapterProcessor(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
     """For each chapter, find the longest word."""
 
     # return the longest word found in the chapter
     yield JobOutputEvent({"longest_word": get_longest_word(input["lines"])})
 
-@job
+@job()
 def BookProcessor(context: Context, input, dependencies) -> Generator[Await | Job | JobOutputEvent]:
     longest_words = yield Await([
         ChapterProcessor({"lines": chapter_lines}, {}) for chapter_lines in read_chapters(input["file_path"])
@@ -92,7 +92,7 @@ def BookProcessor(context: Context, input, dependencies) -> Generator[Await | Jo
 
     yield WorkflowOutputEvent({"longest_words": uppercased["words"]})
 
-@job
+@job()
 def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
     """Uppercase a list of words."""
 

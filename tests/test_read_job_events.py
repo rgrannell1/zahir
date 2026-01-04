@@ -19,13 +19,13 @@ from zahir.worker.read_job_events import read_job_events
 from zahir.worker.state_machine import ZahirWorkerState
 
 
-@job
+@job()
 def SimpleJobWithOutput(context: Context, input, dependencies):
     """A simple job that produces output."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job
+@job()
 def JobWithMultipleEvents(context: Context, input, dependencies):
     """A job that yields multiple events before output."""
     yield ZahirCustomEvent(output={"step": 1})
@@ -33,20 +33,20 @@ def JobWithMultipleEvents(context: Context, input, dependencies):
     yield JobOutputEvent({"result": "complete"})
 
 
-@job
+@job()
 def JobWithoutOutput(context: Context, input, dependencies):
     """A job that completes without output."""
     yield iter([])
 
 
-@job
+@job()
 def AwaitingJob(context: Context, input, dependencies):
     """A job that awaits another job."""
     result = yield Await(SimpleJobWithOutput({"test": "data"}, {}))
     yield JobOutputEvent({"result": result})
 
 
-@job
+@job()
 def SubjobCreator(context: Context, input, dependencies):
     """A job that creates subjobs."""
     subjob = SimpleJobWithOutput({"test": "data"}, {})

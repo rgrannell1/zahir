@@ -12,13 +12,13 @@ test_module = ModuleType("test_workflows")
 
 
 # Define some test jobs and dependencies in the module
-@job
+@job()
 def SampleJob1(context: Context, input, dependencies):
     """A test job."""
     yield JobOutputEvent({"result": "test1"})
 
 
-@job
+@job()
 def SampleJob2(context: Context, input, dependencies):
     """Another test job."""
     yield JobOutputEvent({"result": "test2"})
@@ -131,7 +131,7 @@ def test_from_module_includes_imported_classes():
     # Create a second module
     other_module = ModuleType("other_module")
 
-    @job
+    @job()
     def ExternalJob(context: Context, input, dependencies):
         """A job from another module."""
         yield JobOutputEvent({"result": "external"})

@@ -1,36 +1,43 @@
-from collections.abc import Callable
-import inspect
-from typing import Any, get_type_hints
+from __future__ import annotations
+
+from collections.abc import Callable, Iterator
+from typing import Any, TypeVar, overload, cast
 
 from zahir.base_types import Job
 
+ArgsType = TypeVar("ArgsType")
+OutputType = TypeVar("OutputType")
 
+# You can tighten these if you have real types
+Context = Any
+Dependencies = Any
+JobOutputEvent = Any
+
+RunFn = Callable[[Context, ArgsType, Dependencies], Iterator[JobOutputEvent]]
+RecoveryFn = Callable[[Context, ArgsType, Dependencies, BaseException], Iterator[JobOutputEvent]]
+
+
+@overload
+def job() -> Callable[[RunFn[ArgsType, OutputType]], type[Job[ArgsType, OutputType]]]: ...
+@overload
 def job(
-    fn: Callable[..., Any] | None = None,
     *,
-    recovery: Callable[..., Any] | None = None,
-):
+    recovery: RecoveryFn[ArgsType, OutputType],
+) -> Callable[[RunFn[ArgsType, OutputType]], type[Job[ArgsType, OutputType]]]: ...
+
+
+def job(*, recovery: RecoveryFn[ArgsType, OutputType] | None = None):
     """Construct a Job class from a run function.
 
-    @param fn: The function to wrap as a Job's run method
-    @param recovery: Optional recovery function to use when the job fails
-
-    Examples:
-        # Simple job without recovery
-        @job
-        def MyJob(context, input, dependencies):
-            yield JobOutputEvent({"result": "done"})
-
-        # Job with recovery function
-        def my_recovery(context, input, dependencies, err):
-            yield JobOutputEvent({"recovered": True})
+    Forced usage:
+        @job()
+        def MyJob(...): ...
 
         @job(recovery=my_recovery)
-        def MyJob(context, input, dependencies):
-            yield JobOutputEvent({"result": "done"})
+        def MyJob(...): ...
     """
 
-    def decorator(func: Callable[..., Any]) -> type[Job]:
+    def decorator(func: RunFn[ArgsType, OutputType]) -> type[Job[ArgsType, OutputType]]:
         class_name = getattr(func, "__name__", func.__class__.__name__)
         mod = getattr(func, "__module__", func.__class__.__module__)
         qual = getattr(func, "__qualname__", None)
@@ -38,7 +45,12 @@ def job(
         class_qualname = f"{mod}.{qual}.{class_name}" if qual else f"{mod}.{class_name}"
 
         # Wrapper that adds cls parameter for the classmethod
-        def run_wrapper(_, context, input, dependencies):
+        def run_wrapper(
+            cls: type[Job[ArgsType, OutputType]],
+            context: Context,
+            input: ArgsType,
+            dependencies: Dependencies,
+        ) -> Iterator[JobOutputEvent]:
             return func(context, input, dependencies)
 
         ns: dict[str, Any] = {}
@@ -50,7 +62,13 @@ def job(
         # A recovery method, if the user wants one too.
         if recovery is not None:
 
-            def recovery_wrapper(_, context, input, dependencies, err):
+            def recovery_wrapper(
+                cls: type[Job[ArgsType, OutputType]],
+                context: Context,
+                input: ArgsType,
+                dependencies: Dependencies,
+                err: BaseException,
+            ) -> Iterator[JobOutputEvent]:
                 return recovery(context, input, dependencies, err)
 
             ns["recover"] = classmethod(recovery_wrapper)
@@ -59,19 +77,7 @@ def job(
         ns["__qualname__"] = class_qualname
         ns["__doc__"] = func.__doc__
 
-        ns["__run_function__"] = func
-        ns["__signature__"] = inspect.signature(func)
+        created = type(class_name, (Job,), ns)
+        return cast(type[Job[ArgsType, OutputType]], created)
 
-        try:
-            ns["__type_hints__"] = get_type_hints(func, include_extras=True)
-        except Exception:
-            ns["__type_hints__"] = {}
-
-        return type(class_name, (Job,), ns)
-
-    # Handle both @job and @job(recovery=...)
-    if fn is None:
-        # Called with arguments: @job(recovery=...)
-        return decorator
-    # Called without arguments: @job
-    return decorator(fn)
+    return decorator

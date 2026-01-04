@@ -26,20 +26,20 @@ from zahir.worker.state_machine.states import (
 )
 
 
-@job
+@job()
 def SimpleJobWithOutput(context: Context, input, dependencies):
     """A simple job that produces output."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job
+@job()
 def JobWithoutOutput(context: Context, input, dependencies):
     """A job that completes without output."""
     # Yields an empty iterator to complete without output
     yield iter([])
 
 
-@job
+@job()
 def AwaitingJob(context: Context, input, dependencies):
     """A job that awaits another job."""
     result = yield Await(SimpleJobWithOutput({"test": "data"}, {}))
@@ -68,7 +68,7 @@ class ExceptionJob(Job):
         yield JobOutputEvent({"recovered": True})
 
 
-@job
+@job()
 def MultiStepJob(context: Context, input, dependencies):
     """A job with multiple steps."""
     yield JobOutputEvent({"step": 1})
