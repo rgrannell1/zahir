@@ -11,10 +11,9 @@ OutputType = TypeVar("OutputType")
 # You can tighten these if you have real types
 Context = Any
 Dependencies = Any
-JobOutputEvent = Any
 
-RunFn = Callable[[Context, ArgsType, Dependencies], Iterator[JobOutputEvent]]
-RecoveryFn = Callable[[Context, ArgsType, Dependencies, BaseException], Iterator[JobOutputEvent]]
+RunFn = Callable[[Context, ArgsType, Dependencies], Iterator[OutputType]]
+RecoveryFn = Callable[[Context, ArgsType, Dependencies, BaseException], Iterator[OutputType]]
 
 
 @overload
@@ -50,7 +49,7 @@ def job(*, recovery: RecoveryFn[ArgsType, OutputType] | None = None):
             context: Context,
             input: ArgsType,
             dependencies: Dependencies,
-        ) -> Iterator[JobOutputEvent]:
+        ) -> Iterator[OutputType]:
             return func(context, input, dependencies)
 
         ns: dict[str, Any] = {}
@@ -68,7 +67,7 @@ def job(*, recovery: RecoveryFn[ArgsType, OutputType] | None = None):
                 input: ArgsType,
                 dependencies: Dependencies,
                 err: BaseException,
-            ) -> Iterator[JobOutputEvent]:
+            ) -> Iterator[OutputType]:
                 return recovery(context, input, dependencies, err)
 
             ns["recover"] = classmethod(recovery_wrapper)
@@ -77,7 +76,7 @@ def job(*, recovery: RecoveryFn[ArgsType, OutputType] | None = None):
         ns["__qualname__"] = class_qualname
         ns["__doc__"] = func.__doc__
 
-        created = type(class_name, (Job,), ns)
-        return cast(type[Job[ArgsType, OutputType]], created)
+        created: type[Job[ArgsType, OutputType]] = type(class_name, (Job,), ns)  # type: ignore[assignment]
+        return created
 
     return decorator
