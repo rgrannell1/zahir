@@ -421,7 +421,7 @@ class JobEvent(ZahirEvent):
 class Await(ZahirEvent):
     """Indicates that a job is awaiting some condition before proceeding"""
 
-    job: SerialisedJob | list[SerialisedJob]
+    job: "Job" | list["Job"]
 
     def save(self) -> Mapping[str, Any]:
         from zahir.base_types.job import Job
