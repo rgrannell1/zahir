@@ -110,7 +110,9 @@ def read_job_events(
     if not isinstance(gen, Iterator):
         raise TypeError(f"Non-iterator passed to read_job_events for job-id: {job_id}, type: {type(gen)}")
 
-    gen_state = inspect.getgeneratorstate(cast(Any, gen))
+    gen_state = None
+    if isinstance(gen, GeneratorType):
+        gen_state = inspect.getgeneratorstate(cast(Any, gen))
 
     queue: list[ZahirEvent | Job] = []
 

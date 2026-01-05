@@ -49,6 +49,3 @@ def test_nested_async_workflow():
     assert isinstance(events[4], JobOutputEvent)
     assert isinstance(events[5], JobCompletedEvent)
     assert isinstance(events[6], WorkflowCompleteEvent)
-
-
-test_nested_async_workflow()

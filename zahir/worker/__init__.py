@@ -3,10 +3,11 @@ import inspect
 from typing import Any, Generic, TypeVar
 
 from zahir.base_types import Context, Job
-from zahir.events import WorkflowOutputEvent, ZahirEvent
+from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.worker.overseer import zahir_worker_overseer
+from zahir.worker.progress import ZahirProgressMonitor
 
 WorkflowOutputType = TypeVar("WorkflowOutputType", bound=Mapping[str, Any])
 
@@ -58,7 +59,16 @@ class LocalWorkflow[WorkflowOutputType]:
         - ZahirCustomEvent: any custom events emitted by workflows. Can be used for custom in-band eventing.
         """
 
-        yield from zahir_worker_overseer(start, self.context, self.max_workers, all_events)
+        with ZahirProgressMonitor() as progress:
+            for event in zahir_worker_overseer(start, self.context, self.max_workers):
+                progress.handle_event(event)
+
+
+                if all_events or isinstance(event, (
+                    WorkflowOutputEvent,
+                    ZahirCustomEvent
+                )):
+                    yield event
 
     def cancel(self) -> None: ...
 

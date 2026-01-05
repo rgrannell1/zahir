@@ -111,7 +111,7 @@ def test_overseer_internal_error_without_error_message():
 
             # Run the overseer
             with pytest.raises(RuntimeError, match="Unknown internal error in worker"):
-                list(zahir_worker_overseer(job, context, worker_count=1, all_events=False))
+                list(zahir_worker_overseer(job, context, worker_count=1))
 
 
 def test_overseer_internal_error_with_error_message():
@@ -144,7 +144,7 @@ def test_overseer_internal_error_with_error_message():
 
             # Run the overseer - should raise the deserialized error
             with pytest.raises(ValueError, match="Test error message"):
-                list(zahir_worker_overseer(job, context, worker_count=1, all_events=False))
+                list(zahir_worker_overseer(job, context, worker_count=1))
 
 
 def test_overseer_keyboard_interrupt():
@@ -169,7 +169,7 @@ def test_overseer_keyboard_interrupt():
             mock_process.return_value = mock_proc
 
             # Run the overseer - should handle KeyboardInterrupt gracefully
-            result = list(zahir_worker_overseer(job, context, worker_count=1, all_events=False))
+            result = list(zahir_worker_overseer(job, context, worker_count=1))
 
             # Should return empty list (no events yielded after interrupt)
             assert result == []
@@ -202,8 +202,8 @@ def test_overseer_all_events_flag():
             mock_proc.is_alive.return_value = False
             mock_process.return_value = mock_proc
 
-            # Run with all_events=True
-            result = list(zahir_worker_overseer(job, context, worker_count=1, all_events=True))
+            # Overseer now always emits all events
+            result = list(zahir_worker_overseer(job, context, worker_count=1))
 
             # Should yield both WorkflowStartedEvent and WorkflowCompleteEvent
             assert len(result) == 2
@@ -237,10 +237,12 @@ def test_overseer_yields_workflow_output_events():
             mock_proc.is_alive.return_value = False
             mock_process.return_value = mock_proc
 
-            # Run with all_events=False (should still yield output events)
-            result = list(zahir_worker_overseer(job, context, worker_count=1, all_events=False))
+            # Overseer now always emits all events
+            result = list(zahir_worker_overseer(job, context, worker_count=1))
 
-            # Should yield WorkflowOutputEvent and ZahirCustomEvent
-            assert len(result) == 2
-            assert isinstance(result[0], WorkflowOutputEvent)
-            assert isinstance(result[1], ZahirCustomEvent)
+            # Should yield all events including WorkflowStartedEvent, output events, and WorkflowCompleteEvent
+            assert len(result) == 4
+            assert isinstance(result[0], WorkflowStartedEvent)
+            assert isinstance(result[1], WorkflowOutputEvent)
+            assert isinstance(result[2], ZahirCustomEvent)
+            assert isinstance(result[3], WorkflowCompleteEvent)

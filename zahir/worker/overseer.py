@@ -81,7 +81,7 @@ def shutdown(processes: list[multiprocessing.Process]) -> None:
         proc.join(timeout=5)
 
 
-def zahir_worker_overseer(start, context, worker_count: int = 4, all_events: bool = False) -> Iterator[ZahirEvent]:
+def zahir_worker_overseer(start, context, worker_count: int = 4) -> Iterator[ZahirEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 
@@ -125,12 +125,10 @@ def zahir_worker_overseer(start, context, worker_count: int = 4, all_events: boo
                 break
 
             if isinstance(event, WorkflowCompleteEvent):
-                if all_events:
-                    yield event
+                yield event
                 break
 
-            if all_events or isinstance(event, (WorkflowOutputEvent, ZahirCustomEvent)):
-                yield event
+            yield event
 
     except KeyboardInterrupt:
         pass
