@@ -35,7 +35,8 @@ from zahir.job_registry.sqlite.tables import (
 from zahir.job_registry.state_event import create_state_event
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+# Log level controlled by ZAHIR_LOG_LEVEL environment variable
+# Default is WARNING to reduce noise
 
 
 class SQLiteJobRegistry(JobRegistry):

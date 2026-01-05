@@ -32,14 +32,19 @@ type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 import logging
 import sys
 
+# Allow users to control log level via environment variable
+# Default to WARNING to reduce noise, use ZAHIR_LOG_LEVEL=INFO or DEBUG for more verbosity
+log_level_name = os.getenv("ZAHIR_LOG_LEVEL", "WARNING").upper()
+log_level = getattr(logging, log_level_name, logging.WARNING)
+
 logging.basicConfig(
-    level=logging.INFO,  # global default
+    level=log_level,
     stream=sys.stderr,
     format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
 
 for h in logging.getLogger().handlers:
-    h.setLevel(logging.INFO)
+    h.setLevel(log_level)
 
 
 pickling_support.install()

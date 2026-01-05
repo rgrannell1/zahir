@@ -49,7 +49,8 @@ import os
 from typing import Any
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+# Log level controlled by ZAHIR_LOG_LEVEL environment variable
+# Default is WARNING to reduce noise
 
 
 GREEN = "\x1b[32m"
