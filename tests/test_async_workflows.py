@@ -276,3 +276,41 @@ def test_await_many_failing_workflow():
 
     workflow_output = events[18]
     assert workflow_output.output["error"] == "This job always fails."
+
+
+@job()
+def AwaitEmptyNoOutput(context: Context, input, dependencies):
+    """Interyield to an empty list of jobs but don't yield output"""
+
+    results = yield Await([])
+
+
+def test_await_final_yield():
+    """Prove that Await can handle an empty list of jobs, as the last action in a workflow"""
+
+    tmp_file = "/tmp/zahir_await_empty.db"
+    pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
+    pathlib.Path(tmp_file).touch(exist_ok=True)
+
+    scope = LocalScope(
+        jobs=[AwaitEmptyNoOutput],
+        dependencies=[],
+    )
+
+    context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+    workflow = LocalWorkflow(context)
+
+    blocked = AwaitEmptyNoOutput({}, {})
+    events = list(workflow.run(blocked, all_events=True))
+
+    assert isinstance(events[0], WorkflowStartedEvent)
+    assert isinstance(events[1], JobEvent)
+    assert isinstance(events[2], JobStartedEvent)
+    assert isinstance(events[3], JobPausedEvent)
+    assert isinstance(events[4], JobStartedEvent)
+    assert isinstance(events[5], JobCompletedEvent)
+    assert isinstance(events[6], WorkflowCompleteEvent)
+
+
+if __name__ == "__main__":
+    test_await_final_yield()

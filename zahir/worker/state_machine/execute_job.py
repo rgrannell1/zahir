@@ -1,5 +1,6 @@
 from math import ceil
 import signal
+import traceback
 from typing import cast
 
 from zahir.base_types import JobState
@@ -86,12 +87,16 @@ def execute_job(
         return HandleJobTimeoutStateChange(
             {"message": f"Job {job_type} timed out"},
         ), state
+
     except Exception as err:
         # differs between recovery and normal workflows
 
         state.last_event = err
+
+        traceback_data = "".join(traceback.format_exception(type(err), err, err.__traceback__))
+
         return HandleJobExceptionStateChange(
-            {"message": f"Job {job_type} raised exception\n{err}"},
+            {"message": f"Job {job_type} raised exception of type '{type(err)}'\n{traceback_data}\n{err!s}"},
         ), state
     finally:
         signal.alarm(0)

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Iterator
-from typing import Any, TypeVar, overload, cast
+from typing import Any, TypeVar, overload
 
 from zahir.base_types import Job
 

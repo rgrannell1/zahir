@@ -421,7 +421,7 @@ class JobEvent(ZahirEvent):
 class Await(ZahirEvent):
     """Indicates that a job is awaiting some condition before proceeding"""
 
-    job: "Job" | list["Job"]
+    job: Job | list[Job]
 
     def save(self) -> Mapping[str, Any]:
         from zahir.base_types.job import Job
@@ -431,15 +431,13 @@ class Await(ZahirEvent):
                 "job": self.job.save(),
                 "is_list": False,
             }
-        else:
-            return {
-                "job": [j.save() for j in self.job],
-                "is_list": True,
-            }
+        return {
+            "job": [j.save() for j in self.job],
+            "is_list": True,
+        }
 
     @classmethod
     def load(cls, data: Mapping[str, Any]) -> Await:
-        from zahir.base_types.job import Job
 
         # This requires context to deserialize jobs, which we don't have here
         # This is a design issue - load methods need context

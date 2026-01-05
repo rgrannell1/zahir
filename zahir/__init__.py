@@ -1,6 +1,6 @@
 from zahir.base_types import Context, Dependency, DependencyState, Job, JobOptions, JobRegistry, JobState, Scope
 from zahir.context import MemoryContext
-from zahir.dependencies import DependencyGroup, JobDependency, TimeDependency, ConcurrencyLimit, Semaphore
+from zahir.dependencies import ConcurrencyLimit, DependencyGroup, JobDependency, Semaphore, TimeDependency
 from zahir.events import (
     Await,
     JobCompletedEvent,
@@ -43,7 +43,6 @@ from zahir.worker import LocalWorkflow
 __version__ = "0.1.0"
 
 __all__ = [
-    "job",
     "Await",
     "ConcurrencyLimit",
     "Context",
@@ -79,9 +78,9 @@ __all__ = [
     "MemoryContext",
     "MissingJobError",
     "NotInScopeError",
+    "SQLiteJobRegistry",
     "Scope",
     "Semaphore",
-    "SQLiteJobRegistry",
     "TimeDependency",
     "WorkflowCompleteEvent",
     "WorkflowOutputEvent",
@@ -91,4 +90,5 @@ __all__ = [
     "ZahirEvent",
     "ZahirInternalError",
     "ZahirInternalErrorEvent",
+    "job",
 ]
