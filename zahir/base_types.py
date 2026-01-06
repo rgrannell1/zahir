@@ -253,7 +253,7 @@ class JobRegistry(ABC):
         output_queue: multiprocessing.Queue,
         state: JobState,
         recovery: bool = False,
-        error: BaseException | None = None,
+        error: Exception | None = None,
     ) -> str:
         """Set the state of a job by ID."""
 
@@ -281,7 +281,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_errors(self, job_id: str, recovery: bool = False) -> list[BaseException]:
+    def get_errors(self, job_id: str, recovery: bool = False) -> list[Exception]:
         """Retrieve the errors associated with a job. A job can have multiple
         errors potentially (precheck errror, then recovery error).
 

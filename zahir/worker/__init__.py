@@ -63,7 +63,6 @@ class LocalWorkflow[WorkflowOutputType]:
             for event in zahir_worker_overseer(start, self.context, self.max_workers):
                 progress.handle_event(event)
 
-
                 if all_events or isinstance(event, (
                     WorkflowOutputEvent,
                     ZahirCustomEvent

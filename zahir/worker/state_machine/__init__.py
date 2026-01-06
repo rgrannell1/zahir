@@ -1,7 +1,5 @@
 import logging
 
-from tblib import pickling_support  # type: ignore[import-untyped]
-
 from zahir.base_types import Context
 from zahir.events import (
     Await,
@@ -41,8 +39,6 @@ from zahir.worker.state_machine.states import (
     ZahirJobState,
 )
 from zahir.worker.state_machine.wait_for_job import wait_for_job
-
-pickling_support.install()
 
 import multiprocessing
 import os

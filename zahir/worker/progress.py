@@ -1,15 +1,12 @@
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TaskID
+from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn
 
 from zahir.events import (
     JobCompletedEvent,
     JobIrrecoverableEvent,
     JobPausedEvent,
-    JobPrecheckFailedEvent,
     JobRecoveryCompletedEvent,
     JobRecoveryStartedEvent,
-    JobRecoveryTimeoutEvent,
     JobStartedEvent,
-    JobTimeoutEvent,
     WorkflowCompleteEvent,
     WorkflowStartedEvent,
     ZahirEvent,

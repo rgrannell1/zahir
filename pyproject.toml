@@ -23,7 +23,6 @@ classifiers = [
 dependencies = [
     "croniter>=2.0.0",
     "coolname>=2.2.0",
-    "tblib>=3.2.2",
     "rich>=14.0.0"
 ]
 

@@ -69,6 +69,7 @@ ignore = [
     "A002",     # `input`,
     "S301",     # pickle is horrible, but we use it for exceptions
     "ARG002",   # clashes with baseclasses
+    "ARG001"
 ]
 
 
@@ -76,7 +77,6 @@ ignore = [
 "tests/**" = [
     "S101",     # allow asserts
     "PLR2004",  # magic numbers
-    "ARG001",   # unused fixtures
 ]
 "__init__.py" = [
     "F401",     # re-exports

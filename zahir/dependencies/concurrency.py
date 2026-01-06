@@ -67,8 +67,8 @@ class ConcurrencyLimit(Dependency):
 
     def __exit__(
         self,
-        exc_type: type[BaseException] | None,
-        exc_val: BaseException | None,
+        exc_type: type[Exception] | None,
+        exc_val: Exception | None,
         exc_tb: TracebackType | None,
     ) -> None:
         """Exit the context manager by freeing a slot."""

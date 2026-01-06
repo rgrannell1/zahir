@@ -4,8 +4,6 @@ from collections.abc import Iterator
 import multiprocessing
 import os
 
-from tblib import pickling_support  # type: ignore[import-untyped]
-
 from zahir.base_types import JobState
 from zahir.events import (
     JobCompletedEvent,
@@ -16,9 +14,7 @@ from zahir.events import (
     JobStartedEvent,
     JobTimeoutEvent,
     WorkflowCompleteEvent,
-    WorkflowOutputEvent,
     WorkflowStartedEvent,
-    ZahirCustomEvent,
     ZahirEvent,
     ZahirInternalErrorEvent,
 )
@@ -45,9 +41,6 @@ logging.basicConfig(
 
 for h in logging.getLogger().handlers:
     h.setLevel(log_level)
-
-
-pickling_support.install()
 
 type JobStateEvent = (
     JobStartedEvent
@@ -111,7 +104,7 @@ def zahir_worker_overseer(start, context, worker_count: int = 4) -> Iterator[Zah
         proc.start()
         processes.append(proc)
 
-    exc: BaseException | None = None
+    exc: Exception | None = None
     try:
         while True:
             event = output_queue.get()

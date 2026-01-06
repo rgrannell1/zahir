@@ -22,7 +22,7 @@ def create_state_event(
     state: JobState,
     workflow_id: str,
     job_id: str,
-    error: BaseException | None = None,
+    error: Exception | None = None,
     timing: JobTimingInformation | None = None,
 ) -> ZahirEvent | None:
     """Create an event based on the job state transition.

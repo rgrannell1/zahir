@@ -241,7 +241,7 @@ class SQLiteJobRegistry(JobRegistry):
         output_queue: multiprocessing.Queue,
         state: JobState,
         recovery: bool = False,
-        error: BaseException | None = None,
+        error: Exception | None = None,
     ) -> str:
         """Set the state of a job. Optionally add an error if transitioning to a failure state."""
 
@@ -355,7 +355,7 @@ class SQLiteJobRegistry(JobRegistry):
             (serialised_output,) = row
             return json.loads(serialised_output)
 
-    def add_error(self, job_id: str, error: BaseException, recovery: bool = False) -> None:
+    def add_error(self, job_id: str, error: Exception, recovery: bool = False) -> None:
         """Add an error for the job."""
 
         log.debug(f"Adding error for job {job_id}")
@@ -371,7 +371,7 @@ class SQLiteJobRegistry(JobRegistry):
             )
             conn.commit()
 
-    def get_errors(self, job_id: str, recovery: bool = False) -> list[BaseException]:
+    def get_errors(self, job_id: str, recovery: bool = False) -> list[Exception]:
         """Get all errors for a job.
 
         @param job_id: The ID of the job to get errors for.
@@ -385,7 +385,7 @@ class SQLiteJobRegistry(JobRegistry):
                 "select error_blob from job_errors where job_id = ? and recovery = ?", (job_id, int(recovery))
             ).fetchall()
 
-            errors: list[BaseException] = []
+            errors: list[Exception] = []
             for (error_blob,) in rows:
                 error = exception_from_text_blob(error_blob)
                 errors.append(error)

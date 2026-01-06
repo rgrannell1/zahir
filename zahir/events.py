@@ -308,7 +308,7 @@ class JobIrrecoverableEvent(ZahirEvent):
     """Indicates that a job recovery has failed irrecoverably"""
 
     workflow_id: str
-    error: BaseException
+    error: Exception
     job_id: str
 
     def save(self) -> Mapping[str, Any]:

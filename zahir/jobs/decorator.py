@@ -13,7 +13,7 @@ Context = Any
 Dependencies = Any
 
 RunFn = Callable[[Context, ArgsType, Dependencies], Iterator[OutputType]]
-RecoveryFn = Callable[[Context, ArgsType, Dependencies, BaseException], Iterator[OutputType]]
+RecoveryFn = Callable[[Context, ArgsType, Dependencies, Exception], Iterator[OutputType]]
 
 
 @overload
@@ -66,7 +66,7 @@ def job(*, recovery: RecoveryFn[ArgsType, OutputType] | None = None):
                 context: Context,
                 input: ArgsType,
                 dependencies: Dependencies,
-                err: BaseException,
+                err: Exception,
             ) -> Iterator[OutputType]:
                 return recovery(context, input, dependencies, err)
 

@@ -51,7 +51,7 @@ def _resume_generator_after_await(
 
     throwable_errors = []
     for error in errors:
-        throwable_errors.append(Exception(str(error)))
+        throwable_errors.append(error)
 
     if errors:
         # Try to throw one exception, but let's not bury information either if there's multiple.

@@ -313,4 +313,9 @@ def test_await_final_yield():
 
 
 if __name__ == "__main__":
+    test_nested_async_workflow()
+    test_impossible_async_workflow()
+    test_await_many_workflow()
+    test_await_empty_workflow()
+    test_await_many_failing_workflow()
     test_await_final_yield()
