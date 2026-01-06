@@ -6,6 +6,8 @@
 
 > Perhaps I shall conclude by wearing away the Zahir simply through thinking of it again and again.
 
+[![asciicast](https://asciinema.org/a/miRO4y1D3Lxl9YfIdeorsim9M.svg)](https://asciinema.org/a/miRO4y1D3Lxl9YfIdeorsim9M)
+
 ## Motivation
 
 I'm writing a self-hosted digital library website, and I need a way of coordinating data-processing. My last workflow engine was written in PowerShell, so I'm not using that...
