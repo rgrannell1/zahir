@@ -96,5 +96,5 @@ context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registr
 
 start = BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
 
-for event in LocalWorkflow(context).run(start):
-    print(event)
+events = list(LocalWorkflow(context).run(start))
+print(events[-1].output)

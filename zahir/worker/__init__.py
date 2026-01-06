@@ -12,6 +12,11 @@ from zahir.worker.progress import ZahirProgressMonitor
 WorkflowOutputType = TypeVar("WorkflowOutputType", bound=Mapping[str, Any])
 
 
+DEFAULT_EVENTS: frozenset[type[ZahirEvent]] = frozenset({
+    WorkflowOutputEvent,
+    ZahirCustomEvent
+})
+
 class LocalWorkflow[WorkflowOutputType]:
     """A workflow execution engine"""
 
@@ -49,7 +54,7 @@ class LocalWorkflow[WorkflowOutputType]:
         self.max_workers = max_workers
 
     def run(
-        self, start: Job | None = None, all_events: bool = False
+        self, start: Job | None = None, events_filter: frozenset[type[ZahirEvent]] | None = DEFAULT_EVENTS
     ) -> Iterator[WorkflowOutputEvent[WorkflowOutputType] | ZahirEvent]:
         """Run all jobs in the registry, opptionally seeding from this job in particular.
 
@@ -63,13 +68,15 @@ class LocalWorkflow[WorkflowOutputType]:
             for event in zahir_worker_overseer(start, self.context, self.max_workers):
                 progress.handle_event(event)
 
-                if all_events or isinstance(event, (
-                    WorkflowOutputEvent,
-                    ZahirCustomEvent
-                )):
+                if events_filter is None:
                     yield event
+                else:
+                    for type in events_filter:
+                        if isinstance(event, type):
+                            yield event
 
-    def cancel(self) -> None: ...
+    def cancel(self) -> None:
+        raise NotImplementedError("LocalWorkflow does not support cancellation at this time.")
 
 
 __all__ = ["LocalWorkflow", "zahir_worker_overseer"]

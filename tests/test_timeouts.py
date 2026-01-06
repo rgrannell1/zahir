@@ -46,7 +46,7 @@ def test_timeout():
     workflow = LocalWorkflow(context)
 
     job = TimeOutRunner({}, {})
-    events = list(workflow.run(job, all_events=True))
+    events = list(workflow.run(job, events_filter=None))
 
     # timeouts propegate into irrecoverable errors
     assert isinstance(events[0], WorkflowStartedEvent)
@@ -95,7 +95,7 @@ def test_recovery_timeout():
     workflow = LocalWorkflow(context)
 
     job = RecoveryTimeoutRunner({}, {})
-    events = list(workflow.run(job, all_events=True))
+    events = list(workflow.run(job, events_filter=None))
 
     assert isinstance(events[0], WorkflowStartedEvent)
     assert isinstance(events[1], JobEvent)

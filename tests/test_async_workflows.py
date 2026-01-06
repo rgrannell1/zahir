@@ -99,7 +99,7 @@ def test_impossible_async_workflow():
     workflow = LocalWorkflow(context)
 
     blocked = ImpossibleParentJob({}, {})
-    events = list(workflow.run(blocked, all_events=True))
+    events = list(workflow.run(blocked, events_filter=None))
 
     assert isinstance(events[0], WorkflowStartedEvent)
     assert isinstance(events[1], JobEvent)
@@ -144,7 +144,7 @@ def test_await_many_workflow():
     workflow = LocalWorkflow(context, max_workers=2)
 
     blocked = AwaitMany({}, {})
-    events = list(workflow.run(blocked, all_events=True))
+    events = list(workflow.run(blocked, events_filter=None))
 
     assert isinstance(events[0], WorkflowStartedEvent)
     assert isinstance(events[1], JobEvent)
@@ -196,7 +196,7 @@ def test_await_empty_workflow():
     workflow = LocalWorkflow(context)
 
     blocked = AwaitEmpty({}, {})
-    events = list(workflow.run(blocked, all_events=True))
+    events = list(workflow.run(blocked, events_filter=None))
 
     assert isinstance(events[0], WorkflowStartedEvent)
     assert isinstance(events[1], JobEvent)
@@ -250,7 +250,7 @@ def test_await_many_failing_workflow():
     workflow = LocalWorkflow(context, max_workers=2)
 
     blocked = AwaitManyFailing({}, {})
-    events = list(workflow.run(blocked, all_events=True))
+    events = list(workflow.run(blocked, events_filter=None))
 
     assert isinstance(events[0], WorkflowStartedEvent)
     assert isinstance(events[1], JobEvent)
@@ -301,7 +301,7 @@ def test_await_final_yield():
     workflow = LocalWorkflow(context)
 
     blocked = AwaitEmptyNoOutput({}, {})
-    events = list(workflow.run(blocked, all_events=True))
+    events = list(workflow.run(blocked, events_filter=None))
 
     assert isinstance(events[0], WorkflowStartedEvent)
     assert isinstance(events[1], JobEvent)

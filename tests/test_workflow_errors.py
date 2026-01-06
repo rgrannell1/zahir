@@ -34,7 +34,7 @@ def test_accidental_return():
     workflow = LocalWorkflow(context)
 
     job = JustReturns({}, {})
-    events = list(workflow.run(job, all_events=True))
+    events = list(workflow.run(job, events_filter=None))
 
     assert len(events) == 7
     assert isinstance(events[0], WorkflowStartedEvent)
