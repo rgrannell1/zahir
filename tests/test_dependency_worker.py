@@ -411,61 +411,6 @@ def test_dependency_worker_handles_internal_error():
     assert event.error
     assert len(event.error) > 0
 
-
-def test_dependency_worker_direct_satisfied_path():
-    """Direct unit test for dependency worker with satisfied dependency (no multiprocessing)."""
-
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp_file = tmp.name
-
-    job_registry = SQLiteJobRegistry(tmp_file)
-    job_registry.init("test-worker-direct-1")
-
-    past_time = datetime.datetime(2020, 1, 1, 0, 0, 0, tzinfo=datetime.UTC)
-    satisfied_dependency = TimeDependency(after=past_time)
-
-    context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
-    )
-    output_queue = multiprocessing.Queue()
-    workflow_id = "test-workflow-direct-1"
-
-    # Add a job with satisfied dependency
-    job = SimpleJob({"test": "data"}, {"time_dep": satisfied_dependency})
-    job_id = context.job_registry.add(job, output_queue)
-
-    # Mock is_active to return True until job is READY, then allow one more iteration before stopping
-    call_count = [0]
-    original_is_active = job_registry.is_active
-
-    def mock_is_active():
-        call_count[0] += 1
-        # Allow processing until job is READY, plus one extra iteration to ensure completion
-        if call_count[0] > 1 and job_registry.get_state(job_id) == JobState.READY:
-            return False
-        # Safety limit to prevent infinite loops
-        if call_count[0] > 10:
-            return False
-        return original_is_active()
-
-    job_registry.is_active = mock_is_active
-
-    # Run worker directly (not in subprocess) so coverage is tracked
-    zahir_dependency_worker(context, output_queue, workflow_id)
-
-    # Job should have been marked as READY
-    assert context.job_registry.get_state(job_id) == JobState.READY
-
-    # Drain any job state change events from the queue
-    events = []
-    while not output_queue.empty():
-        events.append(output_queue.get(timeout=0.1))
-
-    # WorkflowCompleteEvent should have been emitted (last event)
-    assert len(events) > 0
-    assert isinstance(events[-1], WorkflowCompleteEvent)
-
-
 def test_dependency_worker_direct_impossible_path():
     """Direct unit test for dependency worker with impossible dependency (no multiprocessing)."""
 

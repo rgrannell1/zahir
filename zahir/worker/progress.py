@@ -54,7 +54,8 @@ class ZahirProgressMonitor:
             case WorkflowStartedEvent():
                 self.workflow_task_id = self.progress.add_task(
                     "Workflow running",
-                    total=None,
+                    total=0,
+                    completed=0,
                 )
 
             case JobEvent():
@@ -116,8 +117,9 @@ class ZahirProgressMonitor:
         if job_type not in self.job_type_stats:
             self.job_type_stats[job_type] = JobTypeStats()
             task_id = self.progress.add_task(
-                f"{job_type}: starting",
-                total=None,
+                f"  {job_type}: starting",
+                total=0,
+                completed=0,
             )
             self.job_type_stats[job_type].task_id = task_id
 
@@ -138,7 +140,7 @@ class ZahirProgressMonitor:
         status = ", ".join(parts) if parts else "starting"
         self.progress.update(
             stats.task_id,
-            description=f"{job_type}: {stats.completed} completed, {stats.failed} failed ({status})",
+            description=f"  {job_type}: {stats.completed} completed, {stats.failed} failed ({status})",
         )
 
     def _update_job_type_progress(self, job_type: str) -> None:
@@ -154,24 +156,43 @@ class ZahirProgressMonitor:
             total=total_processed,
         )
         self._update_job_type_description(job_type)
+        self._update_workflow_progress()
+
+    def _update_workflow_progress(self) -> None:
+        """Update workflow progress bar with current totals."""
+        if self.workflow_task_id is None:
+            return
+
+        total_completed = sum(stats.completed for stats in self.job_type_stats.values())
+        total_failed = sum(stats.failed for stats in self.job_type_stats.values())
+        total_processed = total_completed + total_failed
+
+        self.progress.update(
+            self.workflow_task_id,
+            completed=total_processed,
+            total=total_processed,
+        )
 
     def _finalize_workflow(self) -> None:
         """Finalize all progress bars when workflow completes."""
         total_completed = sum(stats.completed for stats in self.job_type_stats.values())
         total_failed = sum(stats.failed for stats in self.job_type_stats.values())
+        total_processed = total_completed + total_failed
 
         if self.workflow_task_id is not None:
             self.progress.update(
                 self.workflow_task_id,
+                completed=total_processed,
+                total=total_processed,
                 description=f"✓ Workflow complete: {total_completed} completed, {total_failed} failed",
             )
 
         for job_type, stats in self.job_type_stats.items():
             if stats.task_id is not None:
-                total_processed = stats.completed + stats.failed
+                job_total_processed = stats.completed + stats.failed
                 self.progress.update(
                     stats.task_id,
-                    completed=total_processed,
-                    total=total_processed,
-                    description=f"✓ {job_type}: {stats.completed} completed, {stats.failed} failed",
+                    completed=job_total_processed,
+                    total=job_total_processed,
+                    description=f"  ✓ {job_type}: {stats.completed} completed, {stats.failed} failed",
                 )

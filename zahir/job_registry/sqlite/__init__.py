@@ -117,7 +117,7 @@ class SQLiteJobRegistry(JobRegistry):
                       on claimed_jobs.job_id = jobs.job_id
                   where jobs.state = ?
                   and claimed_jobs.job_id is null
-                  order by jobs.created_at
+                  order by random()
                   limit 1
                   returning job_id
                 """,

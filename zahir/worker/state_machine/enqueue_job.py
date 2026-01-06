@@ -1,4 +1,5 @@
 import os
+import time
 
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine.states import StartStateChange, WaitForJobStateChange
@@ -7,9 +8,19 @@ from zahir.worker.state_machine.states import StartStateChange, WaitForJobStateC
 def enqueue_job(state) -> tuple[WaitForJobStateChange | StartStateChange, None]:
     """ """
 
-    job = state.context.job_registry.claim(state.context, str(os.getpid()))
+    # Try claiming a few times before giving up and waiting
+    # This helps when jobs are becoming available rapidly
+    max_retries = 3
+    for attempt in range(max_retries):
+        job = state.context.job_registry.claim(state.context, str(os.getpid()))
 
-    if job is None:
+        if job is not None:
+            break
+
+
+        # Sometimes a job is none because we claimed too quickly after another worker
+        time.sleep(0.1)
+    else:
         return WaitForJobStateChange({"message": "no pending job to claim, so waiting for one to appear"}), state
 
     job_generator = type(job).run(state.context, job.input, job.dependencies)

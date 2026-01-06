@@ -62,7 +62,7 @@ def test_wait_for_job_preserves_state():
 
 
 def test_wait_for_job_sleeps():
-    """Test that wait_for_job actually sleeps for approximately 1 second."""
+    """Test that wait_for_job actually sleeps for approximately 0.25-0.35 seconds (with jitter)."""
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
@@ -81,9 +81,9 @@ def test_wait_for_job_sleeps():
     wait_for_job(worker_state)
     elapsed = time.time() - start_time
 
-    # Verify it slept for approximately 1 second (allow some tolerance)
-    assert elapsed >= 0.95, f"Expected sleep >= 0.95s, got {elapsed}s"
-    assert elapsed <= 1.1, f"Expected sleep <= 1.1s, got {elapsed}s"
+    # Verify it slept for approximately 0.25-0.35s (with jitter, allow some tolerance)
+    assert elapsed >= 0.20, f"Expected sleep >= 0.20s, got {elapsed}s"
+    assert elapsed <= 0.40, f"Expected sleep <= 0.40s, got {elapsed}s"
 
 
 def test_wait_for_job_with_empty_stack():
