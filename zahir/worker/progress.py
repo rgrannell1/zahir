@@ -1,3 +1,5 @@
+import time
+from collections import deque
 from dataclasses import dataclass, field
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn
 
@@ -40,6 +42,8 @@ class ZahirProgressMonitor:
         self.job_type_stats: dict[str, JobTypeStats] = {}
         self.job_id_to_type: dict[str, str] = {}
         self.workflow_task_id: TaskID | None = None
+        # Track (timestamp, pid) tuples for active processes in a 3s window
+        self.pid_events: deque[tuple[float, int]] = deque()
 
     def __enter__(self):
         self.progress.__enter__()
@@ -50,6 +54,13 @@ class ZahirProgressMonitor:
 
     def handle_event(self, event: ZahirEvent) -> None:
         """Handle workflow events and update progress bars."""
+        # Track PID from event if available
+        if hasattr(event, 'pid'):
+            current_time = time.time()
+            self.pid_events.append((current_time, event.pid))
+            self._cleanup_old_pids(current_time)
+            self._update_workflow_description()
+
         match event:
             case WorkflowStartedEvent():
                 self.workflow_task_id = self.progress.add_task(
@@ -112,6 +123,30 @@ class ZahirProgressMonitor:
             case WorkflowCompleteEvent():
                 self._finalize_workflow()
 
+    def _cleanup_old_pids(self, current_time: float) -> None:
+        """Remove PID events older than 3 seconds."""
+        cutoff_time = current_time - 3.0
+        while self.pid_events and self.pid_events[0][0] < cutoff_time:
+            self.pid_events.popleft()
+
+    def _get_active_process_count(self) -> int:
+        """Get count of unique processes that emitted events in the last 3 seconds."""
+        return len(set(pid for _, pid in self.pid_events))
+
+    def _update_workflow_description(self) -> None:
+        """Update workflow task description with active process count."""
+        if self.workflow_task_id is None:
+            return
+
+        active_processes = self._get_active_process_count()
+        total_completed = sum(stats.completed for stats in self.job_type_stats.values())
+        total_failed = sum(stats.failed for stats in self.job_type_stats.values())
+
+        self.progress.update(
+            self.workflow_task_id,
+            description=f"Workflow running ({active_processes} active processes)",
+        )
+
     def _ensure_job_type_task(self, job_type: str) -> None:
         """Ensure a progress task exists for the given job type."""
         if job_type not in self.job_type_stats:
@@ -137,10 +172,9 @@ class ZahirProgressMonitor:
         if stats.paused > 0:
             parts.append(f"{stats.paused} paused")
 
-        status = ", ".join(parts) if parts else "starting"
         self.progress.update(
             stats.task_id,
-            description=f"  {job_type}: {stats.completed} completed, {stats.failed} failed ({status})",
+            description=f"  {job_type}: {stats.completed} completed, {stats.failed} failed",
         )
 
     def _update_job_type_progress(self, job_type: str) -> None:

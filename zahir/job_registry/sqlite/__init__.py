@@ -87,7 +87,7 @@ class SQLiteJobRegistry(JobRegistry):
 
             q_marks = ",".join("?" for _ in ACTIVE_JOB_STATES)
             conn.execute(
-                f"update jobs set state = ? where state in ({q_marks})",
+                f"update jobs set state = ? where state in ({q_marks}) or state = ?",
                 (JobState.PENDING.value, *[state.value for state in ACTIVE_JOB_STATES]),
             )
 
