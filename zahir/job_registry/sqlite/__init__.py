@@ -77,13 +77,14 @@ class SQLiteJobRegistry(JobRegistry):
                 conn.execute(schema)
             conn.commit()
 
-    def delete_claims(self) -> None:
+    def on_startup(self) -> None:
         """Delete all job claims. Used at startup to clear any stale claims."""
 
         log.debug("Clearing all job claims from previous runs")
 
         with self.conn as conn:
             conn.execute("delete from claimed_jobs;")
+            # todo change all job states
             conn.commit()
 
     def set_claim(self, job_id: str, worker_id: str) -> bool:

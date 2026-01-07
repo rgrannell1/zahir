@@ -7,10 +7,12 @@ def handle_job_complete_no_output(state) -> tuple[EnqueueJobStateChange, None]:
 
     # Subjob complete, emit a recovery complete or regular compete and null out the stack frame.
 
+    frame = state.frame
+
     state.context.job_registry.set_state(
-        state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.COMPLETED, recovery=state.frame.recovery
+        frame.job.job_id, state.workflow_id, state.output_queue, JobState.COMPLETED, recovery=frame.recovery
     )
 
-    state.frame = None
+    frame = None
 
     return EnqueueJobStateChange({"message": "Job completed with no output"}), state

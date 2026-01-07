@@ -142,8 +142,28 @@ COMPLETED_JOB_STATES = {
 
 
 # Active, non-terminal job-states
-ACTIVE_JOB_STATES = {JobState.PENDING, JobState.BLOCKED, JobState.READY, JobState.PAUSED, JobState.RECOVERING}
+ACTIVE_JOB_STATES = {
+    JobState.PENDING,
+    JobState.BLOCKED,
+    JobState.READY,
+    JobState.PAUSED,
+    JobState.RECOVERING,
+    JobState.RUNNING,
+}
 
+
+def check_job_states_coverage() -> None:
+    """Ensure that active and completed job states cover all possible job states."""
+
+    # Verify that active and completed states cover all possible states
+    TOTAL_JOB_STATES = set(JobState)
+
+    covered_states = ACTIVE_JOB_STATES.union(COMPLETED_JOB_STATES)
+    if covered_states != TOTAL_JOB_STATES:
+        missing_states = TOTAL_JOB_STATES - covered_states
+        raise ValueError(f"Job states coverage is incomplete. Missing states: {missing_states}")
+
+check_job_states_coverage()
 
 @dataclass
 class JobInformation:

@@ -84,7 +84,7 @@ def zahir_worker_overseer(start, context, worker_count: int = 4) -> Iterator[Zah
     output_queue.put(WorkflowStartedEvent(workflow_id=workflow_id))
 
     context.job_registry.init(str(os.getpid()))
-    context.job_registry.delete_claims()
+    context.job_registry.on_startup()
     if start is not None:
         context.job_registry.add(start, output_queue)
 

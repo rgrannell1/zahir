@@ -105,7 +105,7 @@ def test_job_timing_information_time_since_recovery_started_none():
     assert timing.time_since_recovery_started() is None
 
 
-def test_delete_claims():
+def test_on_startup():
     """Test deleting all job claims."""
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         db_path = tmp.name
@@ -116,7 +116,7 @@ def test_delete_claims():
         dummy_queue = multiprocessing.Queue()
         registry.add(job, dummy_queue)
         registry.set_claim("job-claim-1", "worker-1")
-        registry.delete_claims()
+        registry.on_startup()
     finally:
         registry.conn.close()
         pathlib.Path(db_path).unlink()
