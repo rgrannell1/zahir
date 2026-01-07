@@ -144,7 +144,7 @@ class ZahirProgressMonitor:
 
         self.progress.update(
             self.workflow_task_id,
-            description=f"Workflow running ({active_processes} active processes)",
+            description=f"Workflow running ({active_processes} cores)",
         )
 
     def _ensure_job_type_task(self, job_type: str) -> None:

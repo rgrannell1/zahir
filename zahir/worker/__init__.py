@@ -1,6 +1,6 @@
 from collections.abc import Iterator, Mapping
 import inspect
-from typing import Any, Generic, TypeVar
+from typing import Any, TypeVar
 
 from zahir.base_types import Context, Job
 from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent

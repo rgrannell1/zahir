@@ -49,14 +49,15 @@ class SQLiteJobRegistry(JobRegistry):
         """Create and configure a new database connection."""
 
         log.debug(f"Creating new database connection to {self._db_path}")
-        conn = sqlite3.connect(self._db_path, timeout=5.0, isolation_level="IMMEDIATE", check_same_thread=False)
+        # Use isolation_level=None for manual transaction control to avoid double-locking
+        conn = sqlite3.connect(self._db_path, timeout=5, isolation_level=None, check_same_thread=False)
 
         # WAL-mode for concurrent reads and writes
         conn.execute("PRAGMA journal_mode=WAL;")
         # We do want foreign key constraints
         conn.execute("PRAGMA foreign_keys=ON;")
-        # Not too long to wait
         conn.execute("PRAGMA busy_timeout=5000;")
+        conn.execute("PRAGMA synchronous=NORMAL;")
 
         return conn
 
