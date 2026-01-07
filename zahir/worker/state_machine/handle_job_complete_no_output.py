@@ -13,6 +13,6 @@ def handle_job_complete_no_output(state) -> tuple[EnqueueJobStateChange, None]:
         frame.job.job_id, state.workflow_id, state.output_queue, JobState.COMPLETED, recovery=frame.recovery
     )
 
-    frame = None
+    state.frame = None
 
     return EnqueueJobStateChange({"message": "Job completed with no output"}), state

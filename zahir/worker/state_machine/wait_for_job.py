@@ -12,4 +12,4 @@ def wait_for_job(state) -> tuple[StartStateChange, None]:
     jittered_sleep = 0.25 + jitter
     time.sleep(jittered_sleep)
 
-    return StartStateChange({"message": f"Waited for job {jittered_sleep}s, restarting"}), state
+    return StartStateChange({"message": "Waited for job, restarting"}), state

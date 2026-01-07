@@ -68,6 +68,7 @@ class SQLiteJobRegistry(JobRegistry):
         log.debug(f"Database connection established to {self._db_path} for {worker_id}")
 
         with self.conn as conn:
+            conn.execute("begin;")
             for schema in [
                 JOBS_TABLE_SCHEMA,
                 JOB_OUTPUTS_TABLE_SCHEMA,
@@ -84,6 +85,7 @@ class SQLiteJobRegistry(JobRegistry):
         log.debug("Clearing all job claims from previous runs")
 
         with self.conn as conn:
+            conn.execute("begin immediate;")
             conn.execute("delete from claimed_jobs;")
 
             # Reset all active (non-terminal) jobs to PENDING
@@ -103,10 +105,12 @@ class SQLiteJobRegistry(JobRegistry):
 
         claimed_at = datetime.now(tz=UTC).isoformat()
         with self.conn as conn:
+            conn.execute("begin immediate;")
             cursor = conn.execute(
                 "insert into claimed_jobs (job_id, claimed_at, claimed_by) values (?, ?, ?);",
                 (job_id, claimed_at, worker_id),
             )
+            conn.commit()
 
             return cursor.lastrowid == 1
 
@@ -169,13 +173,14 @@ class SQLiteJobRegistry(JobRegistry):
         job_state = JobState.READY.value if job.dependencies.empty() else JobState.PENDING.value
 
         with self.conn as conn:
+            conn.execute("begin immediate;")
+            
             # Check if the job already exists, complain loudly if you try to add it twice
             existing = conn.execute("select 1 from jobs where job_id = ?", (job_id,)).fetchone()
             if existing is not None:
-                conn.commit()
+                conn.rollback()
                 raise DuplicateJobError(f"Job with ID {job_id} already exists in the registry.")
 
-            conn.execute("begin immediate;")
             created_at = datetime.now(tz=UTC).isoformat()
             conn.execute(
                 "insert into jobs (job_id, serialised_job, state, created_at) values (?, ?, ?, ?)",
