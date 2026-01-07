@@ -1,8 +1,11 @@
+import logging
 import os
 import time
 
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine.states import StartStateChange, WaitForJobStateChange
+
+log = logging.getLogger(__name__)
 
 
 def enqueue_job(state) -> tuple[WaitForJobStateChange | StartStateChange, None]:
@@ -17,10 +20,11 @@ def enqueue_job(state) -> tuple[WaitForJobStateChange | StartStateChange, None]:
         if job is not None:
             break
 
-
         # Sometimes a job is none because we claimed too quickly after another worker
-        time.sleep(0.1)
+        if attempt < max_retries - 1:
+            time.sleep(0.1)
     else:
+        log.debug(f"Worker {os.getpid()} failed to claim job after {max_retries} attempts")
         return WaitForJobStateChange({"message": "no pending job to claim, so waiting for one to appear"}), state
 
     job_generator = type(job).run(state.context, job.input, job.dependencies)
