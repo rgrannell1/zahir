@@ -84,7 +84,13 @@ class SQLiteJobRegistry(JobRegistry):
 
         with self.conn as conn:
             conn.execute("delete from claimed_jobs;")
-            # todo change all job states
+
+            q_marks = ",".join("?" for _ in ACTIVE_JOB_STATES)
+            conn.execute(
+                f"update jobs set state = ? where state in ({q_marks})",
+                (JobState.PENDING.value, *[state.value for state in ACTIVE_JOB_STATES]),
+            )
+
             conn.commit()
 
     def set_claim(self, job_id: str, worker_id: str) -> bool:
@@ -273,6 +279,8 @@ class SQLiteJobRegistry(JobRegistry):
                 conn.execute(
                     "update jobs set completed_at = ? where job_id = ? and completed_at is null", (completed_at, job_id)
                 )
+                # Release claim when job reaches terminal state
+                conn.execute("delete from claimed_jobs where job_id = ?", (job_id,))
 
             if error is not None:
                 error_trace = "".join(traceback.format_exception(type(error), error, error.__traceback__))
