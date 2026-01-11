@@ -18,7 +18,7 @@ from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.handle_recovery_job_complete_no_output import (
     handle_recovery_job_complete_no_output,
 )
-from zahir.worker.state_machine.states import EnqueueJobStateChange
+from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
 @job()
@@ -43,10 +43,11 @@ def test_handle_recovery_job_complete_no_output_returns_enqueue_state_change():
     job_registry.init("test-worker-1")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -60,7 +61,7 @@ def test_handle_recovery_job_complete_no_output_returns_enqueue_state_change():
     result, _ = handle_recovery_job_complete_no_output(worker_state)
 
     # Verify result
-    assert isinstance(result, EnqueueJobStateChange)
+    assert isinstance(result, WaitForJobStateChange)
     assert result.data["message"] == "Recovery job completed with no output"
 
 
@@ -74,10 +75,11 @@ def test_handle_recovery_job_complete_no_output_sets_recovered_state():
     job_registry.init("test-worker-2")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -105,10 +107,11 @@ def test_handle_recovery_job_complete_no_output_clears_frame():
     job_registry.init("test-worker-3")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -138,10 +141,11 @@ def test_handle_recovery_job_complete_no_output_preserves_state():
     job_registry.init("test-worker-4")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -168,10 +172,11 @@ def test_handle_recovery_job_complete_no_output_transitions_to_enqueue():
     job_registry.init("test-worker-5")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -184,8 +189,8 @@ def test_handle_recovery_job_complete_no_output_transitions_to_enqueue():
     # Run handle_recovery_job_complete_no_output
     result, _ = handle_recovery_job_complete_no_output(worker_state)
 
-    # Verify transition to enqueue
-    assert isinstance(result, EnqueueJobStateChange)
+    # Verify transition to wait for job
+    assert isinstance(result, WaitForJobStateChange)
     # Frame should be cleared to allow enqueueing next job
     assert worker_state.frame is None
 
@@ -200,11 +205,12 @@ def test_handle_recovery_job_complete_no_output_with_different_jobs():
     job_registry.init("test-worker-6")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob, AnotherJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
     # Test with SimpleJob
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
     job1 = SimpleJob({"test": "data1"}, {})
     job_id1 = context.job_registry.add(job1, output_queue)
     job_generator1 = SimpleJob.recover(context, job1.input, job1.dependencies, None)
@@ -214,7 +220,7 @@ def test_handle_recovery_job_complete_no_output_with_different_jobs():
     assert context.job_registry.get_state(job_id1) == JobState.RECOVERED
 
     # Test with AnotherJob
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
     job2 = AnotherJob({"count": 0}, {})
     job_id2 = context.job_registry.add(job2, output_queue)
     job_generator2 = AnotherJob.recover(context, job2.input, job2.dependencies, None)
@@ -234,10 +240,11 @@ def test_handle_recovery_job_complete_no_output_message_content():
     job_registry.init("test-worker-7")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -265,10 +272,11 @@ def test_handle_recovery_job_complete_no_output_recovery_flag():
     job_registry.init("test-worker-8")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})

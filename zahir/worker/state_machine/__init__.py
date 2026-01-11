@@ -1,4 +1,7 @@
 import logging
+import multiprocessing
+import os
+from typing import Any
 
 from zahir.base_types import Context
 from zahir.events import (
@@ -7,7 +10,6 @@ from zahir.events import (
 )
 from zahir.worker.call_frame import ZahirCallStack, ZahirStackFrame
 from zahir.worker.state_machine.check_preconditions import check_preconditions
-from zahir.worker.state_machine.enqueue_job import enqueue_job
 from zahir.worker.state_machine.execute_job import execute_job
 from zahir.worker.state_machine.execute_recovery_job import execute_recovery_job
 from zahir.worker.state_machine.handle_await import handle_await
@@ -22,7 +24,6 @@ from zahir.worker.state_machine.pop_job import pop_job
 from zahir.worker.state_machine.start import start
 from zahir.worker.state_machine.states import (
     CheckPreconditionsStateChange,
-    EnqueueJobStateChange,
     ExecuteJobStateChange,
     ExecuteRecoveryJobStateChange,
     HandleAwaitStateChange,
@@ -39,10 +40,6 @@ from zahir.worker.state_machine.states import (
     ZahirJobState,
 )
 from zahir.worker.state_machine.wait_for_job import wait_for_job
-
-import multiprocessing
-import os
-from typing import Any
 
 log = logging.getLogger(__name__)
 # Log level controlled by ZAHIR_LOG_LEVEL environment variable
@@ -88,8 +85,11 @@ def log_call(fn):
 class ZahirWorkerState:
     """Mutable state held during job execution."""
 
-    def __init__(self, context: Context, output_queue: OutputQueue, workflow_id: str):
+    def __init__(
+        self, context: Context, input_queue: "multiprocessing.Queue | None", output_queue: OutputQueue, workflow_id: str
+    ):
         self.job_stack: ZahirCallStack = ZahirCallStack([])
+        self.input_queue: multiprocessing.Queue | None = input_queue
         self.output_queue: OutputQueue = output_queue
         self.frame: ZahirStackFrame | None = None
 
@@ -107,25 +107,17 @@ class ZahirJobStateMachine:
 
     @classmethod
     @log_call
-    def start(cls, state) -> tuple[EnqueueJobStateChange | PopJobStateChange | CheckPreconditionsStateChange, None]:
-        """Initial state; transition to enqueueing a job."""
+    def start(cls, state) -> tuple[WaitForJobStateChange | PopJobStateChange | CheckPreconditionsStateChange, None]:
+        """Initial state; transition to waiting for a job from the overseer."""
 
         return start(state)
 
     @classmethod
     @log_call
-    def wait_for_job(cls, state) -> tuple[StartStateChange, None]:
-        """No jobs available; for the moment let's just sleep. In future, be cleverer
-        and have dependencies suggest nap-times"""
+    def wait_for_job(cls, state) -> tuple[StartStateChange | PopJobStateChange, None]:
+        """Wait for the overseer to dispatch a job via the input queue."""
 
         return wait_for_job(state)
-
-    @classmethod
-    @log_call
-    def enqueue_job(cls, state) -> tuple[WaitForJobStateChange | StartStateChange, None]:
-        """ """
-
-        return enqueue_job(state)
 
     @classmethod
     @log_call
@@ -146,14 +138,21 @@ class ZahirJobStateMachine:
     @log_call
     def check_preconditions(
         cls, state
-    ) -> tuple[ExecuteRecoveryJobStateChange | ExecuteJobStateChange | StartStateChange, None]:
+    ) -> tuple[
+        ExecuteRecoveryJobStateChange
+        | ExecuteJobStateChange
+        | StartStateChange
+        | HandleRecoveryJobTimeoutStateChange
+        | HandleJobTimeoutStateChange,
+        None,
+    ]:
         """Can we even run this job? Check the input preconditions first."""
 
         return check_preconditions(state)
 
     @classmethod
     @log_call
-    def handle_await(cls, state) -> tuple[EnqueueJobStateChange, None]:
+    def handle_await(cls, state) -> tuple[WaitForJobStateChange, None]:
         """We received an Await event. We should put out current job back on the stack,
         pause the job formally, then load the awaited job and start executing it."""
 
@@ -169,36 +168,36 @@ class ZahirJobStateMachine:
 
     @classmethod
     @log_call
-    def handle_job_complete_no_output(cls, state) -> tuple[EnqueueJobStateChange, None]:
-        """Mark the job as complete. Emit a completion event. Null out the job. Start over."""
+    def handle_job_complete_no_output(cls, state) -> tuple[WaitForJobStateChange, None]:
+        """Mark the job as complete. Emit a completion event. Null out the job. Wait for next dispatch."""
 
         return handle_job_complete_no_output(state)
 
     @classmethod
     @log_call
-    def handle_recovery_job_complete_no_output(cls, state) -> tuple[EnqueueJobStateChange, None]:
-        """Mark the recovery job as complete. Emit a recovery completion event. Null out the job. Start over."""
+    def handle_recovery_job_complete_no_output(cls, state) -> tuple[WaitForJobStateChange, None]:
+        """Mark the recovery job as complete. Emit a recovery completion event. Null out the job. Wait for next dispatch."""
 
         return handle_recovery_job_complete_no_output(state)
 
     @classmethod
     @log_call
-    def handle_job_timeout(cls, state) -> tuple[EnqueueJobStateChange, None]:
-        """The job timed out. Emit a timeout event, null out the job, and start over."""
+    def handle_job_timeout(cls, state) -> tuple[WaitForJobStateChange, None]:
+        """The job timed out. Emit a timeout event, null out the job, and wait for next dispatch."""
 
         return handle_job_timeout(state)
 
     @classmethod
     @log_call
-    def handle_recovery_job_timeout(cls, state) -> tuple[StateChange, None]:
-        """The recovery job timed out. Emit a recovery timeout event, null out the job, and start over."""
+    def handle_recovery_job_timeout(cls, state) -> tuple[WaitForJobStateChange, None]:
+        """The recovery job timed out. Emit a recovery timeout event, null out the job, and wait for next dispatch."""
 
         return handle_recovery_job_timeout(state)
 
     @classmethod
     @log_call
-    def handle_recovery_job_exception(cls, state) -> tuple[EnqueueJobStateChange, None]:
-        """The recovery job raised an exception. Emit an irrecoverable event, null out the job, and start over."""
+    def handle_recovery_job_exception(cls, state) -> tuple[WaitForJobStateChange, None]:
+        """The recovery job raised an exception. Emit an irrecoverable event, null out the job, and wait for next dispatch."""
 
         return handle_recovery_job_exception(state)
 
@@ -219,7 +218,7 @@ class ZahirJobStateMachine:
         | HandleJobCompleteNoOutputStateChange
         | HandleJobTimeoutStateChange
         | HandleJobExceptionStateChange
-        | EnqueueJobStateChange,
+        | WaitForJobStateChange,
         None,
     ]:
         """Execute a job. Handle timeouts, awaits, outputs, exceptions."""
@@ -235,7 +234,7 @@ class ZahirJobStateMachine:
         | HandleJobCompleteNoOutputStateChange
         | HandleRecoveryJobTimeoutStateChange
         | HandleRecoveryJobExceptionStateChange
-        | EnqueueJobStateChange,
+        | WaitForJobStateChange,
         None,
     ]:
         """Execute a recovery job. Similar to execute_job, but different eventing on failure/completion."""

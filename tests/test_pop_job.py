@@ -50,7 +50,7 @@ def test_pop_job_ready_state_checks_preconditions():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job in READY state
     job = SimpleJob({"test": "data"}, {})
@@ -87,16 +87,21 @@ def test_pop_job_paused_state_executes():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job and set it to PAUSED
     job = SimpleJob({"test": "data"}, {})
     job_id = context.job_registry.add(job, output_queue)
     context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.PAUSED)
 
-    # Push job to stack
+    # Add the child job that the parent is awaiting, and mark it as COMPLETED
+    child_job = SimpleJob({"child": "data"}, {}, job_id="child-job-1")
+    context.job_registry.add(child_job, output_queue)
+    context.job_registry.set_state("child-job-1", workflow_id, output_queue, JobState.COMPLETED)
+
+    # Push job to stack - with required_jobs set to simulate awaiting a child job
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False, required_jobs={"child-job-1"})
     worker_state.job_stack.push(frame)
 
     # Run pop_job
@@ -106,11 +111,10 @@ def test_pop_job_paused_state_executes():
     assert isinstance(result, ExecuteJobStateChange)
     assert "Resuming job" in result.data["message"]
     assert "SimpleJob" in result.data["message"]
-    assert "paused" in result.data["message"]
 
 
 def test_pop_job_running_state_executes():
-    """Test that popping a RUNNING job transitions to ExecuteJobStateChange."""
+    """Test that popping a RUNNING job (resumed from await) transitions to ExecuteJobStateChange."""
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
@@ -122,25 +126,31 @@ def test_pop_job_running_state_executes():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job and set it to RUNNING
     job = SimpleJob({"test": "data"}, {})
     job_id = context.job_registry.add(job, output_queue)
     context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.RUNNING)
 
-    # Push job to stack
+    # Add the child job that the parent is awaiting, and mark it as COMPLETED
+    child_job = SimpleJob({"child": "data"}, {}, job_id="child-job-1")
+    context.job_registry.add(child_job, output_queue)
+    context.job_registry.set_state("child-job-1", workflow_id, output_queue, JobState.COMPLETED)
+
+    # Push job to stack - with required_jobs set to simulate resuming from await
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False, required_jobs={"child-job-1"})
     worker_state.job_stack.push(frame)
 
     # Run pop_job
     result, _ = pop_job(worker_state)
 
-    # Should execute the running job
+    # Should execute the running job (resumed from await)
     assert isinstance(result, ExecuteJobStateChange)
     assert "Resuming job" in result.data["message"]
-    assert "running" in result.data["message"]
+    # The job state is stored as RUNNING in registry
+    assert "running" in result.data["message"].lower()
 
 
 def test_pop_job_timeout_normal_job():
@@ -156,7 +166,7 @@ def test_pop_job_timeout_normal_job():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job with timeout
     job = SimpleJob({"test": "data"}, {})
@@ -197,7 +207,7 @@ def test_pop_job_removes_from_stack():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -231,7 +241,7 @@ def test_pop_job_sets_active_frame():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -266,7 +276,7 @@ def test_pop_job_multiple_jobs_pops_runnable():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add first job (not runnable - waiting on something)
     job1 = SimpleJob({"order": 1}, {})
@@ -313,7 +323,7 @@ def test_pop_job_preserves_state():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-9"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -344,7 +354,7 @@ def test_pop_job_no_timeout_configured():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-10"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job with no timeout configured
     job = SimpleJob({"test": "data"}, {})
@@ -377,7 +387,7 @@ def test_pop_job_timeout_recovery_job():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-11"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job with recovery timeout
     job = SimpleJob({"test": "data"}, {})

@@ -1,4 +1,3 @@
-from zahir.base_types import JobState
 from zahir.worker.state_machine.states import (
     CheckPreconditionsStateChange,
     ExecuteJobStateChange,
@@ -48,7 +47,13 @@ def pop_job(
             }), state
         return HandleJobTimeoutStateChange({"message": f"Popped job {job.job_id} that has already timed out"}), state
 
-    if job_state == JobState.READY:
+    # Check if this is a fresh job or a resumed paused job
+    # Fresh jobs: have no required_jobs (not awaiting anything)
+    # Resumed jobs: have required_jobs that are now complete
+    is_fresh_job = not state.frame.required_jobs
+
+    if is_fresh_job:
+        # Fresh jobs need precondition checking even if already set to RUNNING by dispatch
         return CheckPreconditionsStateChange(
             {"message": f"Job {type(state.frame.job).__name__} claimed and active"},
         ), state

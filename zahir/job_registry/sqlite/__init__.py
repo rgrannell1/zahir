@@ -99,7 +99,7 @@ class SQLiteJobRegistry(JobRegistry):
             conn.commit()
 
     def set_claim(self, job_id: str, worker_id: str) -> bool:
-        """Set a claim for a job by a worker."""
+        """Set a claim for a job by a worker. Used by the overseer when dispatching jobs."""
 
         log.debug(f"Setting claim for job {job_id} by worker {worker_id}")
 
@@ -113,51 +113,6 @@ class SQLiteJobRegistry(JobRegistry):
             conn.commit()
 
             return cursor.lastrowid == 1
-
-    def claim(self, context: Context, worker_id: str) -> Job | None:
-        """Claim a job for processing by a worker."""
-
-        log.debug(f"Worker {worker_id} attempting to claim a job")
-
-        claimed_at = datetime.now(tz=UTC).isoformat()
-        with self.conn as conn:
-            conn.execute("begin immediate;")
-            claimed_row = conn.execute(
-                """
-                insert into claimed_jobs (job_id, claimed_at, claimed_by)
-                  select jobs.job_id, ?, ?
-                  from jobs
-                  left join claimed_jobs
-                      on claimed_jobs.job_id = jobs.job_id
-                  where jobs.state = ?
-                  and claimed_jobs.job_id is null
-                  order by random()
-                  limit 1
-                  returning job_id
-                """,
-                (claimed_at, worker_id, JobState.READY.value),
-            ).fetchone()
-
-            # Bail and end the transaction if no job was claimed
-            if claimed_row is None:
-                conn.commit()
-                return None
-
-            # Same transaction: fetch the job data
-            (job_id,) = claimed_row
-            job_row = conn.execute("select serialised_job from jobs where job_id = ?", (job_id,)).fetchone()
-
-            conn.commit()
-
-            if job_row is None:
-                return None
-
-            # Load the job data
-            (serialised_job,) = job_row
-            job_data = json.loads(serialised_job)
-            job_class = context.scope.get_job_class(job_data["type"])
-
-            return job_class.load(context, job_data)
 
     def add(self, job: Job, output_queue: multiprocessing.Queue) -> str:
         """Add the job to the database exactly once"""

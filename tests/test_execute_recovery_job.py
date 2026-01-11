@@ -115,7 +115,7 @@ def test_execute_recovery_job_sets_running_state():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
@@ -147,7 +147,7 @@ def test_execute_recovery_job_with_output():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
@@ -180,7 +180,7 @@ def test_execute_recovery_job_stores_output_event():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
@@ -213,7 +213,7 @@ def test_execute_recovery_job_without_output():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = RecoveryJobWithoutOutput(input={"test": "data"}, dependencies={}, options=None)
@@ -246,7 +246,7 @@ def test_execute_recovery_job_with_await():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = RecoveryJobWithAwait(input={"test": "data"}, dependencies={}, options=None)
@@ -279,7 +279,7 @@ def test_execute_recovery_job_stores_await_event():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = RecoveryJobWithAwait(input={"test": "data"}, dependencies={}, options=None)
@@ -311,7 +311,7 @@ def test_execute_recovery_job_with_timeout():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job with a very short recovery timeout
     job = RecoveryTimeoutJob(input={"test": "data"}, dependencies={}, options=JobOptions(recover_timeout=0.01))
@@ -344,7 +344,7 @@ def test_execute_recovery_job_with_exception():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = RecoveryExceptionJob(input={"test": "data"}, dependencies={}, options=None)
@@ -377,7 +377,7 @@ def test_execute_recovery_job_stores_exception_event():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-9"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = RecoveryExceptionJob(input={"test": "data"}, dependencies={}, options=None)
@@ -410,7 +410,7 @@ def test_execute_recovery_job_preserves_state():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-10"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
@@ -441,7 +441,7 @@ def test_execute_recovery_job_workflow_id_used():
     output_queue = multiprocessing.Queue()
     workflow_id = "specific-workflow-id-recovery"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
@@ -473,7 +473,7 @@ def test_execute_recovery_job_no_timeout_configured():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-12"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job with no timeout configured
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
@@ -504,7 +504,7 @@ def test_execute_recovery_job_frame_recovery_mode():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-13"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)

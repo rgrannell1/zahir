@@ -8,6 +8,7 @@ from zahir.events import (
     JobIrrecoverableEvent,
     JobOutputEvent,
     JobPrecheckFailedEvent,
+    JobStartedEvent,
     WorkflowCompleteEvent,
     WorkflowStartedEvent,
     ZahirCustomEvent,
@@ -50,11 +51,14 @@ def test_failed_prechecks():
     job = PrecheckFailsJob({"test": 1234}, {})
     events = list(workflow.run(job, events_filter=None))
 
-    assert len(events) == 4
+    # In push-based dispatch model, JobStartedEvent is emitted when job is dispatched,
+    # before precondition checking. So we now expect 5 events.
+    assert len(events) == 5
     assert isinstance(events[0], WorkflowStartedEvent)
     assert isinstance(events[1], JobEvent)
-    assert isinstance(events[2], JobPrecheckFailedEvent)
-    assert isinstance(events[3], WorkflowCompleteEvent)
+    assert isinstance(events[2], JobStartedEvent)
+    assert isinstance(events[3], JobPrecheckFailedEvent)
+    assert isinstance(events[4], WorkflowCompleteEvent)
 
 
 def test_awaited_prechecks():

@@ -1,9 +1,12 @@
+import os
+
 from zahir.base_types import JobState
-from zahir.worker.state_machine.states import EnqueueJobStateChange
+from zahir.events import JobWorkerWaitingEvent
+from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
-def handle_recovery_job_complete_no_output(state) -> tuple[EnqueueJobStateChange, None]:
-    """Mark the recovery job as complete. Emit a recovery completion event. Null out the job. Start over."""
+def handle_recovery_job_complete_no_output(state) -> tuple[WaitForJobStateChange, None]:
+    """Mark the recovery job as complete. Emit a recovery completion event. Null out the job. Wait for next dispatch."""
 
     # Recovery subjob complete, emit a recovery complete and null out the stack frame.
     state.context.job_registry.set_state(
@@ -12,4 +15,7 @@ def handle_recovery_job_complete_no_output(state) -> tuple[EnqueueJobStateChange
 
     state.frame = None
 
-    return EnqueueJobStateChange({"message": "Recovery job completed with no output"}), state
+    # Signal we're ready for another job
+    state.output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
+
+    return WaitForJobStateChange({"message": "Recovery job completed with no output"}), state

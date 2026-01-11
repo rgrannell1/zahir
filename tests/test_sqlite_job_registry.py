@@ -149,29 +149,13 @@ def test_claim_job():
         job = DummyJob(job_id="job-claim-3")
         dummy_queue = multiprocessing.Queue()
         registry.add(job, dummy_queue)
-        scope = LocalScope(jobs=[DummyJob])
-        context = Context(scope=scope, job_registry=registry)
-        claimed = registry.claim(context, "worker-3")
-        assert isinstance(claimed, (DummyJob, type(None)))
     finally:
         registry.conn.close()
         pathlib.Path(db_path).unlink()
 
 
-def test_claim_no_jobs():
-    """Test claiming when no jobs are available."""
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        db_path = tmp.name
-    try:
-        registry = SQLiteJobRegistry(db_path)
-        registry.init("worker-4")
-        scope = LocalScope(jobs=[DummyJob])
-        context = Context(scope=scope, job_registry=registry)
-        claimed = registry.claim(context, "worker-4")
-        assert claimed is None
-    finally:
-        registry.conn.close()
-        pathlib.Path(db_path).unlink()
+# NOTE: test_claim_job and test_claim_no_jobs were removed as part of the
+# push-based dispatch refactoring. The claim method no longer exists.
 
 
 def test_get_job_timing():

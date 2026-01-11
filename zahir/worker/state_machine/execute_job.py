@@ -1,18 +1,19 @@
 from math import ceil
+import os
 import signal
 import traceback
 from typing import cast
 
 from zahir.base_types import JobState
-from zahir.events import Await, JobOutputEvent
+from zahir.events import Await, JobOutputEvent, JobWorkerWaitingEvent
 from zahir.worker.read_job_events import read_job_events
 from zahir.worker.state_machine.states import (
-    EnqueueJobStateChange,
     HandleAwaitStateChange,
     HandleJobCompleteNoOutputStateChange,
     HandleJobExceptionStateChange,
     HandleJobOutputStateChange,
     HandleJobTimeoutStateChange,
+    WaitForJobStateChange,
 )
 
 
@@ -28,17 +29,23 @@ def execute_job(
     | HandleJobCompleteNoOutputStateChange
     | HandleJobTimeoutStateChange
     | HandleJobExceptionStateChange
-    | EnqueueJobStateChange,
+    | WaitForJobStateChange,
     None,
 ]:
     """Execute a job. Handle timeouts, awaits, outputs, exceptions."""
 
-    # Emit a JobStartedEvent when we begin executing the claimed job.
-    # Some job implementations don't emit this implicitly, so the
-    # worker should surface it when execution begins.
-    state.context.job_registry.set_state(
-        state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.RUNNING, recovery=state.frame.recovery
-    )
+    # Only emit JobStartedEvent if the job is not already RUNNING.
+    # In push-based dispatch, new jobs are already set to RUNNING by the overseer.
+    # Paused jobs being resumed need to be set to RUNNING.
+    current_state = state.context.job_registry.get_state(state.frame.job.job_id)
+    if current_state != JobState.RUNNING:
+        state.context.job_registry.set_state(
+            state.frame.job.job_id,
+            state.workflow_id,
+            state.output_queue,
+            JobState.RUNNING,
+            recovery=state.frame.recovery,
+        )
 
     job_timing = state.context.job_registry.get_job_timing(state.frame.job.job_id)
     time_since_started = job_timing.time_since_started() if job_timing else None
@@ -101,4 +108,7 @@ def execute_job(
     finally:
         signal.alarm(0)
 
-    return EnqueueJobStateChange({"message": "Execution complete, enqueueing"}), state
+    # Signal we're ready for another job (fallthrough case)
+    state.output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
+
+    return WaitForJobStateChange({"message": "Execution complete, waiting for next dispatch"}), state

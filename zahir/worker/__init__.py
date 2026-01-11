@@ -12,10 +12,8 @@ from zahir.worker.progress import ZahirProgressMonitor
 WorkflowOutputType = TypeVar("WorkflowOutputType", bound=Mapping[str, Any])
 
 
-DEFAULT_EVENTS: frozenset[type[ZahirEvent]] = frozenset({
-    WorkflowOutputEvent,
-    ZahirCustomEvent
-})
+DEFAULT_EVENTS: frozenset[type[ZahirEvent]] = frozenset({WorkflowOutputEvent, ZahirCustomEvent})
+
 
 class LocalWorkflow[WorkflowOutputType]:
     """A workflow execution engine"""

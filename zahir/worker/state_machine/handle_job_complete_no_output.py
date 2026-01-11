@@ -1,9 +1,12 @@
+import os
+
 from zahir.base_types import JobState
-from zahir.worker.state_machine.states import EnqueueJobStateChange
+from zahir.events import JobWorkerWaitingEvent
+from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
-def handle_job_complete_no_output(state) -> tuple[EnqueueJobStateChange, None]:
-    """Mark the job as complete. Emit a completion event. Null out the job. Start over."""
+def handle_job_complete_no_output(state) -> tuple[WaitForJobStateChange, None]:
+    """Mark the job as complete. Emit a completion event. Null out the job. Wait for next dispatch."""
 
     # Subjob complete, emit a recovery complete or regular compete and null out the stack frame.
 
@@ -15,4 +18,7 @@ def handle_job_complete_no_output(state) -> tuple[EnqueueJobStateChange, None]:
 
     state.frame = None
 
-    return EnqueueJobStateChange({"message": "Job completed with no output"}), state
+    # Signal we're ready for another job
+    state.output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
+
+    return WaitForJobStateChange({"message": "Job completed with no output"}), state

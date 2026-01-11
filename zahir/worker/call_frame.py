@@ -40,6 +40,9 @@ class ZahirCallStack:
         - The jobs is awaiting jobs in a completed state.
         """
 
+        if not self.frames:
+            return None
+
         idx = len(self.frames) - 1
 
         for frame in reversed(self.frames):
@@ -52,13 +55,16 @@ class ZahirCallStack:
             if frame.required_jobs:
                 # All frames are complete. This does not mean the job is healthy.
                 all_done = all(job_registry.is_finished(required_id) for required_id in frame.required_jobs)
-                return idx if all_done else None
-            # This Job should be running, I don't think this case can occur.
-            return idx
+                if all_done:
+                    return idx
+            else:
+                # This Job should be running, I don't think this case can occur.
+                return idx
 
             idx -= 1
 
-        raise NotImplementedError
+        # This shouldn't happen as we return from within the loop
+        return None
 
 
 @dataclass

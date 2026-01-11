@@ -1,8 +1,11 @@
+import os
+
 from zahir.base_types import Job, JobState
-from zahir.worker.state_machine.states import EnqueueJobStateChange
+from zahir.events import JobWorkerWaitingEvent
+from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
-def handle_await(state) -> tuple[EnqueueJobStateChange, None]:
+def handle_await(state) -> tuple[WaitForJobStateChange, None]:
     """We received an Await event. We should put out current job back on the stack,
     pause the job formally, then load the awaited job and start executing it."""
 
@@ -36,6 +39,9 @@ def handle_await(state) -> tuple[EnqueueJobStateChange, None]:
     job_stack.push(state.frame)
     state.frame = None
 
-    return EnqueueJobStateChange(
-        {"message": f"Paused job {frame_job_id}, enqueuing awaited job(s), and moving on to something else..."},
+    # Signal we're ready for another job
+    state.output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
+
+    return WaitForJobStateChange(
+        {"message": f"Paused job {frame_job_id}, awaiting job(s), waiting for next dispatch..."},
     ), state

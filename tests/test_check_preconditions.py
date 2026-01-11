@@ -83,7 +83,7 @@ def test_check_preconditions_pass_normal_job():
     workflow_id = "test-workflow-1"
 
     # Initialize worker state
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Create and register job
     job = ValidInputJob({"test": "data"}, {})
@@ -114,7 +114,7 @@ def test_check_preconditions_pass_recovery_job():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     job = ValidInputJob({"test": "data"}, {})
     job_id = context.job_registry.add(job, output_queue)
@@ -142,7 +142,7 @@ def test_check_preconditions_fail_single_error():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     job = InvalidInputJob({"bad": "input"}, {})
     job_id = context.job_registry.add(job, output_queue)
@@ -183,7 +183,7 @@ def test_check_preconditions_fail_multiple_errors():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     job = MultipleErrorsJob({}, {})
     job_id = context.job_registry.add(job, output_queue)
@@ -216,7 +216,7 @@ def test_check_preconditions_timeout_normal_job():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Create job with timeout
     job_instance = TimeoutDuringPrecheckJob({"test": "data"}, {})
@@ -259,7 +259,7 @@ def test_check_preconditions_timeout_recovery_job():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     job_instance = TimeoutDuringPrecheckJob({"test": "data"}, {})
     from zahir.base_types import JobOptions
@@ -298,7 +298,7 @@ def test_check_preconditions_no_timeout_configured():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     job = ValidInputJob({"test": "data"}, {})
     # Explicitly no job_options set

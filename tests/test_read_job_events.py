@@ -67,7 +67,7 @@ def test_read_job_events_returns_output_event():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJobWithOutput({"test": "data"}, {})
@@ -105,7 +105,7 @@ def test_read_job_events_returns_none_for_complete():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = JobWithoutOutput({"test": "data"}, {})
@@ -142,7 +142,7 @@ def test_read_job_events_returns_await():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = AwaitingJob({"test": "data"}, {})
@@ -179,7 +179,7 @@ def test_read_job_events_enqueues_intermediate_events():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = JobWithMultipleEvents({"test": "data"}, {})
@@ -238,7 +238,7 @@ def test_read_job_events_sets_workflow_id():
     output_queue = multiprocessing.Queue()
     workflow_id = "specific-workflow-123"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = JobWithMultipleEvents({"test": "data"}, {})
@@ -289,7 +289,7 @@ def test_read_job_events_sets_job_id():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = JobWithMultipleEvents({"test": "data"}, {})
@@ -340,7 +340,7 @@ def test_read_job_events_raises_on_non_iterator():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJobWithOutput({"test": "data"}, {})
@@ -377,7 +377,7 @@ def test_read_job_events_handles_subjobs():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SubjobCreator({"test": "data"}, {})
@@ -437,7 +437,7 @@ def test_read_job_events_sends_awaited_output():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-9"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add main job
     job = AwaitingJob({"test": "data"}, {})
@@ -495,7 +495,7 @@ def test_read_job_events_clears_required_jobs():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-10"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add main job
     job = AwaitingJob({"test": "data"}, {})

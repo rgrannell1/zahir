@@ -27,6 +27,8 @@ def test_job_worker_basic_flow():
         scope=LocalScope(jobs=[]),
         job_registry=job_registry,
     )
+    input_queue = multiprocessing.Queue()
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -47,7 +49,7 @@ def test_job_worker_basic_flow():
         mock_handler.side_effect = side_effect_exit
 
         with pytest.raises(KeyboardInterrupt):
-            zahir_job_worker(context, output_queue, workflow_id)
+            zahir_job_worker(context, input_queue, output_queue, workflow_id)
 
     # Verify handler was called
     assert mock_handler.call_count > 0
@@ -64,6 +66,7 @@ def test_job_worker_handles_state_machine_exception():
         scope=LocalScope(jobs=[]),
         job_registry=job_registry,
     )
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -75,7 +78,7 @@ def test_job_worker_handles_state_machine_exception():
         return_value=mock_handler,
     ):
         # Should exit without raising (exception is caught internally)
-        zahir_job_worker(context, output_queue, workflow_id)
+        zahir_job_worker(context, input_queue, output_queue, workflow_id)
 
     # Verify handler was called
     assert mock_handler.call_count == 1
@@ -92,6 +95,7 @@ def test_job_worker_handles_handler_returning_none():
         scope=LocalScope(jobs=[]),
         job_registry=job_registry,
     )
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -105,7 +109,7 @@ def test_job_worker_handles_handler_returning_none():
         ),
         pytest.raises(RuntimeError, match="returned None unexpectedly"),
     ):
-        zahir_job_worker(context, output_queue, workflow_id)
+        zahir_job_worker(context, input_queue, output_queue, workflow_id)
 
 
 def test_job_worker_initializes_registry():
@@ -119,6 +123,7 @@ def test_job_worker_initializes_registry():
         scope=LocalScope(jobs=[]),
         job_registry=job_registry,
     )
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -142,7 +147,7 @@ def test_job_worker_initializes_registry():
         ),
         pytest.raises(KeyboardInterrupt),
     ):
-        zahir_job_worker(context, output_queue, workflow_id)
+        zahir_job_worker(context, input_queue, output_queue, workflow_id)
 
     # Verify init was called with a PID string
     assert len(init_called_with) == 1
@@ -160,6 +165,7 @@ def test_job_worker_state_transitions():
         scope=LocalScope(jobs=[]),
         job_registry=job_registry,
     )
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -189,7 +195,7 @@ def test_job_worker_state_transitions():
         ),
         pytest.raises(KeyboardInterrupt),
     ):
-        zahir_job_worker(context, output_queue, workflow_id)
+        zahir_job_worker(context, input_queue, output_queue, workflow_id)
 
     # Verify we saw the expected state transitions
     assert "start" in states_seen

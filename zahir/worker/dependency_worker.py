@@ -1,8 +1,5 @@
-import os
-
-from zahir.exception import ImpossibleDependencyError, exception_to_text_blob
-
 import multiprocessing
+import os
 import time
 
 from zahir.base_types import Context, DependencyState, JobState
@@ -12,6 +9,7 @@ from zahir.events import (
     ZahirEvent,
     ZahirInternalErrorEvent,
 )
+from zahir.exception import ImpossibleDependencyError, exception_to_text_blob
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
@@ -53,9 +51,17 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
                         job.job_id, workflow_id, output_queue, JobState.IMPOSSIBLE, error=error, recovery=False
                     )
 
+            # Also check if there are any READY jobs that need dispatching
+            # (includes jobs that started as READY because they have no dependencies)
+            for _ in job_registry.jobs(context, state=JobState.READY):
+                any_ready = True
+                break
+
             if any_ready:
                 # Let the overseer know that there are jobs ready to run
                 output_queue.put(JobReadyEvent())
+
+            time.sleep(1)
 
             time.sleep(1)
     except Exception as err:

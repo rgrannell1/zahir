@@ -324,14 +324,14 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def claim(self, context: "Context", worker_id: str) -> "Job | None":
-        """Claim a pending job for execution.
+    def set_claim(self, job_id: str, worker_id: str) -> bool:
+        """Set a claim for a job by a worker.
 
-        This method should atomically select a pending job, mark it as claimed,
-        and return its ID and Job instance. If no pending jobs are available,
-        it should return None.
+        Used by the overseer to mark a job as being processed by a specific worker.
 
-        @return: A tuple of (job_id, Job) if a job was claimed, or None if no pending jobs are available.
+        @param job_id: The ID of the job to claim
+        @param worker_id: The ID of the worker claiming the job
+        @return: True if the claim was set successfully
         """
 
         raise NotImplementedError

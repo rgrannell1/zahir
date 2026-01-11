@@ -5,10 +5,10 @@ Workflows should be observable. So we'll yield events describing the state of th
 
 from __future__ import annotations
 
-import os
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+import os
 from typing import Any, TypeVar
 
 from zahir.serialisers.job import SerialisedJob
@@ -512,6 +512,7 @@ class JobWorkerWaitingEvent(ZahirEvent):
     def load(cls, data: Mapping[str, Any]) -> JobWorkerWaitingEvent:
         return cls(pid=data.get("pid", 0))
 
+
 @dataclass
 class JobReadyEvent(ZahirEvent):
     """Indicates that a job is ready to be processed. Use the
@@ -529,6 +530,7 @@ class JobReadyEvent(ZahirEvent):
         return cls(
             pid=data.get("pid", 0)
         )
+
 
 @dataclass
 class JobAssignedEvent(ZahirEvent):

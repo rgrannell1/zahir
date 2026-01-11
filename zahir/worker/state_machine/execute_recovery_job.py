@@ -1,17 +1,18 @@
 from math import ceil
+import os
 import signal
 from typing import cast
 
 from zahir.base_types import JobState
-from zahir.events import Await, JobOutputEvent
+from zahir.events import Await, JobOutputEvent, JobWorkerWaitingEvent
 from zahir.worker.read_job_events import read_job_events
 from zahir.worker.state_machine.states import (
-    EnqueueJobStateChange,
     HandleAwaitStateChange,
     HandleJobCompleteNoOutputStateChange,
     HandleJobOutputStateChange,
     HandleRecoveryJobExceptionStateChange,
     HandleRecoveryJobTimeoutStateChange,
+    WaitForJobStateChange,
 )
 
 
@@ -27,7 +28,7 @@ def execute_recovery_job(
     | HandleJobCompleteNoOutputStateChange
     | HandleRecoveryJobTimeoutStateChange
     | HandleRecoveryJobExceptionStateChange
-    | EnqueueJobStateChange,
+    | WaitForJobStateChange,
     None,
 ]:
     """Execute a recovery job. Similar to execute_job, but different eventing on failure/completion."""
@@ -95,4 +96,7 @@ def execute_recovery_job(
     finally:
         signal.alarm(0)
 
-    return EnqueueJobStateChange({"message": "Recovery execution complete, enqueueing"}), state
+    # Signal we're ready for another job (fallthrough case)
+    state.output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
+
+    return WaitForJobStateChange({"message": "Recovery execution complete, waiting for next dispatch"}), state

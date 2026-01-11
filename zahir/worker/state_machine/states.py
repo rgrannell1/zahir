@@ -9,7 +9,6 @@ class ZahirJobState(StrEnum):
 
     START = "start"
 
-    ENQUEUE_JOB = "enqueue_job"
     WAIT_FOR_JOB = "wait_for_job"
     POP_JOB = "pop_job"
 
@@ -41,11 +40,6 @@ class StateChange:
 @dataclass
 class StartStateChange(StateChange):
     state: ZahirJobState = field(default=ZahirJobState.START, init=False)
-
-
-@dataclass
-class EnqueueJobStateChange(StateChange):
-    state: ZahirJobState = field(default=ZahirJobState.ENQUEUE_JOB, init=False)
 
 
 @dataclass

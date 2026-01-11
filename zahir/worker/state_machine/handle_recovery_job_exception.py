@@ -1,9 +1,12 @@
+import os
+
 from zahir.base_types import JobState
-from zahir.worker.state_machine.states import EnqueueJobStateChange
+from zahir.events import JobWorkerWaitingEvent
+from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
-def handle_recovery_job_exception(state) -> tuple[EnqueueJobStateChange, None]:
-    """The recovery job raised an exception. Emit an irrecoverable event, null out the job, and start over."""
+def handle_recovery_job_exception(state) -> tuple[WaitForJobStateChange, None]:
+    """The recovery job raised an exception. Emit an irrecoverable event, null out the job, and wait for next dispatch."""
 
     # well, recovery didn't work. Ah, well.
     state.context.job_registry.set_state(
@@ -18,4 +21,7 @@ def handle_recovery_job_exception(state) -> tuple[EnqueueJobStateChange, None]:
     job_type = state.frame.job_type()
     state.frame = None
 
-    return EnqueueJobStateChange({"message": f"Recovery job {job_type} irrecoverably failed"}), state
+    # Signal we're ready for another job
+    state.output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
+
+    return WaitForJobStateChange({"message": f"Recovery job {job_type} irrecoverably failed"}), state

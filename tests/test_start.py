@@ -18,8 +18,8 @@ from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.start import start
 from zahir.worker.state_machine.states import (
     CheckPreconditionsStateChange,
-    EnqueueJobStateChange,
     PopJobStateChange,
+    WaitForJobStateChange,
 )
 
 
@@ -45,10 +45,11 @@ def test_start_no_frame_empty_stack_enqueues():
     job_registry.init("test-worker-1")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Verify no frame and empty stack
     assert worker_state.frame is None
@@ -57,9 +58,9 @@ def test_start_no_frame_empty_stack_enqueues():
     # Run start
     result, _ = start(worker_state)
 
-    # Should enqueue
-    assert isinstance(result, EnqueueJobStateChange)
-    assert result.data["message"] == "No job; enqueueing."
+    # Should wait for job
+    assert isinstance(result, WaitForJobStateChange)
+    assert result.data["message"] == "No job; waiting for dispatch."
 
 
 def test_start_no_frame_with_runnable_job_pops():
@@ -72,10 +73,11 @@ def test_start_no_frame_with_runnable_job_pops():
     job_registry.init("test-worker-2")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job to the registry in READY state
     job = SimpleJob({"test": "data"}, {})
@@ -108,10 +110,11 @@ def test_start_no_frame_with_paused_job_enqueues():
     job_registry.init("test-worker-3")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob, AnotherJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job and set it to PAUSED
     job = SimpleJob({"test": "data"}, {})
@@ -136,9 +139,9 @@ def test_start_no_frame_with_paused_job_enqueues():
     # Run start
     result, _ = start(worker_state)
 
-    # Should enqueue since job is not runnable (waiting for another job)
-    assert isinstance(result, EnqueueJobStateChange)
-    assert result.data["message"] == "No job runnable; enqueueing."
+    # Should wait for job since job is not runnable (waiting for another job)
+    assert isinstance(result, WaitForJobStateChange)
+    assert result.data["message"] == "No job runnable; waiting for dispatch."
 
 
 def test_start_with_active_frame_checks_preconditions():
@@ -151,10 +154,11 @@ def test_start_with_active_frame_checks_preconditions():
     job_registry.init("test-worker-4")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -183,10 +187,11 @@ def test_start_preserves_state():
     job_registry.init("test-worker-5")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Run start
     result, returned_state = start(worker_state)
@@ -205,10 +210,11 @@ def test_start_job_type_in_message():
     job_registry.init("test-worker-6")
 
     context = MemoryContext(scope=LocalScope(jobs=[AnotherJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = AnotherJob({"count": 0}, {})
@@ -236,10 +242,11 @@ def test_start_empty_stack_to_enqueue_transition():
     job_registry.init("test-worker-7")
 
     context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Start conditions: no frame, empty stack
     assert worker_state.frame is None
@@ -247,8 +254,8 @@ def test_start_empty_stack_to_enqueue_transition():
 
     result, _ = start(worker_state)
 
-    # Should transition to enqueue
-    assert isinstance(result, EnqueueJobStateChange)
+    # Should transition to wait for job
+    assert isinstance(result, WaitForJobStateChange)
     # State should remain unchanged
     assert worker_state.frame is None
     assert worker_state.job_stack.is_empty()
@@ -264,10 +271,11 @@ def test_start_with_recovery_frame():
     job_registry.init("test-worker-8")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})

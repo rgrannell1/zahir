@@ -1,3 +1,6 @@
+import os
+
+from zahir.events import JobWorkerWaitingEvent
 from zahir.worker.state_machine.states import StartStateChange
 
 
@@ -16,5 +19,8 @@ def handle_job_output(state) -> tuple[StartStateChange, None]:
     # Jobs can only output once. Once we're outputted, we're done.
     # So clear the job and generator
     state.frame = None
+
+    # Signal we're ready for another job
+    state.output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
 
     return StartStateChange({"message": "Setting job output"}), state

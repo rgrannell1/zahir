@@ -25,7 +25,6 @@ from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirJobStateMachine, ZahirWorkerState
 from zahir.worker.state_machine.states import (
     CheckPreconditionsStateChange,
-    EnqueueJobStateChange,
     ExecuteJobStateChange,
     ExecuteRecoveryJobStateChange,
     HandleAwaitStateChange,
@@ -35,6 +34,7 @@ from zahir.worker.state_machine.states import (
     HandleJobTimeoutStateChange,
     PopJobStateChange,
     StartStateChange,
+    WaitForJobStateChange,
     ZahirJobState,
 )
 
@@ -89,9 +89,8 @@ class TimeoutJobTest(Job):
 def test_get_state_returns_correct_handlers():
     """Test that get_state maps state names to correct handler methods."""
 
-    # Test all state mappings
+    # Test all state mappings (ENQUEUE_JOB was removed in push-based refactoring)
     assert ZahirJobStateMachine.get_state(ZahirJobState.START) == ZahirJobStateMachine.start
-    assert ZahirJobStateMachine.get_state(ZahirJobState.ENQUEUE_JOB) == ZahirJobStateMachine.enqueue_job
     assert ZahirJobStateMachine.get_state(ZahirJobState.WAIT_FOR_JOB) == ZahirJobStateMachine.wait_for_job
     assert ZahirJobStateMachine.get_state(ZahirJobState.POP_JOB) == ZahirJobStateMachine.pop_job
     assert ZahirJobStateMachine.get_state(ZahirJobState.CHECK_PRECONDITIONS) == ZahirJobStateMachine.check_preconditions
@@ -121,36 +120,40 @@ def test_state_machine_simple_job_with_output_lifecycle():
     job_registry.init("test-worker-sm-1")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleOutputJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-1"
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # 1. START state
     current = StartStateChange({"message": "Starting"})
     handler = ZahirJobStateMachine.get_state(current.state)
     next_state, _ = handler(state)
 
-    # Should transition to ENQUEUE_JOB (no frame, empty stack)
-    assert isinstance(next_state, EnqueueJobStateChange)
+    # Should transition to WAIT_FOR_JOB (no frame, empty stack)
+    assert isinstance(next_state, WaitForJobStateChange)
 
-    # 2. ENQUEUE_JOB state
-    handler = ZahirJobStateMachine.get_state(next_state.state)
-    next_state, _ = handler(state)
+    # In push-based model, WAIT_FOR_JOB blocks on input_queue.
+    # Instead, let's directly add a job to the stack and test the pop → check → execute flow.
 
-    # Could be WaitForJobStateChange or StartStateChange depending on job availability
-    # We can't predict this without knowing the job registry state, so we continue
-
-    # Let's add a job directly and verify the pop → check → execute flow
+    # Add a job directly and verify the pop → check → execute flow
     job = SimpleOutputJob({"value": 42}, {})
     job_id = context.job_registry.add(job, output_queue)
     job_generator = SimpleOutputJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
-    state.frame = frame
+    state.job_stack.push(frame)
+
+    # 2. POP_JOB state - simulating that a job was pushed by overseer
+    current = PopJobStateChange({"message": "Popping job"})
+    handler = ZahirJobStateMachine.get_state(current.state)
+    next_state, _ = handler(state)
+
+    # Should transition to CHECK_PRECONDITIONS (fresh job needs precheck)
+    assert isinstance(next_state, CheckPreconditionsStateChange)
 
     # 3. CHECK_PRECONDITIONS state
-    current = CheckPreconditionsStateChange({"message": "Checking preconditions"})
-    handler = ZahirJobStateMachine.get_state(current.state)
+    handler = ZahirJobStateMachine.get_state(next_state.state)
     next_state, _ = handler(state)
 
     # Should transition to EXECUTE_JOB (no recovery needed)
@@ -181,10 +184,11 @@ def test_state_machine_job_without_output_lifecycle():
     job_registry.init("test-worker-sm-2")
 
     context = MemoryContext(scope=LocalScope(jobs=[NoOutputJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-2"
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Set up a frame with the no-output job
     job = NoOutputJob({}, {})
@@ -204,10 +208,10 @@ def test_state_machine_job_without_output_lifecycle():
     next_state, _ = handler(state)
     assert isinstance(next_state, HandleJobCompleteNoOutputStateChange)
 
-    # HANDLE_JOB_COMPLETE_NO_OUTPUT → ENQUEUE_JOB
+    # HANDLE_JOB_COMPLETE_NO_OUTPUT → WAIT_FOR_JOB
     handler = ZahirJobStateMachine.get_state(next_state.state)
     next_state, _ = handler(state)
-    assert isinstance(next_state, EnqueueJobStateChange)
+    assert isinstance(next_state, WaitForJobStateChange)
 
 
 def test_state_machine_await_handling():
@@ -220,10 +224,11 @@ def test_state_machine_await_handling():
     job_registry.init("test-worker-sm-3")
 
     context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleOutputJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-3"
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Set up the awaiting job
     job = AwaitingJob({}, {})
@@ -243,10 +248,10 @@ def test_state_machine_await_handling():
     next_state, _ = handler(state)
     assert isinstance(next_state, HandleAwaitStateChange)
 
-    # HANDLE_AWAIT → ENQUEUE_JOB (pauses current job, enqueues awaited job)
+    # HANDLE_AWAIT → WAIT_FOR_JOB (pauses current job, enqueues awaited job)
     handler = ZahirJobStateMachine.get_state(next_state.state)
     next_state, _ = handler(state)
-    assert isinstance(next_state, EnqueueJobStateChange)
+    assert isinstance(next_state, WaitForJobStateChange)
 
 
 def test_state_machine_exception_handling():
@@ -259,10 +264,11 @@ def test_state_machine_exception_handling():
     job_registry.init("test-worker-sm-4")
 
     context = MemoryContext(scope=LocalScope(jobs=[ExceptionJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-4"
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Set up the exception job
     job = ExceptionJob({}, {})
@@ -298,10 +304,11 @@ def test_state_machine_timeout_handling():
     job_registry.init("test-worker-sm-5")
 
     context = MemoryContext(scope=LocalScope(jobs=[TimeoutJobTest]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-5"
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Set up the timeout job
     job = TimeoutJobTest({}, {})
@@ -321,10 +328,10 @@ def test_state_machine_timeout_handling():
     next_state, _ = handler(state)
     assert isinstance(next_state, HandleJobTimeoutStateChange)
 
-    # HANDLE_JOB_TIMEOUT → ENQUEUE_JOB (starts recovery process)
+    # HANDLE_JOB_TIMEOUT → WAIT_FOR_JOB (starts recovery process)
     handler = ZahirJobStateMachine.get_state(next_state.state)
     next_state, _ = handler(state)
-    assert isinstance(next_state, EnqueueJobStateChange)
+    assert isinstance(next_state, WaitForJobStateChange)
 
 
 def test_state_machine_state_transitions_are_consistent():
@@ -337,10 +344,11 @@ def test_state_machine_state_transitions_are_consistent():
     job_registry.init("test-worker-sm-6")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleOutputJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-6"
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Test start handler
     handler = ZahirJobStateMachine.get_state(ZahirJobState.START)
@@ -350,8 +358,15 @@ def test_state_machine_state_transitions_are_consistent():
     assert hasattr(result[0], "state")
     assert hasattr(result[0], "data")
 
-    # Test enqueue_job handler
-    handler = ZahirJobStateMachine.get_state(ZahirJobState.ENQUEUE_JOB)
+    # Test wait_for_job handler would block, so test pop_job instead
+    # Add a job to the stack first
+    job = SimpleOutputJob({"value": 1}, {})
+    context.job_registry.add(job, output_queue)
+    job_generator = SimpleOutputJob.run(context, job.input, job.dependencies)
+    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+    state.job_stack.push(frame)
+
+    handler = ZahirJobStateMachine.get_state(ZahirJobState.POP_JOB)
     result = handler(state)
     assert isinstance(result, tuple)
     assert len(result) == 2
@@ -368,10 +383,11 @@ def test_state_machine_maintains_state_through_transitions():
     job_registry.init("test-worker-sm-7")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleOutputJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-7"
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Verify initial state
     assert state.context is context
@@ -400,10 +416,11 @@ def test_state_machine_pop_to_execute_flow():
     job_registry.init("test-worker-sm-8")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleOutputJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-8"
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Set up a job on the stack
     job = SimpleOutputJob({"value": 123}, {})
@@ -444,10 +461,11 @@ def test_state_machine_recovery_job_complete_no_output():
     job_registry.init("test-worker-sm-9")
 
     context = MemoryContext(scope=LocalScope(jobs=[ExceptionJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-9"
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Set up a recovery job that completes without output
     job = ExceptionJob({}, {})
@@ -470,7 +488,7 @@ def test_state_machine_recovery_job_complete_no_output():
     if isinstance(next_state, HandleRecoveryJobCompleteNoOutputStateChange):
         handler = ZahirJobStateMachine.get_state(next_state.state)
         next_state, _ = handler(state)
-        assert isinstance(next_state, EnqueueJobStateChange)
+        assert isinstance(next_state, WaitForJobStateChange)
 
 
 def test_state_machine_recovery_job_timeout():
@@ -483,10 +501,11 @@ def test_state_machine_recovery_job_timeout():
     job_registry.init("test-worker-sm-10")
 
     context = MemoryContext(scope=LocalScope(jobs=[TimeoutJobTest]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-10"
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Set up a recovery job with timeout
     job = TimeoutJobTest({}, {})
@@ -541,10 +560,11 @@ def test_state_machine_recovery_job_exception():
             yield iter([])
 
     context = MemoryContext(scope=LocalScope(jobs=[RecoveryExceptionJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sm-11"
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Set up a recovery job that raises exception
     job = RecoveryExceptionJob({}, {})
@@ -563,4 +583,4 @@ def test_state_machine_recovery_job_exception():
     if isinstance(next_state, HandleRecoveryJobExceptionStateChange):
         handler = ZahirJobStateMachine.get_state(next_state.state)
         next_state, _ = handler(state)
-        assert isinstance(next_state, EnqueueJobStateChange)
+        assert isinstance(next_state, WaitForJobStateChange)

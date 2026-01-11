@@ -44,7 +44,7 @@ def test_handle_job_output_stores_output():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -80,7 +80,7 @@ def test_handle_job_output_transitions_to_start():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -115,7 +115,7 @@ def test_handle_job_output_clears_frame():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -152,7 +152,7 @@ def test_handle_job_output_handles_complex_data():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = JobWithData({"test": "data"}, {})
@@ -191,7 +191,7 @@ def test_handle_job_output_preserves_state():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -225,7 +225,7 @@ def test_handle_job_output_with_empty_output():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -262,7 +262,7 @@ def test_handle_job_output_with_list_output():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -300,7 +300,7 @@ def test_handle_job_output_workflow_id_used():
     output_queue = multiprocessing.Queue()
     workflow_id = "specific-workflow-id-123"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -335,7 +335,7 @@ def test_handle_job_output_multiple_calls():
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-9"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add first job
     job1 = SimpleJob({"test": "data1"}, {})

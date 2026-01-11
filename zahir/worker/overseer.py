@@ -1,4 +1,4 @@
-"""Workers poll centrally for jobs to run, lease them, and return results back centrally. They report quiescence when there's nothing left to do, so the supervisor task can exit gracefully."""
+"""The overseer dispatches jobs to workers via input queues. Workers emit when ready, and the overseer pushes jobs to ready workers fairly."""
 
 from collections.abc import Iterator
 from enum import StrEnum
@@ -7,6 +7,7 @@ import os
 
 from zahir.base_types import Context, Job, JobState
 from zahir.events import (
+    JobAssignedEvent,
     JobCompletedEvent,
     JobIrrecoverableEvent,
     JobPausedEvent,
@@ -27,6 +28,7 @@ from zahir.worker.dependency_worker import zahir_dependency_worker
 from zahir.worker.job_worker import zahir_job_worker
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
+type InputQueue = multiprocessing.Queue["ZahirEvent"]
 
 import logging
 import sys
@@ -76,7 +78,7 @@ class WorkerPool:
     """Manage a pool of worker processes."""
 
     processes: list[multiprocessing.Process]
-    process_queues: dict[int, multiprocessing.Queue]
+    process_queues: dict[int, InputQueue]
     process_states: dict[int, "WorkerState"]
 
 
@@ -91,15 +93,48 @@ def shutdown(processes: list[multiprocessing.Process]) -> None:
 
 
 def dispatch_jobs_to_workers(
-    context: Context, process_queues: dict[int, multiprocessing.Queue], process_states: dict[int, "WorkerState"]
+    context: Context,
+    process_queues: dict[int, InputQueue],
+    process_states: dict[int, "WorkerState"],
+    ready_worker_queue: list[int],
+    workflow_id: str,
+    output_queue: OutputQueue,
 ) -> None:
-    """Dispatch jobs to workers"""
+    """Dispatch READY jobs to READY workers fairly using round-robin.
 
+    Jobs are fetched from the registry and assigned to workers in order.
+    Workers are tracked in ready_worker_queue to ensure fair distribution.
+    """
     job_registry = context.job_registry
 
-    # Get jobs from the registry.
+    # Fetch all READY jobs (not yet dispatched)
+    ready_jobs: list[Job] = []
+    for job_info in job_registry.jobs(context, state=JobState.READY):
+        ready_jobs.append(job_info.job)
 
-    ...
+    # Dispatch jobs to ready workers (round-robin via queue)
+    while ready_jobs and ready_worker_queue:
+        job = ready_jobs.pop(0)
+        worker_pid = ready_worker_queue.pop(0)
+
+        # Verify worker is still in READY state
+        if process_states.get(worker_pid) != WorkerState.READY:
+            # Worker no longer ready, put job back
+            ready_jobs.insert(0, job)
+            continue
+
+        # Mark worker as BUSY before dispatching
+        process_states[worker_pid] = WorkerState.BUSY
+
+        # Set job state to RUNNING to prevent re-dispatch
+        job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.RUNNING, recovery=False)
+
+        # Send job assignment to worker via input queue
+        input_queue = process_queues[worker_pid]
+        input_queue.put(JobAssignedEvent(
+            workflow_id=workflow_id,
+            job_id=job.job_id,
+        ))
 
 
 def start_zahir_overseer(context: Context, start: Job, worker_count: int = 4):
@@ -128,11 +163,11 @@ def start_zahir_overseer(context: Context, start: Job, worker_count: int = 4):
     processes.append(dep_proc)
 
     # Job queues for each process
-    process_queues: dict[int, multiprocessing.Queue[ZahirEvent]] = {}
+    process_queues: dict[int, InputQueue] = {}
 
     # Start each worker process
     for _ in range(worker_count - 1):
-        input_queue: multiprocessing.Queue[ZahirEvent] = multiprocessing.Queue()
+        input_queue: InputQueue = multiprocessing.Queue()
 
         proc = multiprocessing.Process(
             target=zahir_job_worker,
@@ -147,17 +182,24 @@ def start_zahir_overseer(context: Context, start: Job, worker_count: int = 4):
 
         process_queues[proc.pid] = input_queue
 
-    # We will update process states during the state-machine
-    process_states = {proc.pid: WorkerState.READY for proc in processes if proc.pid is not None}
+    # Workers start as READY and will signal when busy/ready
+    process_states: dict[int, WorkerState] = {
+        proc.pid: WorkerState.READY for proc in processes if proc.pid is not None and proc.pid in process_queues
+    }
 
-    return processes, process_queues, process_states, output_queue
+    # Ready worker queue for fair round-robin dispatch (excludes dependency worker)
+    ready_worker_queue: list[int] = list(process_queues.keys())
+
+    return processes, process_queues, process_states, ready_worker_queue, output_queue, workflow_id
 
 
 def zahir_worker_overseer(start, context, worker_count: int = 4) -> Iterator[ZahirEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 
-    processes, process_queues, process_states, output_queue = start_zahir_overseer(context, start, worker_count)
+    processes, process_queues, process_states, ready_worker_queue, output_queue, workflow_id = start_zahir_overseer(
+        context, start, worker_count
+    )
 
     exc: Exception | None = None
     try:
@@ -173,13 +215,21 @@ def zahir_worker_overseer(start, context, worker_count: int = 4) -> Iterator[Zah
                 break
 
             elif isinstance(event, JobWorkerWaitingEvent):
-                # Our worker say's it is ready for more work; we should sent it a job
+                # Worker says it is ready for more work
                 process_states[event.pid] = WorkerState.READY
+                # Add to round-robin queue if not already present
+                if event.pid not in ready_worker_queue:
+                    ready_worker_queue.append(event.pid)
+                # Try to dispatch any ready jobs to this worker
+                dispatch_jobs_to_workers(context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue)
+                # Don't yield internal worker events
+                continue
 
             elif isinstance(event, JobReadyEvent):
-                # Pick jobs for the workers to run
-                dispatch_jobs_to_workers(context, process_queues, process_states)
-                yield event
+                # Dependency worker detected jobs are ready - dispatch to workers
+                dispatch_jobs_to_workers(context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue)
+                # Don't yield internal coordination events
+                continue
 
             elif isinstance(event, WorkflowCompleteEvent):
                 yield event

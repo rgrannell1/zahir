@@ -1,6 +1,7 @@
-import time
 from collections import deque
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+import time
+
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn
 
 from zahir.events import (
@@ -55,7 +56,7 @@ class ZahirProgressMonitor:
     def handle_event(self, event: ZahirEvent) -> None:
         """Handle workflow events and update progress bars."""
         # Track PID from event if available
-        if hasattr(event, 'pid'):
+        if hasattr(event, "pid"):
             current_time = time.time()
             self.pid_events.append((current_time, event.pid))
             self._cleanup_old_pids(current_time)

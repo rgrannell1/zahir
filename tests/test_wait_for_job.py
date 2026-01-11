@@ -1,23 +1,34 @@
 """Tests for the wait_for_job state machine step.
 
-Tests the wait_for_job function which sleeps when no jobs are available.
-This prevents busy-waiting when the job queue is empty.
+Tests the wait_for_job function which waits for job assignments from the overseer
+in the push-based dispatch model.
 """
 
 import multiprocessing
 import tempfile
+import threading
 import time
 
+from zahir.base_types import Job
 from zahir.context import MemoryContext
+from zahir.events import JobAssignedEvent, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.worker.state_machine import ZahirWorkerState
-from zahir.worker.state_machine.states import StartStateChange
-from zahir.worker.state_machine.wait_for_job import wait_for_job
+from zahir.worker.state_machine.states import PopJobStateChange, StartStateChange
+from zahir.worker.state_machine.wait_for_job import WAIT_TIMEOUT_SECONDS, wait_for_job
 
 
-def test_wait_for_job_returns_start_state_change():
-    """Test that wait_for_job returns StartStateChange."""
+class SimpleTestJob(Job):
+    """A simple test job for testing wait_for_job."""
+
+    @classmethod
+    def run(cls, context, input, dependencies):
+        yield JobOutputEvent({"result": "done"})
+
+
+def test_wait_for_job_receives_assignment():
+    """Test that wait_for_job receives job assignment from input queue."""
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
@@ -25,22 +36,36 @@ def test_wait_for_job_returns_start_state_change():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
+    # Register the job class
+    scope = LocalScope(jobs=[SimpleTestJob])
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    # Create a test job and add to registry
+    test_job = SimpleTestJob({}, {}, job_id="test-job-1")
+    job_registry.add(test_job, output_queue)
+
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
+
+    # Put a job assignment on the input queue
+    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="test-job-1"))
 
     # Run wait_for_job
-    result, _ = wait_for_job(worker_state)
+    result, returned_state = wait_for_job(worker_state)
 
-    # Verify result
+    # Verify result is a StartStateChange indicating job was received
     assert isinstance(result, StartStateChange)
-    assert result.data["message"] == "Waited for job, restarting"
+    assert "test-job-1" in result.data["message"]
+
+    # Verify job was pushed to stack
+    assert not worker_state.job_stack.is_empty()
 
 
-def test_wait_for_job_preserves_state():
-    """Test that wait_for_job returns the same state object unchanged."""
+def test_wait_for_job_checks_runnable_stack():
+    """Test that wait_for_job returns PopJobStateChange when stack has runnable jobs."""
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
@@ -48,21 +73,35 @@ def test_wait_for_job_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
+    scope = LocalScope(jobs=[SimpleTestJob])
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    # Create a job and add to registry as PAUSED
+    test_job = SimpleTestJob({}, {}, job_id="test-job-2")
+    job_registry.add(test_job, output_queue)
 
-    # Run wait_for_job
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
+
+    # Push a frame to the stack
+    from zahir.worker.call_frame import ZahirStackFrame
+
+    job_generator = SimpleTestJob.run(context, None, {})
+    frame = ZahirStackFrame(job=test_job, job_generator=job_generator, recovery=False)
+    worker_state.job_stack.push(frame)
+
+    # Run wait_for_job - should immediately find runnable job on stack
     result, returned_state = wait_for_job(worker_state)
 
-    # Verify state is unchanged and is the same object
-    assert returned_state is worker_state
+    # Should return PopJobStateChange since there's a runnable job on stack
+    assert isinstance(result, PopJobStateChange)
 
 
-def test_wait_for_job_sleeps():
-    """Test that wait_for_job actually sleeps for approximately 0.25-0.35 seconds (with jitter)."""
+def test_wait_for_job_times_out_and_rechecks():
+    """Test that wait_for_job times out and rechecks for runnable jobs."""
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
@@ -70,24 +109,39 @@ def test_wait_for_job_sleeps():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
+    scope = LocalScope(jobs=[SimpleTestJob])
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
-    # Measure time
+    # Measure time - with no job on queue, it should timeout
+    # Send an assignment after a delay from another thread
+    def delayed_put():
+        time.sleep(0.3)
+        test_job = SimpleTestJob({}, {}, job_id="delayed-job")
+        job_registry.add(test_job, output_queue)
+        input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="delayed-job"))
+
+    thread = threading.Thread(target=delayed_put)
+    thread.start()
+
     start_time = time.time()
-    wait_for_job(worker_state)
+    result, _ = wait_for_job(worker_state)
     elapsed = time.time() - start_time
 
-    # Verify it slept for approximately 0.25-0.35s (with jitter, allow some tolerance)
-    assert elapsed >= 0.20, f"Expected sleep >= 0.20s, got {elapsed}s"
-    assert elapsed <= 0.40, f"Expected sleep <= 0.40s, got {elapsed}s"
+    thread.join()
+
+    # Should have received the delayed job assignment
+    assert isinstance(result, StartStateChange)
+    assert elapsed >= 0.25, f"Expected to wait at least 0.25s, got {elapsed}s"
 
 
-def test_wait_for_job_with_empty_stack():
-    """Test wait_for_job works correctly when job stack is empty."""
+def test_wait_for_job_handles_missing_job():
+    """Test that wait_for_job handles missing job gracefully."""
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
@@ -95,26 +149,32 @@ def test_wait_for_job_with_empty_stack():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
+    scope = LocalScope(jobs=[SimpleTestJob])
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
-    # Verify stack is empty
-    assert worker_state.job_stack.is_empty()
+    # Put an assignment for a job that doesn't exist
+    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="nonexistent-job"))
+    # Then put a valid one so we don't hang
+    test_job = SimpleTestJob({}, {}, job_id="valid-job")
+    job_registry.add(test_job, output_queue)
+    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="valid-job"))
 
-    # Run wait_for_job
+    # Should handle missing job and continue
     result, _ = wait_for_job(worker_state)
 
-    # Verify result
+    # First result might be error, but eventually should get valid job
+    # or restart message
     assert isinstance(result, StartStateChange)
-    # Stack should still be empty
-    assert worker_state.job_stack.is_empty()
 
 
-def test_wait_for_job_with_no_frame():
-    """Test wait_for_job when there's no active frame."""
+def test_wait_for_job_preserves_state():
+    """Test that wait_for_job returns the same state object."""
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
@@ -122,49 +182,24 @@ def test_wait_for_job_with_no_frame():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
+    scope = LocalScope(jobs=[SimpleTestJob])
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    # Create and add job
+    test_job = SimpleTestJob({}, {}, job_id="test-job-5")
+    job_registry.add(test_job, output_queue)
 
-    # Verify no active frame
-    assert worker_state.frame is None
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
+
+    # Put assignment on queue
+    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="test-job-5"))
 
     # Run wait_for_job
-    result, _ = wait_for_job(worker_state)
+    result, returned_state = wait_for_job(worker_state)
 
-    # Verify result
-    assert isinstance(result, StartStateChange)
-    # Frame should still be None
-    assert worker_state.frame is None
-
-
-def test_wait_for_job_idempotent():
-    """Test that calling wait_for_job multiple times behaves consistently."""
-
-    with tempfile.NamedTemporaryFile(delete=False) as tmp:
-        tmp_file = tmp.name
-
-    job_registry = SQLiteJobRegistry(tmp_file)
-    job_registry.init("test-worker-6")
-
-    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
-    output_queue = multiprocessing.Queue()
-    workflow_id = "test-workflow-6"
-
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
-
-    # Call wait_for_job multiple times
-    result1, _ = wait_for_job(worker_state)
-    result2, _ = wait_for_job(worker_state)
-    result3, _ = wait_for_job(worker_state)
-
-    # All should return the same type of result
-    assert isinstance(result1, StartStateChange)
-    assert isinstance(result2, StartStateChange)
-    assert isinstance(result3, StartStateChange)
-
-    # All should have the same message
-    assert result1.data["message"] == result2.data["message"]
-    assert result2.data["message"] == result3.data["message"]
+    # Verify state is the same object
+    assert returned_state is worker_state

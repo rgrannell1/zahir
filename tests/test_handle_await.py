@@ -16,7 +16,7 @@ from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.handle_await import handle_await
-from zahir.worker.state_machine.states import EnqueueJobStateChange
+from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
 @job()
@@ -52,10 +52,11 @@ def test_handle_await_pauses_current_job():
     job_registry.init("test-worker-1")
     try:
         context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-1"
 
-        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
@@ -90,10 +91,11 @@ def test_handle_await_adds_awaited_job_to_registry():
     job_registry.init("test-worker-2")
     try:
         context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-2"
 
-        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
@@ -129,10 +131,11 @@ def test_handle_await_pushes_frame_to_stack():
     job_registry.init("test-worker-3")
     try:
         context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-3"
 
-        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
@@ -170,10 +173,11 @@ def test_handle_await_clears_current_frame():
     job_registry.init("test-worker-4")
     try:
         context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-4"
 
-        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
@@ -210,10 +214,11 @@ def test_handle_await_transitions_to_enqueue():
     job_registry.init("test-worker-5")
     try:
         context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-5"
 
-        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
@@ -231,10 +236,10 @@ def test_handle_await_transitions_to_enqueue():
         # Run handle_await
         result, _ = handle_await(worker_state)
 
-        # Should transition to enqueue state
-        assert isinstance(result, EnqueueJobStateChange)
+        # Should transition to wait for job state
+        assert isinstance(result, WaitForJobStateChange)
         assert "Paused job" in result.data["message"]
-        assert "enqueuing awaited job" in result.data["message"]
+        assert "waiting for next dispatch" in result.data["message"]
     finally:
         job_registry.close()
 
@@ -249,10 +254,11 @@ def test_handle_await_sets_required_jobs():
     job_registry.init("test-worker-6")
     try:
         context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-6"
 
-        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
@@ -291,10 +297,11 @@ def test_handle_await_multiple_jobs():
     job_registry.init("test-worker-7")
     try:
         context = MemoryContext(scope=LocalScope(jobs=[MultiAwaitJob, SimpleJob]), job_registry=job_registry)
+        input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-7"
 
-        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
         # Add a job
         job = MultiAwaitJob({"test": "data"}, {})
@@ -332,10 +339,11 @@ def test_handle_await_multiple_jobs_sets_await_many():
     job_registry.init("test-worker-8")
     try:
         context = MemoryContext(scope=LocalScope(jobs=[MultiAwaitJob, SimpleJob]), job_registry=job_registry)
+        input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-8"
 
-        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
         # Add a job
         job = MultiAwaitJob({"test": "data"}, {})
@@ -374,10 +382,11 @@ def test_handle_await_preserves_state():
     job_registry.init("test-worker-9")
     try:
         context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-9"
 
-        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
@@ -411,10 +420,11 @@ def test_handle_await_workflow_id_used():
     job_registry.init("test-worker-10")
     try:
         context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "specific-workflow-id-abc"
 
-        worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+        worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})

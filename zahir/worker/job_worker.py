@@ -1,9 +1,9 @@
 import multiprocessing
 import os
-import signal
 
 from zahir.base_types import Context
 from zahir.events import (
+    JobWorkerWaitingEvent,
     ZahirEvent,
     ZahirInternalErrorEvent,
 )
@@ -16,18 +16,19 @@ type InputQueue = multiprocessing.Queue["ZahirEvent"]
 
 
 def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: OutputQueue, workflow_id: str) -> None:
-    """Repeatly request and execute jobs from the job registry until
-    there's nothing else to be done. Communicate events back to the
-    supervisor process.
+    """Receive and execute jobs dispatched by the overseer.
 
+    Jobs are received via the input_queue. When the worker is ready for more work,
+    it emits JobWorkerWaitingEvent to signal availability to the overseer.
     """
 
     context.job_registry.init(str(os.getpid()))
 
-    state = ZahirWorkerState(context, output_queue, workflow_id)
+    state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
     current = StartStateChange({"message": "Starting job worker"})
 
-    assigned_jobs: set[str] = set()
+    # Signal we're ready for work immediately
+    output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
 
     # ...so I put a workflow engine inside your workflow engine
     while True:

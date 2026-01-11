@@ -17,7 +17,7 @@ from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.handle_job_timeout import handle_job_timeout
-from zahir.worker.state_machine.states import EnqueueJobStateChange
+from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
 @job()
@@ -42,10 +42,11 @@ def test_handle_job_timeout_returns_enqueue_state_change():
     job_registry.init("test-worker-1")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -59,7 +60,7 @@ def test_handle_job_timeout_returns_enqueue_state_change():
     result, _ = handle_job_timeout(worker_state)
 
     # Verify result
-    assert isinstance(result, EnqueueJobStateChange)
+    assert isinstance(result, WaitForJobStateChange)
     assert "timed out" in result.data["message"]
     assert "SimpleJob" in result.data["message"]
 
@@ -74,10 +75,11 @@ def test_handle_job_timeout_sets_timed_out_state():
     job_registry.init("test-worker-2")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -105,10 +107,11 @@ def test_handle_job_timeout_records_error():
     job_registry.init("test-worker-3")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -138,10 +141,11 @@ def test_handle_job_timeout_clears_frame():
     job_registry.init("test-worker-4")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -171,10 +175,11 @@ def test_handle_job_timeout_preserves_state():
     job_registry.init("test-worker-5")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -201,10 +206,11 @@ def test_handle_job_timeout_includes_job_type_in_message():
     job_registry.init("test-worker-6")
 
     context = MemoryContext(scope=LocalScope(jobs=[AnotherJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = AnotherJob({"count": 0}, {})
@@ -231,10 +237,11 @@ def test_handle_job_timeout_transitions_to_enqueue():
     job_registry.init("test-worker-7")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
@@ -247,8 +254,8 @@ def test_handle_job_timeout_transitions_to_enqueue():
     # Run handle_job_timeout
     result, _ = handle_job_timeout(worker_state)
 
-    # Verify transition to enqueue
-    assert isinstance(result, EnqueueJobStateChange)
+    # Verify transition to wait for job
+    assert isinstance(result, WaitForJobStateChange)
     # Frame should be cleared to allow enqueueing next job
     assert worker_state.frame is None
 
@@ -263,10 +270,11 @@ def test_handle_job_timeout_error_message():
     job_registry.init("test-worker-8")
 
     context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
 
-    worker_state = ZahirWorkerState(context, output_queue, workflow_id)
+    worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
