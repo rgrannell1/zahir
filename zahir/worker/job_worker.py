@@ -8,6 +8,7 @@ from zahir.events import (
     ZahirInternalErrorEvent,
 )
 from zahir.exception import exception_to_text_blob
+from zahir.utils.logging_config import configure_logging
 from zahir.worker.state_machine import ZahirJobStateMachine, ZahirWorkerState
 from zahir.worker.state_machine.states import StartStateChange
 
@@ -21,6 +22,9 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
     Jobs are received via the input_queue. When the worker is ready for more work,
     it emits JobWorkerWaitingEvent to signal availability to the overseer.
     """
+
+    # Configure logging for this worker process
+    configure_logging()
 
     context.job_registry.init(str(os.getpid()))
 

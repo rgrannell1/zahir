@@ -10,12 +10,16 @@ from zahir.events import (
     ZahirInternalErrorEvent,
 )
 from zahir.exception import ImpossibleDependencyError, exception_to_text_blob
+from zahir.utils.logging_config import configure_logging
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
 
 def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflow_id: str) -> None:
     """Analyse job dependencies and mark jobs as pending."""
+
+    # Configure logging for this worker process
+    configure_logging()
 
     try:
         job_registry = context.job_registry

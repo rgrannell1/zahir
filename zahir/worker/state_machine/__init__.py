@@ -8,6 +8,7 @@ from zahir.events import (
     Await,
     ZahirEvent,
 )
+from zahir.utils.logging_config import configure_logging, get_logger
 from zahir.worker.call_frame import ZahirCallStack, ZahirStackFrame
 from zahir.worker.state_machine.check_preconditions import check_preconditions
 from zahir.worker.state_machine.execute_job import execute_job
@@ -41,10 +42,9 @@ from zahir.worker.state_machine.states import (
 )
 from zahir.worker.state_machine.wait_for_job import wait_for_job
 
-log = logging.getLogger(__name__)
-# Log level controlled by ZAHIR_LOG_LEVEL environment variable
-# Default is WARNING to reduce noise
-
+# Configure logging for this process
+configure_logging()
+log = get_logger(__name__)
 
 GREEN = "\x1b[32m"
 RESET = "\x1b[0m"

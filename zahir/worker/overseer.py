@@ -30,22 +30,12 @@ from zahir.worker.job_worker import zahir_job_worker
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 type InputQueue = multiprocessing.Queue["ZahirEvent"]
 
-import logging
-import sys
 
-# Allow users to control log level via environment variable
-# Default to WARNING to reduce noise, use ZAHIR_LOG_LEVEL=INFO or DEBUG for more verbosity
-log_level_name = os.getenv("ZAHIR_LOG_LEVEL", "WARNING").upper()
-log_level = getattr(logging, log_level_name, logging.WARNING)
+from zahir.utils.logging_config import configure_logging, get_logger
 
-logging.basicConfig(
-    level=log_level,
-    stream=sys.stderr,
-    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-)
-
-for h in logging.getLogger().handlers:
-    h.setLevel(log_level)
+# Configure logging for this process
+configure_logging()
+log = get_logger(__name__)
 
 type JobStateEvent = (
     JobStartedEvent
@@ -131,10 +121,12 @@ def dispatch_jobs_to_workers(
 
         # Send job assignment to worker via input queue
         input_queue = process_queues[worker_pid]
-        input_queue.put(JobAssignedEvent(
-            workflow_id=workflow_id,
-            job_id=job.job_id,
-        ))
+        input_queue.put(
+            JobAssignedEvent(
+                workflow_id=workflow_id,
+                job_id=job.job_id,
+            )
+        )
 
 
 def start_zahir_overseer(context: Context, start: Job, worker_count: int = 4):
@@ -221,13 +213,17 @@ def zahir_worker_overseer(start, context, worker_count: int = 4) -> Iterator[Zah
                 if event.pid not in ready_worker_queue:
                     ready_worker_queue.append(event.pid)
                 # Try to dispatch any ready jobs to this worker
-                dispatch_jobs_to_workers(context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue)
+                dispatch_jobs_to_workers(
+                    context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue
+                )
                 # Don't yield internal worker events
                 continue
 
             elif isinstance(event, JobReadyEvent):
                 # Dependency worker detected jobs are ready - dispatch to workers
-                dispatch_jobs_to_workers(context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue)
+                dispatch_jobs_to_workers(
+                    context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue
+                )
                 # Don't yield internal coordination events
                 continue
 

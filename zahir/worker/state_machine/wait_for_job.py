@@ -1,12 +1,12 @@
-import logging
 import os
 import queue
 
 from zahir.events import JobAssignedEvent, JobWorkerWaitingEvent
+from zahir.utils.logging_config import get_logger
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine.states import PopJobStateChange, StartStateChange
 
-log = logging.getLogger(__name__)
+log = get_logger(__name__)
 
 # How long to wait before checking for runnable jobs on the local stack
 WAIT_TIMEOUT_SECONDS = 0.5
