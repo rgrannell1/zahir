@@ -5,7 +5,7 @@ from enum import StrEnum
 import multiprocessing
 import os
 
-from zahir.base_types import Context, JobState
+from zahir.base_types import Context, Job, JobState
 from zahir.events import (
     JobCompletedEvent,
     JobIrrecoverableEvent,
@@ -67,6 +67,19 @@ EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
 }
 
 
+class WorkerState(StrEnum):
+    READY = "READY"
+    BUSY = "BUSY"
+
+
+class WorkerPool:
+    """Manage a pool of worker processes."""
+
+    processes: list[multiprocessing.Process]
+    process_queues: dict[int, multiprocessing.Queue]
+    process_states: dict[int, "WorkerState"]
+
+
 def shutdown(processes: list[multiprocessing.Process]) -> None:
     """Terminate and join all worker processes."""
 
@@ -77,17 +90,19 @@ def shutdown(processes: list[multiprocessing.Process]) -> None:
         proc.join(timeout=5)
 
 
-def dispatch_jobs_to_workers(context: Context) -> None:
+def dispatch_jobs_to_workers(
+    context: Context, process_queues: dict[int, multiprocessing.Queue], process_states: dict[int, "WorkerState"]
+) -> None:
     """Dispatch jobs to workers"""
+
+    job_registry = context.job_registry
+
+    # Get jobs from the registry.
+
     ...
 
 
-class WorkerState(StrEnum):
-    READY = "READY"
-    BUSY = "BUSY"
-
-
-def start_overseer(context: Context, start, worker_count: int = 4):
+def start_zahir_overseer(context: Context, start: Job, worker_count: int = 4):
     """Start processes, create queues"""
 
     workflow_id = generate_id(3)
@@ -95,12 +110,15 @@ def start_overseer(context: Context, start, worker_count: int = 4):
 
     output_queue.put(WorkflowStartedEvent(workflow_id=workflow_id))
 
-    context.job_registry.init(str(os.getpid()))
+    current_pid = os.getpid()
+    context.job_registry.init(str(current_pid))
     context.job_registry.on_startup()
 
+    # Start with initial job if provided
     if start is not None:
         context.job_registry.add(start, output_queue)
 
+    # Start a single dependency-checker process
     processes = []
     dep_proc = multiprocessing.Process(
         target=zahir_dependency_worker,
@@ -112,6 +130,7 @@ def start_overseer(context: Context, start, worker_count: int = 4):
     # Job queues for each process
     process_queues: dict[int, multiprocessing.Queue[ZahirEvent]] = {}
 
+    # Start each worker process
     for _ in range(worker_count - 1):
         input_queue: multiprocessing.Queue[ZahirEvent] = multiprocessing.Queue()
 
@@ -128,6 +147,7 @@ def start_overseer(context: Context, start, worker_count: int = 4):
 
         process_queues[proc.pid] = input_queue
 
+    # We will update process states during the state-machine
     process_states = {proc.pid: WorkerState.READY for proc in processes if proc.pid is not None}
 
     return processes, process_queues, process_states, output_queue
@@ -137,7 +157,7 @@ def zahir_worker_overseer(start, context, worker_count: int = 4) -> Iterator[Zah
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 
-    processes, process_queues, process_states, output_queue = start_overseer(context, start, worker_count)
+    processes, process_queues, process_states, output_queue = start_zahir_overseer(context, start, worker_count)
 
     exc: Exception | None = None
     try:
@@ -158,7 +178,7 @@ def zahir_worker_overseer(start, context, worker_count: int = 4) -> Iterator[Zah
 
             elif isinstance(event, JobReadyEvent):
                 # Pick jobs for the workers to run
-                dispatch_jobs_to_workers(context)
+                dispatch_jobs_to_workers(context, process_queues, process_states)
                 yield event
 
             elif isinstance(event, WorkflowCompleteEvent):
