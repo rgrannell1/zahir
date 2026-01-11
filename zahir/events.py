@@ -495,3 +495,60 @@ class Await(ZahirEvent):
         # This requires context to deserialize jobs, which we don't have here
         # This is a design issue - load methods need context
         raise NotImplementedError("Await.load requires context to deserialize Job objects")
+
+
+@dataclass
+class JobWorkerWaitingEvent(ZahirEvent):
+    """Indicates that a job worker is waiting for jobs to process"""
+
+    pid: int = field(default_factory=os.getpid)
+
+    def save(self) -> Mapping[str, Any]:
+        return {
+            "pid": self.pid,
+        }
+
+    @classmethod
+    def load(cls, data: Mapping[str, Any]) -> JobWorkerWaitingEvent:
+        return cls(pid=data.get("pid", 0))
+
+@dataclass
+class JobReadyEvent(ZahirEvent):
+    """Indicates that a job is ready to be processed. Use the
+    database to fetch the job details."""
+
+    pid: int = field(default_factory=os.getpid)
+
+    def save(self) -> Mapping[str, Any]:
+        return {
+            "pid": self.pid,
+        }
+
+    @classmethod
+    def load(cls, data: Mapping[str, Any]) -> JobReadyEvent:
+        return cls(
+            pid=data.get("pid", 0)
+        )
+
+@dataclass
+class JobAssignedEvent(ZahirEvent):
+    """Indicates that a job has been assigned to a worker"""
+
+    workflow_id: str
+    job_id: str
+    pid: int = field(default_factory=os.getpid)
+
+    def save(self) -> Mapping[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "pid": self.pid,
+        }
+
+    @classmethod
+    def load(cls, data: Mapping[str, Any]) -> JobAssignedEvent:
+        return cls(
+            workflow_id=data["workflow_id"],
+            job_id=data["job_id"],
+            pid=data.get("pid", 0),
+        )

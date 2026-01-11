@@ -1,5 +1,6 @@
 import multiprocessing
 import os
+import signal
 
 from zahir.base_types import Context
 from zahir.events import (
@@ -11,9 +12,10 @@ from zahir.worker.state_machine import ZahirJobStateMachine, ZahirWorkerState
 from zahir.worker.state_machine.states import StartStateChange
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
+type InputQueue = multiprocessing.Queue["ZahirEvent"]
 
 
-def zahir_job_worker(context: Context, output_queue: OutputQueue, workflow_id: str) -> None:
+def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: OutputQueue, workflow_id: str) -> None:
     """Repeatly request and execute jobs from the job registry until
     there's nothing else to be done. Communicate events back to the
     supervisor process.
@@ -24,6 +26,8 @@ def zahir_job_worker(context: Context, output_queue: OutputQueue, workflow_id: s
 
     state = ZahirWorkerState(context, output_queue, workflow_id)
     current = StartStateChange({"message": "Starting job worker"})
+
+    assigned_jobs: set[str] = set()
 
     # ...so I put a workflow engine inside your workflow engine
     while True:

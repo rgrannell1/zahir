@@ -94,7 +94,8 @@ def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputE
 job_registry = SQLiteJobRegistry("jobs.db")
 context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registry)
 
-start = BookProcessor({"file_path": "/home/rg/Code/zahir/integration_tests/data.txt"}, {})
+start = BookProcessor({"file_path": "integration_tests/data.txt"}, {})
 
 events = list(LocalWorkflow(context).run(start))
+print(events)
 print(events[-1].output)

@@ -163,7 +163,9 @@ def check_job_states_coverage() -> None:
         missing_states = TOTAL_JOB_STATES - covered_states
         raise ValueError(f"Job states coverage is incomplete. Missing states: {missing_states}")
 
+
 check_job_states_coverage()
+
 
 @dataclass
 class JobInformation:
@@ -340,6 +342,12 @@ class JobRegistry(ABC):
 
         @return: The duration in seconds, or None if workflow hasn't completed
         """
+
+        raise NotImplementedError
+
+    @classmethod
+    def on_startup(cls) -> None:
+        """Hook called when the job registry is started up."""
 
         raise NotImplementedError
 

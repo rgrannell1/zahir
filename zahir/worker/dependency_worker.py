@@ -7,6 +7,7 @@ import time
 
 from zahir.base_types import Context, DependencyState, JobState
 from zahir.events import (
+    JobReadyEvent,
     WorkflowCompleteEvent,
     ZahirEvent,
     ZahirInternalErrorEvent,
@@ -33,6 +34,8 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
                 )
                 return
 
+            any_ready = False
+
             # try to find blocked jobs whose dependencies are now satisfied
             for job_info in job_registry.jobs(context, state=JobState.PENDING):
                 job = job_info.job
@@ -41,6 +44,7 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
 
                 if dependencies_state == DependencyState.SATISFIED:
                     job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.READY, recovery=False)
+                    any_ready = True
                 elif dependencies_state == DependencyState.IMPOSSIBLE:
                     # Set an error, as awaited jobs cannot be run if impossible dependencies are present.
 
@@ -48,6 +52,10 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
                     job_registry.set_state(
                         job.job_id, workflow_id, output_queue, JobState.IMPOSSIBLE, error=error, recovery=False
                     )
+
+            if any_ready:
+                # Let the overseer know that there are jobs ready to run
+                output_queue.put(JobReadyEvent())
 
             time.sleep(1)
     except Exception as err:
