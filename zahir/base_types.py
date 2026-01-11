@@ -156,11 +156,11 @@ def check_job_states_coverage() -> None:
     """Ensure that active and completed job states cover all possible job states."""
 
     # Verify that active and completed states cover all possible states
-    TOTAL_JOB_STATES = set(JobState)
+    total_job_states = set(JobState)
 
     covered_states = ACTIVE_JOB_STATES.union(COMPLETED_JOB_STATES)
-    if covered_states != TOTAL_JOB_STATES:
-        missing_states = TOTAL_JOB_STATES - covered_states
+    if covered_states != total_job_states:
+        missing_states = total_job_states - covered_states
         raise ValueError(f"Job states coverage is incomplete. Missing states: {missing_states}")
 
 
@@ -345,8 +345,8 @@ class JobRegistry(ABC):
 
         raise NotImplementedError
 
-    @classmethod
-    def on_startup(cls) -> None:
+    @abstractmethod
+    def on_startup(self) -> None:
         """Hook called when the job registry is started up."""
 
         raise NotImplementedError
@@ -437,7 +437,7 @@ class Job[ArgsType, OutputType](ABC):
         parent_id: str | None = None,
     ) -> None:
         # Circular dependency fun, love you Python
-        from zahir.dependencies.group import DependencyGroup  # TO DO lint disable
+        from zahir.dependencies.group import DependencyGroup  # noqa: PLC0415
 
         self.parent_id = parent_id
         self.job_id = job_id if job_id is not None else generate_id(3)
@@ -532,7 +532,7 @@ class Job[ArgsType, OutputType](ABC):
 
         job_type = data["type"]
         job_class = context.scope.get_job_class(job_type)
-        from zahir.dependencies.group import DependencyGroup  # TO DO lint disable
+        from zahir.dependencies.group import DependencyGroup
 
         dependencies = data["dependencies"]
 

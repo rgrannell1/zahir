@@ -32,7 +32,7 @@ def _resume_generator_after_await(
     outputs: list[Mapping | None] = []
 
     # Errors are 1:{0,1,...} per job
-    errors: list[BaseException] = []
+    errors: list[Exception] = []
 
     # Collate the information for each job
     for required_pid in required_pids:
@@ -45,21 +45,13 @@ def _resume_generator_after_await(
 
         errors += job_errors_main + job_errors_recovery
 
-    # So, this sucks. I ported from a custom serialiser to tblib. Turns out tblib
-    # can't handle throwing into generators. We'll need to port back to a custom serialiser (screw pickle anyway)
-    # to get our error-types and traces back.
-
-    throwable_errors = []
-    for error in errors:
-        throwable_errors.append(error)
-
     if errors:
         # Try to throw one exception, but let's not bury information either if there's multiple.
         throwable = (
-            throwable_errors[0]
-            if len(throwable_errors) == 1
+            errors[0]
+            if len(errors) == 1
             # we might want a custom ExceptionGroup type
-            else ExceptionGroup("Multiple errors", throwable_errors)
+            else ExceptionGroup("Multiple errors", errors)
         )
 
         event = gen.throw(throwable)
