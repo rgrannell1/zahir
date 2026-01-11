@@ -1,0 +1,37 @@
+{
+  "name": "Zahir Dev Container",
+  "image": "mcr.microsoft.com/devcontainers/python:3.12",
+
+  "features": {},
+
+  "onCreateCommand": "curl -LsSf https://astral.sh/uv/install.sh | sh && curl -LsS https://raw.githubusercontent.com/rgrannell1/rs/main/rs.py -o ~/.local/bin/rs && chmod +x ~/.local/bin/rs",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "charliermarsh.ruff",
+        "ms-python.mypy-type-checker"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "python.testing.pytestEnabled": true,
+        "python.testing.unittestEnabled": false,
+        "[python]": {
+          "editor.defaultFormatter": "charliermarsh.ruff",
+          "editor.formatOnSave": true,
+          "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+          }
+        },
+        "ruff.lint.args": ["--config=ruff.toml"],
+        "mypy-type-checker.args": ["--config-file=pyproject.toml"]
+      }
+    }
+  },
+
+  "postCreateCommand": "uv sync",
+
+  "remoteUser": "vscode"
+}

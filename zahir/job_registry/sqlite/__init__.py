@@ -174,7 +174,7 @@ class SQLiteJobRegistry(JobRegistry):
 
         with self.conn as conn:
             conn.execute("begin immediate;")
-            
+
             # Check if the job already exists, complain loudly if you try to add it twice
             existing = conn.execute("select 1 from jobs where job_id = ?", (job_id,)).fetchone()
             if existing is not None:
