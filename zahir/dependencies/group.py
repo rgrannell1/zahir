@@ -81,7 +81,12 @@ class DependencyGroup(Dependency):
         @param name: The name of the subdependency
         @return: The subdependency or list of subdependencies
         """
-        return self.dependencies[name]
+        value = self.dependencies[name]
+
+        if isinstance(value, list) and len(value) == 1:
+            return value[0]
+
+        return value
 
     def empty(self) -> bool:
         """Check if there are no subdependencies.

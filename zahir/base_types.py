@@ -440,7 +440,7 @@ class Job[ArgsType, OutputType](ABC):
         from zahir.dependencies.group import DependencyGroup  # noqa: PLC0415
 
         self.parent_id = parent_id
-        self.job_id = job_id if job_id is not None else generate_id(3)
+        self.job_id = job_id if job_id is not None else generate_id(4)
         self.input = input
         self.dependencies = dependencies if isinstance(dependencies, DependencyGroup) else DependencyGroup(dependencies)
         self.job_options = options
@@ -521,7 +521,7 @@ class Job[ArgsType, OutputType](ABC):
         }
 
     @classmethod
-    def load(cls, context: "Context", data: SerialisedJob) -> "Job[Any, Any]":
+    def load(cls, context: "Context", data: SerialisedJob) -> "Job":
         """Deserialize the job from a dictionary.
 
         @param context: The context containing scope and registries

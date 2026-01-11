@@ -19,13 +19,15 @@ RecoveryFn = Callable[[Context, ArgsType, Dependencies, Exception], Iterator[Out
 @overload
 def job() -> Callable[[RunFn[ArgsType, OutputType]], type[Job[ArgsType, OutputType]]]: ...
 @overload
-def job(
+def job[ArgsType, OutputType](
     *,
     recovery: RecoveryFn[ArgsType, OutputType],
 ) -> Callable[[RunFn[ArgsType, OutputType]], type[Job[ArgsType, OutputType]]]: ...
 
 
-def job(*, recovery: RecoveryFn[ArgsType, OutputType] | None = None):
+def job[ArgsType, OutputType](
+    *, recovery: RecoveryFn[ArgsType, OutputType] | None = None
+) -> Callable[[RunFn[ArgsType, OutputType]], type[Job[ArgsType, OutputType]]]:
     """Construct a Job class from a run function.
 
     Forced usage:
@@ -41,7 +43,7 @@ def job(*, recovery: RecoveryFn[ArgsType, OutputType] | None = None):
         mod = getattr(func, "__module__", func.__class__.__module__)
         qual = getattr(func, "__qualname__", None)
         qual = qual.rsplit(".", 1)[0] if isinstance(qual, str) else class_name
-        class_qualname = f"{mod}.{qual}.{class_name}" if qual else f"{mod}.{class_name}"
+        class_qualname = class_name
 
         # Wrapper that adds cls parameter for the classmethod
         def run_wrapper(
@@ -68,6 +70,7 @@ def job(*, recovery: RecoveryFn[ArgsType, OutputType] | None = None):
                 dependencies: Dependencies,
                 err: Exception,
             ) -> Iterator[OutputType]:
+                assert recovery is not None  # keep our type-checker happy.
                 return recovery(context, input, dependencies, err)
 
             ns["recover"] = classmethod(recovery_wrapper)
