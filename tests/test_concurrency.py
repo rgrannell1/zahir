@@ -73,7 +73,11 @@ def test_concurrency_limit_save():
     """Test that save() returns correct structure."""
     limit = ConcurrencyLimit(limit=5, slots=2)
 
-    saved = limit.save()
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+
+    saved = limit.save(context)
 
     assert saved["type"] == "ConcurrencyLimit"
     assert saved["limit"] == 5
@@ -94,8 +98,12 @@ def test_concurrency_limit_save_load_roundtrip():
     """Test that save/load preserves limit configuration."""
     original = ConcurrencyLimit(limit=10, slots=3)
 
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+
     # Save and load
-    saved = original.save()
+    saved = original.save(context)
     restored = ConcurrencyLimit.load(None, saved)
 
     # Check limit and slots are preserved

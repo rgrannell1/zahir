@@ -119,7 +119,7 @@ def test_execute_recovery_job_sets_running_state():
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -151,7 +151,7 @@ def test_execute_recovery_job_with_output():
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -184,7 +184,7 @@ def test_execute_recovery_job_stores_output_event():
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -217,7 +217,7 @@ def test_execute_recovery_job_without_output():
 
     # Add a job
     job = RecoveryJobWithoutOutput(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryJobWithoutOutput.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -250,7 +250,7 @@ def test_execute_recovery_job_with_await():
 
     # Add a job
     job = RecoveryJobWithAwait(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryJobWithAwait.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -283,7 +283,7 @@ def test_execute_recovery_job_stores_await_event():
 
     # Add a job
     job = RecoveryJobWithAwait(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryJobWithAwait.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -315,7 +315,7 @@ def test_execute_recovery_job_with_timeout():
 
     # Add a job with a very short recovery timeout
     job = RecoveryTimeoutJob(input={"test": "data"}, dependencies={}, options=JobOptions(recover_timeout=0.01))
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryTimeoutJob.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -348,7 +348,7 @@ def test_execute_recovery_job_with_exception():
 
     # Add a job
     job = RecoveryExceptionJob(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryExceptionJob.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -381,7 +381,7 @@ def test_execute_recovery_job_stores_exception_event():
 
     # Add a job
     job = RecoveryExceptionJob(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryExceptionJob.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -414,7 +414,7 @@ def test_execute_recovery_job_preserves_state():
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -445,7 +445,7 @@ def test_execute_recovery_job_workflow_id_used():
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -477,7 +477,7 @@ def test_execute_recovery_job_no_timeout_configured():
 
     # Add a job with no timeout configured
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
@@ -508,7 +508,7 @@ def test_execute_recovery_job_frame_recovery_mode():
 
     # Add a job
     job = RecoveryJobWithOutput(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
     job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))

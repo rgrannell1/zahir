@@ -113,13 +113,13 @@ class SQLiteJobRegistry(JobRegistry):
 
             return cursor.lastrowid == 1
 
-    def add(self, job: Job, output_queue: multiprocessing.Queue) -> str:
+    def add(self, context: Context, job: Job, output_queue: multiprocessing.Queue) -> str:
         """Add the job to the database exactly once"""
 
         log.debug(f"Adding job {job.job_id} to registry")
 
         job_id = job.job_id
-        saved_job = job.save()
+        saved_job = job.save(context)
         serialised = json.dumps(saved_job)
 
         # Jobs need their dependencies verified to have passed before they can run;

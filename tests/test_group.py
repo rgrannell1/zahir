@@ -75,12 +75,20 @@ def test_dependency_group_empty():
 
 def test_dependency_group_save():
     """Test that save serializes all dependencies correctly."""
+    from zahir.base_types import Context
+    from zahir.job_registry import SQLiteJobRegistry
+    from zahir.scope import LocalScope
+
     dep1 = TimeDependency(before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC))
     dep2 = TimeDependency(before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC))
     dep3 = TimeDependency(before=datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC), after=None)
 
     group = DependencyGroup({"dep1": dep1, "dep2": [dep2, dep3]})
-    saved = group.save()
+
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+    saved = group.save(context)
 
     assert saved["type"] == "DependencyGroup"
     assert "dependencies" in saved
@@ -99,11 +107,19 @@ def test_dependency_group_save():
 
 def test_dependency_group_save_load_roundtrip():
     """Test that save/load preserves the dependency group correctly."""
+    from zahir.base_types import Context
+    from zahir.job_registry import SQLiteJobRegistry
+    from zahir.scope import LocalScope
+
     dep1 = TimeDependency(before=None, after=datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC))
     dep2 = TimeDependency(before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC))
 
     group = DependencyGroup({"dep1": dep1, "dep2": dep2})
-    saved = group.save()
+
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+    saved = group.save(context)
 
     # Create mock context with scope
 

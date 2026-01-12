@@ -38,7 +38,7 @@ class Semaphore(Dependency):
 
         return self
 
-    def save(self) -> dict[str, Any]:
+    def save(self, context) -> dict[str, Any]:
         """Save the semaphore to a dictionary."""
 
         return {

@@ -152,5 +152,5 @@ def read_job_events(
 
         if isinstance(item, Job):
             # new subjob, yield as a serialised event upstream
-            job_registry.add(item, output_queue)
+            job_registry.add(state.context, item, output_queue)
             continue

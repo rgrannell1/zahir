@@ -68,7 +68,7 @@ def test_handle_job_exception_sets_recovery_mode():
 
     # Add a job
     job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
     job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
@@ -106,7 +106,7 @@ def test_handle_job_exception_updates_job_state():
 
     # Add a job
     job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
     job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
@@ -141,7 +141,7 @@ def test_handle_job_exception_transitions_to_check_preconditions():
 
     # Add a job
     job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
     job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
@@ -176,7 +176,7 @@ def test_handle_job_exception_replaces_generator():
 
     # Add a job
     job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
     job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
@@ -214,7 +214,7 @@ def test_handle_job_exception_preserves_state():
 
     # Add a job
     job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
     job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
@@ -248,7 +248,7 @@ def test_handle_job_exception_with_custom_exception():
 
     # Add a job
     job = JobWithCustomRecovery(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
     job_generator = JobWithCustomRecovery.run(context, job.input, job.dependencies)
@@ -284,7 +284,7 @@ def test_handle_job_exception_preserves_job_info():
 
     # Add a job
     job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
     job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
@@ -321,7 +321,7 @@ def test_handle_job_exception_workflow_id_used():
 
     # Add a job
     job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
     job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
@@ -356,7 +356,7 @@ def test_handle_job_exception_message_includes_job_type():
 
     # Add a job
     job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
     job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)

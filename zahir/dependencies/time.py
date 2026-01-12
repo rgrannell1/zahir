@@ -94,7 +94,7 @@ class TimeDependency(Dependency):
 
         return type(self)(before=new_before, after=new_after, allow_extensions=self.allow_extensions)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context) -> Mapping[str, Any]:
         return {
             "type": "TimeDependency",
             "before": self.before.isoformat() if self.before else None,

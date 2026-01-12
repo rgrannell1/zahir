@@ -7,7 +7,7 @@ from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.worker.overseer import zahir_worker_overseer
-from zahir.worker.progress import ZahirProgressMonitor
+from zahir.worker.progress import ProgressMonitor, ZahirProgressMonitor
 
 WorkflowOutputType = TypeVar("WorkflowOutputType", bound=Mapping[str, Any])
 
@@ -20,21 +20,26 @@ class LocalWorkflow[WorkflowOutputType]:
 
     context: Context | None
     max_workers: int
+    progress_monitor: ProgressMonitor | None
 
     def __init__(
         self,
         context: Context | None = None,
         max_workers: int = 4,
+        progress_monitor: ProgressMonitor | None = None,
     ) -> None:
         """Initialize a workflow execution engine
 
         @param context: The context containing scope, job registry, and event registry
+        @param max_workers: Number of worker processes to use
+        @param progress_monitor: Optional progress monitor for tracking workflow execution. Defaults to ZahirProgressMonitor if not provided.
         """
 
         if max_workers < 2:
             raise ValueError("max_workers must be at least 2")
 
         self.context = context
+        self.progress_monitor = progress_monitor
 
         if not context:
             # find which module called this one, and construct a scope based on the
@@ -62,7 +67,8 @@ class LocalWorkflow[WorkflowOutputType]:
         - ZahirCustomEvent: any custom events emitted by workflows. Can be used for custom in-band eventing.
         """
 
-        with ZahirProgressMonitor() as progress:
+        progress_monitor = self.progress_monitor or ZahirProgressMonitor()
+        with progress_monitor as progress:
             for event in zahir_worker_overseer(start, self.context, self.max_workers):
                 progress.handle_event(event)
 

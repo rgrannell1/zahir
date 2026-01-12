@@ -68,13 +68,21 @@ def test_time_dependency_no_constraints():
 
 def test_time_dependency_save_load_roundtrip():
     """Test that save/load preserves the dependency correctly."""
+    from zahir.base_types import Context
+    from zahir.job_registry import SQLiteJobRegistry
+    from zahir.scope import LocalScope
+
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
     after_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
 
     dep = TimeDependency(before=before_time, after=after_time)
 
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+
     # Save
-    saved = dep.save()
+    saved = dep.save(context)
 
     # Verify saved structure
     assert saved["type"] == "TimeDependency"
@@ -92,9 +100,17 @@ def test_time_dependency_save_load_roundtrip():
 
 def test_time_dependency_save_load_with_none():
     """Test save/load with None values."""
+    from zahir.base_types import Context
+    from zahir.job_registry import SQLiteJobRegistry
+    from zahir.scope import LocalScope
+
     dep = TimeDependency(before=None, after=None)
 
-    saved = dep.save()
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+
+    saved = dep.save(context)
     assert saved["before"] is None
     assert saved["after"] is None
 
@@ -106,11 +122,19 @@ def test_time_dependency_save_load_with_none():
 
 def test_time_dependency_save_load_partial():
     """Test save/load with only one time constraint."""
+    from zahir.base_types import Context
+    from zahir.job_registry import SQLiteJobRegistry
+    from zahir.scope import LocalScope
+
     after_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
 
     dep = TimeDependency(before=None, after=after_time)
 
-    saved = dep.save()
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+
+    saved = dep.save(context)
     context = Mock()
     loaded = TimeDependency.load(context, saved)
 

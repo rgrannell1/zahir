@@ -41,15 +41,15 @@ class DependencyGroup(Dependency):
             for name, deps in self.dependencies.items()
         })
 
-    def save(self) -> Mapping:
+    def save(self, context) -> Mapping:
         """Save all subdependencies to a dictionary."""
 
         dependencies = {}
         for name, deps in self.dependencies.items():
             if isinstance(deps, list):
-                dependencies[name] = [dep.save() for dep in deps]  # type: ignore[union-attr]
+                dependencies[name] = [dep.save(context) for dep in deps]  # type: ignore[union-attr]
             else:
-                dependencies[name] = [deps.save()]
+                dependencies[name] = [deps.save(context)]
 
         return {"type": "DependencyGroup", "dependencies": dependencies}
 

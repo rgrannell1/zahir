@@ -35,7 +35,7 @@ class MockDependency(Dependency):
     def request_extension(self, extra_seconds: float) -> "MockDependency":
         return self
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {"type": "MockDependency"}
 
     @classmethod
@@ -210,11 +210,15 @@ def test_dependency_abstract_save_method():
 
     from zahir.base_types import Dependency
 
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+
     # Call the abstract method from the base class directly
     dep = MockDependency()
 
     with pytest.raises(NotImplementedError):
-        Dependency.save(dep)
+        Dependency.save(dep, context)
 
 
 def test_dependency_abstract_load_method():
@@ -315,10 +319,14 @@ def test_job_save_with_options():
         def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
             yield JobOutputEvent({"result": "test"})
 
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+
     options = JobOptions(job_timeout=30.0, recover_timeout=60.0)
     job = TestJob(input={"test": "data"}, dependencies={}, options=options, job_id="test-job-123")
 
-    saved = job.save()
+    saved = job.save(context)
 
     assert saved["type"] == "TestJob"
     assert saved["job_id"] == "test-job-123"
@@ -337,9 +345,13 @@ def test_job_save_without_options():
         def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
             yield JobOutputEvent({"result": "test"})
 
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+
     job = TestJob(input={"test": "data"}, dependencies={}, options=None, job_id="test-job-456")
 
-    saved = job.save()
+    saved = job.save(context)
 
     assert saved["type"] == "TestJob"
     assert saved["job_id"] == "test-job-456"

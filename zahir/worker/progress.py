@@ -1,6 +1,8 @@
+from abc import ABC, abstractmethod
 from collections import deque
 from dataclasses import dataclass
 import time
+from typing import Protocol
 
 from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TextColumn
 
@@ -16,6 +18,22 @@ from zahir.events import (
     WorkflowStartedEvent,
     ZahirEvent,
 )
+
+
+class ProgressMonitor(Protocol):
+    """Protocol for progress monitors to support dependency injection."""
+
+    def handle_event(self, event: ZahirEvent) -> None:
+        """Handle workflow events and update progress tracking."""
+        ...
+
+    def __enter__(self) -> "ProgressMonitor":
+        """Context manager entry."""
+        ...
+
+    def __exit__(self, exc_type: type | None, exc_val: Exception | None, exc_tb: object | None) -> bool | None:
+        """Context manager exit."""
+        ...
 
 
 @dataclass

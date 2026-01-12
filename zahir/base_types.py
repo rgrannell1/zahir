@@ -67,9 +67,10 @@ class Dependency(ABC):
         ...
 
     @abstractmethod
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: "Context") -> Mapping[str, Any]:
         """Serialize the dependency to a dictionary.
 
+        @param context: The context containing scope and registries
         @return: The serialized dependency data
         """
         raise NotImplementedError
@@ -228,7 +229,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def add(self, job: "Job", output_queue) -> str:
+    def add(self, context: "Context", job: "Job", output_queue) -> str:
         """
         Register a job with the job registry, returning a job ID.
 
@@ -505,9 +506,10 @@ class Job[ArgsType, OutputType](ABC):
         raise err
         yield
 
-    def save(self) -> SerialisedJob:
+    def save(self, context: "Context") -> SerialisedJob:
         """Serialize the job to a dictionary.
 
+        @param context: The context containing scope and registries
         @return: The serialized job
         """
 
@@ -516,7 +518,7 @@ class Job[ArgsType, OutputType](ABC):
             "job_id": self.job_id,
             "parent_id": self.parent_id,
             "input": cast(Mapping[str, Any], self.input),
-            "dependencies": self.dependencies.save(),
+            "dependencies": self.dependencies.save(context),
             "options": self.job_options.save() if self.job_options else None,
         }
 

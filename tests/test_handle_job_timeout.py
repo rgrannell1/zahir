@@ -50,7 +50,7 @@ def test_handle_job_timeout_returns_enqueue_state_change():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal (non-recovery) frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -83,7 +83,7 @@ def test_handle_job_timeout_sets_timed_out_state():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -115,7 +115,7 @@ def test_handle_job_timeout_records_error():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -149,7 +149,7 @@ def test_handle_job_timeout_clears_frame():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -183,7 +183,7 @@ def test_handle_job_timeout_preserves_state():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -214,7 +214,7 @@ def test_handle_job_timeout_includes_job_type_in_message():
 
     # Add a job
     job = AnotherJob({"count": 0}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
     job_generator = AnotherJob.run(context, job.input, job.dependencies)
@@ -245,7 +245,7 @@ def test_handle_job_timeout_transitions_to_enqueue():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -278,7 +278,7 @@ def test_handle_job_timeout_error_message():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)

@@ -36,7 +36,7 @@ class ConcurrencyLimit(Dependency):
         for _ in range(self.slots):
             self._semaphore.release()
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context) -> Mapping[str, Any]:
         """Save the concurrency limit configuration (not the semaphore state)."""
         return {
             "type": "ConcurrencyLimit",

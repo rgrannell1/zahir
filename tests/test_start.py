@@ -81,7 +81,7 @@ def test_start_no_frame_with_runnable_job_pops():
 
     # Add a job to the registry in READY state
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a frame and push it to the stack
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -118,12 +118,12 @@ def test_start_no_frame_with_paused_job_enqueues():
 
     # Add a job and set it to PAUSED
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
     context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.PAUSED)
 
     # Add another job that the first job is waiting for (not finished yet)
     another_job = AnotherJob({"count": 0}, {})
-    required_job_id = context.job_registry.add(another_job, output_queue)
+    required_job_id = context.job_registry.add(context, another_job, output_queue)
     context.job_registry.set_state(required_job_id, workflow_id, output_queue, JobState.RUNNING)
 
     # Create a frame that requires another job (so it's waiting)
@@ -162,7 +162,7 @@ def test_start_with_active_frame_checks_preconditions():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create and set an active frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -218,7 +218,7 @@ def test_start_job_type_in_message():
 
     # Add a job
     job = AnotherJob({"count": 0}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create and set an active frame
     job_generator = AnotherJob.run(context, job.input, job.dependencies)
@@ -279,7 +279,7 @@ def test_start_with_recovery_frame():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue)
 
     # Create and set an active recovery frame
     job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)

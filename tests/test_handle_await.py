@@ -60,7 +60,7 @@ def test_handle_await_pauses_current_job():
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
-        job_id = context.job_registry.add(job, output_queue)
+        job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
         job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -99,7 +99,7 @@ def test_handle_await_adds_awaited_job_to_registry():
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
-        job_id = context.job_registry.add(job, output_queue)
+        job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
         job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -139,7 +139,7 @@ def test_handle_await_pushes_frame_to_stack():
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
-        job_id = context.job_registry.add(job, output_queue)
+        job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
         job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -181,7 +181,7 @@ def test_handle_await_clears_current_frame():
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
-        job_id = context.job_registry.add(job, output_queue)
+        job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
         job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -222,7 +222,7 @@ def test_handle_await_transitions_to_enqueue():
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
-        job_id = context.job_registry.add(job, output_queue)
+        job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
         job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -262,7 +262,7 @@ def test_handle_await_sets_required_jobs():
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
-        job_id = context.job_registry.add(job, output_queue)
+        job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
         job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -305,7 +305,7 @@ def test_handle_await_multiple_jobs():
 
         # Add a job
         job = MultiAwaitJob({"test": "data"}, {})
-        job_id = context.job_registry.add(job, output_queue)
+        job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
         job_generator = MultiAwaitJob.run(context, job.input, job.dependencies)
@@ -347,7 +347,7 @@ def test_handle_await_multiple_jobs_sets_await_many():
 
         # Add a job
         job = MultiAwaitJob({"test": "data"}, {})
-        job_id = context.job_registry.add(job, output_queue)
+        job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
         job_generator = MultiAwaitJob.run(context, job.input, job.dependencies)
@@ -390,7 +390,7 @@ def test_handle_await_preserves_state():
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
-        job_id = context.job_registry.add(job, output_queue)
+        job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
         job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -428,7 +428,7 @@ def test_handle_await_workflow_id_used():
 
         # Add a job
         job = AwaitingJob({"test": "data"}, {})
-        job_id = context.job_registry.add(job, output_queue)
+        job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
         job_generator = AwaitingJob.run(context, job.input, job.dependencies)

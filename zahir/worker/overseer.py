@@ -143,7 +143,7 @@ def start_zahir_overseer(context: Context, start: Job, worker_count: int = 4):
 
     # Start with initial job if provided
     if start is not None:
-        context.job_registry.add(start, output_queue)
+        context.job_registry.add(context, start, output_queue)
 
     # Start a single dependency-checker process
     processes = []

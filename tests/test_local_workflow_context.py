@@ -28,7 +28,7 @@ class WorkflowTestDependency1(Dependency):
     def request_extension(self, extra_seconds: float):
         return self
 
-    def save(self):
+    def save(self, context):
         return {"type": "WorkflowTestDependency1"}
 
     @classmethod
@@ -45,7 +45,7 @@ class WorkflowTestDependency2(Dependency):
     def request_extension(self, extra_seconds: float):
         return self
 
-    def save(self):
+    def save(self, context):
         return {"type": "WorkflowTestDependency2"}
 
     @classmethod

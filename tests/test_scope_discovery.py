@@ -33,7 +33,7 @@ class SampleDependency1(Dependency):
     def request_extension(self, extra_seconds: float):
         return self
 
-    def save(self):
+    def save(self, context):
         return {"type": "SampleDependency1"}
 
     @classmethod
@@ -50,7 +50,7 @@ class SampleDependency2(Dependency):
     def request_extension(self, extra_seconds: float):
         return self
 
-    def save(self):
+    def save(self, context):
         return {"type": "SampleDependency2"}
 
     @classmethod

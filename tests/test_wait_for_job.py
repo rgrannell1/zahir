@@ -46,7 +46,7 @@ def test_wait_for_job_receives_assignment():
 
     # Create a test job and add to registry
     test_job = SimpleTestJob({}, {}, job_id="test-job-1")
-    job_registry.add(test_job, output_queue)
+    job_registry.add(context, test_job, output_queue)
 
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
@@ -82,7 +82,7 @@ def test_wait_for_job_checks_runnable_stack():
 
     # Create a job and add to registry as PAUSED
     test_job = SimpleTestJob({}, {}, job_id="test-job-2")
-    job_registry.add(test_job, output_queue)
+    job_registry.add(context, test_job, output_queue)
 
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
@@ -123,7 +123,7 @@ def test_wait_for_job_times_out_and_rechecks():
     def delayed_put():
         time.sleep(0.3)
         test_job = SimpleTestJob({}, {}, job_id="delayed-job")
-        job_registry.add(test_job, output_queue)
+        job_registry.add(context, test_job, output_queue)
         input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="delayed-job"))
 
     thread = threading.Thread(target=delayed_put)
@@ -162,7 +162,7 @@ def test_wait_for_job_handles_missing_job():
     input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="nonexistent-job"))
     # Then put a valid one so we don't hang
     test_job = SimpleTestJob({}, {}, job_id="valid-job")
-    job_registry.add(test_job, output_queue)
+    job_registry.add(context, test_job, output_queue)
     input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="valid-job"))
 
     # Should handle missing job and continue
@@ -191,7 +191,7 @@ def test_wait_for_job_preserves_state():
 
     # Create and add job
     test_job = SimpleTestJob({}, {}, job_id="test-job-5")
-    job_registry.add(test_job, output_queue)
+    job_registry.add(context, test_job, output_queue)
 
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 

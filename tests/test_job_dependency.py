@@ -78,6 +78,10 @@ def test_job_dependency_custom_impossible_states():
 
 def test_job_dependency_save():
     """Test that save serializes correctly."""
+    from zahir.base_types import Context
+    from zahir.job_registry import SQLiteJobRegistry
+    from zahir.scope import LocalScope
+
     mock_registry = Mock()
 
     dep = JobDependency(
@@ -87,7 +91,11 @@ def test_job_dependency_save():
         impossible_states={JobState.IRRECOVERABLE},
     )
 
-    saved = dep.save()
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+
+    saved = dep.save(context)
 
     assert saved["type"] == "JobDependency"
     assert saved["job_id"] == "job-456"
@@ -97,6 +105,10 @@ def test_job_dependency_save():
 
 def test_job_dependency_save_load_roundtrip():
     """Test that save/load preserves the dependency correctly."""
+    from zahir.base_types import Context
+    from zahir.job_registry import SQLiteJobRegistry
+    from zahir.scope import LocalScope
+
     mock_registry = Mock()
 
     dep = JobDependency(
@@ -106,7 +118,11 @@ def test_job_dependency_save_load_roundtrip():
         impossible_states={JobState.IRRECOVERABLE, JobState.TIMED_OUT},
     )
 
-    saved = dep.save()
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+
+    saved = dep.save(context)
 
     # Create mock context
     mock_context = Mock()
@@ -122,10 +138,19 @@ def test_job_dependency_save_load_roundtrip():
 
 def test_job_dependency_save_load_with_defaults():
     """Test save/load with default states."""
+    from zahir.base_types import Context
+    from zahir.job_registry import SQLiteJobRegistry
+    from zahir.scope import LocalScope
+
     mock_registry = Mock()
 
     dep = JobDependency("job-default", mock_registry)
-    saved = dep.save()
+
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = Context(scope=scope, job_registry=job_registry)
+
+    saved = dep.save(context)
 
     mock_context = Mock()
     mock_context.job_registry = mock_registry

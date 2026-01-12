@@ -38,10 +38,12 @@ def test_sqlite_job_registry_lifecycle():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("test-worker")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job1")
 
         dummy_queue = multiprocessing.Queue()
-        job_id = registry.add(job, dummy_queue)
+        job_id = registry.add(context, job, dummy_queue)
         assert job_id == "job1"
         assert registry.get_state(job_id) == JobState.READY
         registry.set_state(job_id, "wf-test", dummy_queue, JobState.COMPLETED)
@@ -112,9 +114,11 @@ def test_on_startup():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-1")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-claim-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         registry.set_claim("job-claim-1", "worker-1")
         registry.on_startup()
     finally:
@@ -129,9 +133,11 @@ def test_set_claim():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-2")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-claim-2")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         result = registry.set_claim("job-claim-2", "worker-2")
         assert isinstance(result, bool)
     finally:
@@ -146,9 +152,11 @@ def test_claim_job():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-3")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-claim-3")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
     finally:
         registry.conn.close()
         pathlib.Path(db_path).unlink()
@@ -165,9 +173,11 @@ def test_get_job_timing():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-5")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-timing-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         registry.set_state("job-timing-1", "wf-1", dummy_queue, JobState.RUNNING)
         timing = registry.get_job_timing("job-timing-1")
         assert isinstance(timing, JobTimingInformation)
@@ -183,6 +193,8 @@ def test_get_job_timing_missing_job():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-6")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         try:
             registry.get_job_timing("nonexistent")
             assert False, "Should have raised MissingJobError"
@@ -200,9 +212,11 @@ def test_is_finished():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-7")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-finished-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         assert not registry.is_finished("job-finished-1")
         registry.set_state("job-finished-1", "wf-1", dummy_queue, JobState.COMPLETED)
         assert registry.is_finished("job-finished-1")
@@ -218,11 +232,13 @@ def test_add_duplicate_job():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-8")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-dup")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         try:
-            registry.add(job, dummy_queue)
+            registry.add(context, job, dummy_queue)
             assert False, "Should have raised DuplicateJobError"
         except DuplicateJobError:
             pass
@@ -238,6 +254,8 @@ def test_get_state_missing_job():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-9")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         try:
             registry.get_state("nonexistent")
             assert False, "Should have raised MissingJobError"
@@ -255,9 +273,11 @@ def test_set_state_with_error():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-10")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-error-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         err = ValueError("test error")
         registry.set_state("job-error-1", "wf-1", dummy_queue, JobState.IRRECOVERABLE, error=err)
     finally:
@@ -272,9 +292,11 @@ def test_add_error():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-11")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-error-2")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         err = RuntimeError("test error")
         registry.add_error("job-error-2", err, recovery=False)
     finally:
@@ -289,9 +311,11 @@ def test_get_errors():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-12")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-error-3")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         err = RuntimeError("test error")
         registry.add_error("job-error-3", err, recovery=False)
         errors = registry.get_errors("job-error-3")
@@ -308,9 +332,11 @@ def test_is_active():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-13")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-active-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         assert registry.is_active()
         registry.set_state("job-active-1", "wf-1", dummy_queue, JobState.COMPLETED)
         assert not registry.is_active()
@@ -326,14 +352,14 @@ def test_jobs_with_state_filter():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-14")
+        scope = LocalScope(jobs=[DummyJob])
+        context = Context(scope=scope, job_registry=registry)
         job1 = DummyJob(job_id="job-filter-1")
         job2 = DummyJob(job_id="job-filter-2")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job1, dummy_queue)
-        registry.add(job2, dummy_queue)
+        registry.add(context, job1, dummy_queue)
+        registry.add(context, job2, dummy_queue)
         registry.set_state("job-filter-1", "wf-1", dummy_queue, JobState.COMPLETED)
-        scope = LocalScope(jobs=[DummyJob])
-        context = Context(scope=scope, job_registry=registry)
         completed_jobs = list(registry.jobs(context, state=JobState.COMPLETED))
         assert len(completed_jobs) == 1
     finally:
@@ -348,9 +374,11 @@ def test_get_output_none():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-15")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-output-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         output = registry.get_output("job-output-1")
         assert output is None
     finally:
@@ -365,9 +393,11 @@ def test_set_state_running():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-16")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-running-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         registry.set_state("job-running-1", "wf-1", dummy_queue, JobState.RUNNING)
         timing = registry.get_job_timing("job-running-1")
         assert timing.started_at is not None
@@ -383,9 +413,11 @@ def test_set_state_recovering():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-17")
+        scope = LocalScope()
+        context = Context(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-recovery-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(job, dummy_queue)
+        registry.add(context, job, dummy_queue)
         registry.set_state("job-recovery-1", "wf-1", dummy_queue, JobState.RECOVERING)
         timing = registry.get_job_timing("job-recovery-1")
         assert timing.recovery_started_at is not None

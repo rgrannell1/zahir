@@ -474,17 +474,17 @@ class Await(ZahirEvent):
     job: Job | list[Job]
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context) -> Mapping[str, Any]:
         from zahir.base_types.job import Job
 
         if isinstance(self.job, Job):
             return {
-                "job": self.job.save(),
+                "job": self.job.save(context),
                 "is_list": False,
                 "pid": self.pid,
             }
         return {
-            "job": [j.save() for j in self.job],
+            "job": [j.save(context) for j in self.job],
             "is_list": True,
             "pid": self.pid,
         }

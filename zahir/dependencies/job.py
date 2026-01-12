@@ -54,7 +54,7 @@ class JobDependency[OutputType](Dependency):
     def request_extension(self, extra_seconds: float) -> Self:
         return self
 
-    def save(self) -> dict[str, Any]:
+    def save(self, context) -> dict[str, Any]:
         """Save the job dependency to a dictionary."""
 
         return {
