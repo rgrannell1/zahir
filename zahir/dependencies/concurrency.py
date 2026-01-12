@@ -13,24 +13,12 @@ class ConcurrencyLimit(Dependency):
         self.limit = limit
         self.slots = slots
         self.instance_id = str(uuid.uuid4())
-
-        if semaphore_id is None:
-            semaphore_id = self._generate_semaphore_id()
-
-        self.semaphore_id = semaphore_id
+        self.semaphore_id = semaphore_id or self.instance_id
         self.context = context
         self._semaphore = None
-
-        if context and hasattr(context, "manager"):
-            self._ensure_semaphore()
-
-    def _generate_semaphore_id(self) -> str:
-        return self.instance_id
+        self._ensure_semaphore()
 
     def _ensure_semaphore(self) -> None:
-        if not self.context or not hasattr(self.context, "manager"):
-            return
-
         state_key = f"_concurrency_semaphore_{self.semaphore_id}"
 
         if state_key not in self.context.state:

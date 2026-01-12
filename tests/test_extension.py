@@ -5,11 +5,13 @@ from datetime import UTC, datetime
 from freezegun import freeze_time
 
 from zahir.base_types import DependencyState
+from zahir.context import MemoryContext
 from zahir.dependencies.concurrency import ConcurrencyLimit
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
 from zahir.dependencies.time import ExtensionMode, TimeDependency
 from zahir.job_registry import SQLiteJobRegistry
+from zahir.scope import LocalScope
 
 
 @freeze_time("2025-01-01 12:00:00", tz_offset=0)
@@ -148,7 +150,11 @@ def test_time_dependency_extension_multiple_times():
 
 def test_concurrency_limit_extension_returns_self():
     """Test that ConcurrencyLimit returns itself unchanged for extensions."""
-    limit = ConcurrencyLimit(limit=5, slots=2)
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+    
+    limit = ConcurrencyLimit(limit=5, slots=2, context=context)
 
     extended = limit.request_extension(3600)
 
@@ -175,13 +181,15 @@ def test_dependency_group_extension_propagates():
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
     after_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
 
-    registry = SQLiteJobRegistry(":memory:")
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     group = DependencyGroup({
         "time1": TimeDependency(before=before_time, allow_extensions=ExtensionMode.BEFORE),
         "time2": TimeDependency(after=after_time, allow_extensions=ExtensionMode.AFTER),
-        "job": JobDependency("test-job", registry),
-        "concurrency": ConcurrencyLimit(limit=5, slots=1),
+        "job": JobDependency("test-job", job_registry),
+        "concurrency": ConcurrencyLimit(limit=5, slots=1, context=context),
     })
 
     # Request 1 hour extension
@@ -227,9 +235,13 @@ def test_dependency_group_extension_nested():
     """Test that DependencyGroup propagates extensions to nested groups."""
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
 
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
     inner_group = DependencyGroup({"time": TimeDependency(before=before_time, allow_extensions=ExtensionMode.BEFORE)})
 
-    outer_group = DependencyGroup({"inner": inner_group, "limit": ConcurrencyLimit(limit=3, slots=1)})
+    outer_group = DependencyGroup({"inner": inner_group, "limit": ConcurrencyLimit(limit=3, slots=1, context=context)})
 
     # Request 1 hour extension
     extended = outer_group.request_extension(3600)

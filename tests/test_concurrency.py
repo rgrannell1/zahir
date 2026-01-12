@@ -95,11 +95,11 @@ def test_concurrency_limit_context_manager():
 
 def test_concurrency_limit_save():
     """Test that save() returns correct structure."""
-    limit = ConcurrencyLimit(limit=5, slots=2)
-
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
     context = MemoryContext(scope=scope, job_registry=job_registry)
+    
+    limit = ConcurrencyLimit(limit=5, slots=2, context=context)
 
     saved = limit.save(context)
 
@@ -110,9 +110,13 @@ def test_concurrency_limit_save():
 
 def test_concurrency_limit_load():
     """Test that load() reconstructs the limit correctly."""
-    data = {"type": "ConcurrencyLimit", "limit": 5, "slots": 2}
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+    
+    data = {"type": "ConcurrencyLimit", "limit": 5, "slots": 2, "semaphore_id": "test-id"}
 
-    limit = ConcurrencyLimit.load(None, data)
+    limit = ConcurrencyLimit.load(context, data)
 
     assert limit.limit == 5
     assert limit.slots == 2
