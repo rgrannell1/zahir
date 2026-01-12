@@ -411,6 +411,7 @@ def test_dependency_worker_handles_internal_error():
     assert event.error
     assert len(event.error) > 0
 
+
 def test_dependency_worker_direct_impossible_path():
     """Direct unit test for dependency worker with impossible dependency (no multiprocessing)."""
 

@@ -6,6 +6,7 @@ from unittest.mock import Mock
 from freezegun import freeze_time
 
 from zahir.base_types import DependencyState
+from zahir.context.memory import MemoryContext
 from zahir.dependencies.time import TimeDependency
 
 
@@ -68,7 +69,7 @@ def test_time_dependency_no_constraints():
 
 def test_time_dependency_save_load_roundtrip():
     """Test that save/load preserves the dependency correctly."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -79,7 +80,7 @@ def test_time_dependency_save_load_roundtrip():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     # Save
     saved = dep.save(context)
@@ -100,7 +101,7 @@ def test_time_dependency_save_load_roundtrip():
 
 def test_time_dependency_save_load_with_none():
     """Test save/load with None values."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -108,7 +109,7 @@ def test_time_dependency_save_load_with_none():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     saved = dep.save(context)
     assert saved["before"] is None
@@ -122,7 +123,7 @@ def test_time_dependency_save_load_with_none():
 
 def test_time_dependency_save_load_partial():
     """Test save/load with only one time constraint."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -132,7 +133,7 @@ def test_time_dependency_save_load_partial():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     saved = dep.save(context)
     context = Mock()

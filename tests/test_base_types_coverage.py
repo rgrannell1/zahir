@@ -20,6 +20,7 @@ from zahir.base_types import (
     JobOptions,
     JobState,
 )
+from zahir.context.memory import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import JobOutputEvent, ZahirEvent
 from zahir.job_registry import SQLiteJobRegistry
@@ -35,11 +36,11 @@ class MockDependency(Dependency):
     def request_extension(self, extra_seconds: float) -> "MockDependency":
         return self
 
-    def save(self, context: Context) -> Mapping[str, Any]:
+    def save(self, context: MemoryContext) -> Mapping[str, Any]:
         return {"type": "MockDependency"}
 
     @classmethod
-    def load(cls, context: Context, data: Mapping[str, Any]) -> "MockDependency":
+    def load(cls, context: MemoryContext, data: Mapping[str, Any]) -> "MockDependency":
         return cls()
 
 
@@ -129,7 +130,7 @@ def test_context_dataclass():
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
 
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     assert context.scope == scope
     assert context.job_registry == job_registry
@@ -212,7 +213,7 @@ def test_dependency_abstract_save_method():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     # Call the abstract method from the base class directly
     dep = MockDependency()
@@ -229,7 +230,7 @@ def test_dependency_abstract_load_method():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     # Call the abstract method from the base class directly
     with pytest.raises(NotImplementedError):
@@ -270,7 +271,7 @@ def test_job_abstract_run_method():
     # The default run implementation returns iter([])
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     result = list(MinimalJob.run(context, {}, DependencyGroup({})))
     assert result == []
@@ -289,7 +290,7 @@ def test_job_recover_raises_error():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     test_error = ValueError("test error")
 
@@ -321,7 +322,7 @@ def test_job_save_with_options():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     options = JobOptions(job_timeout=30.0, recover_timeout=60.0)
     job = TestJob(input={"test": "data"}, dependencies={}, options=options, job_id="test-job-123")
@@ -347,7 +348,7 @@ def test_job_save_without_options():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     job = TestJob(input={"test": "data"}, dependencies={}, options=None, job_id="test-job-456")
 
@@ -369,7 +370,7 @@ def test_job_load_with_options():
     scope = LocalScope()
     scope.add_job_class(TestJob)
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     data: Any = {
         "type": "TestJob",
@@ -401,7 +402,7 @@ def test_job_load_without_options():
     scope = LocalScope()
     scope.add_job_class(TestJob)
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     data: Any = {
         "type": "TestJob",

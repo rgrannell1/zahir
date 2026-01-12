@@ -491,7 +491,6 @@ class Await(ZahirEvent):
 
     @classmethod
     def load(cls, data: Mapping[str, Any]) -> Await:
-
         # This requires context to deserialize jobs, which we don't have here
         # This is a design issue - load methods need context
         raise NotImplementedError("Await.load requires context to deserialize Job objects")
@@ -527,9 +526,7 @@ class JobReadyEvent(ZahirEvent):
 
     @classmethod
     def load(cls, data: Mapping[str, Any]) -> JobReadyEvent:
-        return cls(
-            pid=data.get("pid", 0)
-        )
+        return cls(pid=data.get("pid", 0))
 
 
 @dataclass

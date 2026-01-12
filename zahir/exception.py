@@ -63,23 +63,19 @@ def exception_to_text_blob(exc: Exception) -> str:
     tb_string = "".join(tb_lines)
 
     payload: dict[str, Any] = {
-        "exception": base64.b64encode(
-            pickle.dumps(exc, protocol=pickle.HIGHEST_PROTOCOL)
-        ).decode("ascii"),
+        "exception": base64.b64encode(pickle.dumps(exc, protocol=pickle.HIGHEST_PROTOCOL)).decode("ascii"),
         "traceback": tb_string,
     }
 
-    return base64.b64encode(
-        json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf8")
-    ).decode("ascii")
+    return base64.b64encode(json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf8")).decode(
+        "ascii"
+    )
 
 
 def exception_from_text_blob(blob: str) -> Exception:
     """Deserialize an exception + traceback from a text blob."""
 
-    payload = json.loads(
-        base64.b64decode(blob.encode("ascii")).decode("utf8")
-    )
+    payload = json.loads(base64.b64decode(blob.encode("ascii")).decode("utf8"))
 
     exc = pickle.loads(base64.b64decode(payload["exception"].encode("ascii")))
 

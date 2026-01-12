@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
 import multiprocessing
+from multiprocessing.managers import DictProxy, SyncManager
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -636,3 +637,5 @@ class Context:
     scope: Scope
     # Keep track of jobs
     job_registry: JobRegistry
+    manager: SyncManager
+    state: DictProxy[str, Any]

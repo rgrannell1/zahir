@@ -75,7 +75,7 @@ def test_dependency_group_empty():
 
 def test_dependency_group_save():
     """Test that save serializes all dependencies correctly."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -87,7 +87,7 @@ def test_dependency_group_save():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
     saved = group.save(context)
 
     assert saved["type"] == "DependencyGroup"
@@ -107,7 +107,7 @@ def test_dependency_group_save():
 
 def test_dependency_group_save_load_roundtrip():
     """Test that save/load preserves the dependency group correctly."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -118,7 +118,7 @@ def test_dependency_group_save_load_roundtrip():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
     saved = group.save(context)
 
     # Create mock context with scope

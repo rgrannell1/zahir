@@ -14,6 +14,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from zahir.base_types import Context, Job
+from zahir.context.memory import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import (
     JobOutputEvent,
@@ -86,7 +87,7 @@ def test_overseer_internal_error_without_error_message():
     scope = LocalScope()
     scope.add_job_class(SimpleOutputJob)
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     # Create a job
     job = SimpleOutputJob(input={}, dependencies={})
@@ -119,7 +120,7 @@ def test_overseer_internal_error_with_error_message():
     scope = LocalScope()
     scope.add_job_class(SimpleOutputJob)
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     job = SimpleOutputJob(input={}, dependencies={})
 
@@ -152,7 +153,7 @@ def test_overseer_keyboard_interrupt():
     scope = LocalScope()
     scope.add_job_class(SimpleOutputJob)
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     job = SimpleOutputJob(input={}, dependencies={})
 
@@ -183,7 +184,7 @@ def test_overseer_all_events_flag():
     scope = LocalScope()
     scope.add_job_class(SimpleOutputJob)
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     job = SimpleOutputJob(input={}, dependencies={})
 
@@ -216,7 +217,7 @@ def test_overseer_yields_workflow_output_events():
     scope = LocalScope()
     scope.add_job_class(SimpleOutputJob)
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     job = SimpleOutputJob(input={}, dependencies={})
 

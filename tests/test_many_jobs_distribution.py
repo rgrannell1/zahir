@@ -28,9 +28,7 @@ def CPUBoundJob(context: Context, input, dependencies):
 def SpawnManyJobs(context: Context, input, dependencies):
     """Spawns 50 CPU-bound jobs."""
 
-    jobs = [
-        CPUBoundJob({"idx": i}, {}) for i in range(50)
-    ]
+    jobs = [CPUBoundJob({"idx": i}, {}) for i in range(50)]
 
     results = yield Await(jobs)
     yield JobOutputEvent({"count": len(results)})
@@ -54,6 +52,7 @@ def test_many_jobs_distribute_across_workers():
 
     # Debug: print events to see what's happening
     from zahir.events import JobIrrecoverableEvent
+
     for event in events:
         if isinstance(event, JobIrrecoverableEvent):
             print(f"Job failed: {event}")

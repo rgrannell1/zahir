@@ -113,7 +113,7 @@ def test_semaphore_request_extension():
 
 def test_semaphore_save_satisfied():
     """Test that save serializes a SATISFIED semaphore correctly."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -121,7 +121,7 @@ def test_semaphore_save_satisfied():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
     saved = sem.save(context)
 
     assert saved["type"] == "Semaphore"
@@ -130,7 +130,7 @@ def test_semaphore_save_satisfied():
 
 def test_semaphore_save_unsatisfied():
     """Test that save serializes an UNSATISFIED semaphore correctly."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -138,7 +138,7 @@ def test_semaphore_save_unsatisfied():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
     saved = sem.save(context)
 
     assert saved["type"] == "Semaphore"
@@ -147,7 +147,7 @@ def test_semaphore_save_unsatisfied():
 
 def test_semaphore_save_impossible():
     """Test that save serializes an IMPOSSIBLE semaphore correctly."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -155,7 +155,7 @@ def test_semaphore_save_impossible():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
     saved = sem.save(context)
 
     assert saved["type"] == "Semaphore"
@@ -191,7 +191,7 @@ def test_semaphore_load_impossible():
 
 def test_semaphore_save_load_roundtrip():
     """Test that save/load preserves the semaphore state correctly."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -205,7 +205,7 @@ def test_semaphore_save_load_roundtrip():
 
         scope = LocalScope()
         job_registry = SQLiteJobRegistry(":memory:")
-        context = Context(scope=scope, job_registry=job_registry)
+        context = MemoryContext(scope=scope, job_registry=job_registry)
         saved = original.save(context)
         loaded = Semaphore.load(None, saved)  # type: ignore[arg-type]
 
@@ -214,13 +214,13 @@ def test_semaphore_save_load_roundtrip():
 
 def test_semaphore_save_after_state_change():
     """Test that save captures the current state after transitions."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     sem = Semaphore(initial_state=DependencyState.SATISFIED)
     sem.close()

@@ -18,10 +18,7 @@ from zahir.worker import LocalWorkflow
 def CPUBoundJob(context: Context, input, dependencies):
     """A CPU-bound job that tracks which process it runs on."""
 
-    yield JobOutputEvent({
-        "pid": os.getpid(),
-        "job_idx": input["job_idx"]
-    })
+    yield JobOutputEvent({"pid": os.getpid(), "job_idx": input["job_idx"]})
 
 
 def test_jobs_run_on_multiple_processes():
@@ -60,8 +57,11 @@ def test_jobs_run_on_multiple_processes():
     num_processes = len(set(pids))
 
     # With 4 jobs and 3 job workers, jobs should be distributed across multiple processes
-    assert num_processes > 1, f"Expected jobs to run on multiple processes (3 workers available), but only used {num_processes} process(es): {pids}"
+    assert num_processes > 1, (
+        f"Expected jobs to run on multiple processes (3 workers available), but only used {num_processes} process(es): {pids}"
+    )
     assert all(pid > 0 for pid in pids), f"All PIDs should be positive: {pids}"
+
 
 def test_max_workers_limits_parallelism():
     """Test that max_workers setting actually limits concurrent execution."""

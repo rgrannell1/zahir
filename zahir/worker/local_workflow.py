@@ -3,6 +3,7 @@ import inspect
 from typing import Any, TypeVar
 
 from zahir.base_types import Context, Job
+from zahir.context.memory import MemoryContext
 from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.scope import LocalScope
@@ -50,7 +51,7 @@ class LocalWorkflow[WorkflowOutputType]:
             # Make an in-memory job-registry
             scope = LocalScope.from_module(caller_module)
             job_registry = SQLiteJobRegistry(":memory:")
-            new_context = Context(scope=scope, job_registry=job_registry)
+            new_context = MemoryContext(scope=scope, job_registry=job_registry)
 
             self.context = new_context
 

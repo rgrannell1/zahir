@@ -4,6 +4,7 @@ import pathlib
 import tempfile
 
 from zahir.base_types import Context, EventRegistry, Job, JobState, JobTimingInformation
+from zahir.context.memory import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import WorkflowOutputEvent
 from zahir.exception import DuplicateJobError, MissingJobError
@@ -39,7 +40,7 @@ def test_sqlite_job_registry_lifecycle():
         registry = SQLiteJobRegistry(db_path)
         registry.init("test-worker")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job1")
 
         dummy_queue = multiprocessing.Queue()
@@ -55,7 +56,7 @@ def test_sqlite_job_registry_lifecycle():
 
         # Use a real Context with dummy event registry and logger
         scope = LocalScope(jobs=[DummyJob])
-        dummy_context = Context(scope=scope, job_registry=registry)
+        dummy_context = MemoryContext(scope=scope, job_registry=registry)
         info = list(registry.jobs(dummy_context))
         assert any(j.job_id == job_id for j in info)
     finally:
@@ -115,7 +116,7 @@ def test_on_startup():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-1")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-claim-1")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -134,7 +135,7 @@ def test_set_claim():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-2")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-claim-2")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -153,7 +154,7 @@ def test_claim_job():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-3")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-claim-3")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -174,7 +175,7 @@ def test_get_job_timing():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-5")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-timing-1")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -194,7 +195,7 @@ def test_get_job_timing_missing_job():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-6")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         try:
             registry.get_job_timing("nonexistent")
             assert False, "Should have raised MissingJobError"
@@ -213,7 +214,7 @@ def test_is_finished():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-7")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-finished-1")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -233,7 +234,7 @@ def test_add_duplicate_job():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-8")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-dup")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -255,7 +256,7 @@ def test_get_state_missing_job():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-9")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         try:
             registry.get_state("nonexistent")
             assert False, "Should have raised MissingJobError"
@@ -274,7 +275,7 @@ def test_set_state_with_error():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-10")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-error-1")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -293,7 +294,7 @@ def test_add_error():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-11")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-error-2")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -312,7 +313,7 @@ def test_get_errors():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-12")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-error-3")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -333,7 +334,7 @@ def test_is_active():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-13")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-active-1")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -353,7 +354,7 @@ def test_jobs_with_state_filter():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-14")
         scope = LocalScope(jobs=[DummyJob])
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job1 = DummyJob(job_id="job-filter-1")
         job2 = DummyJob(job_id="job-filter-2")
         dummy_queue = multiprocessing.Queue()
@@ -375,7 +376,7 @@ def test_get_output_none():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-15")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-output-1")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -394,7 +395,7 @@ def test_set_state_running():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-16")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-running-1")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
@@ -414,7 +415,7 @@ def test_set_state_recovering():
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-17")
         scope = LocalScope()
-        context = Context(scope=scope, job_registry=registry)
+        context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-recovery-1")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)

@@ -78,7 +78,7 @@ def test_job_dependency_custom_impossible_states():
 
 def test_job_dependency_save():
     """Test that save serializes correctly."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -93,7 +93,7 @@ def test_job_dependency_save():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     saved = dep.save(context)
 
@@ -105,7 +105,7 @@ def test_job_dependency_save():
 
 def test_job_dependency_save_load_roundtrip():
     """Test that save/load preserves the dependency correctly."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -120,7 +120,7 @@ def test_job_dependency_save_load_roundtrip():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     saved = dep.save(context)
 
@@ -138,7 +138,7 @@ def test_job_dependency_save_load_roundtrip():
 
 def test_job_dependency_save_load_with_defaults():
     """Test save/load with default states."""
-    from zahir.base_types import Context
+    from zahir.context.memory import MemoryContext
     from zahir.job_registry import SQLiteJobRegistry
     from zahir.scope import LocalScope
 
@@ -148,7 +148,7 @@ def test_job_dependency_save_load_with_defaults():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     saved = dep.save(context)
 

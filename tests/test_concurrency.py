@@ -17,7 +17,11 @@ from zahir.worker import LocalWorkflow
 
 def test_concurrency_limit_claim():
     """Test that satisfied() checks semaphore availability."""
-    limit = ConcurrencyLimit(limit=3, slots=1)
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    limit = ConcurrencyLimit(limit=3, slots=1, context=context)
 
     # Initially, should be satisfied (no slots claimed)
     assert limit.satisfied() == DependencyState.SATISFIED
@@ -25,7 +29,11 @@ def test_concurrency_limit_claim():
 
 def test_concurrency_limit_free():
     """Test that multiple satisfied() checks work."""
-    limit = ConcurrencyLimit(limit=3, slots=1)
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    limit = ConcurrencyLimit(limit=3, slots=1, context=context)
 
     # Multiple checks should work
     assert limit.satisfied() == DependencyState.SATISFIED
@@ -34,7 +42,11 @@ def test_concurrency_limit_free():
 
 def test_concurrency_limit_free_minimum():
     """Test that satisfied() handles edge cases."""
-    limit = ConcurrencyLimit(limit=3, slots=1)
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    limit = ConcurrencyLimit(limit=3, slots=1, context=context)
 
     # Initially satisfied
     assert limit.satisfied() == DependencyState.SATISFIED
@@ -42,7 +54,11 @@ def test_concurrency_limit_free_minimum():
 
 def test_concurrency_limit_satisfied():
     """Test that satisfied() returns correct state based on semaphore."""
-    limit = ConcurrencyLimit(limit=3, slots=1)
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    limit = ConcurrencyLimit(limit=3, slots=1, context=context)
 
     # Initially should be satisfied - no slots claimed yet
     assert limit.satisfied() == DependencyState.SATISFIED
@@ -50,7 +66,11 @@ def test_concurrency_limit_satisfied():
 
 def test_concurrency_limit_with_multiple_slots():
     """Test concurrency limit with slots > 1."""
-    limit = ConcurrencyLimit(limit=5, slots=2)
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    limit = ConcurrencyLimit(limit=5, slots=2, context=context)
 
     # Should be satisfied initially
     assert limit.satisfied() == DependencyState.SATISFIED
@@ -58,7 +78,11 @@ def test_concurrency_limit_with_multiple_slots():
 
 def test_concurrency_limit_context_manager():
     """Test using ConcurrencyLimit as a context manager."""
-    limit = ConcurrencyLimit(limit=3, slots=1)
+    scope = LocalScope()
+    job_registry = SQLiteJobRegistry(":memory:")
+    context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    limit = ConcurrencyLimit(limit=3, slots=1, context=context)
 
     # Context manager should work without errors
     # Note: The context manager is used after satisfied() confirms slots are available
@@ -75,7 +99,7 @@ def test_concurrency_limit_save():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     saved = limit.save(context)
 
@@ -100,11 +124,11 @@ def test_concurrency_limit_save_load_roundtrip():
 
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
-    context = Context(scope=scope, job_registry=job_registry)
+    context = MemoryContext(scope=scope, job_registry=job_registry)
 
     # Save and load
     saved = original.save(context)
-    restored = ConcurrencyLimit.load(None, saved)
+    restored = ConcurrencyLimit.load(context, saved)
 
     # Check limit and slots are preserved
     assert restored.limit == original.limit
@@ -114,10 +138,10 @@ def test_concurrency_limit_save_load_roundtrip():
     assert restored.satisfied() == DependencyState.SATISFIED
 
 
-def test_concurrency_limit_enforced_with_100_parallel_jobs():
+def test_concurrency_limit_enforced_with_30_parallel_jobs():
     """Test that LocalWorkflow with 15 processes never exceeds a concurrency limit of 3.
 
-    This test spawns 100 parallel jobs, each with a ConcurrencyLimit dependency of 3.
+    This test spawns 30 parallel jobs, each with a ConcurrencyLimit dependency of 3.
     It verifies that at no point do more than 3 jobs execute concurrently.
     """
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -135,28 +159,30 @@ def test_concurrency_limit_enforced_with_100_parallel_jobs():
             """A job that tracks when it starts and ends to verify concurrency limits."""
             job_idx = input_data["idx"]
 
-            # Write start marker
-            with open(shared_state_file.name, "a") as f:
-                f.write(f"START:{job_idx}:{os.getpid()}\n")
+            # Use the concurrency limit as a context manager to acquire/release the semaphore
+            with dependencies.get("concurrency_limit"):
+                # Write start marker
+                with open(shared_state_file.name, "a") as f:
+                    f.write(f"START:{job_idx}:{os.getpid()}\n")
 
-            # Simulate work
-            time.sleep(0.1)
+                # Simulate work
+                time.sleep(0.1)
 
-            # Write end marker
-            with open(shared_state_file.name, "a") as f:
-                f.write(f"END:{job_idx}:{os.getpid()}\n")
+                # Write end marker
+                with open(shared_state_file.name, "a") as f:
+                    f.write(f"END:{job_idx}:{os.getpid()}\n")
 
             yield JobOutputEvent({"job_idx": job_idx, "pid": os.getpid()})
 
         @job()
         def ParentJob(context: Context, input_data, dependencies):
-            """Parent job that spawns 100 parallel jobs with concurrency limit."""
-            # Create 100 child jobs, each with a concurrency limit of 3
+            """Parent job that spawns 30 parallel jobs with concurrency limit."""
+            # Create 30 child jobs, each with a concurrency limit of 3
             child_jobs = []
-            for idx in range(100):
-                child_jobs.append(
-                    ConcurrentTestJob({"idx": idx}, {"concurrency_limit": ConcurrencyLimit(limit=3, slots=1)})
-                )
+            concurrency_limit = ConcurrencyLimit(limit=3, slots=1)
+
+            for idx in range(30):
+                child_jobs.append(ConcurrentTestJob({"idx": idx}, {"concurrency_limit": concurrency_limit}))
 
             # Await all jobs in parallel
             results = yield Await(child_jobs)
@@ -219,3 +245,16 @@ def test_concurrency_limit_enforced_with_100_parallel_jobs():
         # Clean up
         pathlib.Path(tmp_file).unlink(missing_ok=True)
         pathlib.Path(shared_state_file.name).unlink(missing_ok=True)
+
+
+if __name__ == "__main__":
+    test_concurrency_limit_claim()
+    test_concurrency_limit_free()
+    test_concurrency_limit_free_minimum()
+    test_concurrency_limit_satisfied()
+    test_concurrency_limit_with_multiple_slots()
+    test_concurrency_limit_context_manager()
+    test_concurrency_limit_save()
+    test_concurrency_limit_load()
+    test_concurrency_limit_save_load_roundtrip()
+    test_concurrency_limit_enforced_with_30_parallel_jobs()

@@ -1,6 +1,7 @@
 from collections.abc import Mapping
-from multiprocessing import BoundedSemaphore
+import hashlib
 from typing import Any, Self
+import uuid
 
 from zahir.base_types import Dependency, DependencyState
 
@@ -8,15 +9,48 @@ from zahir.base_types import Dependency, DependencyState
 class ConcurrencyLimit(Dependency):
     """Limit the number of jobs running concurrently."""
 
-    def __init__(self, limit: int, slots: int) -> None:
+    def __init__(self, limit: int, slots: int, semaphore_id: str | None = None, context: Any = None) -> None:
         self.limit = limit
         self.slots = slots
-        self._semaphore = BoundedSemaphore(self.limit)
+        self.instance_id = str(uuid.uuid4())
+
+        if semaphore_id is None:
+            semaphore_id = self._generate_semaphore_id()
+
+        self.semaphore_id = semaphore_id
+        self.context = context
+        self._semaphore = None
+
+        if context and hasattr(context, "manager"):
+            self._ensure_semaphore()
+
+    def _generate_semaphore_id(self) -> str:
+        return self.instance_id
+
+    def _ensure_semaphore(self) -> None:
+        if not self.context or not hasattr(self.context, "manager"):
+            return
+
+        state_key = f"_concurrency_semaphore_{self.semaphore_id}"
+
+        if state_key not in self.context.state:
+            self.context.state[state_key] = self.context.manager.BoundedSemaphore(self.limit)
+
+        self._semaphore = self.context.state[state_key]
 
     def satisfied(self) -> DependencyState:
+        """Check if concurrency limit is satisfied. Non-blocking acquire."""
+        self._ensure_semaphore()
+
+        # Fallback if no context available
+        if not self._semaphore:
+            return DependencyState.IMPOSSIBLE
+
         acquired = 0
         for _ in range(self.slots):
-            if not self._semaphore.acquire(block=False):
+            # Try to acquire without blocking
+            if not self._semaphore.acquire(blocking=False):
+                # acquire failed; release what we've acquired so far
                 for _ in range(acquired):
                     self._semaphore.release()
                 return DependencyState.UNSATISFIED
@@ -33,18 +67,27 @@ class ConcurrencyLimit(Dependency):
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """On exit, release the slots."""
-        for _ in range(self.slots):
-            self._semaphore.release()
+        if self._semaphore:
+            for _ in range(self.slots):
+                self._semaphore.release()
 
     def save(self, context) -> Mapping[str, Any]:
-        """Save the concurrency limit configuration (not the semaphore state)."""
+        """Save the concurrency limit configuration and semaphore to context."""
+        self.context = context
+        self._ensure_semaphore()
+
         return {
             "type": "ConcurrencyLimit",
             "limit": self.limit,
             "slots": self.slots,
+            "semaphore_id": self.semaphore_id,
         }
 
     @classmethod
     def load(cls, context, data: Mapping[str, Any]) -> Self:
-        """Load the concurrency limit configuration and recreate the semaphore."""
-        return cls(limit=data["limit"], slots=data["slots"])
+        """Load the concurrency limit configuration and retrieve semaphore from context."""
+        semaphore_id = data.get("semaphore_id")
+        instance = cls(limit=data["limit"], slots=data["slots"], semaphore_id=semaphore_id, context=context)
+        instance._ensure_semaphore()
+
+        return instance
