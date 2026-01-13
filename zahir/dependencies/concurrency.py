@@ -3,22 +3,32 @@ import hashlib
 from typing import Any, Self
 import uuid
 
-from zahir.base_types import Dependency, DependencyState
+from zahir.base_types import Context, Dependency, DependencyState
 
 
 class ConcurrencyLimit(Dependency):
-    """Limit the number of jobs running concurrently."""
+    """Limit the number of jobs running concurrently. Coordinated via a BoundedSemaphore
+    stored in the context's state. Jobs consuming concurrency limit MUST
+    use ConcurrencyLimit as a context manager to ensure proper release of slots.
 
-    def __init__(self, limit: int, slots: int, semaphore_id: str | None = None, context: Any = None) -> None:
+    TODO allow dependencies to enter / exit on job start.
+    """
+
+    def __init__(self, limit: int, slots: int, context: Context, semaphore_id: str | None = None) -> None:
         self.limit = limit
         self.slots = slots
+        self.context = context
+
+        # Each instance of the concurrency limit gets a unique ID,
+        # possibly as a parameter. This ID is used to store/retrieve
+        # an central BoundedSemaphore in the context's `state``.
         self.instance_id = str(uuid.uuid4())
         self.semaphore_id = semaphore_id or self.instance_id
-        self.context = context
         self._semaphore = None
         self._ensure_semaphore()
 
     def _ensure_semaphore(self) -> None:
+        # For the moment, set the semaphore in the context's state using a key
         state_key = f"_concurrency_semaphore_{self.semaphore_id}"
 
         if state_key not in self.context.state:
@@ -28,11 +38,12 @@ class ConcurrencyLimit(Dependency):
 
     def satisfied(self) -> DependencyState:
         """Check if concurrency limit is satisfied. Non-blocking acquire."""
+
         self._ensure_semaphore()
 
-        # Fallback if no context available
         if not self._semaphore:
-            return DependencyState.IMPOSSIBLE
+            # Should also be impossible to reach this code-path
+            raise NotImplementedError("Semaphore not initialized in context.")
 
         acquired = 0
         for _ in range(self.slots):

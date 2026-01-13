@@ -153,7 +153,7 @@ def test_concurrency_limit_extension_returns_self():
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
     context = MemoryContext(scope=scope, job_registry=job_registry)
-    
+
     limit = ConcurrencyLimit(limit=5, slots=2, context=context)
 
     extended = limit.request_extension(3600)

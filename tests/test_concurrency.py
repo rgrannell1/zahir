@@ -98,7 +98,7 @@ def test_concurrency_limit_save():
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
     context = MemoryContext(scope=scope, job_registry=job_registry)
-    
+
     limit = ConcurrencyLimit(limit=5, slots=2, context=context)
 
     saved = limit.save(context)
@@ -113,7 +113,7 @@ def test_concurrency_limit_load():
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
     context = MemoryContext(scope=scope, job_registry=job_registry)
-    
+
     data = {"type": "ConcurrencyLimit", "limit": 5, "slots": 2, "semaphore_id": "test-id"}
 
     limit = ConcurrencyLimit.load(context, data)
@@ -124,11 +124,11 @@ def test_concurrency_limit_load():
 
 def test_concurrency_limit_save_load_roundtrip():
     """Test that save/load preserves limit configuration."""
-    original = ConcurrencyLimit(limit=10, slots=3)
-
     scope = LocalScope()
     job_registry = SQLiteJobRegistry(":memory:")
     context = MemoryContext(scope=scope, job_registry=job_registry)
+
+    original = ConcurrencyLimit(limit=10, slots=3, context=context)
 
     # Save and load
     saved = original.save(context)
@@ -183,7 +183,7 @@ def test_concurrency_limit_enforced_with_30_parallel_jobs():
             """Parent job that spawns 30 parallel jobs with concurrency limit."""
             # Create 30 child jobs, each with a concurrency limit of 3
             child_jobs = []
-            concurrency_limit = ConcurrencyLimit(limit=3, slots=1)
+            concurrency_limit = ConcurrencyLimit(limit=3, slots=1, context=context)
 
             for idx in range(30):
                 child_jobs.append(ConcurrentTestJob({"idx": idx}, {"concurrency_limit": concurrency_limit}))
