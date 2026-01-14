@@ -641,3 +641,69 @@ class Context:
     manager: SyncManager
     # Shared state dictionary. Used for storing semaphores (concurrencylimit)
     state: DictProxy[str, Any]
+
+
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++ Job II +++++++++++++++++++++++++++++++++++
+# The original job implementation is a mess. This is better.
+# ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+from collections.abc import Callable
+
+type JobEventSet[OutputType] = (
+    # Jobs can output jobs
+    Job
+    |
+    # ... and output
+    JobOutputEvent[OutputType]
+    |
+    # ... and workflow output (streamed)
+    WorkflowOutputEvent
+    |
+    # ... and something custom
+    ZahirCustomEvent
+    |
+    # ... or await other jobs
+    Await
+)
+
+type Precheck[ArgsType] = Callable[[ArgsType], Exception | None]
+
+type Run[ArgsType, JobOutputType] = Callable[
+    [Context, ArgsType, DependencyGroup],
+    Generator[JobEventSet[JobOutputType]],
+]
+
+type Recover[ArgsType, JobOutputType] = Callable[
+    [Context, ArgsType, DependencyGroup, Exception],
+    Generator[JobEventSet[JobOutputType]],
+]
+
+
+def default_recover[ArgsType](
+    context: Context,
+    input: ArgsType,
+    dependencies: DependencyGroup,
+    err: Exception,  # type: ignore
+) -> Generator[JobEventSet]:
+    """Default recovery function that simply re-raises the original exception."""
+
+    raise err
+    yield
+
+
+def default_precheck[ArgsType](input: ArgsType) -> Exception | None:  # type: ignore
+    """Default precheck function that always passes."""
+
+    return None
+
+
+@dataclass
+class JobSpec[ArgsType, OutputType]:
+    """The specification for a job; how it runs, precovers, and prechecks. Jobspecs
+    are later instantiated into actual jobs."""
+
+    type: str
+    run: Run[ArgsType, OutputType]
+    recover: Recover[ArgsType, OutputType] | None = default_recover
+    precheck: Precheck[ArgsType] | None = default_precheck
