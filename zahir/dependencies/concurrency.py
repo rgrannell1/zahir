@@ -11,7 +11,8 @@ class ConcurrencyLimit(Dependency):
     stored in the context's state. Jobs consuming concurrency limit MUST
     use ConcurrencyLimit as a context manager to ensure proper release of slots.
 
-    TODO allow dependencies to enter / exit on job start.
+    TODO allow dependencies to enter / exit on job start. Probably a good
+    idea.
     """
 
     def __init__(self, limit: int, slots: int, context: Context, semaphore_id: str | None = None) -> None:

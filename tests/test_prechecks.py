@@ -13,6 +13,7 @@ from zahir.events import (
     WorkflowStartedEvent,
     ZahirCustomEvent,
 )
+from zahir.exception import JobPrecheckError
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import job
 from zahir.scope import LocalScope
@@ -24,7 +25,7 @@ class PrecheckFailsJob(Job):
 
     @staticmethod
     def precheck(input):
-        return ["oh I don't like that."]
+        return JobPrecheckError("oh I don't like that.")
 
     @classmethod
     def run(cls, context: Context, input, dependencies):

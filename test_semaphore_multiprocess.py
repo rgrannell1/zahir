@@ -9,12 +9,7 @@ from zahir.base_types import DependencyState
 from zahir.dependencies.semaphore import Semaphore
 
 
-def process_worker(
-    process_id: int,
-    semaphore_id: str,
-    shared_state: dict[str, Any],
-    results: dict[str, Any]
-) -> None:
+def process_worker(process_id: int, semaphore_id: str, shared_state: dict[str, Any], results: dict[str, Any]) -> None:
     """Worker function that checks semaphore state."""
 
     # Recreate the shared context in this process
@@ -82,10 +77,7 @@ def test_semaphore_multiprocess_with_context():
     # Create and start 5 processes
     processes = []
     for idx in range(5):
-        process = multiprocessing.Process(
-            target=process_worker,
-            args=(idx, semaphore_id, shared_state, results)
-        )
+        process = multiprocessing.Process(target=process_worker, args=(idx, semaphore_id, shared_state, results))
         processes.append(process)
         process.start()
 
@@ -111,10 +103,10 @@ def test_semaphore_multiprocess_with_context():
     process_2_action = results.get("process_2_action")
 
     success = (
-        process_0_action == "closed" and
-        process_1_action == "aborted" and
-        process_2_action == "opened" and
-        final_shared_state == "satisfied"
+        process_0_action == "closed"
+        and process_1_action == "aborted"
+        and process_2_action == "opened"
+        and final_shared_state == "satisfied"
     )
 
     if success:

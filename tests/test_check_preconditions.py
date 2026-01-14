@@ -31,7 +31,7 @@ class ValidInputJob(Job):
 
     @staticmethod
     def precheck(input):
-        return []
+        return None
 
     @classmethod
     def run(cls, context: Context, input, dependencies):
@@ -43,7 +43,7 @@ class InvalidInputJob(Job):
 
     @staticmethod
     def precheck(input):
-        return ["input is invalid"]
+        return JobPrecheckError("input is invalid")
 
     @classmethod
     def run(cls, context: Context, input, dependencies):
@@ -55,7 +55,12 @@ class MultipleErrorsJob(Job):
 
     @staticmethod
     def precheck(input):
-        return ["error one", "error two", "error three"]
+        errs = [
+            JobPrecheckError("error one"),
+            JobPrecheckError("error two"),
+            JobPrecheckError("error three"),
+        ]
+        return ExceptionGroup("Precheck validation failed", errs)
 
     @classmethod
     def run(cls, context: Context, input, dependencies):
@@ -197,10 +202,15 @@ def test_check_preconditions_fail_multiple_errors():
 
     # Verify all errors are included
     errors = context.job_registry.get_errors(job.job_id)
-    error_message = str(errors[0])
-    assert "error one" in error_message
-    assert "error two" in error_message
-    assert "error three" in error_message
+    assert len(errors) == 1
+    err = errors[0]
+    # The error should be an ExceptionGroup with all three errors
+    assert isinstance(err, ExceptionGroup)
+    # Check the nested exceptions directly
+    assert len(err.exceptions) == 3
+    assert any("error one" in str(exc) for exc in err.exceptions)
+    assert any("error two" in str(exc) for exc in err.exceptions)
+    assert any("error three" in str(exc) for exc in err.exceptions)
 
 
 def test_check_preconditions_timeout_normal_job():

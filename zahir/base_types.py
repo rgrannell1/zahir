@@ -1,7 +1,7 @@
 """Core type definitions used throughout Zahir."""
 
 from abc import ABC, abstractmethod
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Iterator, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -16,7 +16,7 @@ from typing import (
     cast,
 )
 
-from zahir.events import ZahirEvent
+from zahir.events import Await, ZahirEvent
 from zahir.serialisers.job import JobOptionsData, SerialisedJob
 from zahir.utils.id_generator import generate_id
 
@@ -448,14 +448,14 @@ class Job[ArgsType, OutputType](ABC):
         self.job_options = options
 
     @staticmethod
-    def precheck(input: ArgsType) -> list[str]:
+    def precheck(input: ArgsType) -> Exception | ExceptionGroup | None:
         """Check that the inputs are as desired before running the job.
 
         @param input: The input arguments to this particular job
-        @return: A list of error messages, if any
+        @return: An exception if precheck failed, None otherwise
         """
 
-        return []
+        return None
 
     def ready(self) -> DependencyState:
         """Are all dependencies satisfied?
