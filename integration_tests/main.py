@@ -8,6 +8,7 @@ from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import job
+from zahir.jobs.sleep import Sleep
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
@@ -78,6 +79,8 @@ def BookProcessor(
 
     uppercased = yield Await(UppercaseWords({"words": list(long_words)}, {}))
 
+    yield Await(Sleep(20))
+
     yield WorkflowOutputEvent({"longest_words": uppercased["words"]})
 
 
@@ -96,6 +99,5 @@ context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registr
 
 start = BookProcessor({"file_path": "integration_tests/data.txt"}, {})
 
-events = list(LocalWorkflow(context).run(start))
+events = list(LocalWorkflow(context).run(start, events_filter=None))
 print(events)
-print(events[-1].output)

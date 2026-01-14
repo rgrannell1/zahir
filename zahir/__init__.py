@@ -84,6 +84,7 @@ __all__ = [
     "SQLiteJobRegistry",
     "Scope",
     "Semaphore",
+    "Sleep",
     "TimeDependency",
     "WorkflowCompleteEvent",
     "WorkflowOutputEvent",
@@ -94,5 +95,4 @@ __all__ = [
     "ZahirInternalError",
     "ZahirInternalErrorEvent",
     "job",
-    "Sleep",
 ]

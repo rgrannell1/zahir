@@ -1,6 +1,6 @@
-import uuid
 from collections.abc import Mapping
 from typing import Any, Self
+import uuid
 
 from zahir.base_types import Context, Dependency, DependencyState
 

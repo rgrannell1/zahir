@@ -525,9 +525,8 @@ class Await(ZahirEvent):
         if data.get("is_list"):
             jobs = [Job.load(context, j) for j in data["job"]]
             return cls(job=jobs)
-        else:
-            job = Job.load(context, data["job"])
-            return cls(job=job)
+        job = Job.load(context, data["job"])
+        return cls(job=job)
 
 
 @dataclass
