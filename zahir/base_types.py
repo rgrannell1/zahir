@@ -699,7 +699,7 @@ type Recover[ArgsType, JobOutputType] = Callable[
 
 def default_recover[ArgsType](
     context: Context,
-    input: ArgsType,  # type: ignore
+    args: ArgsType,  # type: ignore
     dependencies: DependencyGroup,
     err: Exception,
 ) -> Generator[JobEventSet]:
@@ -709,7 +709,7 @@ def default_recover[ArgsType](
     yield
 
 
-def default_precheck[ArgsType](input: ArgsType) -> Exception | None:  # type: ignore
+def default_precheck[ArgsType](args: ArgsType) -> Exception | None:  # type: ignore
     """Default precheck function that always passes."""
 
     return None
@@ -766,7 +766,8 @@ class JobArguments[ArgsType]:
 
 @dataclass
 class JobInstance[ArgsType, OutputType]:
-    """A full job instance, consisting of a JobSpec and JobArguments"""
+    """A full job instance, consisting of a JobSpec and JobArguments. This is runnable by
+    the Zahir state-machine"""
 
     spec: JobSpec[ArgsType, OutputType]
     args: JobArguments[ArgsType]
