@@ -101,10 +101,22 @@ class LocalScope(Scope):
         if module is None:
             # Get the caller's frame and extract their module
             frame = inspect.currentframe()
-            if frame is None or frame.f_back is None:
+            if frame is None:
                 raise RuntimeError("Cannot determine calling module")
 
-            module = inspect.getmodule(frame.f_back)
+            # Walk up the stack to find a frame with a valid module
+            # Skip internal zahir modules and pytest modules
+            current_frame = frame
+            while current_frame is not None:
+                candidate_module = inspect.getmodule(current_frame)
+                if candidate_module is not None:
+                    module_name = candidate_module.__name__
+                    # Skip zahir internal modules and pytest modules
+                    if not module_name.startswith(("zahir.", "_pytest", "pytest")):
+                        module = candidate_module
+                        break
+                current_frame = current_frame.f_back
+
             if module is None:
                 raise RuntimeError("Cannot determine calling module")
 

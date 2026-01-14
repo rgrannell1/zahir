@@ -3,6 +3,7 @@
 from zahir.base_types import JobState
 from zahir.events import (
     JobCompletedEvent,
+    JobImpossibleEvent,
     JobIrrecoverableEvent,
     JobPausedEvent,
     JobPrecheckFailedEvent,
@@ -28,9 +29,9 @@ def test_create_state_event_blocked():
 
 
 def test_create_state_event_impossible():
-    """Test that IMPOSSIBLE state returns None."""
+    """Test that IMPOSSIBLE state creates JobImpossibleEvent."""
     event = create_state_event(JobState.IMPOSSIBLE, "wf-1", "job-1")
-    assert event is None
+    assert isinstance(event, JobImpossibleEvent)
 
 
 def test_create_state_event_ready():

@@ -637,5 +637,7 @@ class Context:
     scope: Scope
     # Keep track of jobs
     job_registry: JobRegistry
+    # Shared state creator
     manager: SyncManager
+    # Shared state dictionary. Used for storing semaphores (concurrencylimit)
     state: DictProxy[str, Any]

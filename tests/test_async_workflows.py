@@ -8,6 +8,7 @@ from zahir.events import (
     Await,
     JobCompletedEvent,
     JobEvent,
+    JobImpossibleEvent,
     JobIrrecoverableEvent,
     JobOutputEvent,
     JobPausedEvent,
@@ -106,11 +107,12 @@ def test_impossible_async_workflow():
     assert isinstance(events[2], JobStartedEvent)
     assert isinstance(events[3], JobEvent)
     assert isinstance(events[4], JobPausedEvent)
-    assert isinstance(events[5], JobStartedEvent)
-    assert isinstance(events[6], JobRecoveryStartedEvent)
-    assert isinstance(events[7], JobStartedEvent)
-    assert isinstance(events[8], JobIrrecoverableEvent)
-    assert isinstance(events[9], WorkflowCompleteEvent)
+    assert isinstance(events[5], JobImpossibleEvent)
+    assert isinstance(events[6], JobStartedEvent)
+    assert isinstance(events[7], JobRecoveryStartedEvent)
+    assert isinstance(events[8], JobStartedEvent)
+    assert isinstance(events[9], JobIrrecoverableEvent)
+    assert isinstance(events[10], WorkflowCompleteEvent)
 
 
 @job()

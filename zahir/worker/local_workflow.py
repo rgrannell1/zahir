@@ -46,7 +46,20 @@ class LocalWorkflow[WorkflowOutputType]:
             # find which module called this one, and construct a scope based on the
             # jobs and modules in that librart
             caller_frame = inspect.currentframe()
-            caller_module = inspect.getmodule(caller_frame.f_back) if caller_frame and caller_frame.f_back else None
+            caller_module = None
+
+            # Walk up the stack to find a valid module
+            # Skip internal zahir modules and pytest modules
+            current_frame = caller_frame
+            while current_frame is not None:
+                candidate_module = inspect.getmodule(current_frame)
+                if candidate_module is not None:
+                    module_name = candidate_module.__name__
+                    # Skip zahir internal modules and pytest modules
+                    if not module_name.startswith(("zahir.", "_pytest", "pytest")):
+                        caller_module = candidate_module
+                        break
+                current_frame = current_frame.f_back
 
             # Make an in-memory job-registry
             scope = LocalScope.from_module(caller_module)

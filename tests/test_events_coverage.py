@@ -10,7 +10,7 @@ Focusing on uncovered lines:
 - Line 154, 162, 198, 205, 265, 273, 289, 297, etc.: Event load() methods
 """
 
-from zahir.base_types import Context
+
 from zahir.events import (
     JobCompletedEvent,
     JobEvent,
@@ -31,7 +31,7 @@ from zahir.serialisers.job import SerialisedJob
 # them indirectly through their concrete implementations
 
 
-def test_zahir_event_set_ids():
+def test_zahir_event_set_ids(simple_context):
     """Test ZahirEvent.set_ids() method for events with job_id and workflow_id."""
     event = JobStartedEvent(workflow_id="old-wf", job_id="old-job")
 
@@ -57,21 +57,21 @@ def test_zahir_event_set_ids():
     event4.set_ids(job_id="job-1")  # Should not set anything since event has no job_id attr
 
 
-def test_workflow_started_event_roundtrip():
+def test_workflow_started_event_roundtrip(simple_context):
     """Test WorkflowStartedEvent save/load roundtrip."""
-    context = Context()
+    
     event = WorkflowStartedEvent(workflow_id="wf-abc")
 
-    saved = event.save(context)
+    saved = event.save(simple_context)
     assert saved["workflow_id"] == "wf-abc"
 
-    loaded = WorkflowStartedEvent.load(context, saved)
+    loaded = WorkflowStartedEvent.load(simple_context, saved)
     assert loaded.workflow_id == "wf-abc"
 
 
-def test_workflow_output_event_creation_and_methods():
+def test_workflow_output_event_creation_and_methods(simple_context):
     """Test WorkflowOutputEvent creation with different constructors."""
-    context = Context()
+    
     # Test with all parameters
     event1 = WorkflowOutputEvent(
         output={"result": "test"},
@@ -83,13 +83,13 @@ def test_workflow_output_event_creation_and_methods():
     assert event1.job_id == "job-1"
 
     # Test save method
-    saved = event1.save(context)
+    saved = event1.save(simple_context)
     assert saved["output"] == {"result": "test"}
     assert saved["workflow_id"] == "wf-1"
     assert saved["job_id"] == "job-1"
 
     # Test load method
-    loaded = WorkflowOutputEvent.load(context, saved)
+    loaded = WorkflowOutputEvent.load(simple_context, saved)
     assert loaded.output == {"result": "test"}
     assert loaded.workflow_id == "wf-1"
     assert loaded.job_id == "job-1"
@@ -101,83 +101,83 @@ def test_workflow_output_event_creation_and_methods():
     assert event2.job_id is None
 
 
-def test_job_output_event_roundtrip():
+def test_job_output_event_roundtrip(simple_context):
     """Test JobOutputEvent save/load roundtrip."""
-    context = Context()
+    
     event = JobOutputEvent(
         output={"status": "done"},
         workflow_id="wf-2",
         job_id="job-2",
     )
 
-    saved = event.save(context)
+    saved = event.save(simple_context)
     assert saved["output"] == {"status": "done"}
     assert saved["workflow_id"] == "wf-2"
     assert saved["job_id"] == "job-2"
 
-    loaded = JobOutputEvent.load(context, saved)
+    loaded = JobOutputEvent.load(simple_context, saved)
     assert loaded.output == {"status": "done"}
     assert loaded.workflow_id == "wf-2"
     assert loaded.job_id == "job-2"
 
 
-def test_job_paused_event_roundtrip():
+def test_job_paused_event_roundtrip(simple_context):
     """Test JobPausedEvent save/load roundtrip."""
-    context = Context()
+    
     event = JobPausedEvent(workflow_id="wf-pause", job_id="job-pause")
 
-    saved = event.save(context)
+    saved = event.save(simple_context)
     assert saved["workflow_id"] == "wf-pause"
     assert saved["job_id"] == "job-pause"
 
-    loaded = JobPausedEvent.load(context, saved)
+    loaded = JobPausedEvent.load(simple_context, saved)
     assert loaded.workflow_id == "wf-pause"
     assert loaded.job_id == "job-pause"
 
 
-def test_job_recovery_completed_event_roundtrip():
+def test_job_recovery_completed_event_roundtrip(simple_context):
     """Test JobRecoveryCompletedEvent save/load roundtrip."""
-    context = Context()
+    
     event = JobRecoveryCompletedEvent(
         workflow_id="wf-rec",
         job_id="job-rec",
         duration_seconds=45.5,
     )
 
-    saved = event.save(context)
+    saved = event.save(simple_context)
     assert saved["workflow_id"] == "wf-rec"
     assert saved["job_id"] == "job-rec"
     assert saved["duration_seconds"] == 45.5
 
-    loaded = JobRecoveryCompletedEvent.load(context, saved)
+    loaded = JobRecoveryCompletedEvent.load(simple_context, saved)
     assert loaded.workflow_id == "wf-rec"
     assert loaded.job_id == "job-rec"
     assert loaded.duration_seconds == 45.5
 
 
-def test_job_recovery_timeout_event_roundtrip():
+def test_job_recovery_timeout_event_roundtrip(simple_context):
     """Test JobRecoveryTimeoutEvent save/load roundtrip."""
-    context = Context()
+    
     event = JobRecoveryTimeoutEvent(
         workflow_id="wf-timeout",
         job_id="job-timeout",
         duration_seconds=120.0,
     )
 
-    saved = event.save(context)
+    saved = event.save(simple_context)
     assert saved["workflow_id"] == "wf-timeout"
     assert saved["job_id"] == "job-timeout"
     assert saved["duration_seconds"] == 120.0
 
-    loaded = JobRecoveryTimeoutEvent.load(context, saved)
+    loaded = JobRecoveryTimeoutEvent.load(simple_context, saved)
     assert loaded.workflow_id == "wf-timeout"
     assert loaded.job_id == "job-timeout"
     assert loaded.duration_seconds == 120.0
 
 
-def test_zahir_custom_event_roundtrip():
+def test_zahir_custom_event_roundtrip(simple_context):
     """Test ZahirCustomEvent save/load roundtrip."""
-    context = Context()
+    
     # Test with all fields
     event1 = ZahirCustomEvent(
         workflow_id="wf-custom",
@@ -185,55 +185,55 @@ def test_zahir_custom_event_roundtrip():
         output={"custom_data": "value"},
     )
 
-    saved1 = event1.save(context)
+    saved1 = event1.save(simple_context)
     assert saved1["workflow_id"] == "wf-custom"
     assert saved1["job_id"] == "job-custom"
     assert saved1["output"] == {"custom_data": "value"}
 
-    loaded1 = ZahirCustomEvent.load(context, saved1)
+    loaded1 = ZahirCustomEvent.load(simple_context, saved1)
     assert loaded1.workflow_id == "wf-custom"
     assert loaded1.job_id is None  # Note: load() uses get() which returns None if not in data
     assert loaded1.output == {"custom_data": "value"}
 
     # Test with None/missing fields
     event2 = ZahirCustomEvent()
-    saved2 = event2.save(context)
+    saved2 = event2.save(simple_context)
 
-    loaded2 = ZahirCustomEvent.load(context, saved2)
+    loaded2 = ZahirCustomEvent.load(simple_context, saved2)
     assert loaded2.workflow_id is None
     assert loaded2.job_id is None
     assert loaded2.output is None
 
 
-def test_zahir_internal_error_event_roundtrip():
+def test_zahir_internal_error_event_roundtrip(simple_context):
     """Test ZahirInternalErrorEvent save/load roundtrip."""
-    context = Context()
+    
     # Test with error message
     event1 = ZahirInternalErrorEvent(
         workflow_id="wf-err",
         error="Internal error occurred",
     )
 
-    saved1 = event1.save(context)
+    saved1 = event1.save(simple_context)
     assert saved1["workflow_id"] == "wf-err"
     assert saved1["error"] == "Internal error occurred"
 
-    loaded1 = ZahirInternalErrorEvent.load(context, saved1)
+    loaded1 = ZahirInternalErrorEvent.load(simple_context, saved1)
     assert loaded1.workflow_id == "wf-err"
     assert loaded1.error == "Internal error occurred"
 
     # Test with None values
     event2 = ZahirInternalErrorEvent()
-    saved2 = event2.save(context)
+    saved2 = event2.save(simple_context)
 
-    loaded2 = ZahirInternalErrorEvent.load(context, saved2)
+    loaded2 = ZahirInternalErrorEvent.load(simple_context, saved2)
     assert loaded2.workflow_id is None
     assert loaded2.error is None
 
 
-def test_job_event_roundtrip():
+def test_job_event_roundtrip(simple_context):
     """Test JobEvent save/load roundtrip."""
-    context = Context()
+    
 
     job_data: SerialisedJob = {
         "type": "TestJob",
@@ -246,8 +246,8 @@ def test_job_event_roundtrip():
 
     event = JobEvent(job=job_data)
 
-    saved = event.save(context)
+    saved = event.save(simple_context)
     assert saved["job"] == job_data
 
-    loaded = JobEvent.load(context, saved)
+    loaded = JobEvent.load(simple_context, saved)
     assert loaded.job == job_data
