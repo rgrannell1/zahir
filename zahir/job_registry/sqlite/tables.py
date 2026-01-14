@@ -38,6 +38,17 @@ create table if not exists claimed_jobs (
 );
 """
 
+EVENTS_TABLE_SCHEMA = """
+create table if not exists events (
+    event_id                  integer primary key autoincrement,
+    workflow_id               text,
+    job_id                    text,
+    event_type                text not null,
+    event_blob                text not null,
+    created_at                text
+);
+"""
+
 JOBS_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs(state)
 """

@@ -38,6 +38,7 @@ from zahir.exception import (
 )
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import job
+from zahir.jobs.sleep import Sleep
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
@@ -93,4 +94,5 @@ __all__ = [
     "ZahirInternalError",
     "ZahirInternalErrorEvent",
     "job",
+    "Sleep",
 ]

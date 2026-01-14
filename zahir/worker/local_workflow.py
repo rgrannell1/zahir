@@ -86,6 +86,10 @@ class LocalWorkflow[WorkflowOutputType]:
             for event in zahir_worker_overseer(start, self.context, self.max_workers):
                 progress.handle_event(event)
 
+                # Store event in registry if available
+                if self.context and hasattr(self.context, "job_registry"):
+                    self.context.job_registry.store_event(self.context, event)
+
                 if events_filter is None:
                     yield event
                 else:

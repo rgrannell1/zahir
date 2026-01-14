@@ -25,6 +25,7 @@ from zahir.exception import (
 )
 from zahir.job_registry.sqlite.tables import (
     CLAIMED_JOBS_TABLE_SCHEMA,
+    EVENTS_TABLE_SCHEMA,
     JOB_ERRORS_TABLE_SCHEMA,
     JOB_OUTPUTS_TABLE_SCHEMA,
     JOBS_INDEX,
@@ -73,9 +74,35 @@ class SQLiteJobRegistry(JobRegistry):
                 JOB_OUTPUTS_TABLE_SCHEMA,
                 JOB_ERRORS_TABLE_SCHEMA,
                 CLAIMED_JOBS_TABLE_SCHEMA,
+                EVENTS_TABLE_SCHEMA,
                 JOBS_INDEX,
             ]:
                 conn.execute(schema)
+            conn.commit()
+
+    def store_event(self, context, event: Any) -> None:
+        """Store an event in the events table."""
+
+        event_type = type(event).__name__
+        created_at = datetime.now(tz=UTC).isoformat()
+
+        if not hasattr(event, "save"):
+            return
+
+        event_data = event.save(context)
+        event_blob = json.dumps(event_data)
+
+        workflow_id = getattr(event, "workflow_id", "")
+        job_id = getattr(event, "job_id", "")
+
+        with self.conn as conn:
+            conn.execute(
+                """
+                insert into events (workflow_id, job_id, event_type, event_blob, created_at)
+                values (?, ?, ?, ?, ?)
+                """,
+                (workflow_id, job_id, event_type, event_blob, created_at),
+            )
             conn.commit()
 
     def on_startup(self) -> None:
