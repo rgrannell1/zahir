@@ -699,9 +699,9 @@ type Recover[ArgsType, JobOutputType] = Callable[
 
 def default_recover[ArgsType](
     context: Context,
-    input: ArgsType,
+    input: ArgsType,  # type: ignore
     dependencies: DependencyGroup,
-    err: Exception,  # type: ignore
+    err: Exception,
 ) -> Generator[JobEventSet]:
     """Default recovery function that simply re-raises the original exception."""
 
@@ -716,18 +716,57 @@ def default_precheck[ArgsType](input: ArgsType) -> Exception | None:  # type: ig
 
 
 @dataclass
-class JobTransform:
-    type: str
-    args: dict[str, Any]
-
-
-@dataclass
 class JobSpec[ArgsType, OutputType]:
     """The specification for a job; how it runs, precovers, and prechecks. Jobspecs
-    are later instantiated into actual jobs."""
+    are later associated with job-parameters to form an actual job."""
 
     type: str
-    transforms: list[JobTransform]
+    args: Mapping[str, Any]
+    transforms: list["JobSpec"]
     run: Run[ArgsType, OutputType]
     recover: Recover[ArgsType, OutputType] | None = default_recover
     precheck: Precheck[ArgsType] | None = default_precheck
+
+    def save(self) -> Mapping[str, Any]:
+        """Serialize the job spec to a dictionary.
+
+        @return: The serialized job spec
+        """
+
+        return {
+            "type": self.type,
+            "args": dict(self.args),
+            "transforms": [transform.save() for transform in self.transforms],
+        }
+
+
+@dataclass
+class JobArguments[ArgsType]:
+    """The things provided along with a JobSpec to form a job instance"""
+
+    # The group of dependencies that determine under what condition we'll run this job
+    dependencies: DependencyGroup
+
+    # The actual arguments to the job
+    args: ArgsType
+
+    # The unique identifier for this job instance
+    job_id: str
+
+    # Optional parent job ID for traceability;
+    # only optional in the root job
+    parent_id: str | None = None
+
+    # Upper-limit on how long the job should run for
+    job_timeout: float | None = None
+
+    # Upper-limit on how long the recovery should run for
+    recover_timeout: float | None = None
+
+
+@dataclass
+class JobInstance[ArgsType, OutputType]:
+    """A full job instance, consisting of a JobSpec and JobArguments"""
+
+    spec: JobSpec[ArgsType, OutputType]
+    args: JobArguments[ArgsType]
