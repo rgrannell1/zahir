@@ -234,6 +234,18 @@ Jobs generally have a useful period in which we'd like to execute them (today, n
 
 Use a `ConcurrencyLimit` with the appropriate concurrency limit and slots (roughly, how many calls we'll make) to make API calls within a concurrency limit.
 
+### Inter-Job Communication
+
+In most cases you should simply call a job and await its results. For more complex inter-job communicatation, the `context` object can create queues. Pass the queue **id** to subjobs, not the queue instance. Subjobs can then get the queue using this ID.
+
+```python
+# pass the queue ID to subjobs
+queue_id, queue = context.add_queue()
+
+# Subjobs can get the queue by this ID.
+queue = context.get_queue(queue_id)
+```
+
 ### Cancellation
 
 Zahir supports two patterns of starting jobs:
