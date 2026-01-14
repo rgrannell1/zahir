@@ -745,7 +745,7 @@ class JobArguments[ArgsType]:
     """The things provided along with a JobSpec to form a job instance"""
 
     # The group of dependencies that determine under what condition we'll run this job
-    dependencies: DependencyGroup
+    dependencies: "DependencyGroup"
 
     # The actual arguments to the job
     args: ArgsType
