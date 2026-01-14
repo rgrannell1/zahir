@@ -22,17 +22,20 @@ def handle_await(state) -> tuple[WaitForJobStateChange, None]:
     if isinstance(await_event.job, list):
         state.frame.await_many = True
 
+    # Get the current job ID before we process awaited jobs
+    frame_job_id = state.frame.job.job_id
+
     # Tie the current job to the awaited job(s)
     for awaited_job in awaited_jobs:
         state.frame.required_jobs.add(awaited_job.job_id)
-
+        # Set parent_id before adding to ensure it's persisted
+        awaited_job.parent_id = frame_job_id
         # The awaited job can just be run through the normal lifecycle, with the caveat that the _awaiting_
         # job needs a marker thart it's awaiting the new job.
         job_registry.add(state.context, awaited_job, state.output_queue)
 
     # Pause the current job, and put it back on the registry. `Paused` jobs
     # are awaiting some job or other to be updated.
-    frame_job_id = state.frame.job.job_id
     job_registry.set_state(
         frame_job_id, state.workflow_id, state.output_queue, JobState.PAUSED, recovery=state.frame.recovery
     )

@@ -38,9 +38,9 @@ def create_state_event(
             return None
         case JobState.IMPOSSIBLE:
             # Probably should emit an event, but not yet implemented
-            return None
+            return JobImpossibleEvent(workflow_id=workflow_id, job_id=job_id)
         case JobState.READY:
-            # Probably should emit an event, but not yet implemented
+            # Not interesting enough to emit an event
             return None
         case JobState.PAUSED:
             return JobPausedEvent(workflow_id=workflow_id, job_id=job_id)

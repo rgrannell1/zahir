@@ -9,9 +9,12 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 import os
-from typing import Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar
 
 from zahir.serialisers.job import SerialisedJob
+
+if TYPE_CHECKING:
+    from zahir.base_types import Context
 
 OutputType = TypeVar("OutputType", bound=Mapping[str, Any])
 CustomEventOutputType = TypeVar("CustomEventOutputType", bound=Mapping[str, Any])
@@ -21,18 +24,20 @@ class ZahirEvent(ABC):
     """Base class for all Zahir events"""
 
     @abstractmethod
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         """Serialize the event to a dictionary.
 
+        @param context: The context for serialization
         @return: The serialized event data
         """
         raise NotImplementedError
 
     @classmethod
     @abstractmethod
-    def load(cls, data: Mapping[str, Any]) -> ZahirEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> ZahirEvent:
         """Deserialize the event from a dictionary.
 
+        @param context: The context for deserialization
         @param data: The serialized event data
         @return: The deserialized event
         """
@@ -58,14 +63,14 @@ class WorkflowStartedEvent(ZahirEvent):
     workflow_id: str
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "pid": self.pid,
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> WorkflowStartedEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> WorkflowStartedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             pid=data.get("pid", 0),
@@ -80,7 +85,7 @@ class WorkflowCompleteEvent(ZahirEvent):
     duration_seconds: float
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "duration_seconds": self.duration_seconds,
@@ -88,7 +93,7 @@ class WorkflowCompleteEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> WorkflowCompleteEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> WorkflowCompleteEvent:
         return cls(workflow_id=data["workflow_id"], duration_seconds=data["duration_seconds"], pid=data.get("pid", 0))
 
 
@@ -113,7 +118,7 @@ class WorkflowOutputEvent[OutputType](ZahirEvent):
         self.job_id = job_id
         self.pid = pid if pid is not None else os.getpid()
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "output": self.output,
@@ -122,7 +127,7 @@ class WorkflowOutputEvent[OutputType](ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> WorkflowOutputEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> WorkflowOutputEvent:
         return WorkflowOutputEvent(
             workflow_id=data["workflow_id"],
             output=data["output"],
@@ -140,7 +145,7 @@ class JobCompletedEvent(ZahirEvent):
     duration_seconds: float
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -149,7 +154,7 @@ class JobCompletedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobCompletedEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobCompletedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -167,7 +172,7 @@ class JobOutputEvent[OutputType](ZahirEvent):
     job_id: str | None = None
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -176,7 +181,7 @@ class JobOutputEvent[OutputType](ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobOutputEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobOutputEvent:
         return JobOutputEvent(
             output=data["output"],
             workflow_id=data["workflow_id"],
@@ -193,7 +198,7 @@ class JobStartedEvent(ZahirEvent):
     job_id: str
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -201,7 +206,7 @@ class JobStartedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobStartedEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobStartedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -217,7 +222,7 @@ class JobPausedEvent(ZahirEvent):
     job_id: str
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -225,7 +230,31 @@ class JobPausedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobPausedEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobPausedEvent:
+        return cls(
+            workflow_id=data["workflow_id"],
+            job_id=data["job_id"],
+            pid=data.get("pid", 0),
+        )
+
+
+@dataclass
+class JobImpossibleEvent(ZahirEvent):
+    """Indicates that a job has become impossible"""
+
+    workflow_id: str
+    job_id: str
+    pid: int = field(default_factory=os.getpid)
+
+    def save(self, context: Context) -> Mapping[str, Any]:
+        return {
+            "workflow_id": self.workflow_id,
+            "job_id": self.job_id,
+            "pid": self.pid,
+        }
+
+    @classmethod
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobImpossibleEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -242,7 +271,7 @@ class JobTimeoutEvent(ZahirEvent):
     duration_seconds: float
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -251,7 +280,7 @@ class JobTimeoutEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobTimeoutEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobTimeoutEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -268,7 +297,7 @@ class JobRecoveryStartedEvent(ZahirEvent):
     job_id: str
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -276,7 +305,7 @@ class JobRecoveryStartedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobRecoveryStartedEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobRecoveryStartedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -293,7 +322,7 @@ class JobRecoveryCompletedEvent(ZahirEvent):
     duration_seconds: float
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -302,7 +331,7 @@ class JobRecoveryCompletedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobRecoveryCompletedEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobRecoveryCompletedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -320,7 +349,7 @@ class JobRecoveryTimeoutEvent(ZahirEvent):
     duration_seconds: float
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -329,7 +358,7 @@ class JobRecoveryTimeoutEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobRecoveryTimeoutEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobRecoveryTimeoutEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -347,7 +376,7 @@ class JobIrrecoverableEvent(ZahirEvent):
     job_id: str
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -357,7 +386,7 @@ class JobIrrecoverableEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobIrrecoverableEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobIrrecoverableEvent:
         # Recreate a generic exception from the error string
         error_msg = data.get("error", "Unknown error")
         return cls(
@@ -377,7 +406,7 @@ class JobPrecheckFailedEvent(ZahirEvent):
     error: str
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -386,7 +415,7 @@ class JobPrecheckFailedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobPrecheckFailedEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobPrecheckFailedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -405,7 +434,7 @@ class ZahirCustomEvent[CustomEventOutputType](ZahirEvent):
     output: CustomEventOutputType | None = None
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -414,7 +443,7 @@ class ZahirCustomEvent[CustomEventOutputType](ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> ZahirCustomEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> ZahirCustomEvent:
         return cls(
             workflow_id=data.get("workflow_id"),
             output=data.get("output"),
@@ -430,7 +459,7 @@ class ZahirInternalErrorEvent(ZahirEvent):
     error: str | None = None
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "error": self.error,
@@ -438,7 +467,7 @@ class ZahirInternalErrorEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> ZahirInternalErrorEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> ZahirInternalErrorEvent:
         return cls(
             workflow_id=data.get("workflow_id"),
             error=data.get("error"),
@@ -453,14 +482,14 @@ class JobEvent(ZahirEvent):
     job: SerialisedJob
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "job": self.job,
             "pid": self.pid,
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobEvent:
         return cls(
             job=data["job"],
             pid=data.get("pid", 0),
@@ -474,7 +503,7 @@ class Await(ZahirEvent):
     job: Job | list[Job]
     pid: int = field(default_factory=os.getpid)
 
-    def save(self, context) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         from zahir.base_types.job import Job
 
         if isinstance(self.job, Job):
@@ -490,10 +519,15 @@ class Await(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> Await:
-        # This requires context to deserialize jobs, which we don't have here
-        # This is a design issue - load methods need context
-        raise NotImplementedError("Await.load requires context to deserialize Job objects")
+    def load(cls, context: Context, data: Mapping[str, Any]) -> Await:
+        from zahir.base_types.job import Job
+
+        if data.get("is_list"):
+            jobs = [Job.load(context, j) for j in data["job"]]
+            return cls(job=jobs)
+        else:
+            job = Job.load(context, data["job"])
+            return cls(job=job)
 
 
 @dataclass
@@ -502,13 +536,13 @@ class JobWorkerWaitingEvent(ZahirEvent):
 
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "pid": self.pid,
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobWorkerWaitingEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobWorkerWaitingEvent:
         return cls(pid=data.get("pid", 0))
 
 
@@ -519,13 +553,13 @@ class JobReadyEvent(ZahirEvent):
 
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "pid": self.pid,
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobReadyEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobReadyEvent:
         return cls(pid=data.get("pid", 0))
 
 
@@ -537,7 +571,7 @@ class JobAssignedEvent(ZahirEvent):
     job_id: str
     pid: int = field(default_factory=os.getpid)
 
-    def save(self) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
@@ -545,7 +579,7 @@ class JobAssignedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, data: Mapping[str, Any]) -> JobAssignedEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobAssignedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],

@@ -58,7 +58,6 @@ def check_preconditions(
     if job.job_options:
         timeout = job.job_options.recover_timeout if state.frame.recovery else job.job_options.job_timeout
 
-    # TO-DO start-time needs to be reset for recovery.
     job_timing = state.context.job_registry.get_job_timing(job.job_id)
     time_since_start = (
         job_timing.time_since_recovery_started() if state.frame.recovery else job_timing.time_since_started()
