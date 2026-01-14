@@ -645,7 +645,24 @@ class Context:
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Job II +++++++++++++++++++++++++++++++++++
-# The original job implementation is a mess. This is better.
+#
+# Jobs conceptually have a few parts.
+#
+# The JobSpec defines how to run, recover, and precheck a job type. This
+#   can't be serialised, but we use a `type` label as a label and `Scope`
+#   as a way of getting the JobSpec back.
+#
+# We would like to transform jobs
+#   e.g this job, but retry five times, or this job with exponential backoff.
+#   We don't want to pre-store all cross-products of transforms and jobs in scope.
+#   We treat transforms as f:JobSpec -> JobSpec functions. We store which transforms we
+#   applied to a job (e.g `[[retry, args] `type`]`) to reconstruct the job-instances
+#   correctly later.
+#
+# Job-instances are JobSpec x { Input, Dependencies, Options, Metadata }
+#
+# The latter part is more easily serialised.
+#
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 from collections.abc import Callable
@@ -699,11 +716,18 @@ def default_precheck[ArgsType](input: ArgsType) -> Exception | None:  # type: ig
 
 
 @dataclass
+class JobTransform:
+    type: str
+    args: dict[str, Any]
+
+
+@dataclass
 class JobSpec[ArgsType, OutputType]:
     """The specification for a job; how it runs, precovers, and prechecks. Jobspecs
     are later instantiated into actual jobs."""
 
     type: str
+    transforms: list[JobTransform]
     run: Run[ArgsType, OutputType]
     recover: Recover[ArgsType, OutputType] | None = default_recover
     precheck: Precheck[ArgsType] | None = default_precheck
