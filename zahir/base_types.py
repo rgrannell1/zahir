@@ -597,13 +597,24 @@ class Scope(ABC):
         ...
 
     @abstractmethod
+    def get_job_spec(self, job_spec: type["JobSpec"]) -> Self: ...
+
+    @abstractmethod
     def add_job_classes(self, job_classes: list[type["Job"]]) -> Self:
         """Add multiple job classes to the scope."""
         ...
 
     @abstractmethod
+    def get_job_specs(self, job_spec: list[type["JobSpec"]]) -> Self: ...
+
+    @abstractmethod
     def get_job_class(self, type_name: str) -> type["Job"]:
         """Get a job class by its type name."""
+        ...
+
+    @abstractmethod
+    def get_job_spec(self, type_name: str) -> type["JobSpec"]:
+        """Get a job spec by its type name."""
         ...
 
     @abstractmethod
@@ -771,3 +782,30 @@ class JobInstance[ArgsType, OutputType]:
 
     spec: JobSpec[ArgsType, OutputType]
     args: JobArguments[ArgsType]
+
+    def save(self, context: "Context"):
+        return {
+            "type": self.spec.type,
+            "job_id": self.args.job_id,
+            "parent_id": self.args.parent_id,
+            "args": self.args.args,
+            "dependencies": self.args.dependencies.save(context),
+            "job_timeout": self.args.job_timeout,
+            "recovery_timeout": self.args.recover_timeout,
+        }
+
+    @classmethod
+    def load(cls, context: "Context", data):
+        type = data["type"]
+        spec = context.scope.get_job_spec(type)
+        from zahir.dependencies.group import DependencyGroup
+
+        job_args = JobArguments(
+            dependencies=DependencyGroup.load(context, data["dependencies"]),
+            args=data["args"],
+            job_id=data["job_id"],
+            parent_id=data["parent_id"],
+            job_timeout=data["job_timeout"],
+            recover_timeout=data["recover_timeout"],
+        )
+        return cls(spec=spec, args=job_args)
