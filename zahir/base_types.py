@@ -597,7 +597,7 @@ class Scope(ABC):
         ...
 
     @abstractmethod
-    def get_job_spec(self, job_spec: type["JobSpec"]) -> Self: ...
+    def get_job_spec(self, job_spec: str) -> Self: ...
 
     @abstractmethod
     def add_job_classes(self, job_classes: list[type["Job"]]) -> Self:
@@ -613,8 +613,8 @@ class Scope(ABC):
         ...
 
     @abstractmethod
-    def get_job_spec(self, type_name: str) -> type["JobSpec"]:
-        """Get a job spec by its type name."""
+    def add_job_spec(self, type_name: str) -> Self:
+        """Add a job spec"""
         ...
 
     @abstractmethod
@@ -695,20 +695,21 @@ type JobEventSet[OutputType] = (
     Await
 )
 
-type Precheck[ArgsType] = Callable[[ArgsType], Exception | None]
+type Precheck[JobSpecArgs, ArgsType] = Callable[[JobSpecArgs, ArgsType], Exception | None]
 
-type Run[ArgsType, JobOutputType] = Callable[
-    [Context, ArgsType, DependencyGroup],
+type Run[JobSpecArgs, ArgsType, JobOutputType] = Callable[
+    [JobSpecArgs, Context, ArgsType, DependencyGroup],
     Generator[JobEventSet[JobOutputType]],
 ]
 
-type Recover[ArgsType, JobOutputType] = Callable[
-    [Context, ArgsType, DependencyGroup, Exception],
+type Recover[JobSpecArgs, ArgsType, JobOutputType] = Callable[
+    [JobSpecArgs, Context, ArgsType, DependencyGroup, Exception],
     Generator[JobEventSet[JobOutputType]],
 ]
 
 
-def default_recover[ArgsType](
+def default_recover[JobSpecArgs, ArgsType](
+    job_args: JobSpecArgs,
     context: Context,
     args: ArgsType,  # type: ignore
     dependencies: DependencyGroup,
@@ -720,25 +721,43 @@ def default_recover[ArgsType](
     yield
 
 
-def default_precheck[ArgsType](args: ArgsType) -> Exception | None:  # type: ignore
+def default_precheck[JobSpecArgs, ArgsType](job_args: JobSpecArgs, args: ArgsType) -> Exception | None:  # type: ignore
     """Default precheck function that always passes."""
 
     return None
 
 
+class SerialisedJobData(TypedDict):
+    type: str
+    transform_args: Mapping[str, Any] | None
+    transforms: list["SerialisedJobData"]
+
+
 @dataclass
-class JobSpec[ArgsType, OutputType]:
+class JobSpec[JobSpecArgs, ArgsType, OutputType]:
     """The specification for a job; how it runs, precovers, and prechecks. Jobspecs
     are later associated with job-parameters to form an actual job."""
 
+    # a label uniquely associated with this job-spec
     type: str
-    args: Mapping[str, Any]
-    transforms: list["JobSpec"]
-    run: Run[ArgsType, OutputType]
-    recover: Recover[ArgsType, OutputType] | None = default_recover
-    precheck: Precheck[ArgsType] | None = default_precheck
 
-    def save(self) -> Mapping[str, Any]:
+    # arguments to the `run` / `precheck` / `recover` middleware
+    transform_args: Mapping[str, Any] | None
+
+    # run the job
+    run: Run[JobSpecArgs, ArgsType, OutputType]
+
+    # a list of transformations that must be applied to the functions before they
+    # can be run. Functions are instantiated with transform args
+    transforms: list["JobSpec"] = []
+
+    # recover on uncaught exception
+    recover: Recover[JobSpecArgs, ArgsType, OutputType] | None = default_recover
+
+    # precheck inputs
+    precheck: Precheck[JobSpecArgs, ArgsType] | None = default_precheck
+
+    def save(self) -> SerialisedJobData:
         """Serialize the job spec to a dictionary.
 
         @return: The serialized job spec
@@ -746,7 +765,7 @@ class JobSpec[ArgsType, OutputType]:
 
         return {
             "type": self.type,
-            "args": dict(self.args),
+            "transform_args": self.transform_args if self.transform_args else None,
             "transforms": [transform.save() for transform in self.transforms],
         }
 
@@ -775,12 +794,22 @@ class JobArguments[ArgsType]:
     recover_timeout: float | None = None
 
 
+class SerialisedJobInstance[ArgsType](TypedDict):
+    type: str
+    job_id: str
+    parent_id: str | None
+    args: ArgsType
+    dependencies: Mapping[str, Any]
+    job_timeout: float | None
+    recover_timeout: float | None
+
+
 @dataclass
-class JobInstance[ArgsType, OutputType]:
+class JobInstance[JobSpecArgs, ArgsType, OutputType]:
     """A full job instance, consisting of a JobSpec and JobArguments. This is runnable by
     the Zahir state-machine"""
 
-    spec: JobSpec[ArgsType, OutputType]
+    spec: JobSpec[JobSpecArgs, ArgsType, OutputType]
     args: JobArguments[ArgsType]
 
     def save(self, context: "Context"):
@@ -795,12 +824,12 @@ class JobInstance[ArgsType, OutputType]:
         }
 
     @classmethod
-    def load(cls, context: "Context", data):
-        type = data["type"]
-        spec = context.scope.get_job_spec(type)
+    def load(cls, context: "Context", data: SerialisedJobInstance[ArgsType]):
+        spec_type = data["type"]
+        spec = cast(JobSpec[JobSpecArgs, ArgsType, OutputType], context.scope.get_job_spec(spec_type))
         from zahir.dependencies.group import DependencyGroup
 
-        job_args = JobArguments(
+        job_args = JobArguments[ArgsType](
             dependencies=DependencyGroup.load(context, data["dependencies"]),
             args=data["args"],
             job_id=data["job_id"],
@@ -809,3 +838,12 @@ class JobInstance[ArgsType, OutputType]:
             recover_timeout=data["recover_timeout"],
         )
         return cls(spec=spec, args=job_args)
+
+
+def spec[JobSpecArgs, ArgsType, OutputType](**kwargs):
+    """Construct a JobSpec from a run function, and optionally other jobspec parameters"""
+
+    def decorator(run: Run[JobSpecArgs, ArgsType, OutputType]) -> JobSpec[JobSpecArgs, ArgsType, OutputType]:
+        return JobSpec[JobSpecArgs, ArgsType, OutputType](type=run.__name__, run=run, **kwargs)
+
+    return decorator
