@@ -769,6 +769,32 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
             "transforms": [transform.save() for transform in self.transforms],
         }
 
+    def __call__(
+        self,
+        args: ArgsType,
+        dependencies: Mapping[str, Dependency] | DependencyGroup | None = None,
+        job_timeout: float | None = None,
+        recover_timeout: float | None = None,
+    ) -> "JobInstance[JobSpecArgs, ArgsType, OutputType]":
+        job_id = generate_id(4)
+        processed_dependencies = DependencyGroup()
+        if isinstance(dependencies, DependencyGroup):
+            processed_dependencies = dependencies
+        elif isinstance(dependencies, dict):
+            processed_dependencies = DependencyGroup(dependencies)
+
+        job_args = JobArguments[JobSpecArgs](
+            dependencies=processed_dependencies,
+            args=args,
+            job_timeout=job_timeout,
+            recover_timeout=recover_timeout,
+            job_id=job_id,
+            # We'll set this at the workflow level.
+            parent_id=None,
+        )
+
+        return JobInstance(spec=self, args=job_args)
+
 
 @dataclass
 class JobArguments[ArgsType]:
