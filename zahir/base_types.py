@@ -777,13 +777,14 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
         recover_timeout: float | None = None,
     ) -> "JobInstance[JobSpecArgs, ArgsType, OutputType]":
         job_id = generate_id(4)
-        processed_dependencies = DependencyGroup()
+
+        processed_dependencies = DependencyGroup({})
         if isinstance(dependencies, DependencyGroup):
             processed_dependencies = dependencies
         elif isinstance(dependencies, dict):
             processed_dependencies = DependencyGroup(dependencies)
 
-        job_args = JobArguments[JobSpecArgs](
+        job_args = JobArguments[ArgsType](
             dependencies=processed_dependencies,
             args=args,
             job_timeout=job_timeout,
