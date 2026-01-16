@@ -7,11 +7,11 @@ switches to recovery mode, and transitions to check preconditions.
 import multiprocessing
 import tempfile
 
-from zahir.base_types import Context, Job, JobState
+from zahir.base_types import Context, JobState
 from zahir.context import MemoryContext
 from zahir.events import JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
@@ -19,34 +19,32 @@ from zahir.worker.state_machine.handle_job_exception import handle_job_exception
 from zahir.worker.state_machine.states import CheckPreconditionsStateChange
 
 
-class SimpleJobWithRecovery(Job):
+def simple_job_with_recovery_recover(spec_args, context, input, dependencies, err):
+    """Recovery handler for SimpleJobWithRecovery."""
+    yield JobOutputEvent({"recovered": True})
+
+
+@spec(recover=simple_job_with_recovery_recover)
+def SimpleJobWithRecovery(spec_args, context, input, dependencies):
     """A simple job that has a recovery mechanism."""
-
-    @classmethod
-    def run(cls, context, input, dependencies):
-        raise Exception("Simulated failure")
-        yield iter([])
-
-    @classmethod
-    def recover(cls, context, input, dependencies, err):
-        yield JobOutputEvent({"recovered": True})
+    raise Exception("Simulated failure")
+    yield iter([])
 
 
-class JobWithCustomRecovery(Job):
+def job_with_custom_recovery_recover(spec_args, context, input, dependencies, err):
+    """Recovery handler for JobWithCustomRecovery."""
+    yield JobOutputEvent({"error_type": type(err).__name__, "recovered": True})
+
+
+@spec(recover=job_with_custom_recovery_recover)
+def JobWithCustomRecovery(spec_args, context, input, dependencies):
     """A job with custom recovery logic."""
-
-    @classmethod
-    def run(cls, context, input, dependencies):
-        raise ValueError("Custom error")
-        yield iter([])
-
-    @classmethod
-    def recover(cls, context, input, dependencies, err):
-        yield JobOutputEvent({"error_type": type(err).__name__, "recovered": True})
+    raise ValueError("Custom error")
+    yield iter([])
 
 
-@job()
-def SimpleJob(context: Context, input, dependencies):
+@spec()
+def SimpleJob(spec_args, context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
@@ -60,18 +58,18 @@ def test_handle_job_exception_sets_recovery_mode():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(specs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
+    job = SimpleJobWithRecovery({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -98,18 +96,18 @@ def test_handle_job_exception_updates_job_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(specs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
+    job = SimpleJobWithRecovery({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -133,20 +131,30 @@ def test_handle_job_exception_transitions_to_check_preconditions():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(specs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
+    job = SimpleJobWithRecovery({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
+
+    # Set up exception event
+    worker_state.last_event = Exception("Test error")
+
+    # Run handle_job_exception
+    result, _ = handle_job_exception(worker_state)
+
+    # Should transition to check preconditions
+    assert isinstance(result, CheckPreconditionsStateChange)
+    assert "entering recovery" in result.data["message"]
 
     # Set up exception event
     worker_state.last_event = Exception("Test error")
@@ -168,18 +176,18 @@ def test_handle_job_exception_replaces_generator():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(specs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
+    job = SimpleJobWithRecovery({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -206,18 +214,18 @@ def test_handle_job_exception_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(specs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
+    job = SimpleJobWithRecovery({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -240,18 +248,18 @@ def test_handle_job_exception_with_custom_exception():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(scope=LocalScope(jobs=[JobWithCustomRecovery]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(specs=[JobWithCustomRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
-    job = JobWithCustomRecovery(input={"test": "data"}, dependencies={}, options=None)
+    job = JobWithCustomRecovery({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = JobWithCustomRecovery.run(context, job.input, job.dependencies)
+    job_generator = JobWithCustomRecovery.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -276,18 +284,18 @@ def test_handle_job_exception_preserves_job_info():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(specs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
+    job = SimpleJobWithRecovery({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -313,18 +321,18 @@ def test_handle_job_exception_workflow_id_used():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(specs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "specific-workflow-id-456"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
+    job = SimpleJobWithRecovery({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -348,18 +356,18 @@ def test_handle_job_exception_message_includes_job_type():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-9")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithRecovery]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(specs=[SimpleJobWithRecovery]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-9"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJobWithRecovery(input={"test": "data"}, dependencies={}, options=None)
+    job = SimpleJobWithRecovery({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 

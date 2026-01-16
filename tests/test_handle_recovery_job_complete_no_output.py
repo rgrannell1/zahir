@@ -53,11 +53,11 @@ def test_handle_recovery_job_complete_no_output_returns_enqueue_state_change():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     # Run handle_recovery_job_complete_no_output
@@ -85,11 +85,11 @@ def test_handle_recovery_job_complete_no_output_sets_recovered_state():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     # Run handle_recovery_job_complete_no_output
@@ -117,11 +117,11 @@ def test_handle_recovery_job_complete_no_output_clears_frame():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     # Verify frame is set
@@ -151,11 +151,11 @@ def test_handle_recovery_job_complete_no_output_preserves_state():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     # Run handle_recovery_job_complete_no_output
@@ -182,11 +182,11 @@ def test_handle_recovery_job_complete_no_output_transitions_to_enqueue():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     # Run handle_recovery_job_complete_no_output
@@ -214,9 +214,9 @@ def test_handle_recovery_job_complete_no_output_with_different_jobs():
 
     # Test with SimpleJob
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
-    job1 = SimpleJob({"test": "data1"}, {})
+    job1 = SimpleJob({"test": "data1"}, {}, 0.1)
     job_id1 = context.job_registry.add(context, job1, output_queue)
-    job_generator1 = SimpleJob.recover(context, job1.input, job1.dependencies, None)
+    job_generator1 = SimpleJob.recover(None, context, job1.input, job1.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job1, job_generator=job_generator1, recovery=True)
 
     handle_recovery_job_complete_no_output(worker_state)
@@ -224,9 +224,9 @@ def test_handle_recovery_job_complete_no_output_with_different_jobs():
 
     # Test with AnotherJob
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
-    job2 = AnotherJob({"count": 0}, {})
+    job2 = AnotherJob({"count": 0}, {}, 0.1)
     job_id2 = context.job_registry.add(context, job2, output_queue)
-    job_generator2 = AnotherJob.recover(context, job2.input, job2.dependencies, None)
+    job_generator2 = AnotherJob.recover(None, context, job2.input, job2.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job2, job_generator=job_generator2, recovery=True)
 
     handle_recovery_job_complete_no_output(worker_state)
@@ -250,11 +250,11 @@ def test_handle_recovery_job_complete_no_output_message_content():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     # Run handle_recovery_job_complete_no_output
@@ -282,11 +282,11 @@ def test_handle_recovery_job_complete_no_output_recovery_flag():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame (recovery=True)
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     # Verify it's a recovery frame

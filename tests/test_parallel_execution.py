@@ -28,27 +28,24 @@ def test_jobs_run_on_multiple_processes():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
+    # Create a parent job that spawns multiple CPU-bound jobs
+    @spec()
+    def ParentJob(spec_args, context: Context, input, dependencies):
+        """Parent job that spawns multiple CPU-bound child jobs."""
+        from zahir.events import Await
+
+        # Spawn 4 CPU-bound jobs
+        jobs = [CPUBoundJob({"job_idx": idx}, {}, 0.1) for idx in range(4)]
+        yield Await(jobs)
+
     context = MemoryContext(
         scope=LocalScope.from_module(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 
-    # Create a parent job that spawns multiple CPU-bound jobs
-    @spec()
-    def ParentJob(context: Context, input, dependencies):
-        """Parent job that spawns multiple CPU-bound child jobs."""
-        from zahir.events import Await
-
-        # Spawn 4 CPU-bound jobs
-        jobs = [CPUBoundJob({"job_idx": idx}, {}) for idx in range(4)]
-        yield Await(jobs)
-
-    # Add ParentJob to scope
-    context.scope.jobs["ParentJob"] = ParentJob
-
     # With max_workers=4, we get: 1 dependency worker + 3 job workers
     workflow = LocalWorkflow(context, max_workers=4)
-    events = list(workflow.run(ParentJob({}, {}), events_filter=None))
+    events = list(workflow.run(ParentJob({}, {}, 0.1), events_filter=None))
 
     # Extract PIDs from CPUBoundJob outputs
     cpu_job_outputs = [e.output for e in events if isinstance(e, JobOutputEvent) and "pid" in e.output]
@@ -70,26 +67,23 @@ def test_max_workers_limits_parallelism():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
+    # Create a parent job that spawns multiple CPU-bound jobs
+    @spec()
+    def ParentJob2(spec_args, context: Context, input, dependencies):
+        """Parent job that spawns multiple CPU-bound child jobs."""
+        from zahir.events import Await
+
+        # Spawn 4 CPU-bound jobs
+        jobs = [CPUBoundJob({"job_idx": idx}, {}, 0.1) for idx in range(4)]
+        yield Await(jobs)
+
     context = MemoryContext(
         scope=LocalScope.from_module(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 
-    # Create a parent job that spawns multiple CPU-bound jobs
-    @spec()
-    def ParentJob2(context: Context, input, dependencies):
-        """Parent job that spawns multiple CPU-bound child jobs."""
-        from zahir.events import Await
-
-        # Spawn 4 CPU-bound jobs
-        jobs = [CPUBoundJob({"job_idx": idx}, {}) for idx in range(4)]
-        yield Await(jobs)
-
-    # Add to scope
-    context.scope.jobs["ParentJob2"] = ParentJob2
-
     workflow = LocalWorkflow(context, max_workers=2)
-    events = list(workflow.run(ParentJob2({}, {}), events_filter=None))
+    events = list(workflow.run(ParentJob2({}, {}, 0.1), events_filter=None))
 
     # Extract PIDs from CPUBoundJob outputs
     cpu_job_outputs = [e.output for e in events if isinstance(e, JobOutputEvent) and "pid" in e.output]

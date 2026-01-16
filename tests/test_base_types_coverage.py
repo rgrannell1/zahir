@@ -296,7 +296,7 @@ def test_job_recover_raises_error():
 
     with pytest.raises(ValueError, match="test error"):
         # Consume the generator to trigger the raise and yield
-        list(MinimalJob.recover(context, {}, DependencyGroup({}), test_error))
+        list(MinimalJob.recover(None, context, {}, DependencyGroup({}), test_error))
 
 
 def test_scope_abstract_methods():

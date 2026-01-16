@@ -3,12 +3,13 @@ import multiprocessing
 import pathlib
 import tempfile
 
-from zahir.base_types import Context, EventRegistry, Job, JobState, JobTimingInformation
+from zahir.base_types import Context, EventRegistry, JobState, JobTimingInformation, JobInstance, JobArguments, JobSpec
 from zahir.context.memory import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import WorkflowOutputEvent
 from zahir.exception import DuplicateJobError, MissingJobError
 from zahir.job_registry.sqlite import SQLiteJobRegistry
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 
 
@@ -20,17 +21,29 @@ class DummyEventRegistry(EventRegistry):
         self.queue.put(event)
 
 
-class DummyJob(Job):
-    def __init__(self, input=None, dependencies=None, options=None, job_id=None, parent_id=None):
-        self.input = input if input is not None else {}
-        self.dependencies = dependencies if dependencies is not None else DependencyGroup({})
-        self.job_options = options
-        self.job_id = job_id if job_id is not None else "dummy"
-        self.parent_id = parent_id
+# Create a test spec and a helper function to create test job instances
+@spec()
+def DummyJobSpec(spec_args, context, input, dependencies):
+    """Dummy job spec for testing."""
+    yield WorkflowOutputEvent({"result": 42})
 
-    @classmethod
-    def run(cls, context, input, dependencies):
-        yield WorkflowOutputEvent({"result": 42})
+
+def DummyJob(input=None, dependencies=None, options=None, job_id=None, parent_id=None):
+    """Factory function to create dummy JobInstance objects for testing."""
+    job_args = input if input is not None else {}
+    job_deps = dependencies if dependencies is not None else {}
+    job_timeout = options.job_timeout if options else None
+    recover_timeout = options.recover_timeout if options else None
+    
+    job_arguments = JobArguments(
+        dependencies=DependencyGroup(job_deps) if isinstance(job_deps, dict) else job_deps,
+        args=job_args,
+        job_id=job_id if job_id is not None else "dummy",
+        parent_id=parent_id,
+        job_timeout=job_timeout,
+        recover_timeout=recover_timeout,
+    )
+    return JobInstance(spec=DummyJobSpec, args=job_arguments)
 
 
 def test_sqlite_job_registry_lifecycle():
@@ -55,7 +68,7 @@ def test_sqlite_job_registry_lifecycle():
         assert output["result"] == 42
 
         # Use a real Context with dummy event registry and logger
-        scope = LocalScope(jobs=[DummyJob])
+        scope = LocalScope(specs=[DummyJobSpec])
         dummy_context = MemoryContext(scope=scope, job_registry=registry)
         info = list(registry.jobs(dummy_context))
         assert any(j.job_id == job_id for j in info)

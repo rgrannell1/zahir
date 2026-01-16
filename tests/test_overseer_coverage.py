@@ -13,7 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from zahir.base_types import Context, Job
+from zahir.base_types import Context
 from zahir.context.memory import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import (
@@ -26,21 +26,15 @@ from zahir.events import (
 )
 from zahir.exception import exception_to_text_blob
 from zahir.job_registry import SQLiteJobRegistry
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker.overseer import shutdown, zahir_worker_overseer
 
 
-class SimpleOutputJob(Job):
+@spec()
+def SimpleOutputJob(spec_args, context, input, dependencies):
     """A simple job that outputs a result."""
-
-    @classmethod
-    def run(
-        cls,
-        context: Context,
-        input: dict,
-        dependencies: DependencyGroup,
-    ) -> Iterator[Job | JobOutputEvent]:
-        yield JobOutputEvent(output={"result": "success"})
+    yield JobOutputEvent(output={"result": "success"})
 
 
 def test_shutdown_terminates_alive_processes():
@@ -84,13 +78,12 @@ def test_shutdown_joins_all_processes():
 
 def test_overseer_internal_error_without_error_message():
     """Test overseer handling ZahirInternalErrorEvent without error message (line 120)."""
-    scope = LocalScope()
-    scope.add_job_class(SimpleOutputJob)
+    scope = LocalScope(specs=[SimpleOutputJob])
     job_registry = SQLiteJobRegistry(":memory:")
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     # Create a job
-    job = SimpleOutputJob(input={}, dependencies={})
+    job = SimpleOutputJob({}, {}, 0.1)
 
     # We'll mock the output queue to inject an internal error event
     with patch("zahir.worker.overseer.multiprocessing.Queue") as mock_queue_class:
@@ -117,12 +110,11 @@ def test_overseer_internal_error_without_error_message():
 
 def test_overseer_internal_error_with_error_message():
     """Test overseer handling ZahirInternalErrorEvent with error message (line 115)."""
-    scope = LocalScope()
-    scope.add_job_class(SimpleOutputJob)
+    scope = LocalScope(specs=[SimpleOutputJob])
     job_registry = SQLiteJobRegistry(":memory:")
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
-    job = SimpleOutputJob(input={}, dependencies={})
+    job = SimpleOutputJob({}, {}, 0.1)
 
     with patch("zahir.worker.overseer.multiprocessing.Queue") as mock_queue_class:
         mock_queue = MagicMock()
@@ -150,12 +142,11 @@ def test_overseer_internal_error_with_error_message():
 
 def test_overseer_keyboard_interrupt():
     """Test overseer handling KeyboardInterrupt (line 130-131)."""
-    scope = LocalScope()
-    scope.add_job_class(SimpleOutputJob)
+    scope = LocalScope(specs=[SimpleOutputJob])
     job_registry = SQLiteJobRegistry(":memory:")
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
-    job = SimpleOutputJob(input={}, dependencies={})
+    job = SimpleOutputJob({}, {}, 0.1)
 
     with patch("zahir.worker.overseer.multiprocessing.Queue") as mock_queue_class:
         mock_queue = MagicMock()
@@ -181,12 +172,11 @@ def test_overseer_keyboard_interrupt():
 
 def test_overseer_all_events_flag():
     """Test overseer with all_events=True yields WorkflowCompleteEvent."""
-    scope = LocalScope()
-    scope.add_job_class(SimpleOutputJob)
+    scope = LocalScope(specs=[SimpleOutputJob])
     job_registry = SQLiteJobRegistry(":memory:")
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
-    job = SimpleOutputJob(input={}, dependencies={})
+    job = SimpleOutputJob({}, {}, 0.1)
 
     with patch("zahir.worker.overseer.multiprocessing.Queue") as mock_queue_class:
         mock_queue = MagicMock()
@@ -214,12 +204,11 @@ def test_overseer_all_events_flag():
 
 def test_overseer_yields_workflow_output_events():
     """Test that overseer yields WorkflowOutputEvent and ZahirCustomEvent."""
-    scope = LocalScope()
-    scope.add_job_class(SimpleOutputJob)
+    scope = LocalScope(specs=[SimpleOutputJob])
     job_registry = SQLiteJobRegistry(":memory:")
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
-    job = SimpleOutputJob(input={}, dependencies={})
+    job = SimpleOutputJob({}, {}, 0.1)
 
     with patch("zahir.worker.overseer.multiprocessing.Queue") as mock_queue_class:
         mock_queue = MagicMock()

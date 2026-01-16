@@ -96,7 +96,7 @@ def test_progress_monitor_injection():
     workflow = LocalWorkflow(context=context, max_workers=2, progress_monitor=mock_monitor)
 
     # Create an instance of the job class to pass to run
-    start_job = SimpleTask(input={}, dependencies={})
+    start_job = SimpleTask({}, {}, 0.1)
     list(workflow.run(start=start_job))
 
     # Verify that events were tracked
@@ -127,7 +127,7 @@ def test_progress_monitor_tracks_job_lifecycle():
     workflow = LocalWorkflow(context=context, max_workers=2, progress_monitor=mock_monitor)
 
     # Create an instance of the job class to pass to run
-    start_job = LifecycleTask(input={}, dependencies={})
+    start_job = LifecycleTask({}, {}, 0.1)
     list(workflow.run(start=start_job))
 
     # Verify event sequence
@@ -169,7 +169,7 @@ def test_multiple_jobs_progress_tracking():
     workflow = LocalWorkflow(context=context, max_workers=2, progress_monitor=mock_monitor)
 
     # Create a starting job instance
-    start_job = JobOne(input={}, dependencies={})
+    start_job = JobOne({}, {}, 0.1)
     list(workflow.run(start=start_job))
 
     # Should track all events
@@ -198,7 +198,7 @@ def test_progress_monitor_default_behavior():
     workflow = LocalWorkflow(context=context, max_workers=2)
 
     # Create an instance of the job class to pass to run
-    start_job = DefaultTask(input={}, dependencies={})
+    start_job = DefaultTask({}, {}, 0.1)
     # Should work without errors even without explicit progress monitor
     events = list(workflow.run(start=start_job, events_filter=None))
     assert len(events) > 0

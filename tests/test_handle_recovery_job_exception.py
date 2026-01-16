@@ -51,11 +51,11 @@ def test_handle_recovery_job_exception_returns_enqueue_state_change():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     # Set last_event to an exception
@@ -87,11 +87,11 @@ def test_handle_recovery_job_exception_sets_irrecoverable_state():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     # Set last_event to an exception
@@ -122,11 +122,11 @@ def test_handle_recovery_job_exception_records_error():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     # Set last_event to a specific exception
@@ -160,11 +160,11 @@ def test_handle_recovery_job_exception_clears_frame():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.last_event = Exception("test")
 
@@ -195,11 +195,11 @@ def test_handle_recovery_job_exception_preserves_state():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.last_event = Exception("test")
 
@@ -227,11 +227,11 @@ def test_handle_recovery_job_exception_includes_job_type_in_message():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = AnotherJob({"count": 0}, {})
+    job = AnotherJob({"count": 0}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = AnotherJob.recover(context, job.input, job.dependencies, None)
+    job_generator = AnotherJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.last_event = Exception("test")
 
@@ -259,11 +259,11 @@ def test_handle_recovery_job_exception_transitions_to_enqueue():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Add a job
-    job = SimpleJob({"test": "data"}, {})
+    job = SimpleJob({"test": "data"}, {}, 0.1)
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a recovery frame
-    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.last_event = Exception("test")
 
@@ -306,7 +306,7 @@ def test_handle_recovery_job_exception_with_different_exception_types():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Create a recovery frame
-        job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
+        job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
         worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
         worker_state.last_event = exc
 
