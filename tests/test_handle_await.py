@@ -5,13 +5,15 @@ and enqueues the awaited job(s).
 """
 
 import multiprocessing
+import sys
 import tempfile
+import sys
 
 from zahir.base_types import Context, JobState
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
@@ -19,21 +21,21 @@ from zahir.worker.state_machine.handle_await import handle_await
 from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
-@job()
-def SimpleJob(context: Context, input, dependencies):
+@spec()
+def SimpleJob(spec_args, context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job()
-def AwaitingJob(context: Context, input, dependencies):
+@spec()
+def AwaitingJob(spec_args, context: Context, input, dependencies):
     """A job that awaits another job."""
     result = yield Await(SimpleJob({"test": "data"}, {}))
     yield JobOutputEvent({"result": result})
 
 
-@job()
-def MultiAwaitJob(context: Context, input, dependencies):
+@spec()
+def MultiAwaitJob(spec_args, context: Context, input, dependencies):
     """A job that awaits multiple jobs."""
     results = yield Await([
         SimpleJob({"idx": 0}, {}),
@@ -51,7 +53,7 @@ def test_handle_await_pauses_current_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
     try:
-        context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-1"
@@ -63,7 +65,7 @@ def test_handle_await_pauses_current_job():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -90,7 +92,7 @@ def test_handle_await_adds_awaited_job_to_registry():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
     try:
-        context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-2"
@@ -102,7 +104,7 @@ def test_handle_await_adds_awaited_job_to_registry():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -130,7 +132,7 @@ def test_handle_await_pushes_frame_to_stack():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
     try:
-        context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-3"
@@ -142,7 +144,7 @@ def test_handle_await_pushes_frame_to_stack():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -172,7 +174,7 @@ def test_handle_await_clears_current_frame():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
     try:
-        context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-4"
@@ -184,7 +186,7 @@ def test_handle_await_clears_current_frame():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -213,7 +215,7 @@ def test_handle_await_transitions_to_enqueue():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
     try:
-        context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-5"
@@ -225,7 +227,7 @@ def test_handle_await_transitions_to_enqueue():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -253,7 +255,7 @@ def test_handle_await_sets_required_jobs():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
     try:
-        context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-6"
@@ -265,7 +267,7 @@ def test_handle_await_sets_required_jobs():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -296,7 +298,7 @@ def test_handle_await_multiple_jobs():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
     try:
-        context = MemoryContext(scope=LocalScope(jobs=[MultiAwaitJob, SimpleJob]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-7"
@@ -308,7 +310,7 @@ def test_handle_await_multiple_jobs():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = MultiAwaitJob.run(context, job.input, job.dependencies)
+        job_generator = MultiAwaitJob.run(None, context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -338,7 +340,7 @@ def test_handle_await_multiple_jobs_sets_await_many():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
     try:
-        context = MemoryContext(scope=LocalScope(jobs=[MultiAwaitJob, SimpleJob]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-8"
@@ -350,7 +352,7 @@ def test_handle_await_multiple_jobs_sets_await_many():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = MultiAwaitJob.run(context, job.input, job.dependencies)
+        job_generator = MultiAwaitJob.run(None, context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -381,7 +383,7 @@ def test_handle_await_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-9")
     try:
-        context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-9"
@@ -393,7 +395,7 @@ def test_handle_await_preserves_state():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -419,7 +421,7 @@ def test_handle_await_workflow_id_used():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-10")
     try:
-        context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJob]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "specific-workflow-id-abc"
@@ -431,7 +433,7 @@ def test_handle_await_workflow_id_used():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 

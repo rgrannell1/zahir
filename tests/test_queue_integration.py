@@ -6,13 +6,14 @@ from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
+import sys
 
 
-@job()
-def ChildJobA(context: Context, input, dependencies):
+@spec()
+def ChildJobA(spec_args, context: Context, input, dependencies):
     """Child job A - sends marco and receives polo."""
     queue_a_id = input["queue_a_id"]
     queue_b_id = input["queue_b_id"]
@@ -31,8 +32,8 @@ def ChildJobA(context: Context, input, dependencies):
     yield JobOutputEvent({"child": "A", "result": "success"})
 
 
-@job()
-def ChildJobB(context: Context, input, dependencies):
+@spec()
+def ChildJobB(spec_args, context: Context, input, dependencies):
     """Child job B - receives marco and sends polo."""
     queue_a_id = input["queue_a_id"]
     queue_b_id = input["queue_b_id"]
@@ -51,8 +52,8 @@ def ChildJobB(context: Context, input, dependencies):
     yield JobOutputEvent({"child": "B", "result": "success"})
 
 
-@job()
-def ParentJob(context: Context, input, dependencies):
+@spec()
+def ParentJob(spec_args, context: Context, input, dependencies):
     """Parent job that creates queues and launches children."""
     # Create two queues for communication
     queue_a_id, queue_a = context.add_queue()
@@ -102,7 +103,7 @@ def test_parent_child_jobs_marco_polo_via_queues():
         tmp_file = tmp.name
 
     # Run the workflow
-    scope = LocalScope(jobs=[ParentJob, ChildJobA, ChildJobB])
+    scope = LocalScope.from_module(sys.modules[__name__])
     registry = SQLiteJobRegistry(tmp_file)
     registry.init("test-worker")
     context = MemoryContext(scope=scope, job_registry=registry)

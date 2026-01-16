@@ -6,8 +6,9 @@ from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
+import sys
 from zahir.worker import LocalWorkflow
 
 

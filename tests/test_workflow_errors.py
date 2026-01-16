@@ -12,13 +12,14 @@ from zahir.events import (
     ZahirCustomEvent,
 )
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
+import sys
 
 
-@job()
-def JustReturns(context: Context, input, dependencies):
+@spec()
+def JustReturns(spec_args, context: Context, input, dependencies):
     """Interyield to another job"""
 
     return ZahirCustomEvent(output={"message": "This should be seen"})
@@ -30,7 +31,7 @@ def test_accidental_return():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
-    context = MemoryContext(scope=LocalScope(jobs=[JustReturns]), job_registry=SQLiteJobRegistry(tmp_file))
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context)
 
     job = JustReturns({}, {})

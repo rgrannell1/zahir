@@ -1,6 +1,7 @@
+import sys
 import tempfile
 
-from zahir.base_types import Context, Job
+from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import (
     Await,
@@ -15,25 +16,24 @@ from zahir.events import (
 )
 from zahir.exception import JobPrecheckError
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
 
-class PrecheckFailsJob(Job):
-    """Interyield to another job"""
-
-    @staticmethod
-    def precheck(input):
-        return JobPrecheckError("oh I don't like that.")
-
-    @classmethod
-    def run(cls, context: Context, input, dependencies):
-        yield JobOutputEvent({})
+def _precheck_fails_job_precheck(spec_args, input):
+    """Precheck that always fails"""
+    return JobPrecheckError("oh I don't like that.")
 
 
-@job()
-def ParentJob(context: Context, input, dependencies):
+@spec(precheck=_precheck_fails_job_precheck)
+def PrecheckFailsJob(spec_args, context: Context, input, dependencies):
+    """Job that always fails precheck"""
+    yield JobOutputEvent({})
+
+
+@spec()
+def ParentJob(spec_args, context: Context, input, dependencies):
     """A parent job that yields to the inner async job. Proves nested awaits work."""
 
     _ = yield Await(PrecheckFailsJob({"test": 1234}, {}))
@@ -46,7 +46,7 @@ def test_failed_prechecks():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
-    context = MemoryContext(scope=LocalScope(jobs=[PrecheckFailsJob]), job_registry=SQLiteJobRegistry(tmp_file))
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context)
 
     job = PrecheckFailsJob({"test": 1234}, {})
@@ -69,7 +69,7 @@ def test_awaited_prechecks():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[PrecheckFailsJob, ParentJob]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context, max_workers=2)
 

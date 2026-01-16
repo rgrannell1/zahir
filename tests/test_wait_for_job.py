@@ -5,26 +5,26 @@ in the push-based dispatch model.
 """
 
 import multiprocessing
+import sys
 import tempfile
 import threading
 import time
 
-from zahir.base_types import Job
+from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import JobAssignedEvent, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.states import PopJobStateChange, StartStateChange
 from zahir.worker.state_machine.wait_for_job import WAIT_TIMEOUT_SECONDS, wait_for_job
 
 
-class SimpleTestJob(Job):
+@spec()
+def SimpleTestJob(spec_args, context: Context, input, dependencies):
     """A simple test job for testing wait_for_job."""
-
-    @classmethod
-    def run(cls, context, input, dependencies):
-        yield JobOutputEvent({"result": "done"})
+    yield JobOutputEvent({"result": "done"})
 
 
 def test_wait_for_job_receives_assignment():
@@ -36,8 +36,8 @@ def test_wait_for_job_receives_assignment():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    # Register the job class
-    scope = LocalScope(jobs=[SimpleTestJob])
+    # Register the job spec
+    scope = LocalScope.from_module(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     input_queue = multiprocessing.Queue()
@@ -45,20 +45,20 @@ def test_wait_for_job_receives_assignment():
     workflow_id = "test-workflow-1"
 
     # Create a test job and add to registry
-    test_job = SimpleTestJob({}, {}, job_id="test-job-1")
+    test_job = SimpleTestJob({}, {})
     job_registry.add(context, test_job, output_queue)
 
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Put a job assignment on the input queue
-    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="test-job-1"))
+    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job.job_id))
 
     # Run wait_for_job
     result, returned_state = wait_for_job(worker_state)
 
     # Verify result is a StartStateChange indicating job was received
     assert isinstance(result, StartStateChange)
-    assert "test-job-1" in result.data["message"]
+    assert test_job.job_id in result.data["message"]
 
     # Verify job was pushed to stack
     assert not worker_state.job_stack.is_empty()
@@ -73,7 +73,7 @@ def test_wait_for_job_checks_runnable_stack():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    scope = LocalScope(jobs=[SimpleTestJob])
+    scope = LocalScope.from_module(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     input_queue = multiprocessing.Queue()
@@ -81,7 +81,7 @@ def test_wait_for_job_checks_runnable_stack():
     workflow_id = "test-workflow-2"
 
     # Create a job and add to registry as PAUSED
-    test_job = SimpleTestJob({}, {}, job_id="test-job-2")
+    test_job = SimpleTestJob({}, {})
     job_registry.add(context, test_job, output_queue)
 
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
@@ -89,7 +89,7 @@ def test_wait_for_job_checks_runnable_stack():
     # Push a frame to the stack
     from zahir.worker.call_frame import ZahirStackFrame
 
-    job_generator = SimpleTestJob.run(context, None, {})
+    job_generator = SimpleTestJob.run(None, context, None, {})
     frame = ZahirStackFrame(job=test_job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -109,7 +109,7 @@ def test_wait_for_job_times_out_and_rechecks():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    scope = LocalScope(jobs=[SimpleTestJob])
+    scope = LocalScope.from_module(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     input_queue = multiprocessing.Queue()
@@ -122,9 +122,9 @@ def test_wait_for_job_times_out_and_rechecks():
     # Send an assignment after a delay from another thread
     def delayed_put():
         time.sleep(0.3)
-        test_job = SimpleTestJob({}, {}, job_id="delayed-job")
-        job_registry.add(context, test_job, output_queue)
-        input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="delayed-job"))
+        test_job_delayed = SimpleTestJob({}, {})
+        job_registry.add(context, test_job_delayed, output_queue)
+        input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job_delayed.job_id))
 
     thread = threading.Thread(target=delayed_put)
     thread.start()
@@ -149,7 +149,7 @@ def test_wait_for_job_handles_missing_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    scope = LocalScope(jobs=[SimpleTestJob])
+    scope = LocalScope.from_module(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     input_queue = multiprocessing.Queue()
@@ -161,9 +161,9 @@ def test_wait_for_job_handles_missing_job():
     # Put an assignment for a job that doesn't exist
     input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="nonexistent-job"))
     # Then put a valid one so we don't hang
-    test_job = SimpleTestJob({}, {}, job_id="valid-job")
+    test_job = SimpleTestJob({}, {})
     job_registry.add(context, test_job, output_queue)
-    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="valid-job"))
+    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job.job_id))
 
     # Should handle missing job and continue
     result, _ = wait_for_job(worker_state)
@@ -182,7 +182,7 @@ def test_wait_for_job_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    scope = LocalScope(jobs=[SimpleTestJob])
+    scope = LocalScope.from_module(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     input_queue = multiprocessing.Queue()
@@ -190,13 +190,13 @@ def test_wait_for_job_preserves_state():
     workflow_id = "test-workflow-5"
 
     # Create and add job
-    test_job = SimpleTestJob({}, {}, job_id="test-job-5")
+    test_job = SimpleTestJob({}, {})
     job_registry.add(context, test_job, output_queue)
 
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Put assignment on queue
-    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="test-job-5"))
+    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job.job_id))
 
     # Run wait_for_job
     result, returned_state = wait_for_job(worker_state)

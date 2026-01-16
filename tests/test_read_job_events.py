@@ -12,42 +12,43 @@ from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import Await, JobEvent, JobOutputEvent, ZahirCustomEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.read_job_events import read_job_events
 from zahir.worker.state_machine import ZahirWorkerState
+import sys
 
 
-@job()
-def SimpleJobWithOutput(context: Context, input, dependencies):
+@spec()
+def SimpleJobWithOutput(spec_args, context: Context, input, dependencies):
     """A simple job that produces output."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job()
-def JobWithMultipleEvents(context: Context, input, dependencies):
+@spec()
+def JobWithMultipleEvents(spec_args, context: Context, input, dependencies):
     """A job that yields multiple events before output."""
     yield ZahirCustomEvent(output={"step": 1})
     yield ZahirCustomEvent(output={"step": 2})
     yield JobOutputEvent({"result": "complete"})
 
 
-@job()
-def JobWithoutOutput(context: Context, input, dependencies):
+@spec()
+def JobWithoutOutput(spec_args, context: Context, input, dependencies):
     """A job that completes without output."""
     yield iter([])
 
 
-@job()
-def AwaitingJob(context: Context, input, dependencies):
+@spec()
+def AwaitingJob(spec_args, context: Context, input, dependencies):
     """A job that awaits another job."""
     result = yield Await(SimpleJobWithOutput({"test": "data"}, {}))
     yield JobOutputEvent({"result": result})
 
 
-@job()
-def SubjobCreator(context: Context, input, dependencies):
+@spec()
+def SubjobCreator(spec_args, context: Context, input, dependencies):
     """A job that creates subjobs."""
     subjob = SimpleJobWithOutput({"test": "data"}, {})
     yield subjob
@@ -63,7 +64,7 @@ def test_read_job_events_returns_output_event():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithOutput]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -74,7 +75,7 @@ def test_read_job_events_returns_output_event():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
+    job_generator = SimpleJobWithOutput.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -101,7 +102,7 @@ def test_read_job_events_returns_none_for_complete():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(scope=LocalScope(jobs=[JobWithoutOutput]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
@@ -112,7 +113,7 @@ def test_read_job_events_returns_none_for_complete():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = JobWithoutOutput.run(context, job.input, job.dependencies)
+    job_generator = JobWithoutOutput.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -138,7 +139,7 @@ def test_read_job_events_returns_await():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJobWithOutput]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
@@ -149,7 +150,7 @@ def test_read_job_events_returns_await():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+    job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -175,7 +176,7 @@ def test_read_job_events_enqueues_intermediate_events():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(scope=LocalScope(jobs=[JobWithMultipleEvents]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
@@ -190,7 +191,7 @@ def test_read_job_events_enqueues_intermediate_events():
         output_queue.get()
 
     # Set up frame
-    job_generator = JobWithMultipleEvents.run(context, job.input, job.dependencies)
+    job_generator = JobWithMultipleEvents.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -234,7 +235,7 @@ def test_read_job_events_sets_workflow_id():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(scope=LocalScope(jobs=[JobWithMultipleEvents]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "specific-workflow-123"
 
@@ -249,7 +250,7 @@ def test_read_job_events_sets_workflow_id():
         output_queue.get()
 
     # Set up frame
-    job_generator = JobWithMultipleEvents.run(context, job.input, job.dependencies)
+    job_generator = JobWithMultipleEvents.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -285,7 +286,7 @@ def test_read_job_events_sets_job_id():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(scope=LocalScope(jobs=[JobWithMultipleEvents]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
@@ -300,7 +301,7 @@ def test_read_job_events_sets_job_id():
         output_queue.get()
 
     # Set up frame
-    job_generator = JobWithMultipleEvents.run(context, job.input, job.dependencies)
+    job_generator = JobWithMultipleEvents.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -336,7 +337,7 @@ def test_read_job_events_raises_on_non_iterator():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJobWithOutput]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
@@ -373,7 +374,7 @@ def test_read_job_events_handles_subjobs():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SubjobCreator, SimpleJobWithOutput]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
 
@@ -391,7 +392,7 @@ def test_read_job_events_handles_subjobs():
         output_queue.get()
 
     # Set up frame
-    job_generator = SubjobCreator.run(context, job.input, job.dependencies)
+    job_generator = SubjobCreator.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -433,7 +434,7 @@ def test_read_job_events_sends_awaited_output():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-9")
 
-    context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJobWithOutput]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-9"
 
@@ -444,7 +445,7 @@ def test_read_job_events_sends_awaited_output():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+    job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -491,7 +492,7 @@ def test_read_job_events_clears_required_jobs():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-10")
 
-    context = MemoryContext(scope=LocalScope(jobs=[AwaitingJob, SimpleJobWithOutput]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-10"
 
@@ -502,7 +503,7 @@ def test_read_job_events_clears_required_jobs():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+    job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 

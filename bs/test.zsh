@@ -1,3 +1,8 @@
-#! /usr/bin/env zsh
+#!/usr/bin/env zsh
+set -euo pipefail
 
-uv run pytest --cov=zahir --cov-report=term-missing --cov-report=xml tests/
+exec uv run pytest \
+  --cov=zahir \
+  --cov-report=term-missing \
+  --cov-report=xml \
+  "$@"

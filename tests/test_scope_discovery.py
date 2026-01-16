@@ -4,22 +4,23 @@ from types import ModuleType
 
 from zahir.base_types import Context, Dependency, DependencyState, Job
 from zahir.events import JobOutputEvent
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
+import sys
 
 # Create a fake module for testing
 test_module = ModuleType("test_workflows")
 
 
 # Define some test jobs and dependencies in the module
-@job()
-def SampleJob1(context: Context, input, dependencies):
+@spec()
+def SampleJob1(spec_args, context: Context, input, dependencies):
     """A test job."""
     yield JobOutputEvent({"result": "test1"})
 
 
-@job()
-def SampleJob2(context: Context, input, dependencies):
+@spec()
+def SampleJob2(spec_args, context: Context, input, dependencies):
     """Another test job."""
     yield JobOutputEvent({"result": "test2"})
 
@@ -72,15 +73,15 @@ SampleDependency2.__module__ = "test_workflows"
 
 
 def test_from_module_discovers_jobs():
-    """Test that from_module discovers all Job classes in a module."""
+    """Test that from_module discovers all Job specs in a module."""
 
     scope = LocalScope.from_module(test_module)
 
-    # Should have discovered both jobs
-    assert "SampleJob1" in scope.jobs
-    assert "SampleJob2" in scope.jobs
-    assert scope.jobs["SampleJob1"] == SampleJob1
-    assert scope.jobs["SampleJob2"] == SampleJob2
+    # Should have discovered both jobs (as specs since they're @spec decorated)
+    assert "SampleJob1" in scope.specs
+    assert "SampleJob2" in scope.specs
+    assert scope.specs["SampleJob1"] == SampleJob1
+    assert scope.specs["SampleJob2"] == SampleJob2
 
 
 def test_from_module_discovers_dependencies():
@@ -100,8 +101,8 @@ def test_from_module_discovers_both():
 
     scope = LocalScope.from_module(test_module)
 
-    # Should have found 2 jobs and 2 dependencies
-    assert len(scope.jobs) == 2
+    # Should have found 2 specs and 2 dependencies
+    assert len(scope.specs) == 2
     assert len(scope.dependencies) == 2
 
 
@@ -117,7 +118,7 @@ def test_from_module_skips_base_classes():
     scope = LocalScope.from_module(test_module)
 
     # Should not have registered the base classes themselves
-    assert "Job" not in scope.jobs
+    assert "Job" not in scope.specs
     assert "Dependency" not in scope.dependencies
 
     # Clean up
@@ -131,8 +132,8 @@ def test_from_module_includes_imported_classes():
     # Create a second module
     other_module = ModuleType("other_module")
 
-    @job()
-    def ExternalJob(context: Context, input, dependencies):
+    @spec()
+    def ExternalJob(spec_args, context: Context, input, dependencies):
         """A job from another module."""
         yield JobOutputEvent({"result": "external"})
 
@@ -144,8 +145,8 @@ def test_from_module_includes_imported_classes():
 
     scope = LocalScope.from_module(test_module)
 
-    # Should have discovered the imported job (behavior changed)
-    assert "ExternalJob" in scope.jobs
+    # Should have discovered the imported job spec
+    assert "ExternalJob" in scope.specs
 
     # Clean up
     delattr(test_module, "ExternalJob")
@@ -158,17 +159,17 @@ def test_from_module_empty_module():
 
     scope = LocalScope.from_module(empty_module)
 
-    assert len(scope.jobs) == 0
+    assert len(scope.specs) == 0
     assert len(scope.dependencies) == 0
 
 
 def test_from_module_get_job_class():
-    """Test that discovered jobs can be retrieved."""
+    """Test that discovered specs can be retrieved."""
 
     scope = LocalScope.from_module(test_module)
 
-    job_class = scope.get_job_class("SampleJob1")
-    assert job_class == SampleJob1
+    job_spec = scope.get_job_spec("SampleJob1")
+    assert job_spec == SampleJob1
 
 
 def test_from_module_get_dependency_class():

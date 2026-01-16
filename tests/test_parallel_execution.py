@@ -9,13 +9,14 @@ from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import JobCompletedEvent, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
+import sys
 from zahir.worker import LocalWorkflow
 
 
-@job()
-def CPUBoundJob(context: Context, input, dependencies):
+@spec()
+def CPUBoundJob(spec_args, context: Context, input, dependencies):
     """A CPU-bound job that tracks which process it runs on."""
 
     yield JobOutputEvent({"pid": os.getpid(), "job_idx": input["job_idx"]})
@@ -28,12 +29,12 @@ def test_jobs_run_on_multiple_processes():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[CPUBoundJob]),
+        scope=LocalScope.from_module(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 
     # Create a parent job that spawns multiple CPU-bound jobs
-    @job()
+    @spec()
     def ParentJob(context: Context, input, dependencies):
         """Parent job that spawns multiple CPU-bound child jobs."""
         from zahir.events import Await
@@ -70,12 +71,12 @@ def test_max_workers_limits_parallelism():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[CPUBoundJob]),
+        scope=LocalScope.from_module(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 
     # Create a parent job that spawns multiple CPU-bound jobs
-    @job()
+    @spec()
     def ParentJob2(context: Context, input, dependencies):
         """Parent job that spawns multiple CPU-bound child jobs."""
         from zahir.events import Await

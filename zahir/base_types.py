@@ -775,8 +775,10 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
         dependencies: "Mapping[str, Dependency] | DependencyGroup | None" = None,
         job_timeout: float | None = None,
         recover_timeout: float | None = None,
+        job_id: str | None = None,
     ) -> "JobInstance[JobSpecArgs, ArgsType, OutputType]":
-        job_id = generate_id(4)
+        if job_id is None:
+            job_id = generate_id(4)
 
         from zahir.dependencies.group import DependencyGroup
 

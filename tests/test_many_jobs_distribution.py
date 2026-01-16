@@ -10,13 +10,14 @@ from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
+import sys
 
 
-@job()
-def CPUBoundJob(context: Context, input, dependencies):
+@spec()
+def CPUBoundJob(spec_args, context: Context, input, dependencies):
     """A trivial job that returns its process ID."""
 
     time.sleep(1)
@@ -24,8 +25,8 @@ def CPUBoundJob(context: Context, input, dependencies):
     yield JobOutputEvent({"pid": os.getpid(), "idx": input["idx"]})
 
 
-@job()
-def SpawnManyJobs(context: Context, input, dependencies):
+@spec()
+def SpawnManyJobs(spec_args, context: Context, input, dependencies):
     """Spawns 50 CPU-bound jobs."""
 
     jobs = [CPUBoundJob({"idx": i}, {}) for i in range(50)]
@@ -42,7 +43,7 @@ def test_many_jobs_distribute_across_workers():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[CPUBoundJob, SpawnManyJobs]),
+        scope=LocalScope.from_module(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 

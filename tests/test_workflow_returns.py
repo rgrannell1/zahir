@@ -1,3 +1,4 @@
+import sys
 import tempfile
 
 from zahir.base_types import Context
@@ -12,13 +13,13 @@ from zahir.events import (
     ZahirCustomEvent,
 )
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
 
-@job()
-def JustReturns(context: Context, input, dependencies):
+@spec()
+def JustReturns(spec_args, context: Context, input, dependencies):
     """Interyield to another job"""
 
     yield ZahirCustomEvent(output={"message": "This should be seen"})
@@ -32,7 +33,10 @@ def test_nested_async_workflow():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
-    context = MemoryContext(scope=LocalScope(jobs=[JustReturns]), job_registry=SQLiteJobRegistry(tmp_file))
+    # Create scope that discovers this module's specs
+    scope = LocalScope()
+    scope.add_job_spec(JustReturns)  # Explicitly add JustReturns
+    context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
     workflow = LocalWorkflow(context, max_workers=2)
 

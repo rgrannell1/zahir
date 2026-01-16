@@ -19,10 +19,11 @@ from zahir.events import (
     ZahirEvent,
 )
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker.local_workflow import LocalWorkflow
 from zahir.worker.progress import ProgressMonitor
+import sys
 
 
 @dataclass
@@ -80,15 +81,15 @@ def test_progress_monitor_injection():
     """Test that progress monitor can be injected via DI."""
     mock_monitor = MockProgressMonitor()
 
-    @job()
-    def SimpleTask(context: Context, input, dependencies):
+    @spec()
+    def SimpleTask(spec_args, context: Context, input, dependencies):
         yield JobOutputEvent({"result": 42})
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleTask]),
+        scope=LocalScope.from_module(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 
@@ -111,15 +112,15 @@ def test_progress_monitor_tracks_job_lifecycle():
     """Test that progress monitor correctly tracks job lifecycle events."""
     mock_monitor = MockProgressMonitor()
 
-    @job()
-    def LifecycleTask(context: Context, input, dependencies):
+    @spec()
+    def LifecycleTask(spec_args, context: Context, input, dependencies):
         yield JobOutputEvent({"status": "done"})
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[LifecycleTask]),
+        scope=LocalScope.from_module(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 
@@ -145,23 +146,23 @@ def test_multiple_jobs_progress_tracking():
     """Test progress monitoring with multiple jobs."""
     mock_monitor = MockProgressMonitor()
 
-    @job()
-    def JobOne(context: Context, input, dependencies):
+    @spec()
+    def JobOne(spec_args, context: Context, input, dependencies):
         yield JobOutputEvent({"value": 1})
 
-    @job()
-    def JobTwo(context: Context, input, dependencies):
+    @spec()
+    def JobTwo(spec_args, context: Context, input, dependencies):
         yield JobOutputEvent({"value": 2})
 
-    @job()
-    def JobThree(context: Context, input, dependencies):
+    @spec()
+    def JobThree(spec_args, context: Context, input, dependencies):
         yield JobOutputEvent({"value": 3})
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[JobOne, JobTwo, JobThree]),
+        scope=LocalScope.from_module(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 
@@ -182,15 +183,15 @@ def test_multiple_jobs_progress_tracking():
 def test_progress_monitor_default_behavior():
     """Test that default progress monitor is used when not injected."""
 
-    @job()
-    def DefaultTask(context: Context, input, dependencies):
+    @spec()
+    def DefaultTask(spec_args, context: Context, input, dependencies):
         yield JobOutputEvent({"result": 99})
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[DefaultTask]),
+        scope=LocalScope.from_module(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 

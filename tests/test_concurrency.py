@@ -10,9 +10,10 @@ from zahir.context import MemoryContext
 from zahir.dependencies.concurrency import ConcurrencyLimit
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
+import sys
 
 
 def test_concurrency_limit_claim():
@@ -158,8 +159,8 @@ def test_concurrency_limit_enforced_with_30_parallel_jobs():
 
     try:
 
-        @job()
-        def ConcurrentTestJob(context: Context, input_data, dependencies):
+        @spec()
+        def ConcurrentTestJob(spec_args, context: Context, input_data, dependencies):
             """A job that tracks when it starts and ends to verify concurrency limits."""
             job_idx = input_data["idx"]
 
@@ -178,8 +179,8 @@ def test_concurrency_limit_enforced_with_30_parallel_jobs():
 
             yield JobOutputEvent({"job_idx": job_idx, "pid": os.getpid()})
 
-        @job()
-        def ParentJob(context: Context, input_data, dependencies):
+        @spec()
+        def ParentJob(spec_args, context: Context, input_data, dependencies):
             """Parent job that spawns 30 parallel jobs with concurrency limit."""
             # Create 30 child jobs, each with a concurrency limit of 3
             child_jobs = []

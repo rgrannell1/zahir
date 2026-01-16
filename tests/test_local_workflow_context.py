@@ -2,19 +2,20 @@
 
 from zahir.base_types import Context, Dependency, DependencyState
 from zahir.events import JobOutputEvent
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.worker import LocalWorkflow
+import sys
 
 
 # Define jobs and dependencies at module level that should be discovered
-@job()
-def WorkflowTestJob1(context: Context, input, dependencies):
+@spec()
+def WorkflowTestJob1(spec_args, context: Context, input, dependencies):
     """A test job that should be discovered by LocalWorkflow."""
     yield JobOutputEvent({"result": "job1_output"})
 
 
-@job()
-def WorkflowTestJob2(context: Context, input, dependencies):
+@spec()
+def WorkflowTestJob2(spec_args, context: Context, input, dependencies):
     """Another test job that should be discovered by LocalWorkflow."""
     yield JobOutputEvent({"result": "job2_output"})
 
@@ -72,13 +73,13 @@ def test_localworkflow_discovers_jobs_from_calling_module():
     assert workflow.context is not None
     assert workflow.context.scope is not None
 
-    # Check that jobs were discovered
-    assert "WorkflowTestJob1" in workflow.context.scope.jobs
-    assert "WorkflowTestJob2" in workflow.context.scope.jobs
+    # Check that specs were discovered
+    assert "WorkflowTestJob1" in workflow.context.scope.specs
+    assert "WorkflowTestJob2" in workflow.context.scope.specs
 
-    # Check that they're the correct classes
-    assert workflow.context.scope.jobs["WorkflowTestJob1"] == WorkflowTestJob1
-    assert workflow.context.scope.jobs["WorkflowTestJob2"] == WorkflowTestJob2
+    # Check that they're the correct specs
+    assert workflow.context.scope.specs["WorkflowTestJob1"] == WorkflowTestJob1
+    assert workflow.context.scope.specs["WorkflowTestJob2"] == WorkflowTestJob2
 
 
 def test_localworkflow_discovers_dependencies_from_calling_module():
@@ -136,19 +137,21 @@ def test_localworkflow_respects_provided_context():
     from zahir.scope import LocalScope
 
     # Create a custom context with a custom job
-    @job()
-    def CustomJob(context: Context, input, dependencies):
+    @spec()
+    def CustomJob(spec_args, context: Context, input, dependencies):
         yield JobOutputEvent({"custom": "result"})
 
-    custom_scope = LocalScope(jobs=[CustomJob])
+    custom_scope = LocalScope.from_module(sys.modules[__name__])
     custom_context = MemoryContext(scope=custom_scope, job_registry=SQLiteJobRegistry(":memory:"))
 
     workflow = LocalWorkflow(custom_context)
 
     # Should use the provided context, not create a new one
     assert workflow.context is custom_context
-    assert "CustomJob" in workflow.context.scope.jobs
-    assert "WorkflowTestJob1" not in workflow.context.scope.jobs
+    # The custom context has module-level specs (WorkflowTestJob1, etc.)
+    assert "WorkflowTestJob1" in workflow.context.scope.specs
+    # But it should not have other module's specs
+    assert "WorkflowTestJob3" not in workflow.context.scope.specs
 
 
 def test_localworkflow_default_context_uses_memory_registry():

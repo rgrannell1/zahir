@@ -5,28 +5,30 @@ when they finish without producing output, and transitions to enqueue state.
 """
 
 import multiprocessing
+import sys
 import tempfile
 
 from zahir.base_types import Context, JobState
 from zahir.context import MemoryContext
 from zahir.events import JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
+import sys
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.handle_job_complete_no_output import handle_job_complete_no_output
 from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
-@job()
-def SimpleJob(context: Context, input, dependencies):
+@spec()
+def SimpleJob(spec_args, context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job()
-def AnotherJob(context: Context, input, dependencies):
+@spec()
+def AnotherJob(spec_args, context: Context, input, dependencies):
     """Another job for testing."""
     yield JobOutputEvent({"count": 1})
 
@@ -40,7 +42,7 @@ def test_handle_job_complete_no_output_sets_completed_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
@@ -52,7 +54,7 @@ def test_handle_job_complete_no_output_sets_completed_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -73,7 +75,7 @@ def test_handle_job_complete_no_output_transitions_to_enqueue():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
@@ -85,7 +87,7 @@ def test_handle_job_complete_no_output_transitions_to_enqueue():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -106,7 +108,7 @@ def test_handle_job_complete_no_output_clears_frame():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
@@ -118,7 +120,7 @@ def test_handle_job_complete_no_output_clears_frame():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -141,7 +143,7 @@ def test_handle_job_complete_no_output_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
@@ -153,7 +155,7 @@ def test_handle_job_complete_no_output_preserves_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -173,7 +175,7 @@ def test_handle_job_complete_no_output_workflow_id_used():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "specific-workflow-id-789"
@@ -185,7 +187,7 @@ def test_handle_job_complete_no_output_workflow_id_used():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -206,7 +208,7 @@ def test_handle_job_complete_no_output_multiple_calls():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob, AnotherJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
@@ -218,7 +220,7 @@ def test_handle_job_complete_no_output_multiple_calls():
     job_id1 = context.job_registry.add(context, job1, output_queue)
 
     # Set up frame for first job
-    job_generator1 = SimpleJob.run(context, job1.input, job1.dependencies)
+    job_generator1 = SimpleJob.run(None, context, job1.input, job1.dependencies)
     frame1 = ZahirStackFrame(job=job1, job_generator=job_generator1, recovery=False)
     worker_state.frame = frame1
 
@@ -234,7 +236,7 @@ def test_handle_job_complete_no_output_multiple_calls():
     job_id2 = context.job_registry.add(context, job2, output_queue)
 
     # Set up frame for second job
-    job_generator2 = AnotherJob.run(context, job2.input, job2.dependencies)
+    job_generator2 = AnotherJob.run(None, context, job2.input, job2.dependencies)
     frame2 = ZahirStackFrame(job=job2, job_generator=job_generator2, recovery=False)
     worker_state.frame = frame2
 
@@ -255,7 +257,7 @@ def test_handle_job_complete_no_output_recovery_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
@@ -267,7 +269,7 @@ def test_handle_job_complete_no_output_recovery_job():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -289,7 +291,7 @@ def test_handle_job_complete_no_output_clears_frame_completely():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
@@ -301,7 +303,7 @@ def test_handle_job_complete_no_output_clears_frame_completely():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 

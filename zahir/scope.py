@@ -33,23 +33,30 @@ class LocalScope(Scope):
             raise KeyError(f"Job spec '{type}' not found in scope. Did you register it?")
         return self.specs[type]
 
-    def add_job_class(self, job_class: type[Job]) -> Self:
-        """Add a job class to the scope.
+    def add_job_class(self, job_class: type[Job] | JobSpec) -> Self:
+        """Add a job class or spec to the scope.
 
-        @param job_class: The job class to add.
+        @param job_class: The job class or spec to add.
         """
 
-        self.jobs[job_class.__name__] = job_class
+        if isinstance(job_class, JobSpec):
+            self.specs[job_class.type] = job_class
+        else:
+            self.jobs[job_class.__name__] = job_class
         return self
 
-    def add_job_classes(self, job_classes: list[type[Job]]) -> Self:
+    def add_job_classes(self, job_classes: list[type[Job]] | list[JobSpec]) -> Self:
         """Add multiple job classes to the scope.
 
-        @param job_classes: The job classes to add.
+        @param job_classes: The job classes or specs to add.
         """
 
         for job_class in job_classes:
-            self.jobs[job_class.__name__] = job_class
+            # Handle both Job classes and JobSpec objects for backwards compatibility
+            if isinstance(job_class, JobSpec):
+                self.specs[job_class.type] = job_class
+            else:
+                self.jobs[job_class.__name__] = job_class
         return self
 
     def get_job_class(self, type_name: str) -> type[Job]:

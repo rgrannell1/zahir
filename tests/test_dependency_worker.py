@@ -16,19 +16,20 @@ from zahir.dependencies.job import JobDependency
 from zahir.dependencies.time import TimeDependency
 from zahir.events import JobOutputEvent, WorkflowCompleteEvent, ZahirInternalErrorEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker.dependency_worker import zahir_dependency_worker
+import sys
 
 
-@job()
-def SimpleJob(context: Context, input, dependencies):
+@spec()
+def SimpleJob(spec_args, context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job()
-def JobWithOutput(context: Context, input, dependencies):
+@spec()
+def JobWithOutput(spec_args, context: Context, input, dependencies):
     """A job that produces output."""
     yield JobOutputEvent({"count": input.get("count", 0) + 1})
 
@@ -129,7 +130,7 @@ def test_dependency_worker_emits_workflow_complete():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
@@ -390,7 +391,7 @@ def test_dependency_worker_handles_internal_error():
 
     broken_registry = BrokenJobRegistry()
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=broken_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=broken_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-9"
 
@@ -470,7 +471,7 @@ def test_dependency_worker_direct_no_jobs():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-direct-3")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-direct-3"
 
@@ -494,7 +495,7 @@ def test_dependency_worker_direct_exception_handling():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-direct-4")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-direct-4"
 

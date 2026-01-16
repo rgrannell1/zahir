@@ -3,13 +3,13 @@
 from zahir.base_types import Context
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import JobOutputEvent, WorkflowOutputEvent
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 
 
 def test_job_decorator_without_recovery():
     """Test that @job decorator works without recovery parameter."""
 
-    @job()
+    @spec()
     def SimpleJob(context: Context, input, dependencies):
         """A simple job."""
         yield JobOutputEvent({"result": "success"})
@@ -41,7 +41,7 @@ def test_job_decorator_with_recovery():
 def test_job_decorator_parentheses_without_recovery():
     """Test that @job() with empty parentheses works."""
 
-    @job()
+    @spec()
     def JobWithParens(context: Context, input, dependencies):
         """A job defined with @job()."""
         yield JobOutputEvent({"result": "works"})
@@ -113,7 +113,7 @@ def test_recovery_function_signature():
 def test_job_without_recovery_uses_default():
     """Test that job without recovery parameter uses the default Job.recover behavior."""
 
-    @job()
+    @spec()
     def NoRecoveryJob(context: Context, input, dependencies):
         """Job without custom recovery."""
         yield JobOutputEvent({"result": "ok"})

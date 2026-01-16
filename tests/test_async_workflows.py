@@ -1,5 +1,6 @@
 import datetime
 import pathlib
+import sys
 
 from zahir.base_types import Context
 from zahir.context import MemoryContext
@@ -20,20 +21,20 @@ from zahir.events import (
     ZahirCustomEvent,
 )
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
 
-@job()
-def AddJob(context: Context, input, dependencies):
+@spec()
+def AddJob(spec_args, context: Context, input, dependencies):
     """Add to the input count and yield it"""
 
     yield JobOutputEvent({"count": input["count"] + 1})
 
 
-@job()
-def YieldMany(context: Context, input, dependencies):
+@spec()
+def YieldMany(spec_args, context: Context, input, dependencies):
     """Interyield to another job"""
 
     count = 0
@@ -45,8 +46,8 @@ def YieldMany(context: Context, input, dependencies):
     yield JobOutputEvent({"count": count})
 
 
-@job()
-def ParentJob(context: Context, input, dependencies):
+@spec()
+def ParentJob(spec_args, context: Context, input, dependencies):
     """A parent job that yields to the inner async job. Proves nested awaits work."""
 
     subcount = yield Await(YieldMany({}, {}))
@@ -60,8 +61,9 @@ def test_nested_async_workflow():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
+    scope = LocalScope.from_module(sys.modules[__name__])
     context = MemoryContext(
-        scope=LocalScope(jobs=[AddJob, YieldMany, ParentJob]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=scope, job_registry=SQLiteJobRegistry(tmp_file)
     )
 
     workflow = LocalWorkflow(context)
@@ -74,8 +76,8 @@ def test_nested_async_workflow():
     assert final_event.output["count"] == 2
 
 
-@job()
-def ImpossibleParentJob(context: Context, input, dependencies):
+@spec()
+def ImpossibleParentJob(spec_args, context: Context, input, dependencies):
     """A parent job that yields to an impossible inner job."""
 
     dependency = TimeDependency(before=datetime.datetime(2000, 1, 1, 0, 0, 0, tzinfo=datetime.UTC))
@@ -91,10 +93,7 @@ def test_impossible_async_workflow():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
-    scope = LocalScope(
-        jobs=[AddJob, YieldMany, ImpossibleParentJob],
-        dependencies=[TimeDependency],
-    )
+    scope = LocalScope.from_module(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
     workflow = LocalWorkflow(context)
@@ -115,8 +114,8 @@ def test_impossible_async_workflow():
     assert isinstance(events[10], WorkflowCompleteEvent)
 
 
-@job()
-def AwaitMany(context: Context, input, dependencies):
+@spec()
+def AwaitMany(spec_args, context: Context, input, dependencies):
     """Interyield to multiple jobs"""
 
     results = yield Await([
@@ -137,10 +136,7 @@ def test_await_many_workflow():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
-    scope = LocalScope(
-        jobs=[AddJob, AwaitMany],
-        dependencies=[],
-    )
+    scope = LocalScope.from_module(sys.modules[__name__])
 
     context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context, max_workers=2)
@@ -173,8 +169,8 @@ def test_await_many_workflow():
     assert workflow_output.output["total"] == 63
 
 
-@job()
-def AwaitEmpty(context: Context, input, dependencies):
+@spec()
+def AwaitEmpty(spec_args, context: Context, input, dependencies):
     """Interyield to an empty list of jobs"""
 
     results = yield Await([])
@@ -189,10 +185,7 @@ def test_await_empty_workflow():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
-    scope = LocalScope(
-        jobs=[AwaitEmpty],
-        dependencies=[],
-    )
+    scope = LocalScope.from_module(sys.modules[__name__])
 
     context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context)
@@ -213,16 +206,16 @@ def test_await_empty_workflow():
     assert workflow_output.output["total"] == 0
 
 
-@job()
-def FailingJob(context: Context, input, dependencies):
+@spec()
+def FailingJob(spec_args, context: Context, input, dependencies):
     """A job that always fails."""
 
     raise ValueError("This job always fails.")
     yield iter([])
 
 
-@job()
-def AwaitManyFailing(context: Context, input, dependencies):
+@spec()
+def AwaitManyFailing(spec_args, context: Context, input, dependencies):
     """Interyield to multiple jobs, one of which fails."""
 
     try:
@@ -243,10 +236,7 @@ def test_await_many_failing_workflow():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
-    scope = LocalScope(
-        jobs=[AddJob, FailingJob, AwaitManyFailing],
-        dependencies=[],
-    )
+    scope = LocalScope.from_module(sys.modules[__name__])
 
     context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context, max_workers=2)
@@ -280,8 +270,8 @@ def test_await_many_failing_workflow():
     assert workflow_output.output["error"] == "This job always fails."
 
 
-@job()
-def AwaitEmptyNoOutput(context: Context, input, dependencies):
+@spec()
+def AwaitEmptyNoOutput(spec_args, context: Context, input, dependencies):
     """Interyield to an empty list of jobs but don't yield output"""
 
     results = yield Await([])
@@ -294,10 +284,7 @@ def test_await_final_yield():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
-    scope = LocalScope(
-        jobs=[AwaitEmptyNoOutput],
-        dependencies=[],
-    )
+    scope = LocalScope.from_module(sys.modules[__name__])
 
     context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context)

@@ -20,32 +20,32 @@ from zahir.worker.state_machine.states import HandleJobCompleteNoOutputStateChan
 
 def test_sleep_job_precheck_valid_duration():
     """Test that Sleep job precheck accepts valid durations."""
-    result = Sleep.precheck({"duration_seconds": 1.5})
+    result = Sleep.precheck(None, {"duration_seconds": 1.5})
     assert result is None
 
 
 def test_sleep_job_precheck_zero_duration():
     """Test that Sleep job precheck accepts zero duration."""
-    result = Sleep.precheck({"duration_seconds": 0})
+    result = Sleep.precheck(None, {"duration_seconds": 0})
     assert result is None
 
 
 def test_sleep_job_precheck_invalid_duration_negative():
     """Test that Sleep job precheck rejects negative duration."""
-    result = Sleep.precheck({"duration_seconds": -1})
+    result = Sleep.precheck(None, {"duration_seconds": -1})
     assert isinstance(result, ValueError)
     assert "non-negative" in str(result)
 
 
 def test_sleep_job_precheck_invalid_duration_type():
     """Test that Sleep job precheck rejects non-numeric duration."""
-    result = Sleep.precheck({"duration_seconds": "invalid"})
+    result = Sleep.precheck(None, {"duration_seconds": "invalid"})
     assert isinstance(result, ValueError)
 
 
 def test_sleep_job_precheck_missing_duration():
     """Test that Sleep job precheck accepts missing duration."""
-    result = Sleep.precheck({})
+    result = Sleep.precheck(None, {})
     assert result is None
 
 
@@ -57,16 +57,17 @@ def test_sleep_job_executes():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sleep")
 
-    context = MemoryContext(scope=LocalScope(jobs=[Sleep]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sleep"
 
     # Test with a very short sleep to keep tests fast
-    job = Sleep(input={"duration_seconds": 0.1}, dependencies={}, options=None)
+    # Create JobInstance by calling the JobSpec
+    job = Sleep({"duration_seconds": 0.1})
     job_id = context.job_registry.add(context, job, output_queue)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
-    job_generator = Sleep.run(context, job.input, job.dependencies)
+    job_generator = Sleep.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -90,16 +91,17 @@ def test_sleep_job_stores_output():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sleep-output")
 
-    context = MemoryContext(scope=LocalScope(jobs=[Sleep]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-sleep-output"
 
     duration = 0.05
-    job = Sleep(input={"duration_seconds": duration}, dependencies={}, options=None)
+    # Create JobInstance by calling the JobSpec
+    job = Sleep({"duration_seconds": duration})
     job_id = context.job_registry.add(context, job, output_queue)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
-    job_generator = Sleep.run(context, job.input, job.dependencies)
+    job_generator = Sleep.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 

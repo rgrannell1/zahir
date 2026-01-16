@@ -5,14 +5,15 @@ This is a critical gate that prevents invalid jobs from running.
 """
 
 import multiprocessing
+import sys
 import tempfile
 
-from zahir.base_types import Context, Job, JobState
+from zahir.base_types import Context, JobState
 from zahir.context import MemoryContext
 from zahir.events import JobOutputEvent
 from zahir.exception import JobPrecheckError
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
@@ -26,51 +27,44 @@ from zahir.worker.state_machine.states import (
 )
 
 
-class ValidInputJob(Job):
+def _valid_input_precheck(spec_args, input):
+    return None
+
+
+@spec(precheck=_valid_input_precheck)
+def ValidInputJob(spec_args, context: Context, input, dependencies):
     """A job with prechecks that always pass."""
-
-    @staticmethod
-    def precheck(input):
-        return None
-
-    @classmethod
-    def run(cls, context: Context, input, dependencies):
-        yield JobOutputEvent({"result": "success"})
+    yield JobOutputEvent({"result": "success"})
 
 
-class InvalidInputJob(Job):
+def _invalid_input_precheck(spec_args, input):
+    return JobPrecheckError("input is invalid")
+
+
+@spec(precheck=_invalid_input_precheck)
+def InvalidInputJob(spec_args, context: Context, input, dependencies):
     """A job with prechecks that always fail."""
-
-    @staticmethod
-    def precheck(input):
-        return JobPrecheckError("input is invalid")
-
-    @classmethod
-    def run(cls, context: Context, input, dependencies):
-        yield JobOutputEvent({"result": "should never execute"})
+    yield JobOutputEvent({"result": "should never execute"})
 
 
-class MultipleErrorsJob(Job):
+def _multiple_errors_precheck(spec_args, input):
+    errs = [
+        JobPrecheckError("error one"),
+        JobPrecheckError("error two"),
+        JobPrecheckError("error three"),
+    ]
+    return ExceptionGroup("Precheck validation failed", errs)
+
+
+@spec(precheck=_multiple_errors_precheck)
+def MultipleErrorsJob(spec_args, context: Context, input, dependencies):
     """A job with prechecks that return multiple errors."""
-
-    @staticmethod
-    def precheck(input):
-        errs = [
-            JobPrecheckError("error one"),
-            JobPrecheckError("error two"),
-            JobPrecheckError("error three"),
-        ]
-        return ExceptionGroup("Precheck validation failed", errs)
-
-    @classmethod
-    def run(cls, context: Context, input, dependencies):
-        yield JobOutputEvent({})
+    yield JobOutputEvent({})
 
 
-@job()
-def TimeoutDuringPrecheckJob(context: Context, input, dependencies):
+@spec()
+def TimeoutDuringPrecheckJob(spec_args, context: Context, input, dependencies):
     """A job that times out during precheck validation."""
-
     yield JobOutputEvent({"result": "timeout"})
 
 
@@ -83,7 +77,7 @@ def test_check_preconditions_pass_normal_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(scope=LocalScope(jobs=[ValidInputJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -95,7 +89,7 @@ def test_check_preconditions_pass_normal_job():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a frame for the job
-    job_generator = ValidInputJob.run(context, job.input, job.dependencies)
+    job_generator = ValidInputJob.run(None, context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     # Run check_preconditions
@@ -115,7 +109,7 @@ def test_check_preconditions_pass_recovery_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(scope=LocalScope(jobs=[ValidInputJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
@@ -125,7 +119,7 @@ def test_check_preconditions_pass_recovery_job():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create frame as recovery job
-    job_generator = ValidInputJob.run(context, job.input, job.dependencies)
+    job_generator = ValidInputJob.run(None, context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     result, _ = check_preconditions(worker_state)
@@ -143,7 +137,7 @@ def test_check_preconditions_fail_single_error():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(scope=LocalScope(jobs=[InvalidInputJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
@@ -152,7 +146,7 @@ def test_check_preconditions_fail_single_error():
     job = InvalidInputJob({"bad": "input"}, {})
     job_id = context.job_registry.add(context, job, output_queue)
 
-    job_generator = InvalidInputJob.run(context, job.input, job.dependencies)
+    job_generator = InvalidInputJob.run(None, context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     result, _ = check_preconditions(worker_state)
@@ -184,7 +178,7 @@ def test_check_preconditions_fail_multiple_errors():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(scope=LocalScope(jobs=[MultipleErrorsJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
@@ -193,7 +187,7 @@ def test_check_preconditions_fail_multiple_errors():
     job = MultipleErrorsJob({}, {})
     job_id = context.job_registry.add(context, job, output_queue)
 
-    job_generator = MultipleErrorsJob.run(context, job.input, job.dependencies)
+    job_generator = MultipleErrorsJob.run(None, context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     result, _ = check_preconditions(worker_state)
@@ -222,19 +216,14 @@ def test_check_preconditions_timeout_normal_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(scope=LocalScope(jobs=[TimeoutDuringPrecheckJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
-    # Create job with timeout
-    job_instance = TimeoutDuringPrecheckJob({"test": "data"}, {})
-    # Manually set job timeout to 0.001 seconds
-    from zahir.base_types import JobOptions
-
-    job_instance.job_options = JobOptions()
-    job_instance.job_options.job_timeout = 0.001
+    # Create job with timeout - use job_timeout parameter
+    job_instance = TimeoutDuringPrecheckJob({"test": "data"}, {}, job_timeout=0.001)
 
     job_id = context.job_registry.add(context, job_instance, output_queue)
 
@@ -246,7 +235,7 @@ def test_check_preconditions_timeout_normal_job():
 
     time.sleep(0.01)
 
-    job_generator = TimeoutDuringPrecheckJob.run(context, job_instance.input, job_instance.dependencies)
+    job_generator = TimeoutDuringPrecheckJob.run(None, context, job_instance.input, job_instance.dependencies)
     worker_state.frame = ZahirStackFrame(job=job_instance, job_generator=job_generator, recovery=False)
 
     result, _ = check_preconditions(worker_state)
@@ -265,17 +254,13 @@ def test_check_preconditions_timeout_recovery_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(scope=LocalScope(jobs=[TimeoutDuringPrecheckJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
-    job_instance = TimeoutDuringPrecheckJob({"test": "data"}, {})
-    from zahir.base_types import JobOptions
-
-    job_instance.job_options = JobOptions()
-    job_instance.job_options.recover_timeout = 0.001
+    job_instance = TimeoutDuringPrecheckJob({"test": "data"}, {}, recover_timeout=0.001)
 
     job_id = context.job_registry.add(context, job_instance, output_queue)
 
@@ -286,7 +271,7 @@ def test_check_preconditions_timeout_recovery_job():
 
     time.sleep(0.01)
 
-    job_generator = TimeoutDuringPrecheckJob.recover(context, job_instance.input, job_instance.dependencies, None)
+    job_generator = TimeoutDuringPrecheckJob.recover(None, context, job_instance.input, job_instance.dependencies, Exception("test"))
     worker_state.frame = ZahirStackFrame(job=job_instance, job_generator=job_generator, recovery=True)
 
     result, _ = check_preconditions(worker_state)
@@ -304,19 +289,18 @@ def test_check_preconditions_no_timeout_configured():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
 
-    context = MemoryContext(scope=LocalScope(jobs=[ValidInputJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     job = ValidInputJob({"test": "data"}, {})
-    # Explicitly no job_options set
-    job.job_options = None
+    # No job_options set - default behavior
 
     job_id = context.job_registry.add(context, job, output_queue)
 
-    job_generator = ValidInputJob.run(context, job.input, job.dependencies)
+    job_generator = ValidInputJob.run(None, context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     result, _ = check_preconditions(worker_state)

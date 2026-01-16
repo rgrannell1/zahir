@@ -1,7 +1,8 @@
+import sys
 import tempfile
 import time
 
-from zahir.base_types import Job, JobOptions
+from zahir.base_types import Context
 from zahir.context.memory import MemoryContext
 from zahir.events import (
     Await,
@@ -18,20 +19,20 @@ from zahir.events import (
     ZahirCustomEvent,
 )
 from zahir.job_registry.sqlite import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
 
-@job()
-def Adder(context, input, dependencies):
+@spec()
+def Adder(spec_args, context, input, dependencies):
     time.sleep(5)
     yield JobOutputEvent({"count": input["count"] + 1})
 
 
-@job()
-def TimeOutRunner(context, input, dependencies):
-    yield Await(Adder(input={"count": 0}, dependencies={}, options=JobOptions(job_timeout=2)))
+@spec()
+def TimeOutRunner(spec_args, context, input, dependencies):
+    yield Await(Adder({"count": 0}, {}, job_timeout=2))
 
     yield ZahirCustomEvent(output={"message": "this should never be seen"})
 
@@ -42,7 +43,7 @@ def test_timeout():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
-    context = MemoryContext(scope=LocalScope(jobs=[TimeOutRunner, Adder]), job_registry=SQLiteJobRegistry(tmp_file))
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context)
 
     job = TimeOutRunner({}, {})
@@ -64,21 +65,21 @@ def test_timeout():
     assert isinstance(events[11], WorkflowCompleteEvent)
 
 
-class FailsThenRecoversSlowly(Job):
-    @classmethod
-    def run(cls, context, input, dependencies):
-        raise Exception("Simulated Failure")
-        yield iter([])
-
-    @classmethod
-    def recover(cls, context, input, dependencies, err):
-        time.sleep(5)
-        yield JobOutputEvent({"recovered": True})
+def _fails_then_recovers_recover(spec_args, context, input, dependencies, err):
+    """Recovery function that takes too long"""
+    time.sleep(5)
+    yield JobOutputEvent({"recovered": True})
 
 
-@job()
-def RecoveryTimeoutRunner(context, input, dependencies):
-    yield Await(FailsThenRecoversSlowly(input={}, dependencies={}, options=JobOptions(recover_timeout=2)))
+@spec(recover=_fails_then_recovers_recover)
+def FailsThenRecoversSlowly(spec_args, context: Context, input, dependencies):
+    raise Exception("Simulated Failure")
+    yield iter([])
+
+
+@spec()
+def RecoveryTimeoutRunner(spec_args, context, input, dependencies):
+    yield Await(FailsThenRecoversSlowly({}, {}, recover_timeout=2))
     yield ZahirCustomEvent(output={"message": "this should never be seen"})
 
 
@@ -89,7 +90,7 @@ def test_recovery_timeout():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[RecoveryTimeoutRunner, FailsThenRecoversSlowly]),
+        scope=LocalScope.from_module(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
     workflow = LocalWorkflow(context)

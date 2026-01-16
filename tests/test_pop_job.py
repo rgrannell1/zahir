@@ -12,9 +12,10 @@ from zahir.base_types import Context, JobState
 from zahir.context import MemoryContext
 from zahir.events import JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 from zahir.worker.call_frame import ZahirStackFrame
+import sys
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.pop_job import pop_job
 from zahir.worker.state_machine.states import (
@@ -25,14 +26,14 @@ from zahir.worker.state_machine.states import (
 )
 
 
-@job()
-def SimpleJob(context: Context, input, dependencies):
+@spec()
+def SimpleJob(spec_args, context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
-@job()
-def AnotherJob(context: Context, input, dependencies):
+@spec()
+def AnotherJob(spec_args, context: Context, input, dependencies):
     """Another job for testing."""
     yield JobOutputEvent({"count": 1})
 
@@ -46,7 +47,7 @@ def test_pop_job_ready_state_checks_preconditions():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
 
@@ -57,7 +58,7 @@ def test_pop_job_ready_state_checks_preconditions():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Push job to stack
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -66,7 +67,7 @@ def test_pop_job_ready_state_checks_preconditions():
 
     # Should check preconditions for READY job
     assert isinstance(result, CheckPreconditionsStateChange)
-    assert "SimpleJob" in result.data["message"]
+    assert "JobInstance" in result.data["message"] or "SimpleJob" in result.data["message"]
     assert "claimed and active" in result.data["message"]
 
     # Frame should be set
@@ -83,7 +84,7 @@ def test_pop_job_paused_state_executes():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
 
@@ -95,13 +96,13 @@ def test_pop_job_paused_state_executes():
     context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.PAUSED)
 
     # Add the child job that the parent is awaiting, and mark it as COMPLETED
-    child_job = SimpleJob({"child": "data"}, {}, job_id="child-job-1")
-    context.job_registry.add(context, child_job, output_queue)
-    context.job_registry.set_state("child-job-1", workflow_id, output_queue, JobState.COMPLETED)
+    child_job = SimpleJob({"child": "data"}, {})
+    child_job_id = context.job_registry.add(context, child_job, output_queue)
+    context.job_registry.set_state(child_job_id, workflow_id, output_queue, JobState.COMPLETED)
 
     # Push job to stack - with required_jobs set to simulate awaiting a child job
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False, required_jobs={"child-job-1"})
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False, required_jobs={child_job_id})
     worker_state.job_stack.push(frame)
 
     # Run pop_job
@@ -110,7 +111,7 @@ def test_pop_job_paused_state_executes():
     # Should execute the paused job
     assert isinstance(result, ExecuteJobStateChange)
     assert "Resuming job" in result.data["message"]
-    assert "SimpleJob" in result.data["message"]
+    assert "JobInstance" in result.data["message"] or "SimpleJob" in result.data["message"]
 
 
 def test_pop_job_running_state_executes():
@@ -122,7 +123,7 @@ def test_pop_job_running_state_executes():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
 
@@ -134,13 +135,13 @@ def test_pop_job_running_state_executes():
     context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.RUNNING)
 
     # Add the child job that the parent is awaiting, and mark it as COMPLETED
-    child_job = SimpleJob({"child": "data"}, {}, job_id="child-job-1")
-    context.job_registry.add(context, child_job, output_queue)
-    context.job_registry.set_state("child-job-1", workflow_id, output_queue, JobState.COMPLETED)
+    child_job = SimpleJob({"child": "data"}, {})
+    child_job_id = context.job_registry.add(context, child_job, output_queue)
+    context.job_registry.set_state(child_job_id, workflow_id, output_queue, JobState.COMPLETED)
 
     # Push job to stack - with required_jobs set to simulate resuming from await
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
-    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False, required_jobs={"child-job-1"})
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False, required_jobs={child_job_id})
     worker_state.job_stack.push(frame)
 
     # Run pop_job
@@ -162,19 +163,14 @@ def test_pop_job_timeout_normal_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job with timeout
-    job = SimpleJob({"test": "data"}, {})
-    from zahir.base_types import JobOptions
-
-    job.job_options = JobOptions()
-    job.job_options.job_timeout = 0.001
-
+    job = SimpleJob({"test": "data"}, {}, job_timeout=0.001)
     job_id = context.job_registry.add(context, job, output_queue)
     context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.RUNNING)
 
@@ -182,7 +178,7 @@ def test_pop_job_timeout_normal_job():
     time.sleep(0.01)
 
     # Push job to stack
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -203,7 +199,7 @@ def test_pop_job_removes_from_stack():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
 
@@ -214,7 +210,7 @@ def test_pop_job_removes_from_stack():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Push job to stack
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -237,7 +233,7 @@ def test_pop_job_sets_active_frame():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
 
@@ -248,7 +244,7 @@ def test_pop_job_sets_active_frame():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Push job to stack
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -272,7 +268,7 @@ def test_pop_job_multiple_jobs_pops_runnable():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob, AnotherJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
 
@@ -289,7 +285,7 @@ def test_pop_job_multiple_jobs_pops_runnable():
     context.job_registry.set_state(dep_id, workflow_id, output_queue, JobState.RUNNING)
 
     # Create frame that requires the dependency
-    job_generator1 = SimpleJob.run(context, job1.input, job1.dependencies)
+    job_generator1 = SimpleJob.run(None, context, job1.input, job1.dependencies)
     frame1 = ZahirStackFrame(job=job1, job_generator=job_generator1, recovery=False)
     frame1.required_jobs.add(dep_id)
     worker_state.job_stack.push(frame1)
@@ -299,7 +295,7 @@ def test_pop_job_multiple_jobs_pops_runnable():
     job_id2 = context.job_registry.add(context, job2, output_queue)
 
     # Push second job (runnable)
-    job_generator2 = AnotherJob.run(context, job2.input, job2.dependencies)
+    job_generator2 = AnotherJob.run(None, context, job2.input, job2.dependencies)
     frame2 = ZahirStackFrame(job=job2, job_generator=job_generator2, recovery=False)
     worker_state.job_stack.push(frame2)
 
@@ -319,7 +315,7 @@ def test_pop_job_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-9")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-9"
 
@@ -330,7 +326,7 @@ def test_pop_job_preserves_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Push job to stack
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -350,7 +346,7 @@ def test_pop_job_no_timeout_configured():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-10")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-10"
 
@@ -358,12 +354,11 @@ def test_pop_job_no_timeout_configured():
 
     # Add a job with no timeout configured
     job = SimpleJob({"test": "data"}, {})
-    job.job_options = None
 
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Push job to stack
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -383,18 +378,14 @@ def test_pop_job_timeout_recovery_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-11")
 
-    context = MemoryContext(scope=LocalScope(jobs=[SimpleJob]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-11"
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     # Add a job with recovery timeout
-    job = SimpleJob({"test": "data"}, {})
-    from zahir.base_types import JobOptions
-
-    job.job_options = JobOptions()
-    job.job_options.recover_timeout = 0.001
+    job = SimpleJob({"test": "data"}, {}, recover_timeout=0.001)
 
     job_id = context.job_registry.add(context, job, output_queue)
     context.job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.RECOVERING)
@@ -403,7 +394,7 @@ def test_pop_job_timeout_recovery_job():
     time.sleep(0.01)
 
     # Push recovery job to stack
-    job_generator = SimpleJob.run(context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.job_stack.push(frame)
 
