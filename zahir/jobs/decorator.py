@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from typing import Any, TypeVar, overload
 
-from zahir.base_types import Job
+from zahir.base_types import Job, JobSpec, Run
 
 ArgsType = TypeVar("ArgsType")
 OutputType = TypeVar("OutputType")
@@ -81,5 +81,15 @@ def job[ArgsType, OutputType](
 
         created: type[Job[ArgsType, OutputType]] = type(class_name, (Job,), ns)  # type: ignore[assignment]
         return created
+
+    return decorator
+
+
+
+def spec[JobSpecArgs, ArgsType, OutputType](**kwargs):
+    """Construct a JobSpec from a run function, and optionally other jobspec parameters"""
+
+    def decorator(run: Run[JobSpecArgs, ArgsType, OutputType]) -> JobSpec[JobSpecArgs, ArgsType, OutputType]:
+        return JobSpec[JobSpecArgs, ArgsType, OutputType](type=run.__name__, run=run, **kwargs)
 
     return decorator

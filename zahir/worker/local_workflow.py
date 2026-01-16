@@ -2,7 +2,7 @@ from collections.abc import Iterator, Mapping
 import inspect
 from typing import Any, TypeVar
 
-from zahir.base_types import Context, Job
+from zahir.base_types import Context, Job, JobInstance
 from zahir.context.memory import MemoryContext
 from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
@@ -43,6 +43,7 @@ class LocalWorkflow[WorkflowOutputType]:
         self.progress_monitor = progress_monitor
 
         if not context:
+            # TODO Ew ew ew ew ew
             # find which module called this one, and construct a scope based on the
             # jobs and modules in that librart
             caller_frame = inspect.currentframe()
@@ -71,7 +72,7 @@ class LocalWorkflow[WorkflowOutputType]:
         self.max_workers = max_workers
 
     def run(
-        self, start: Job | None = None, events_filter: frozenset[type[ZahirEvent]] | None = DEFAULT_EVENTS
+        self, start: JobInstance | None = None, events_filter: frozenset[type[ZahirEvent]] | None = DEFAULT_EVENTS
     ) -> Iterator[WorkflowOutputEvent[WorkflowOutputType] | ZahirEvent]:
         """Run all jobs in the registry, opptionally seeding from this job in particular.
 
@@ -85,10 +86,6 @@ class LocalWorkflow[WorkflowOutputType]:
         with progress_monitor as progress:
             for event in zahir_worker_overseer(start, self.context, self.max_workers):
                 progress.handle_event(event)
-
-                # Store event in registry if available
-                if self.context and hasattr(self.context, "job_registry"):
-                    self.context.job_registry.store_event(self.context, event)
 
                 if events_filter is None:
                     yield event

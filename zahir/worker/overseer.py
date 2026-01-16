@@ -5,7 +5,7 @@ from enum import StrEnum
 import multiprocessing
 import os
 
-from zahir.base_types import Context, Job, JobState
+from zahir.base_types import Context, Job, JobInstance, JobState
 from zahir.events import (
     JobAssignedEvent,
     JobCompletedEvent,
@@ -129,7 +129,7 @@ def dispatch_jobs_to_workers(
         )
 
 
-def start_zahir_overseer(context: Context, start: Job, worker_count: int = 4):
+def start_zahir_overseer(context: Context, start: JobInstance, worker_count: int = 4):
     """Start processes, create queues"""
 
     workflow_id = generate_id(3)
@@ -185,7 +185,7 @@ def start_zahir_overseer(context: Context, start: Job, worker_count: int = 4):
     return processes, process_queues, process_states, ready_worker_queue, output_queue, workflow_id
 
 
-def zahir_worker_overseer(start, context, worker_count: int = 4) -> Iterator[ZahirEvent]:
+def zahir_worker_overseer(start: JobInstance | None, context, worker_count: int = 4) -> Iterator[ZahirEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 

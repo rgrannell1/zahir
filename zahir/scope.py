@@ -2,7 +2,7 @@ import inspect
 from types import ModuleType
 from typing import Self
 
-from zahir.base_types import Dependency, Job, Scope
+from zahir.base_types import Dependency, Job, JobSpec, Scope
 from zahir.exception import DependencyNotInScopeError, JobNotInScopeError
 
 
@@ -10,12 +10,28 @@ class LocalScope(Scope):
     """A local translation layer between dependency / job names and
     their underlying Python classes."""
 
-    def __init__(self, jobs: list[type[Job]] = [], dependencies: list[type[Dependency]] = []) -> None:
+    def __init__(self, jobs: list[type[Job]] = [], dependencies: list[type[Dependency]] = [], specs: list["JobSpec"] = []) -> None:
         self.jobs: dict[str, type[Job]] = {}
         self.dependencies: dict[str, type[Dependency]] = {}
+        self.specs: dict[str, "JobSpec"] = {}
 
         self.add_job_classes(jobs)
         self.add_dependency_classes(dependencies)
+        self.add_job_specs(specs)
+
+    def add_job_spec(self, spec: "JobSpec") -> Self:
+        self.specs[spec.type] = spec
+        return self
+
+    def add_job_specs(self, specs: list["JobSpec"]) -> Self:
+        for spec in specs:
+            self.specs[spec.type] = spec
+        return self
+
+    def get_job_spec(self, type: str) -> JobSpec:
+        if not type in self.specs:
+            raise KeyError(f"Job spec '{type}' not found in scope. Did you register it?")
+        return self.specs[type]
 
     def add_job_class(self, job_class: type[Job]) -> Self:
         """Add a job class to the scope.
@@ -120,10 +136,14 @@ class LocalScope(Scope):
             if module is None:
                 raise RuntimeError("Cannot determine calling module")
 
+        specs: list[JobSpec] = []
         jobs: list[type[Job]] = []
         dependencies: list[type[Dependency]] = []
 
         for _, obj in inspect.getmembers(module):
+            if isinstance(obj, JobSpec):
+                specs.append(obj)
+
             if not inspect.isclass(obj):
                 continue
 
@@ -133,4 +153,4 @@ class LocalScope(Scope):
             elif issubclass(obj, Dependency) and obj is not Dependency:
                 dependencies.append(obj)
 
-        return cls(jobs=jobs, dependencies=dependencies)
+        return cls(jobs=jobs, dependencies=dependencies, specs=specs)

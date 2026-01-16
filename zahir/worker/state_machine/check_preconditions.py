@@ -23,7 +23,14 @@ def check_preconditions(
 
     precheck_err: Exception | ExceptionGroup | None = None
     try:
-        precheck_err = type(state.frame.job).precheck(state.frame.job.input)
+        from zahir.base_types import JobInstance
+        job = state.frame.job
+        if isinstance(job, JobInstance):
+            # For JobInstance, call the spec's precheck function
+            precheck_err = job.spec.precheck(None, job.input) if job.spec.precheck else None
+        else:
+            # For Job classes, call the classmethod
+            precheck_err = type(job).precheck(job.input)
     except Exception as err:
         # Things can fail, expecially in a precheck step.
         # This should also capture thrown exception or exception groups,

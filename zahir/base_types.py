@@ -2,7 +2,7 @@
 
 from abc import ABC, abstractmethod
 from collections.abc import Generator, Iterator, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 import multiprocessing
@@ -230,7 +230,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def add(self, context: "Context", job: "Job", output_queue) -> str:
+    def add(self, context: "Context", job: "JobInstance", output_queue) -> str:
         """
         Register a job with the job registry, returning a job ID.
 
@@ -597,7 +597,7 @@ class Scope(ABC):
         ...
 
     @abstractmethod
-    def get_job_spec(self, job_spec: str) -> Self: ...
+    def get_job_spec(self, job_spec: str) -> "JobSpec": ...
 
     @abstractmethod
     def add_job_classes(self, job_classes: list[type["Job"]]) -> Self:
@@ -605,7 +605,7 @@ class Scope(ABC):
         ...
 
     @abstractmethod
-    def get_job_specs(self, job_spec: list[type["JobSpec"]]) -> Self: ...
+    def get_job_spec(self, type:str) -> "JobSpec": ...
 
     @abstractmethod
     def get_job_class(self, type_name: str) -> type["Job"]:
@@ -613,7 +613,7 @@ class Scope(ABC):
         ...
 
     @abstractmethod
-    def add_job_spec(self, type_name: str) -> Self:
+    def add_job_spec(self, spec: "JobSpec") -> Self:
         """Add a job spec"""
         ...
 
@@ -699,12 +699,12 @@ type Precheck[JobSpecArgs, ArgsType] = Callable[[JobSpecArgs, ArgsType], Excepti
 
 type Run[JobSpecArgs, ArgsType, JobOutputType] = Callable[
     [JobSpecArgs, Context, ArgsType, DependencyGroup],
-    Generator[JobEventSet[JobOutputType]],
+    Generator[JobEventSet[JobOutputType], Any, Any],
 ]
 
 type Recover[JobSpecArgs, ArgsType, JobOutputType] = Callable[
     [JobSpecArgs, Context, ArgsType, DependencyGroup, Exception],
-    Generator[JobEventSet[JobOutputType]],
+    Generator[JobEventSet[JobOutputType], Any, Any],
 ]
 
 
@@ -712,7 +712,7 @@ def default_recover[JobSpecArgs, ArgsType](
     job_args: JobSpecArgs,
     context: Context,
     args: ArgsType,  # type: ignore
-    dependencies: DependencyGroup,
+    dependencies: "DependencyGroup",
     err: Exception,
 ) -> Generator[JobEventSet]:
     """Default recovery function that simply re-raises the original exception."""
@@ -741,15 +741,15 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
     # a label uniquely associated with this job-spec
     type: str
 
-    # arguments to the `run` / `precheck` / `recover` middleware
-    transform_args: Mapping[str, Any] | None
-
     # run the job
     run: Run[JobSpecArgs, ArgsType, OutputType]
 
+    # arguments to the `run` / `precheck` / `recover` middleware
+    transform_args: Mapping[str, Any] | None = None
+
     # a list of transformations that must be applied to the functions before they
     # can be run. Functions are instantiated with transform args
-    transforms: list["JobSpec"] = []
+    transforms: list["JobSpec"] = field(default_factory=list)
 
     # recover on uncaught exception
     recover: Recover[JobSpecArgs, ArgsType, OutputType] | None = default_recover
@@ -772,11 +772,13 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
     def __call__(
         self,
         args: ArgsType,
-        dependencies: Mapping[str, Dependency] | DependencyGroup | None = None,
+        dependencies: "Mapping[str, Dependency] | DependencyGroup | None" = None,
         job_timeout: float | None = None,
         recover_timeout: float | None = None,
     ) -> "JobInstance[JobSpecArgs, ArgsType, OutputType]":
         job_id = generate_id(4)
+
+        from zahir.dependencies.group import DependencyGroup
 
         processed_dependencies = DependencyGroup({})
         if isinstance(dependencies, DependencyGroup):
@@ -822,6 +824,9 @@ class JobArguments[ArgsType]:
 
 
 class SerialisedJobInstance[ArgsType](TypedDict):
+    """A stored request for a job execution. Includes which
+    `type`, arguments and dependencies, and timeouts."""
+
     type: str
     job_id: str
     parent_id: str | None
@@ -839,6 +844,28 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
     spec: JobSpec[JobSpecArgs, ArgsType, OutputType]
     args: JobArguments[ArgsType]
 
+    @property
+    def job_id(self) -> str:
+        """Convenience property to access the job_id from args."""
+        return self.args.job_id
+
+    @property
+    def input(self) -> ArgsType:
+        """Convenience property to access the args from args (for backwards compatibility)."""
+        return self.args.args
+
+    @property
+    def dependencies(self) -> "DependencyGroup":
+        """Convenience property to access dependencies from args."""
+        return self.args.dependencies
+
+    @property
+    def job_options(self) -> "JobOptions | None":
+        """Convenience property that creates JobOptions from stored timeouts (for backwards compatibility)."""
+        if self.args.job_timeout is None and self.args.recover_timeout is None:
+            return None
+        return JobOptions(job_timeout=self.args.job_timeout, recover_timeout=self.args.recover_timeout)
+
     def save(self, context: "Context"):
         return {
             "type": self.spec.type,
@@ -847,7 +874,7 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
             "args": self.args.args,
             "dependencies": self.args.dependencies.save(context),
             "job_timeout": self.args.job_timeout,
-            "recovery_timeout": self.args.recover_timeout,
+            "recover_timeout": self.args.recover_timeout,
         }
 
     @classmethod
@@ -865,12 +892,3 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
             recover_timeout=data["recover_timeout"],
         )
         return cls(spec=spec, args=job_args)
-
-
-def spec[JobSpecArgs, ArgsType, OutputType](**kwargs):
-    """Construct a JobSpec from a run function, and optionally other jobspec parameters"""
-
-    def decorator(run: Run[JobSpecArgs, ArgsType, OutputType]) -> JobSpec[JobSpecArgs, ArgsType, OutputType]:
-        return JobSpec[JobSpecArgs, ArgsType, OutputType](type=run.__name__, run=run, **kwargs)
-
-    return decorator

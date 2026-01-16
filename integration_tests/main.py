@@ -7,7 +7,7 @@ from zahir.base_types import Context, Job
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import job, spec
 from zahir.jobs.sleep import Sleep
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
@@ -47,28 +47,27 @@ def get_longest_word(words: list[str]) -> str:
     return longest_word
 
 
-@job()
-def ChapterProcessor(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
+@spec()
+def ChapterProcessor(spec_args, context, args, dependencies) -> Generator[JobOutputEvent]:
     """For each chapter, find the longest word."""
 
     # return the longest word found in the chapter
-    yield JobOutputEvent({"longest_word": get_longest_word(input["lines"])})
-
+    yield JobOutputEvent({"longest_word": get_longest_word(args["lines"])})
 
 class ChapterProcessorOutput(TypedDict):
-    longest_word: str
+    words: str
 
 
 class BookProcessorOutput(TypedDict):
-    longest_words: list[str]
+    words: list[str]
 
 
-@job()
+@spec()
 def BookProcessor(
-    context: Context, input, dependencies
+    spec_args, context, args, dependencies
 ) -> Generator[Await | Job | WorkflowOutputEvent, ChapterProcessorOutput | BookProcessorOutput]:
     longest_words = yield Await([
-        ChapterProcessor({"lines": chapter_lines}, {}) for chapter_lines in read_chapters(input["file_path"])
+        ChapterProcessor({"lines": chapter_lines}, {}) for chapter_lines in read_chapters(args["file_path"])
     ])
 
     long_words: set[str] = set()
@@ -79,17 +78,16 @@ def BookProcessor(
 
     uppercased = yield Await(UppercaseWords({"words": list(long_words)}, {}))
 
-    yield Await(Sleep(20))
+    yield Await(Sleep({"duration_seconds": 2}, {}))
 
     yield WorkflowOutputEvent({"longest_words": uppercased["words"]})
 
 
-@job()
-def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
+@spec()
+def UppercaseWords(spec_args, context: Context, args, dependencies) -> Generator[JobOutputEvent]:
     """Uppercase a list of words."""
 
-    yield JobOutputEvent({"words": [word.upper() for word in input["words"]]})
-
+    yield JobOutputEvent({"words": [word.upper() for word in args["words"]]})
 
 # TODO debug why implicit scope fails.
 
@@ -100,4 +98,4 @@ context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registr
 start = BookProcessor({"file_path": "integration_tests/data.txt"}, {})
 
 events = list(LocalWorkflow(context).run(start, events_filter=None))
-print(events)
+print(events[-5:-1])

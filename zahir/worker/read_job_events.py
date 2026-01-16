@@ -150,9 +150,13 @@ def read_job_events(
             # Nothing more to be done for this generator
             return item
 
-        if isinstance(item, Job):
+        from zahir.base_types import JobInstance
+        if isinstance(item, (Job, JobInstance)):
             # new subjob, yield as a serialised event upstream
             # Set parent_id before saving to ensure it's persisted
-            item.parent_id = job_id
+            if isinstance(item, JobInstance):
+                item.args.parent_id = job_id
+            else:
+                item.parent_id = job_id
             job_registry.add(state.context, item, output_queue)
             continue

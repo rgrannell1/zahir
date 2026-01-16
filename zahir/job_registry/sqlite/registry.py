@@ -4,17 +4,18 @@ import json
 import multiprocessing
 import sqlite3
 import traceback
-from typing import Any
+from typing import Any, cast
 
 from zahir.base_types import (
     ACTIVE_JOB_STATES,
     COMPLETED_JOB_STATES,
     Context,
-    Job,
     JobInformation,
+    JobInstance,
     JobRegistry,
     JobState,
     JobTimingInformation,
+    SerialisedJobInstance,
 )
 from zahir.events import JobCompletedEvent, JobEvent
 from zahir.exception import (
@@ -140,18 +141,18 @@ class SQLiteJobRegistry(JobRegistry):
 
             return cursor.lastrowid == 1
 
-    def add(self, context: Context, job: Job, output_queue: multiprocessing.Queue) -> str:
+    def add(self, context: Context, job: JobInstance, output_queue: multiprocessing.Queue) -> str:
         """Add the job to the database exactly once"""
 
-        log.debug(f"Adding job {job.job_id} to registry")
+        job_id = job.args.job_id
+        log.debug(f"Adding job {job_id} to registry")
 
-        job_id = job.job_id
         saved_job = job.save(context)
         serialised = json.dumps(saved_job)
 
         # Jobs need their dependencies verified to have passed before they can run;
         # so by default they start as PENDING unless they have no dependencies.
-        job_state = JobState.READY.value if job.dependencies.empty() else JobState.PENDING.value
+        job_state = JobState.READY.value if job.args.dependencies.empty() else JobState.PENDING.value
 
         with self.conn as conn:
             conn.execute("begin immediate;")
@@ -170,7 +171,7 @@ class SQLiteJobRegistry(JobRegistry):
 
             conn.commit()
 
-            output_queue.put(JobEvent(job=saved_job))
+            output_queue.put(JobEvent(job=cast(SerialisedJobInstance, saved_job)))
 
         return job_id
 
@@ -439,8 +440,10 @@ class SQLiteJobRegistry(JobRegistry):
             completed_at,
         ) in job_list:
             job_data = json.loads(serialised_job)
-            job_class = context.scope.get_job_class(job_data["type"])
-            job = job_class.load(context, job_data)
+            spec = context.scope.get_job_spec(job_data["type"])
+
+            from zahir.base_types import JobInstance
+            job = JobInstance.load(context, job_data)
 
             job_state = JobState(state_str)
             output = json.loads(serialised_output) if serialised_output is not None else None

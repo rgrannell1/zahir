@@ -1,28 +1,19 @@
-from collections.abc import Iterator
+from collections.abc import Generator
 import time
 
-from zahir.base_types import Job
+from zahir.base_types import Context
 from zahir.events import JobOutputEvent
+from zahir.jobs.decorator import spec
 
 
-class Sleep(Job):
-    """
-    A job that sleeps for a specified duration.
-    """
+@spec()
+def Sleep(spec_args, context: Context, args, dependencies) -> Generator[JobOutputEvent]:
+    """A job that sleeps for a specified duration."""
+    duration_seconds = args.get("duration_seconds", 0)
 
-    @staticmethod
-    def precheck(input):
-        duration_seconds = input.get("duration_seconds")
+    if not isinstance(duration_seconds, (int, float)) or duration_seconds < 0:
+        raise ValueError("duration_seconds must be a non-negative number")
 
-        if duration_seconds is not None and (not isinstance(duration_seconds, (int, float)) or duration_seconds < 0):
-            return ValueError("duration_seconds must be a non-negative number")
-
-        return None
-
-    @classmethod
-    def run(cls, context, input, dependencies) -> Iterator["JobOutputEvent"]:  # noqa: ARG003
-        duration_seconds = input.get("duration_seconds")
-
-        # Not a good implementation, but ok for now.
-        time.sleep(duration_seconds)
-        yield JobOutputEvent(output={"duration_seconds": duration_seconds})
+    # Not a good implementation, but ok for now.
+    time.sleep(duration_seconds)
+    yield JobOutputEvent(output={"duration_seconds": duration_seconds})

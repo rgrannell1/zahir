@@ -7,3 +7,4 @@
 - Cancellation should be blockable
 - Jobs with tracebacks
 - We need a way of communicating progress to the user beyond our janky progress bar
+- Switch to JobInstances
