@@ -2,7 +2,7 @@ from collections.abc import Generator
 from dataclasses import dataclass, field
 from typing import Any
 
-from zahir.base_types import Job, JobRegistry
+from zahir.base_types import JobInstance, JobRegistry
 
 
 @dataclass
@@ -74,7 +74,7 @@ class ZahirStackFrame:
     Zahir job workers maintain a stack of call-frames for nested job execution.
     """
 
-    job: Job
+    job: JobInstance
 
     # This is gross, but I'm not sure we can preserve input and output type-hints in Zahir to begin with.
     # It's a bit too dynamic.

@@ -6,15 +6,10 @@ def handle_job_exception(state) -> tuple[CheckPreconditionsStateChange, None]:
     """The job raised an exception. Emit a recovery started event, and switch to recovery mode."""
 
     frame = state.frame
-    from zahir.base_types import JobInstance
 
-    if isinstance(frame.job, JobInstance):
-        # For JobInstance, call the spec's recover function
-        frame.job_generator = frame.job.spec.recover(None, state.context, frame.job.input, frame.job.dependencies, state.last_event)
-    else:
-        # For Job classes, call the classmethod
-        job_class = type(frame.job)
-        frame.job_generator = job_class.recover(state.context, frame.job.input, frame.job.dependencies, state.last_event)
+    # Let's fork execution back to the job's recovery mechanism
+    # we keep the same process ID. We should update the job registry.
+    frame.job_generator = frame.job.spec.recover(None, state.context, frame.job.input, frame.job.dependencies, state.last_event)
 
     frame.recovery = True
     state.context.job_registry.set_state(

@@ -5,7 +5,7 @@ from enum import StrEnum
 import multiprocessing
 import os
 
-from zahir.base_types import Context, Job, JobInstance, JobState
+from zahir.base_types import Context, JobInstance, JobState
 from zahir.events import (
     JobAssignedEvent,
     JobCompletedEvent,

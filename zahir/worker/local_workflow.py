@@ -2,7 +2,7 @@ from collections.abc import Iterator, Mapping
 import inspect
 from typing import Any, TypeVar
 
-from zahir.base_types import Context, Job, JobInstance
+from zahir.base_types import Context, JobInstance
 from zahir.context.memory import MemoryContext
 from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry

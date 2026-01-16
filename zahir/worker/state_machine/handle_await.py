@@ -1,6 +1,6 @@
 import os
 
-from zahir.base_types import Job, JobInstance, JobState
+from zahir.base_types import JobInstance, JobState
 from zahir.events import JobWorkerWaitingEvent
 from zahir.worker.state_machine.states import WaitForJobStateChange
 
@@ -16,7 +16,7 @@ def handle_await(state) -> tuple[WaitForJobStateChange, None]:
     assert await_event is not None
 
     # Update the paused job to await the new job(s)
-    awaited_jobs = [await_event.job] if isinstance(await_event.job, (Job, JobInstance)) else await_event.job
+    awaited_jobs = [await_event.job] if isinstance(await_event.job, JobInstance) else await_event.job
 
     # Needed to handle types correctly in empty case
     if isinstance(await_event.job, list):
@@ -29,10 +29,7 @@ def handle_await(state) -> tuple[WaitForJobStateChange, None]:
     for awaited_job in awaited_jobs:
         state.frame.required_jobs.add(awaited_job.job_id)
         # Set parent_id before adding to ensure it's persisted
-        if isinstance(awaited_job, JobInstance):
-            awaited_job.args.parent_id = frame_job_id
-        else:
-            awaited_job.parent_id = frame_job_id
+        awaited_job.args.parent_id = frame_job_id
         # The awaited job can just be run through the normal lifecycle, with the caveat that the _awaiting_
         # job needs a marker thart it's awaiting the new job.
         job_registry.add(state.context, awaited_job, state.output_queue)

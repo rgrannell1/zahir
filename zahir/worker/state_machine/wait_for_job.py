@@ -55,15 +55,7 @@ def wait_for_job(state) -> tuple[StartStateChange | PopJobStateChange, None]:
             return StartStateChange({"message": f"Job {job_id} not found, waiting for another"}), state
 
         # Create the job generator and stack frame
-        # Handle both JobInstance (from @spec decorator) and Job classes
-        from zahir.base_types import JobInstance
-        if isinstance(job, JobInstance):
-            # For JobInstance, call the spec's run function directly
-            job_generator = job.spec.run(None, state.context, job.input, job.dependencies)
-        else:
-            # For Job classes, call the classmethod
-            job_generator = type(job).run(state.context, job.input, job.dependencies)
-
+        job_generator = job.spec.run(None, state.context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
         # Push job onto stack

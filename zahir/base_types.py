@@ -176,7 +176,7 @@ class JobInformation:
     # The job's ID
     job_id: str
     # The job instance
-    job: "Job"
+    job: "JobInstance"
     # The job's current state
     state: JobState
     # The output of the job, if there is one

@@ -4,10 +4,10 @@ import multiprocessing
 from types import GeneratorType
 from typing import Any, cast
 
-from zahir.base_types import Job, JobRegistry
+from zahir.base_types import JobInstance, JobRegistry
 from zahir.events import Await, JobOutputEvent, ZahirEvent
 
-type OutputQueue = multiprocessing.Queue["ZahirEvent | Job"]
+type OutputQueue = multiprocessing.Queue["ZahirEvent | JobInstance"]
 
 
 def _resume_generator_after_await(
@@ -17,13 +17,13 @@ def _resume_generator_after_await(
     job_registry: JobRegistry,
     state,
     job_id: str,
-) -> tuple[list[ZahirEvent | Job], ZahirEvent | None]:
+) -> tuple[list[ZahirEvent | JobInstance], ZahirEvent | None]:
     """Resume a generator after awaiting other jobs, handling outputs and errors.
 
     Returns a tuple of (queue of events to process, final event or None).
     """
 
-    queue: list[ZahirEvent | Job] = []
+    queue: list[ZahirEvent | JobInstance] = []
     required_pids = list(state.frame.required_jobs)
 
     # Get the errors and outputs for the pid on which we were awaiting...
@@ -106,7 +106,7 @@ def read_job_events(
     if isinstance(gen, GeneratorType):
         gen_state = inspect.getgeneratorstate(cast(Any, gen))
 
-    queue: list[ZahirEvent | Job] = []
+    queue: list[ZahirEvent | JobInstance] = []
 
     assert state.frame is not None
 
@@ -150,13 +150,9 @@ def read_job_events(
             # Nothing more to be done for this generator
             return item
 
-        from zahir.base_types import JobInstance
-        if isinstance(item, (Job, JobInstance)):
+        if isinstance(item, JobInstance):
             # new subjob, yield as a serialised event upstream
             # Set parent_id before saving to ensure it's persisted
-            if isinstance(item, JobInstance):
-                item.args.parent_id = job_id
-            else:
-                item.parent_id = job_id
+            item.args.parent_id = job_id
             job_registry.add(state.context, item, output_queue)
             continue
