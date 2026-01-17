@@ -20,28 +20,35 @@ src/
         memory.py              communicates workflow internals with dependencies and jobs
     dependencies/
         concurrency.py         await a free concurrency slot before starting a job
-        time.py                await a particular time-range before starting a job
         group.py               await a group of dependencies
         job.py                 await a particular job-state
+        semaphore.py           allow pending jobs to be flagged impossible, depending on some supervisor process
+        time.py                await a particular time-range before starting a job
     job_registry/
         sqlite.py              register jobs in SQLite
-    jobs/
-        decorator.py           a decorator to construct basic jobs from a function
+        state_event.py         emit events on job state-change
+    serialisers/
     utils/
         id_generator.py        adjective-noun ids
+        logging_config.py      shared logging setup
+    jobs/
+        decorator.py           a decorator to construct basic jobs from a function
     worker/
+        state_machine/
+            ...                each job-state and how it's handled
         call_frame.py          call-frame definitions used to manage paused jobs
         dependency_worker.py   check if dependencies are satistfied
         job_worker.py          claim and run a job freom the job registry
+        local_workflow.py      the core workflow implementation
         overseer.py            manage the overall workflow execution
+        progress.py            progress bar!
         read_job_events.py     handle job execution output
-        state_machine/
-            ...                each job-state and how it's handled
 
     base_types.py              abstract types for key Zahir abstractions
     events.py                  events describing workflow state-updates
     exception.py               exceptions thrown by Zahir
     scope.py                   handle translation from serialised data to instances
+    serialise.py               serialise events as they pass between processes
 ```
 
 ## What is Zahir?
