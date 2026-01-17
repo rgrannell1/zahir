@@ -172,7 +172,7 @@ Jobs may have preconditions before running.
 - `TimeDependency`: this dependency is satisfied when the workflow is in a certain time range.
 - `GroupDependency`: used to consolidate several dependencies into a single aggregate dependency
 - `ResourceLimit`: satistifed when CPU / memory are below some fixed percentage machine-wide
-  `Semaphore`: a dependency that can be "toggled" by a supervisor process
+- `Semaphore`: a dependency that can be "toggled" by a supervisor process
 
 Dependencies can be flagged as impossible to fulfill; jobs with impossible dependencies are removed from the `pending` queue and flagged in the event registry.
 
