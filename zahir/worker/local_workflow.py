@@ -8,7 +8,7 @@ from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.scope import LocalScope
 from zahir.worker.overseer import zahir_worker_overseer
-from zahir.worker.progress import ProgressMonitor, ZahirProgressMonitor
+from zahir.worker.progress import NoOpProgressMonitor, ProgressMonitor, ZahirProgressMonitor
 
 WorkflowOutputType = TypeVar("WorkflowOutputType", bound=Mapping[str, Any])
 
@@ -72,17 +72,26 @@ class LocalWorkflow[WorkflowOutputType]:
         self.max_workers = max_workers
 
     def run(
-        self, start: JobInstance | None = None, events_filter: frozenset[type[ZahirEvent]] | None = DEFAULT_EVENTS
+        self,
+        start: JobInstance | None = None,
+        events_filter: frozenset[type[ZahirEvent]] | None = DEFAULT_EVENTS,
+        show_progress: bool = True,
     ) -> Iterator[WorkflowOutputEvent[WorkflowOutputType] | ZahirEvent]:
-        """Run all jobs in the registry, opptionally seeding from this job in particular.
+        """Run all jobs in the registry, optionally seeding from this job in particular.
 
         @param start: The starting job of the workflow. Optional; the run will run all pending jobs in the job-register
+        @param events_filter: Filter which events to yield. Defaults to WorkflowOutputEvent and ZahirCustomEvent.
+        @param show_progress: Whether to show the progress monitor. Defaults to True.
         @return: Yields an iterator that gives:
         - WorkflowOutputEvent: the actual values yielded from the workflow
         - ZahirCustomEvent: any custom events emitted by workflows. Can be used for custom in-band eventing.
         """
 
-        progress_monitor = self.progress_monitor or ZahirProgressMonitor()
+        if show_progress:
+            progress_monitor = self.progress_monitor or ZahirProgressMonitor()
+        else:
+            progress_monitor = NoOpProgressMonitor()
+
         with progress_monitor as progress:
             for event in zahir_worker_overseer(start, self.context, self.max_workers):
                 progress.handle_event(event)

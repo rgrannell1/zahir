@@ -109,7 +109,7 @@ def test_localworkflow_can_run_discovered_jobs():
     job_instance = WorkflowTestJob1({}, {})
 
     # Run the workflow with events_filter=None to see all internal events
-    events = list(workflow.run(job_instance, events_filter=None))
+    events = list(workflow.run(job_instance, events_filter=None, show_progress=False))
 
     # The workflow should execute and complete successfully
     # We should get at least some events back from the workflow execution

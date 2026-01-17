@@ -35,6 +35,19 @@ class ProgressMonitor(Protocol):
         ...
 
 
+class NoOpProgressMonitor:
+    """A progress monitor that does nothing. Use to disable progress output."""
+
+    def handle_event(self, event: ZahirEvent) -> None:
+        pass
+
+    def __enter__(self) -> "NoOpProgressMonitor":
+        return self
+
+    def __exit__(self, exc_type: type | None, exc_val: Exception | None, exc_tb: object | None) -> bool | None:
+        return None
+
+
 @dataclass
 class JobTypeStats:
     """Statistics for a specific job type."""
