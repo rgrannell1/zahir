@@ -37,62 +37,30 @@ class Serialisable(Protocol):
 _EVENT_REGISTRY: dict[str, type["ZahirEvent"]] = {}
 
 
+def _get_all_subclasses(cls: type) -> list[type]:
+    """Recursively get all subclasses of a class."""
+    subclasses = []
+    for subclass in cls.__subclasses__():
+        subclasses.append(subclass)
+        subclasses.extend(_get_all_subclasses(subclass))
+    return subclasses
+
+
 def _populate_event_registry() -> None:
-    """Populate the event registry with all ZahirEvent subclasses."""
+    """Populate the event registry with all ZahirEvent subclasses.
+
+    Uses __subclasses__() to automatically discover all event types,
+    eliminating the need for manual registration.
+    """
     global _EVENT_REGISTRY
 
     if _EVENT_REGISTRY:
         return  # Already populated
 
-    from zahir.events import (
-        Await,
-        JobAssignedEvent,
-        JobCompletedEvent,
-        JobEvent,
-        JobImpossibleEvent,
-        JobIrrecoverableEvent,
-        JobOutputEvent,
-        JobPausedEvent,
-        JobPrecheckFailedEvent,
-        JobReadyEvent,
-        JobRecoveryCompletedEvent,
-        JobRecoveryStartedEvent,
-        JobRecoveryTimeoutEvent,
-        JobStartedEvent,
-        JobTimeoutEvent,
-        JobWorkerWaitingEvent,
-        WorkflowCompleteEvent,
-        WorkflowOutputEvent,
-        WorkflowStartedEvent,
-        ZahirCustomEvent,
-        ZahirInternalErrorEvent,
-    )
+    from zahir.events import ZahirEvent
 
-    event_classes: list[type["ZahirEvent"]] = [
-        Await,
-        JobAssignedEvent,
-        JobCompletedEvent,
-        JobEvent,
-        JobImpossibleEvent,
-        JobIrrecoverableEvent,
-        JobOutputEvent,
-        JobPausedEvent,
-        JobPrecheckFailedEvent,
-        JobReadyEvent,
-        JobRecoveryCompletedEvent,
-        JobRecoveryStartedEvent,
-        JobRecoveryTimeoutEvent,
-        JobStartedEvent,
-        JobTimeoutEvent,
-        JobWorkerWaitingEvent,
-        WorkflowCompleteEvent,
-        WorkflowOutputEvent,
-        WorkflowStartedEvent,
-        ZahirCustomEvent,
-        ZahirInternalErrorEvent,
-    ]
-
-    for cls in event_classes:
+    # Auto-discover all ZahirEvent subclasses
+    for cls in _get_all_subclasses(ZahirEvent):
         _EVENT_REGISTRY[cls.__name__] = cls
 
 
