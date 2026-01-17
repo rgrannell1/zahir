@@ -1,6 +1,6 @@
 from zahir.base_types import Context, Dependency, DependencyState, JobInstance, JobRegistry, JobSpec, JobState, Scope
 from zahir.context import MemoryContext
-from zahir.dependencies import ConcurrencyLimit, DependencyGroup, JobDependency, Semaphore, TimeDependency
+from zahir.dependencies import ConcurrencyLimit, DependencyGroup, JobDependency, Semaphore, TimeDependency, ResourceLimit
 from zahir.events import (
     Await,
     JobCompletedEvent,
@@ -94,6 +94,7 @@ __all__ = [
     "ZahirError",
     "ZahirEvent",
     "ZahirInternalError",
+    "ResourceLimit",
     "ZahirInternalErrorEvent",
     "deserialise_event",
     "spec",

@@ -1,24 +1,18 @@
 from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
-from enum import StrEnum
-from typing import Any, Self, TypedDict
+from typing import Any, Literal, Self, TypedDict
 
 import psutil
 
 from zahir.base_types import Dependency, DependencyState
 
-
-class ResourceType(StrEnum):
-    """The type of system resource to monitor. System-wide."""
-
-    CPU = "cpu"
-    MEMORY = "memory"
+type ResourceType = Literal["cpu"] | Literal["memory"]
 
 
 class ResourceLimitData(TypedDict, total=False):
     """Serialized structure for ResourceLimit."""
 
-    resource: str
+    resource: ResourceType
     max_percent: float
     timeout_at: str | None
 
@@ -38,7 +32,7 @@ class ResourceLimit(Dependency):
     ) -> None:
         """Create a resource limit dependency.
 
-        @param resource: The resource type to monitor (CPU or MEMORY)
+        @param resource: The resource type to monitor ("cpu" or "memory")
         @param max_percent: Maximum usage percentage (0-100). Satisfied when usage <= this.
         @param timeout: Optional timeout in seconds. If set, dependency becomes IMPOSSIBLE after duration
         """
@@ -52,18 +46,18 @@ class ResourceLimit(Dependency):
 
     @classmethod
     def cpu(cls, max_percent: float, timeout: float | None = None) -> "ResourceLimit":
-        return cls(ResourceType.CPU, max_percent, timeout=timeout)
+        return cls("cpu", max_percent, timeout=timeout)
 
     @classmethod
     def memory(cls, max_percent: float, timeout: float | None = None) -> "ResourceLimit":
-        return cls(ResourceType.MEMORY, max_percent, timeout=timeout)
+        return cls("memory", max_percent, timeout=timeout)
 
     def _get_usage(self) -> float:
         """Get the current resource usage as a percentage."""
 
-        if self.resource == ResourceType.CPU:
+        if self.resource == "cpu":
             return psutil.cpu_percent(interval=0.1)
-        elif self.resource == ResourceType.MEMORY:
+        elif self.resource == "memory":
             return psutil.virtual_memory().percent
         else:
             raise ValueError(f"Unknown resource type: {self.resource}")
@@ -103,14 +97,14 @@ class ResourceLimit(Dependency):
         """Serialize the resource limit to a dictionary."""
         return {
             "type": "ResourceLimit",
-            "resource": self.resource.value,
+            "resource": self.resource,
             "max_percent": self.max_percent,
             "timeout_at": self.timeout_at.isoformat() if self.timeout_at else None,
         }
 
     @classmethod
     def load(cls, context, data: Mapping[str, Any]) -> "ResourceLimit":
-        resource = ResourceType(data["resource"])
+        resource: ResourceType = data["resource"]
         max_percent = data["max_percent"]
         timeout_at_str = data.get("timeout_at")
 

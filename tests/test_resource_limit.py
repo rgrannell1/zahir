@@ -3,10 +3,8 @@
 import time
 from datetime import UTC, datetime, timedelta
 
-import pytest
-
 from zahir.base_types import DependencyState
-from zahir.dependencies.resources import ResourceLimit, ResourceType
+from zahir.dependencies.resources import ResourceLimit
 
 
 class TestResourceLimitBasic:
@@ -82,7 +80,7 @@ class TestResourceLimitExtension:
         limit = ResourceLimit.memory(max_percent=75.0, timeout=10.0)
         extended = limit.request_extension(5.0)
 
-        assert extended.resource == ResourceType.MEMORY
+        assert extended.resource == "memory"
         assert extended.max_percent == 75.0
 
 
@@ -120,7 +118,7 @@ class TestResourceLimitSerialization:
 
         loaded = ResourceLimit.load(None, data)
 
-        assert loaded.resource == ResourceType.CPU
+        assert loaded.resource == "cpu"
         assert loaded.max_percent == 85.0
         assert loaded.timeout_at is None
 
@@ -136,7 +134,7 @@ class TestResourceLimitSerialization:
 
         loaded = ResourceLimit.load(None, data)
 
-        assert loaded.resource == ResourceType.MEMORY
+        assert loaded.resource == "memory"
         assert loaded.max_percent == 75.0
         assert loaded.timeout_at == timeout_at
 
@@ -151,15 +149,13 @@ class TestResourceLimitSerialization:
         assert loaded.timeout_at == original.timeout_at
 
 
-class TestResourceType:
-    """ResourceType enum tests."""
+class TestResourceTypeValues:
+    """Resource type literal tests."""
 
-    def test_cpu_value(self):
-        assert ResourceType.CPU.value == "cpu"
+    def test_cpu_resource(self):
+        limit = ResourceLimit("cpu", max_percent=80.0)
+        assert limit.resource == "cpu"
 
-    def test_memory_value(self):
-        assert ResourceType.MEMORY.value == "memory"
-
-    def test_from_string(self):
-        assert ResourceType("cpu") == ResourceType.CPU
-        assert ResourceType("memory") == ResourceType.MEMORY
+    def test_memory_resource(self):
+        limit = ResourceLimit("memory", max_percent=80.0)
+        assert limit.resource == "memory"
