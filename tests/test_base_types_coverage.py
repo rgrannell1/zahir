@@ -14,10 +14,7 @@ from zahir.base_types import (
     Dependency,
     DependencyData,
     DependencyState,
-    EventRegistry,
-    Job,
     JobInformation,
-    JobOptions,
     JobState,
 )
 from zahir.context.memory import MemoryContext
@@ -43,54 +40,8 @@ class MockDependency(Dependency):
     def load(cls, context: MemoryContext, data: Mapping[str, Any]) -> "MockDependency":
         return cls()
 
-
-class MockEventRegistry(EventRegistry):
-    """Mock event registry for testing."""
-
-    def __init__(self):
-        self.events: list[ZahirEvent] = []
-
-    def register(self, event: ZahirEvent) -> None:
-        self.events.append(event)
-
-
 # Note: Abstract classes can't be instantiated in Python, so we test
 # them indirectly through their concrete implementations
-
-
-def test_job_options_save_and_load():
-    """Test JobOptions serialization and deserialization."""
-    # Test with both timeouts set
-    options = JobOptions(job_timeout=30.0, recover_timeout=60.0)
-    saved = options.save()
-
-    assert saved["job_timeout"] == 30.0
-    assert saved["recover_timeout"] == 60.0
-
-    loaded = JobOptions.load(saved)
-    assert loaded.job_timeout == 30.0
-    assert loaded.recover_timeout == 60.0
-
-    # Test with None values
-    options_none = JobOptions()
-    saved_none = options_none.save()
-
-    assert saved_none["job_timeout"] is None
-    assert saved_none["recover_timeout"] is None
-
-    loaded_none = JobOptions.load(saved_none)
-    assert loaded_none.job_timeout is None
-    assert loaded_none.recover_timeout is None
-
-
-def test_job_options_load_partial():
-    """Test JobOptions loading when some fields are missing."""
-    partial_data = {"job_timeout": 25.0}
-    loaded = JobOptions.load(partial_data)  # type: ignore
-
-    assert loaded.job_timeout == 25.0
-    assert loaded.recover_timeout is None
-
 
 def test_dependency_state_enum():
     """Test DependencyState enum values."""
@@ -102,13 +53,22 @@ def test_dependency_state_enum():
 def test_job_information_dataclass():
     """Test JobInformation creation with all fields."""
     from datetime import datetime
+    from zahir.base_types import JobInstance, JobArguments
+    from zahir.jobs.decorator import spec
 
-    class TestJob(Job):
-        @classmethod
-        def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-            yield JobOutputEvent({"result": "test"})
+    @spec()
+    def TestJobSpec(spec_args, context: Context, input, dependencies):
+        yield JobOutputEvent({"result": "test"})
 
-    job = TestJob(input={}, dependencies={})
+    job_args = JobArguments(
+        job_id="job-123",
+        parent_id=None,
+        args={},
+        dependencies={},
+        job_timeout=None,
+        recover_timeout=None,
+    )
+    job = JobInstance(spec=TestJobSpec, args=job_args)
 
     job_info = JobInformation(
         job_id="job-123",
@@ -237,233 +197,14 @@ def test_dependency_abstract_load_method():
         Dependency.load(context, {})
 
 
-def test_job_registry_abstract_methods():
-    """Test that JobRegistry abstract methods raise NotImplementedError."""
-    import pytest
-
-    from zahir.base_types import JobRegistry
-
-    # Use the SQLiteJobRegistry instance and call base class method directly
-    registry = SQLiteJobRegistry(":memory:")
-
-    with pytest.raises(NotImplementedError):
-        JobRegistry.init(registry, "worker-1")
-
-
-def test_event_registry_abstract_method():
-    """Test that EventRegistry.register raises NotImplementedError when not overridden."""
-    from zahir.base_types import EventRegistry
-
-    class IncompleteEventRegistry(EventRegistry):
-        """Intentionally incomplete to test abstract method errors."""
-
-    # Cannot instantiate abstract class without implementing all abstract methods
-    # So we test the method directly would raise if it could be called
-    assert hasattr(EventRegistry, "register")
-
-
-def test_job_abstract_run_method():
-    """Test that Job.run default implementation returns empty iterator."""
-
-    class MinimalJob(Job):
-        """Job with default run implementation."""
-
-    # The default run implementation returns iter([])
-    scope = LocalScope()
-    job_registry = SQLiteJobRegistry(":memory:")
-    context = MemoryContext(scope=scope, job_registry=job_registry)
-
-    result = list(MinimalJob.run(context, {}, DependencyGroup({})))
-    assert result == []
-
-
-def test_job_recover_raises_error():
-    """Test that Job.recover default implementation raises the error."""
-    import pytest
-
-    class MinimalJob(Job):
-        """Job with default recover implementation."""
-
-        @classmethod
-        def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-            yield JobOutputEvent({"result": "test"})
-
-    scope = LocalScope()
-    job_registry = SQLiteJobRegistry(":memory:")
-    context = MemoryContext(scope=scope, job_registry=job_registry)
-
-    test_error = ValueError("test error")
-
-    with pytest.raises(ValueError, match="test error"):
-        # Consume the generator to trigger the raise and yield
-        list(MinimalJob.recover(context, {}, DependencyGroup({}), test_error))
-
-
-def test_scope_abstract_methods():
-    """Test that Scope abstract methods exist and would raise if not overridden."""
-    from zahir.base_types import Scope
-
-    # Verify abstract methods exist on the Scope class
-    assert hasattr(Scope, "add_job_class")
-    assert hasattr(Scope, "add_job_classes")
-    assert hasattr(Scope, "get_job_class")
-    assert hasattr(Scope, "add_dependency_class")
-    assert hasattr(Scope, "add_dependency_classes")
-    assert hasattr(Scope, "get_dependency_class")
-
-
-def test_job_save_with_options():
-    """Test Job.save method includes options when present."""
-
-    class TestJob(Job):
-        @classmethod
-        def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-            yield JobOutputEvent({"result": "test"})
-
-    scope = LocalScope()
-    job_registry = SQLiteJobRegistry(":memory:")
-    context = MemoryContext(scope=scope, job_registry=job_registry)
-
-    options = JobOptions(job_timeout=30.0, recover_timeout=60.0)
-    job = TestJob(input={"test": "data"}, dependencies={}, options=options, job_id="test-job-123")
-
-    saved = job.save(context)
-
-    assert saved["type"] == "TestJob"
-    assert saved["job_id"] == "test-job-123"
-    assert saved["parent_id"] is None
-    assert saved["input"] == {"test": "data"}
-    assert saved["options"] is not None
-    assert saved["options"]["job_timeout"] == 30.0
-    assert saved["options"]["recover_timeout"] == 60.0
-
-
-def test_job_save_without_options():
-    """Test Job.save method when options is None."""
-
-    class TestJob(Job):
-        @classmethod
-        def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-            yield JobOutputEvent({"result": "test"})
-
-    scope = LocalScope()
-    job_registry = SQLiteJobRegistry(":memory:")
-    context = MemoryContext(scope=scope, job_registry=job_registry)
-
-    job = TestJob(input={"test": "data"}, dependencies={}, options=None, job_id="test-job-456")
-
-    saved = job.save(context)
-
-    assert saved["type"] == "TestJob"
-    assert saved["job_id"] == "test-job-456"
-    assert saved["options"] is None
-
-
-def test_job_load_with_options():
-    """Test Job.load method with options."""
-
-    class TestJob(Job):
-        @classmethod
-        def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-            yield JobOutputEvent({"result": "test"})
-
-    scope = LocalScope()
-    scope.add_job_class(TestJob)
-    job_registry = SQLiteJobRegistry(":memory:")
-    context = MemoryContext(scope=scope, job_registry=job_registry)
-
-    data: Any = {
-        "type": "TestJob",
-        "job_id": "loaded-job-123",
-        "parent_id": "parent-456",
-        "input": {"key": "value"},
-        "dependencies": {"type": "DependencyGroup", "dependencies": {}},
-        "options": {"job_timeout": 45.0, "recover_timeout": 90.0},
-    }
-
-    loaded_job = TestJob.load(context, data)
-
-    assert loaded_job.job_id == "loaded-job-123"
-    assert loaded_job.parent_id == "parent-456"
-    assert loaded_job.input == {"key": "value"}
-    assert loaded_job.job_options is not None
-    assert loaded_job.job_options.job_timeout == 45.0
-    assert loaded_job.job_options.recover_timeout == 90.0
-
-
-def test_job_load_without_options():
-    """Test Job.load method when options is None."""
-
-    class TestJob(Job):
-        @classmethod
-        def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-            yield JobOutputEvent({"result": "test"})
-
-    scope = LocalScope()
-    scope.add_job_class(TestJob)
-    job_registry = SQLiteJobRegistry(":memory:")
-    context = MemoryContext(scope=scope, job_registry=job_registry)
-
-    data: Any = {
-        "type": "TestJob",
-        "job_id": "loaded-job-789",
-        "parent_id": None,
-        "input": {"key": "value"},
-        "dependencies": {"type": "DependencyGroup", "dependencies": {}},
-        "options": None,
-    }
-
-    loaded_job = TestJob.load(context, data)
-
-    assert loaded_job.job_id == "loaded-job-789"
-    assert loaded_job.parent_id is None
-    assert loaded_job.job_options is None
-
-
-def test_job_copy():
-    """Test Job.copy method creates a new instance with new ID."""
-
-    class TestJob(Job):
-        @classmethod
-        def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-            yield JobOutputEvent({"result": "test"})
-
-    options = JobOptions(job_timeout=30.0)
-    original_job = TestJob(input={"data": "original"}, dependencies={}, options=options, job_id="original-123")
-
-    copied_job = original_job.copy()
-
-    # Should have different job_id
-    assert copied_job.job_id != original_job.job_id
-    # Should have original job as parent
-    assert copied_job.parent_id == original_job.job_id
-    # Should have same input
-    assert copied_job.input == original_job.input
-    # Should have same options
-    assert copied_job.job_options == original_job.job_options
-
-
-def test_job_request_extension():
-    """Test Job.request_extension method."""
-    from datetime import datetime
-
-    from zahir.dependencies.time import TimeDependency
-
-    class TestJob(Job):
-        @classmethod
-        def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-            yield JobOutputEvent({"result": "test"})
-
-    start_time = datetime.now()
-    time_dep = TimeDependency(after=start_time)
-
-    original_job = TestJob(input={"data": "test"}, dependencies={"time": time_dep}, job_id="original-456")
-
-    extended_job = original_job.request_extension(60.0)
-
-    # Should have different job_id
-    assert extended_job.job_id != original_job.job_id
-    # Should have original job as parent
-    assert extended_job.parent_id == original_job.job_id
-    # Should have same input
-    assert extended_job.input == original_job.input
+# NOTE: Job class has been removed in favor of JobSpec decorator pattern.
+# The following tests were for the old Job class and are no longer applicable:
+# - test_job_registry_abstract_methods
+# - test_job_abstract_run_method
+# - test_job_recover_raises_error
+# - test_job_save_with_options
+# - test_job_save_without_options
+# - test_job_load_with_options
+# - test_job_load_without_options
+# - test_job_copy
+# - test_job_request_extension

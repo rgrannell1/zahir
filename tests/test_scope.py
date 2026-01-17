@@ -1,63 +1,58 @@
 """Tests for LocalScope"""
 
-from collections.abc import Iterator
-
-from zahir.base_types import Context, Job
+from zahir.base_types import Context, JobSpec
 from zahir.dependencies.concurrency import ConcurrencyLimit
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
 from zahir.dependencies.time import TimeDependency
 from zahir.events import JobOutputEvent
 from zahir.exception import DependencyNotInScopeError, JobNotInScopeError
+from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 
 
-class SampleJob(Job):
+@spec()
+def SampleJobSpec(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
     """Simple test job for scope tests."""
-
-    @classmethod
-    def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-        yield JobOutputEvent({"result": "test"})
+    yield JobOutputEvent({"result": "test"})
 
 
-class AnotherSampleJob(Job):
+@spec()
+def AnotherSampleJobSpec(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
     """Another test job for scope tests."""
-
-    @classmethod
-    def run(cls, context: Context, input: dict, dependencies: DependencyGroup) -> Iterator[Job | JobOutputEvent]:
-        yield JobOutputEvent({"result": "another"})
+    yield JobOutputEvent({"result": "another"})
 
 
-def test_scope_add_and_get_task_class():
-    """Test adding and retrieving task classes."""
+def test_scope_add_and_get_job_spec():
+    """Test adding and retrieving job specs."""
     scope = LocalScope()
 
-    scope.add_job_class(SampleJob)
+    scope.add_job_spec(SampleJobSpec)
 
-    retrieved = scope.get_job_class("SampleJob")
-    assert retrieved == SampleJob
-    assert retrieved.__name__ == "SampleJob"
+    retrieved = scope.get_job_spec("SampleJobSpec")
+    assert retrieved == SampleJobSpec
+    assert retrieved.type == "SampleJobSpec"
 
 
-def test_scope_add_multiple_task_classes():
-    """Test adding and retrieving multiple task classes."""
+def test_scope_add_multiple_job_specs():
+    """Test adding and retrieving multiple job specs."""
     scope = LocalScope()
 
-    scope.add_job_class(SampleJob)
-    scope.add_job_class(AnotherSampleJob)
+    scope.add_job_spec(SampleJobSpec)
+    scope.add_job_spec(AnotherSampleJobSpec)
 
-    assert scope.get_job_class("SampleJob") == SampleJob
-    assert scope.get_job_class("AnotherSampleJob") == AnotherSampleJob
+    assert scope.get_job_spec("SampleJobSpec") == SampleJobSpec
+    assert scope.get_job_spec("AnotherSampleJobSpec") == AnotherSampleJobSpec
 
 
-def test_scope_get_task_class_raises_on_missing():
-    """Test that getting a non-existent task class raises KeyError."""
+def test_scope_get_job_spec_raises_on_missing():
+    """Test that getting a non-existent job spec raises JobNotInScopeError."""
     scope = LocalScope()
 
     try:
-        scope.get_job_class("NonExistentJob")
+        scope.get_job_spec("NonExistentJobSpec")
         raise AssertionError("failed")
-    except (KeyError, JobNotInScopeError):
+    except JobNotInScopeError:
         pass
 
 
@@ -86,59 +81,59 @@ def test_scope_add_multiple_dependency_classes():
 
 
 def test_scope_get_dependency_class_raises_on_missing():
-    """Test that getting a non-existent dependency class raises KeyError."""
+    """Test that getting a non-existent dependency class raises DependencyNotInScopeError."""
     scope = LocalScope()
 
     try:
         scope.get_dependency_class("NonExistentDependency")
         raise AssertionError("failed")
-    except (KeyError, DependencyNotInScopeError):
+    except DependencyNotInScopeError:
         pass
 
 
-def test_scope_task_and_dependency_classes_separate():
-    """Test that task and dependency classes are stored separately."""
+def test_scope_job_and_dependency_classes_separate():
+    """Test that job specs and dependency classes are stored separately."""
     scope = LocalScope()
 
-    scope.add_job_class(SampleJob)
+    scope.add_job_spec(SampleJobSpec)
     scope.add_dependency_class(TimeDependency)
 
     # Should be able to retrieve both independently
-    assert scope.get_job_class("SampleJob") == SampleJob
+    assert scope.get_job_spec("SampleJobSpec") == SampleJobSpec
     assert scope.get_dependency_class("TimeDependency") == TimeDependency
 
-    # Tasks shouldn't be in dependencies and vice versa
+    # Specs shouldn't be in dependencies and vice versa
     try:
-        scope.get_dependency_class("SampleJob")
+        scope.get_dependency_class("SampleJobSpec")
         raise AssertionError("failed")
-    except (KeyError, DependencyNotInScopeError):
+    except DependencyNotInScopeError:
         pass
 
     try:
-        scope.get_job_class("TimeDependency")
+        scope.get_job_spec("TimeDependency")
         raise AssertionError("failed")
-    except (KeyError, JobNotInScopeError):
+    except JobNotInScopeError:
         pass
 
 
-def test_scope_overwrite_task_class():
-    """Test that adding a task class with the same name overwrites the previous one."""
+def test_scope_overwrite_job_spec():
+    """Test that adding a job spec with the same name overwrites the previous one."""
     scope = LocalScope()
 
-    scope.add_job_class(SampleJob)
-    original = scope.get_job_class("SampleJob")
+    scope.add_job_spec(SampleJobSpec)
+    original = scope.get_job_spec("SampleJobSpec")
 
-    # Add again (same class)
-    scope.add_job_class(SampleJob)
-    retrieved = scope.get_job_class("SampleJob")
+    # Add again (same spec)
+    scope.add_job_spec(SampleJobSpec)
+    retrieved = scope.get_job_spec("SampleJobSpec")
 
     assert retrieved == original
-    assert retrieved == SampleJob
+    assert retrieved == SampleJobSpec
 
 
 def test_scope_empty_initialization():
     """Test that a new scope starts empty."""
     scope = LocalScope()
 
-    assert len(scope.jobs) == 0
+    assert len(scope.specs) == 0
     assert len(scope.dependencies) == 0

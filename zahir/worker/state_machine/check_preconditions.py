@@ -56,8 +56,10 @@ def check_preconditions(
     # We have two types of timeout, look up the appropriate one. We
     # timeout based not only on job options if present.
     timeout: float | None = None
-    if job.job_options:
-        timeout = job.job_options.recover_timeout if state.frame.recovery else job.job_options.job_timeout
+    if state.frame.recovery:
+        timeout = job.args.recover_timeout
+    else:
+        timeout = job.args.job_timeout
 
     job_timing = state.context.job_registry.get_job_timing(job.job_id)
     time_since_start = (

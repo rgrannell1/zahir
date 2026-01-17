@@ -16,7 +16,7 @@ import multiprocessing
 import tempfile
 import pytest
 
-from zahir.base_types import Context, Job, JobOptions
+from zahir.base_types import Context
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry

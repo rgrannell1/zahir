@@ -24,7 +24,7 @@ def test_job_worker_basic_flow():
     job_registry = SQLiteJobRegistry(tmp_file)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[]),
+        scope=LocalScope(specs=[]),
         job_registry=job_registry,
     )
     input_queue = multiprocessing.Queue()
@@ -63,7 +63,7 @@ def test_job_worker_handles_state_machine_exception():
     job_registry = SQLiteJobRegistry(tmp_file)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[]),
+        scope=LocalScope(specs=[]),
         job_registry=job_registry,
     )
     input_queue = multiprocessing.Queue()
@@ -92,7 +92,7 @@ def test_job_worker_handles_handler_returning_none():
     job_registry = SQLiteJobRegistry(tmp_file)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[]),
+        scope=LocalScope(specs=[]),
         job_registry=job_registry,
     )
     input_queue = multiprocessing.Queue()
@@ -120,7 +120,7 @@ def test_job_worker_initializes_registry():
     job_registry = SQLiteJobRegistry(tmp_file)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[]),
+        scope=LocalScope(specs=[]),
         job_registry=job_registry,
     )
     input_queue = multiprocessing.Queue()
@@ -162,7 +162,7 @@ def test_job_worker_state_transitions():
     job_registry = SQLiteJobRegistry(tmp_file)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[]),
+        scope=LocalScope(specs=[]),
         job_registry=job_registry,
     )
     input_queue = multiprocessing.Queue()

@@ -2,7 +2,7 @@ import inspect
 from types import ModuleType
 from typing import Self
 
-from zahir.base_types import Dependency, Job, JobSpec, Scope
+from zahir.base_types import Dependency, JobSpec, Scope
 from zahir.exception import DependencyNotInScopeError, JobNotInScopeError
 
 
@@ -11,13 +11,11 @@ class LocalScope(Scope):
     their underlying Python classes."""
 
     def __init__(
-        self, jobs: list[type[Job]] = [], dependencies: list[type[Dependency]] = [], specs: list["JobSpec"] = []
+        self, dependencies: list[type[Dependency]] = [], specs: list["JobSpec"] = []
     ) -> None:
-        self.jobs: dict[str, type[Job]] = {}
         self.dependencies: dict[str, type[Dependency]] = {}
         self.specs: dict[str, "JobSpec"] = {}
 
-        self.add_job_classes(jobs)
         self.add_dependency_classes(dependencies)
         self.add_job_specs(specs)
 
@@ -35,42 +33,35 @@ class LocalScope(Scope):
             raise KeyError(f"Job spec '{type}' not found in scope. Did you register it?")
         return self.specs[type]
 
-    def add_job_class(self, job_class: type[Job] | JobSpec) -> Self:
-        """Add a job class or spec to the scope.
+    def add_job_class(self, job_spec: JobSpec) -> Self:
+        """Add a job spec to the scope.
 
-        @param job_class: The job class or spec to add.
+        @param job_spec: The job spec to add.
         """
 
-        if isinstance(job_class, JobSpec):
-            self.specs[job_class.type] = job_class
-        else:
-            self.jobs[job_class.__name__] = job_class
+        self.specs[job_spec.type] = job_spec
         return self
 
-    def add_job_classes(self, job_classes: list[type[Job]] | list[JobSpec]) -> Self:
-        """Add multiple job classes to the scope.
+    def add_job_classes(self, job_specs: list[JobSpec]) -> Self:
+        """Add multiple job specs to the scope.
 
-        @param job_classes: The job classes or specs to add.
+        @param job_specs: The job specs to add.
         """
 
-        for job_class in job_classes:
-            # Handle both Job classes and JobSpec objects for backwards compatibility
-            if isinstance(job_class, JobSpec):
-                self.specs[job_class.type] = job_class
-            else:
-                self.jobs[job_class.__name__] = job_class
+        for job_spec in job_specs:
+            self.specs[job_spec.type] = job_spec
         return self
 
-    def get_job_class(self, type_name: str) -> type[Job]:
-        """Get a job class from the scope by name.
+    def get_job_spec(self, type_name: str) -> JobSpec:
+        """Get a job spec from the scope by name.
 
-        @param type_name: The name of the job class to get.
+        @param type_name: The name of the job spec to get.
         """
 
-        if type_name not in self.jobs:
-            raise JobNotInScopeError(f"Job class '{type_name}' not found in scope. Did you register it?")
+        if type_name not in self.specs:
+            raise JobNotInScopeError(f"Job spec '{type_name}' not found in scope. Did you register it?")
 
-        return self.jobs[type_name]
+        return self.specs[type_name]
 
     def add_dependency_class(self, dependency_class: type[Dependency]) -> Self:
         """Add a dependency class to the scope.
@@ -146,7 +137,6 @@ class LocalScope(Scope):
                 raise RuntimeError("Cannot determine calling module")
 
         specs: list[JobSpec] = []
-        jobs: list[type[Job]] = []
         dependencies: list[type[Dependency]] = []
 
         for _, obj in inspect.getmembers(module):
@@ -156,10 +146,7 @@ class LocalScope(Scope):
             if not inspect.isclass(obj):
                 continue
 
-            if issubclass(obj, Job) and obj is not Job:
-                jobs.append(obj)
-
-            elif issubclass(obj, Dependency) and obj is not Dependency:
+            if issubclass(obj, Dependency) and obj is not Dependency:
                 dependencies.append(obj)
 
-        return cls(jobs=jobs, dependencies=dependencies, specs=specs)
+        return cls(dependencies=dependencies, specs=specs)

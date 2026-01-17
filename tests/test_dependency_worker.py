@@ -48,7 +48,7 @@ def test_dependency_worker_marks_ready_when_satisfied():
     satisfied_dependency = TimeDependency(after=past_time)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
+        scope=LocalScope(specs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
@@ -93,7 +93,7 @@ def test_dependency_worker_marks_impossible_when_unsatisfiable():
     impossible_dependency = TimeDependency(before=past_time)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
+        scope=LocalScope(specs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
@@ -161,7 +161,7 @@ def test_dependency_worker_handles_job_dependency():
     job_registry.init("test-worker-4")
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]), job_registry=job_registry
+        scope=LocalScope(specs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
@@ -206,7 +206,7 @@ def test_dependency_worker_waits_for_unsatisfied_dependency():
     job_registry.init("test-worker-5")
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]), job_registry=job_registry
+        scope=LocalScope(specs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
@@ -252,7 +252,7 @@ def test_dependency_worker_marks_impossible_on_failed_job_dependency():
     job_registry.init("test-worker-6")
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]), job_registry=job_registry
+        scope=LocalScope(specs=[SimpleJob, JobWithOutput], dependencies=[JobDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
@@ -303,7 +303,7 @@ def test_dependency_worker_handles_multiple_jobs():
     impossible_dep = TimeDependency(before=past_time)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
+        scope=LocalScope(specs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
@@ -351,7 +351,7 @@ def test_dependency_worker_only_processes_pending_jobs():
     satisfied_dep = TimeDependency(after=past_time)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
+        scope=LocalScope(specs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"
@@ -426,7 +426,7 @@ def test_dependency_worker_direct_impossible_path():
     impossible_dependency = TimeDependency(before=past_time)
 
     context = MemoryContext(
-        scope=LocalScope(jobs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
+        scope=LocalScope(specs=[SimpleJob], dependencies=[TimeDependency]), job_registry=job_registry
     )
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-direct-2"

@@ -377,205 +377,6 @@ ArgsType = TypeVar("ArgsType", bound=dict)
 OutputType = TypeVar("OutputType", bound=dict)
 
 
-class JobOptions:
-    """General purpose options for a job"""
-
-    # Upper-limit on how long the job should run for
-    job_timeout: float | None = None
-
-    # Upper-limit on how long the recovery should run for
-    recover_timeout: float | None = None
-
-    def __init__(self, job_timeout: float | None = None, recover_timeout: float | None = None) -> None:
-        self.job_timeout = job_timeout
-        self.recover_timeout = recover_timeout
-
-    def save(self) -> JobOptionsData:
-        """Serialize the job options to a dictionary.
-
-        @return: The serialized options
-        """
-        return {
-            "job_timeout": self.job_timeout,
-            "recover_timeout": self.recover_timeout,
-        }
-
-    @classmethod
-    def load(cls, data: JobOptionsData) -> "JobOptions":
-        """Deserialize the job options from a dictionary.
-
-        @param data: The serialized options data
-        @return: The deserialized options
-        """
-        options = cls()
-        options.job_timeout = data.get("job_timeout")
-        options.recover_timeout = data.get("recover_timeout")
-        return options
-
-
-class Job[ArgsType, OutputType](ABC):
-    """Jobs can depend on other jobs."""
-
-    job_options: JobOptions | None
-
-    # Optional parent job ID for traceability
-    parent_id: str | None
-
-    # Unique identifier for this job instance
-    job_id: str
-
-    # The input that the run function actually uses
-    input: ArgsType
-
-    # The dependencies on which the job depends
-    dependencies: "DependencyGroup"
-
-    def __init__(
-        self,
-        input: ArgsType,
-        dependencies: "Mapping[str, Dependency | list[Dependency]] | DependencyGroup" = {},
-        options: JobOptions | None = None,
-        job_id: str | None = None,
-        parent_id: str | None = None,
-    ) -> None:
-        # Circular dependency fun, love you Python
-        from zahir.dependencies.group import DependencyGroup  # noqa: PLC0415
-
-        self.parent_id = parent_id
-        self.job_id = job_id if job_id is not None else generate_id(4)
-        self.input = input
-        self.dependencies = dependencies if isinstance(dependencies, DependencyGroup) else DependencyGroup(dependencies)
-        self.job_options = options
-
-    @staticmethod
-    def precheck(input: ArgsType) -> Exception | ExceptionGroup | None:
-        """Check that the inputs are as desired before running the job.
-
-        @param input: The input arguments to this particular job
-        @return: An exception if precheck failed, None otherwise
-        """
-
-        return None
-
-    def ready(self) -> DependencyState:
-        """Are all dependencies satisfied?
-
-        @return: The state of the dependencies
-        """
-
-        return self.dependencies.satisfied()
-
-    @classmethod
-    @abstractmethod
-    def run(
-        cls, context: "Context", input: ArgsType, dependencies: "DependencyGroup"
-    ) -> Iterator["Job | JobOutputEvent | WorkflowOutputEvent | ZahirCustomEvent"]:
-        """Run the job itself. Unhandled exceptions will be caught
-        by the workflow executor, and routed to the `recover` method.
-
-        @param context: The context containing scope and registries
-        @param input: The input arguments to this job
-        @param dependencies: The dependencies for this job
-        @return: An iterator of sub-jobs, JobOutputEvent, or WorkflowOutputEvent. When a JobOutputEvent is yielded, it becomes the job's output and no further items are processed. WorkflowOutputEvent can be yielded to emit workflow-level outputs.
-        """
-
-        # These are class-methods to avoid self-dependencies that will impact
-        # serialisation.
-
-        return iter([])
-
-    @classmethod
-    def recover(
-        cls,
-        context: "Context",
-        input: ArgsType,
-        dependencies: "DependencyGroup",
-        err: Exception,
-    ) -> Iterator["Job | JobOutputEvent | WorkflowOutputEvent | ZahirCustomEvent"]:
-        """The job failed with an unhandled exception. The job
-        can define a particular way of handling the exception.
-
-        @param context: The context containing scope and registries
-        @param input: The input arguments to this job
-        @param dependencies: The dependencies for this job
-        @param err: The exception that was raised
-
-        @return: An iterator of recovery jobs, JobOutputEvent, or WorkflowOutputEvent. When a JobOutputEvent is yielded, it becomes the job's output and no further items are processed.
-         WorkflowOutputEvent can be yielded to emit workflow-level outputs.
-        """
-
-        raise err
-        yield
-
-    def save(self, context: "Context") -> SerialisedJob:
-        """Serialize the job to a dictionary.
-
-        @param context: The context containing scope and registries
-        @return: The serialized job
-        """
-
-        return {
-            "type": self.__class__.__name__,
-            "job_id": self.job_id,
-            "parent_id": self.parent_id,
-            "input": cast(Mapping[str, Any], self.input),
-            "dependencies": self.dependencies.save(context),
-            "options": self.job_options.save() if self.job_options else None,
-        }
-
-    @classmethod
-    def load(cls, context: "Context", data: SerialisedJob) -> "Job":
-        """Deserialize the job from a dictionary.
-
-        @param context: The context containing scope and registries
-        @param data: The serialized job data
-
-        @return: The deserialized job
-        """
-
-        job_type = data["type"]
-        job_class = context.scope.get_job_class(job_type)
-        from zahir.dependencies.group import DependencyGroup
-
-        dependencies = data["dependencies"]
-
-        return job_class(
-            input=data["input"],
-            dependencies=DependencyGroup.load(context, dependencies),
-            options=JobOptions.load(data["options"]) if data["options"] else None,
-            job_id=data["job_id"],
-            parent_id=data.get("parent_id"),
-        )
-
-    def request_extension(self, extra_seconds: float) -> Self:
-        """Request that all time-based dependencies be extended by the given number of seconds.
-
-        @param extra_seconds: The number of extra seconds to request
-        @return: A new Job instance with extended dependencies
-        """
-
-        extended_dependencies = self.dependencies.request_extension(extra_seconds)
-        return self.__class__(
-            input=self.input,
-            dependencies=extended_dependencies,
-            options=self.job_options,
-            parent_id=self.job_id,
-        )
-
-    def copy(self) -> Self:
-        """Create a copy of this job instance.
-
-        @return: A new Job instance with the same properties. The job-id will differ.
-        """
-
-        return self.__class__(
-            input=self.input,
-            dependencies=self.dependencies,
-            options=self.job_options,
-            parent_id=self.job_id,
-        )
-
-
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Scope +++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -592,24 +393,11 @@ class Scope(ABC):
     """
 
     @abstractmethod
-    def add_job_class(self, job_class: type["Job"]) -> Self:
-        """Add a job class to the scope."""
-        ...
-
-    @abstractmethod
     def get_job_spec(self, job_spec: str) -> "JobSpec": ...
 
     @abstractmethod
-    def add_job_classes(self, job_classes: list[type["Job"]]) -> Self:
-        """Add multiple job classes to the scope."""
-        ...
-
-    @abstractmethod
-    def get_job_spec(self, type: str) -> "JobSpec": ...
-
-    @abstractmethod
-    def get_job_class(self, type_name: str) -> type["Job"]:
-        """Get a job class by its type name."""
+    def add_job_specs(self, specs: list["JobSpec"]) -> Self:
+        """Add multiple job specs to the scope."""
         ...
 
     @abstractmethod
@@ -860,13 +648,6 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
     def dependencies(self) -> "DependencyGroup":
         """Convenience property to access dependencies from args."""
         return self.args.dependencies
-
-    @property
-    def job_options(self) -> "JobOptions | None":
-        """Convenience property that creates JobOptions from stored timeouts (for backwards compatibility)."""
-        if self.args.job_timeout is None and self.args.recover_timeout is None:
-            return None
-        return JobOptions(job_timeout=self.args.job_timeout, recover_timeout=self.args.recover_timeout)
 
     def save(self, context: "Context"):
         return {

@@ -27,6 +27,7 @@ def Sleep(spec_args, context: Context, args, dependencies) -> Generator[JobOutpu
     if not isinstance(duration_seconds, (int, float)) or duration_seconds < 0:
         raise ValueError("duration_seconds must be a non-negative number")
 
-    # Not a good implementation, but ok for now.
+    # Not a good implementation (awaiting a job with a n-second timedependency
+    # would be better), but ok for now.
     time.sleep(duration_seconds)
     yield JobOutputEvent(output={"duration_seconds": duration_seconds})

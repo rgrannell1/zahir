@@ -21,5 +21,5 @@ def simple_context():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker")
 
-    context = MemoryContext(scope=LocalScope(jobs=[]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope(specs=[]), job_registry=job_registry)
     return context

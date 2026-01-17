@@ -3,7 +3,7 @@ import multiprocessing
 import pathlib
 import tempfile
 
-from zahir.base_types import Context, EventRegistry, JobState, JobTimingInformation, JobInstance, JobArguments, JobSpec
+from zahir.base_types import JobState, JobTimingInformation, JobInstance, JobArguments, JobSpec
 from zahir.context.memory import MemoryContext
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import WorkflowOutputEvent
@@ -11,14 +11,6 @@ from zahir.exception import DuplicateJobError, MissingJobError
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
-
-
-class DummyEventRegistry(EventRegistry):
-    def __init__(self):
-        self.queue = multiprocessing.Queue()
-
-    def register(self, event):
-        self.queue.put(event)
 
 
 # Create a test spec and a helper function to create test job instances

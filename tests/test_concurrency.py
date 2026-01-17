@@ -197,7 +197,7 @@ def test_concurrency_limit_enforced_with_30_parallel_jobs():
         # Set up the workflow
         context = MemoryContext(
             scope=LocalScope(
-                jobs=[ConcurrentTestJob, ParentJob],
+                specs=[ConcurrentTestJob, ParentJob],
                 dependencies=[ConcurrencyLimit],
             ),
             job_registry=SQLiteJobRegistry(tmp_file),

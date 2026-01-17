@@ -9,7 +9,7 @@ import multiprocessing
 import tempfile
 import time
 
-from zahir.base_types import Context, Job, JobOptions, JobState
+from zahir.base_types import Context, JobState
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry

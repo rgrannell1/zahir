@@ -4,6 +4,6 @@ This package provides various job registry implementations for managing job
 execution in workflows.
 """
 
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 
-__all__ = ["job"]
+__all__ = ["spec"]

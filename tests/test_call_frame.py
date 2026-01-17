@@ -6,16 +6,28 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from zahir.base_types import Job, JobRegistry, JobState
+from zahir.base_types import JobRegistry, JobState, JobInstance, JobArguments, JobSpec
+from zahir.jobs.decorator import spec
 from zahir.worker.call_frame import ZahirCallStack, ZahirStackFrame
 
 
-class MockJob(Job):
-    """A mock job for testing."""
+@spec()
+def MockJobSpec(spec_args, context, input, dependencies) -> Generator[Any, Any, Any]:
+    """A mock job spec for testing."""
+    yield "test"
 
-    @classmethod
-    def run(cls, context, input, dependencies) -> Generator[Any, Any, Any]:
-        yield "test"
+
+def create_mock_job_instance(job_id: str = "test-job-1") -> JobInstance:
+    """Create a mock JobInstance for testing."""
+    job_args = JobArguments(
+        job_id=job_id,
+        parent_id=None,
+        args={},
+        dependencies={},
+        job_timeout=None,
+        recover_timeout=None,
+    )
+    return JobInstance(spec=MockJobSpec, args=job_args)
 
 
 def create_mock_generator() -> Generator[Any, Any, Any]:
@@ -30,8 +42,7 @@ def create_mock_frame(
     await_many: bool = False,
 ) -> ZahirStackFrame:
     """Helper to create a mock stack frame."""
-    job = MockJob(input="test-input", dependencies={})
-    job.job_id = job_id
+    job = create_mock_job_instance(job_id)
     generator = create_mock_generator()
 
     return ZahirStackFrame(
@@ -50,7 +61,7 @@ def create_mock_frame(
 
 def test_stack_frame_creation():
     """Test that a ZahirStackFrame can be created with required fields."""
-    job = MockJob(input="test", dependencies={})
+    job = create_mock_job_instance()
     generator = create_mock_generator()
 
     frame = ZahirStackFrame(job=job, job_generator=generator)
@@ -64,7 +75,7 @@ def test_stack_frame_creation():
 
 def test_stack_frame_creation_with_optional_fields():
     """Test creating a ZahirStackFrame with all optional fields set."""
-    job = MockJob(input="test", dependencies={})
+    job = create_mock_job_instance()
     generator = create_mock_generator()
     required = {"job-1", "job-2"}
 
@@ -82,10 +93,10 @@ def test_stack_frame_creation_with_optional_fields():
 
 
 def test_stack_frame_job_type():
-    """Test that job_type() returns the correct class name."""
+    """Test that job_type() returns the correct spec type."""
     frame = create_mock_frame()
 
-    assert frame.job_type() == "MockJob"
+    assert frame.job_type() == "MockJobSpec"
 
 
 def test_stack_frame_required_jobs_mutability():

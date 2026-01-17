@@ -2,7 +2,7 @@
 
 from types import ModuleType
 
-from zahir.base_types import Context, Dependency, DependencyState, Job
+from zahir.base_types import Context, Dependency, DependencyState
 from zahir.events import JobOutputEvent
 from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
@@ -107,22 +107,18 @@ def test_from_module_discovers_both():
 
 
 def test_from_module_skips_base_classes():
-    """Test that from_module doesn't register the base Job and Dependency classes."""
+    """Test that from_module doesn't register the base Dependency class."""
 
-    # Add the base classes to the module
-    test_module.Job = Job
+    # Add the base class to the module
     test_module.Dependency = Dependency
-    Job.__module__ = "test_workflows"
     Dependency.__module__ = "test_workflows"
 
     scope = LocalScope.from_module(test_module)
 
-    # Should not have registered the base classes themselves
-    assert "Job" not in scope.specs
+    # Should not have registered the base class itself
     assert "Dependency" not in scope.dependencies
 
     # Clean up
-    delattr(test_module, "Job")
     delattr(test_module, "Dependency")
 
 
