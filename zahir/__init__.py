@@ -1,4 +1,4 @@
-from zahir.base_types import Context, Dependency, DependencyState, Job, JobOptions, JobRegistry, JobState, Scope
+from zahir.base_types import Context, Dependency, DependencyState, JobSpec, JobInstance, JobRegistry, JobState, Scope
 from zahir.context import MemoryContext
 from zahir.dependencies import ConcurrencyLimit, DependencyGroup, JobDependency, Semaphore, TimeDependency
 from zahir.events import (
@@ -37,7 +37,7 @@ from zahir.exception import (
     ZahirInternalError,
 )
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job
+from zahir.jobs.decorator import spec
 from zahir.jobs.sleep import Sleep
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
@@ -55,14 +55,14 @@ __all__ = [
     "DependencyState",
     "DuplicateJobError",
     "ImpossibleDependencyError",
-    "Job",
+    "JobInstance",
     "JobCompletedEvent",
     "JobDependency",
     "JobEvent",
     "JobImpossibleEvent",
     "JobIrrecoverableEvent",
     "JobNotInScopeError",
-    "JobOptions",
+    "JobSpec",
     "JobOutputEvent",
     "JobPausedEvent",
     "JobPrecheckError",
@@ -94,5 +94,5 @@ __all__ = [
     "ZahirEvent",
     "ZahirInternalError",
     "ZahirInternalErrorEvent",
-    "job",
+    "spec",
 ]

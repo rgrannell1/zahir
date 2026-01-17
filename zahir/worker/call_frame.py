@@ -87,6 +87,6 @@ class ZahirStackFrame:
 
     def job_type(self) -> str:
         # For JobInstance (new @spec pattern), use spec.type; for old Job classes, use type name
-        if hasattr(self.job, 'spec'):
+        if hasattr(self.job, "spec"):
             return self.job.spec.type
         return type(self.job).__name__

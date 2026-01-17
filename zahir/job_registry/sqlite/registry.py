@@ -443,6 +443,7 @@ class SQLiteJobRegistry(JobRegistry):
             spec = context.scope.get_job_spec(job_data["type"])
 
             from zahir.base_types import JobInstance
+
             job = JobInstance.load(context, job_data)
 
             job_state = JobState(state_str)

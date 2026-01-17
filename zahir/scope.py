@@ -10,7 +10,9 @@ class LocalScope(Scope):
     """A local translation layer between dependency / job names and
     their underlying Python classes."""
 
-    def __init__(self, jobs: list[type[Job]] = [], dependencies: list[type[Dependency]] = [], specs: list["JobSpec"] = []) -> None:
+    def __init__(
+        self, jobs: list[type[Job]] = [], dependencies: list[type[Dependency]] = [], specs: list["JobSpec"] = []
+    ) -> None:
         self.jobs: dict[str, type[Job]] = {}
         self.dependencies: dict[str, type[Dependency]] = {}
         self.specs: dict[str, "JobSpec"] = {}

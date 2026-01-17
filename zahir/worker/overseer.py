@@ -98,7 +98,7 @@ def dispatch_jobs_to_workers(
     job_registry = context.job_registry
 
     # Fetch all READY jobs (not yet dispatched)
-    ready_jobs: list[Job] = []
+    ready_jobs: list[JobInstance] = []
     for job_info in job_registry.jobs(context, state=JobState.READY):
         ready_jobs.append(job_info.job)
 

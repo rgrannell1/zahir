@@ -10,7 +10,6 @@ Focusing on uncovered lines:
 - Line 154, 162, 198, 205, 265, 273, 289, 297, etc.: Event load() methods
 """
 
-
 from zahir.events import (
     JobCompletedEvent,
     JobEvent,
@@ -59,7 +58,7 @@ def test_zahir_event_set_ids(simple_context):
 
 def test_workflow_started_event_roundtrip(simple_context):
     """Test WorkflowStartedEvent save/load roundtrip."""
-    
+
     event = WorkflowStartedEvent(workflow_id="wf-abc")
 
     saved = event.save(simple_context)
@@ -71,7 +70,7 @@ def test_workflow_started_event_roundtrip(simple_context):
 
 def test_workflow_output_event_creation_and_methods(simple_context):
     """Test WorkflowOutputEvent creation with different constructors."""
-    
+
     # Test with all parameters
     event1 = WorkflowOutputEvent(
         output={"result": "test"},
@@ -103,7 +102,7 @@ def test_workflow_output_event_creation_and_methods(simple_context):
 
 def test_job_output_event_roundtrip(simple_context):
     """Test JobOutputEvent save/load roundtrip."""
-    
+
     event = JobOutputEvent(
         output={"status": "done"},
         workflow_id="wf-2",
@@ -123,7 +122,7 @@ def test_job_output_event_roundtrip(simple_context):
 
 def test_job_paused_event_roundtrip(simple_context):
     """Test JobPausedEvent save/load roundtrip."""
-    
+
     event = JobPausedEvent(workflow_id="wf-pause", job_id="job-pause")
 
     saved = event.save(simple_context)
@@ -137,7 +136,7 @@ def test_job_paused_event_roundtrip(simple_context):
 
 def test_job_recovery_completed_event_roundtrip(simple_context):
     """Test JobRecoveryCompletedEvent save/load roundtrip."""
-    
+
     event = JobRecoveryCompletedEvent(
         workflow_id="wf-rec",
         job_id="job-rec",
@@ -157,7 +156,7 @@ def test_job_recovery_completed_event_roundtrip(simple_context):
 
 def test_job_recovery_timeout_event_roundtrip(simple_context):
     """Test JobRecoveryTimeoutEvent save/load roundtrip."""
-    
+
     event = JobRecoveryTimeoutEvent(
         workflow_id="wf-timeout",
         job_id="job-timeout",
@@ -177,7 +176,7 @@ def test_job_recovery_timeout_event_roundtrip(simple_context):
 
 def test_zahir_custom_event_roundtrip(simple_context):
     """Test ZahirCustomEvent save/load roundtrip."""
-    
+
     # Test with all fields
     event1 = ZahirCustomEvent(
         workflow_id="wf-custom",
@@ -207,7 +206,7 @@ def test_zahir_custom_event_roundtrip(simple_context):
 
 def test_zahir_internal_error_event_roundtrip(simple_context):
     """Test ZahirInternalErrorEvent save/load roundtrip."""
-    
+
     # Test with error message
     event1 = ZahirInternalErrorEvent(
         workflow_id="wf-err",
@@ -233,7 +232,6 @@ def test_zahir_internal_error_event_roundtrip(simple_context):
 
 def test_job_event_roundtrip(simple_context):
     """Test JobEvent save/load roundtrip."""
-    
 
     job_data: SerialisedJob = {
         "type": "TestJob",

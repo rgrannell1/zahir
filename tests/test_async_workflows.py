@@ -62,9 +62,7 @@ def test_nested_async_workflow():
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
     scope = LocalScope.from_module(sys.modules[__name__])
-    context = MemoryContext(
-        scope=scope, job_registry=SQLiteJobRegistry(tmp_file)
-    )
+    context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
     workflow = LocalWorkflow(context)
 

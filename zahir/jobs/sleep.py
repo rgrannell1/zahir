@@ -9,13 +9,13 @@ from zahir.jobs.decorator import spec
 def _sleep_precheck(spec_args, args):
     """Validate sleep job arguments before execution."""
     duration_seconds = args.get("duration_seconds", 0)
-    
+
     if not isinstance(duration_seconds, (int, float)):
         return ValueError("duration_seconds must be a number")
-    
+
     if duration_seconds < 0:
         return ValueError("duration_seconds must be non-negative")
-    
+
     return None
 
 
@@ -30,4 +30,3 @@ def Sleep(spec_args, context: Context, args, dependencies) -> Generator[JobOutpu
     # Not a good implementation, but ok for now.
     time.sleep(duration_seconds)
     yield JobOutputEvent(output={"duration_seconds": duration_seconds})
-

@@ -61,8 +61,8 @@ def ParentJob(spec_args, context: Context, input, dependencies):
 
     # Launch child jobs with queue IDs
     results = yield Await([
-        ChildJobA({"queue_a_id": queue_a_id, "queue_b_id": queue_b_id}, {}),
-        ChildJobB({"queue_a_id": queue_a_id, "queue_b_id": queue_b_id}, {}),
+        ChildJobA({"queue_a_id": queue_a_id, "queue_b_id": queue_b_id}, {}, 0.1),
+        ChildJobB({"queue_a_id": queue_a_id, "queue_b_id": queue_b_id}, {}, 0.1),
     ])
 
     # Verify both children completed successfully
@@ -86,19 +86,6 @@ def test_parent_child_jobs_marco_polo_via_queues():
     5. Child A receives "polo"
     6. Both jobs complete successfully
     """
-
-
-def test_parent_child_jobs_marco_polo_via_queues():
-    """Test that parent job can launch children that communicate via context queues.
-
-    This demonstrates:
-    1. Parent creates two queues with context.add_queue()
-    2. Parent launches two child jobs, passing queue IDs
-    3. Child A sends "marco" on queue_a
-    4. Child B receives "marco" and responds with "polo"
-    5. Child A receives "polo"
-    6. Both jobs complete successfully
-    """
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
@@ -109,13 +96,14 @@ def test_parent_child_jobs_marco_polo_via_queues():
     context = MemoryContext(scope=scope, job_registry=registry)
 
     workflow = LocalWorkflow(context, max_workers=4)
-    parent_job_instance = ParentJob({}, {})
+    # Use a longer timeout to allow child jobs to complete and communicate
+    parent_job_instance = ParentJob({}, {}, 10.0)
     events = list(workflow.run(parent_job_instance, events_filter=None))
 
     # Extract JobOutputEvent and check for results
     output_events = [e for e in events if isinstance(e, JobOutputEvent)]
 
-    # Should have outputs from both children and the parent
+    # Should have outputs from parent and both child jobs
     assert len(output_events) >= 3, (
         f"Expected at least 3 output events, got {len(output_events)}: {[type(e).__name__ for e in events]}"
     )
@@ -123,9 +111,10 @@ def test_parent_child_jobs_marco_polo_via_queues():
     # Find the parent job output
     parent_output = None
     for output_event in output_events:
-        if hasattr(output_event, "output") and output_event.output.get("parent") == "complete":
-            parent_output = output_event.output
-            break
+        if hasattr(output_event, "output") and isinstance(output_event.output, dict):
+            if output_event.output.get("parent") == "complete":
+                parent_output = output_event.output
+                break
 
     assert parent_output is not None, "Parent output event not found"
     assert parent_output["children_communicated"] is True

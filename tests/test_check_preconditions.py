@@ -271,7 +271,9 @@ def test_check_preconditions_timeout_recovery_job():
 
     time.sleep(0.01)
 
-    job_generator = TimeoutDuringPrecheckJob.recover(None, context, job_instance.input, job_instance.dependencies, Exception("test"))
+    job_generator = TimeoutDuringPrecheckJob.recover(
+        None, context, job_instance.input, job_instance.dependencies, Exception("test")
+    )
     worker_state.frame = ZahirStackFrame(job=job_instance, job_generator=job_generator, recovery=True)
 
     result, _ = check_preconditions(worker_state)

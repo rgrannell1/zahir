@@ -88,8 +88,10 @@ def test_progress_monitor_injection():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
+    scope = LocalScope.from_module(sys.modules[__name__])
+    scope.add_job_spec(SimpleTask)
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]),
+        scope=scope,
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 
@@ -119,8 +121,10 @@ def test_progress_monitor_tracks_job_lifecycle():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
+    scope = LocalScope.from_module(sys.modules[__name__])
+    scope.add_job_spec(LifecycleTask)
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]),
+        scope=scope,
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 
@@ -161,8 +165,10 @@ def test_multiple_jobs_progress_tracking():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
+    scope = LocalScope.from_module(sys.modules[__name__])
+    scope.add_job_spec(JobOne)
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]),
+        scope=scope,
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 
@@ -190,8 +196,10 @@ def test_progress_monitor_default_behavior():
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
+    scope = LocalScope.from_module(sys.modules[__name__])
+    scope.add_job_spec(DefaultTask)
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]),
+        scope=scope,
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 

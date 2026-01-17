@@ -75,6 +75,7 @@ def ExceptionJob(spec_args, context: Context, input, dependencies):
 def TimeoutJobTest(spec_args, context: Context, input, dependencies):
     """A job that times out."""
     import time
+
     time.sleep(10)
     yield JobOutputEvent({"should_not_reach": True})
 
@@ -539,6 +540,7 @@ def test_state_machine_recovery_job_exception():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-sm-11")
 
+
 def recovery_exception_recover(spec_args, context: Context, input, dependencies, err):
     """Recovery handler that raises exception."""
     # Make it a generator that raises on first iteration
@@ -572,7 +574,7 @@ def test_state_machine_recovery_job_exception():
     # Set up a recovery job that raises exception
     job = RecoveryExceptionJob({}, {})
     job_id = context.job_registry.add(context, job, output_queue)
-    
+
     # Try to execute the recovery job - it should raise when we iterate the generator
     # because the recovery handler raises RuntimeError
     with pytest.raises(RuntimeError, match="Recovery also failed"):

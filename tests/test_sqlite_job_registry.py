@@ -34,7 +34,7 @@ def DummyJob(input=None, dependencies=None, options=None, job_id=None, parent_id
     job_deps = dependencies if dependencies is not None else {}
     job_timeout = options.job_timeout if options else None
     recover_timeout = options.recover_timeout if options else None
-    
+
     job_arguments = JobArguments(
         dependencies=DependencyGroup(job_deps) if isinstance(job_deps, dict) else job_deps,
         args=job_args,
@@ -366,7 +366,7 @@ def test_jobs_with_state_filter():
     try:
         registry = SQLiteJobRegistry(db_path)
         registry.init("worker-14")
-        scope = LocalScope(jobs=[DummyJob])
+        scope = LocalScope(specs=[DummyJobSpec])
         context = MemoryContext(scope=scope, job_registry=registry)
         job1 = DummyJob(job_id="job-filter-1")
         job2 = DummyJob(job_id="job-filter-2")

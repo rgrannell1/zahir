@@ -38,8 +38,10 @@ def test_jobs_run_on_multiple_processes():
         jobs = [CPUBoundJob({"job_idx": idx}, {}, 0.1) for idx in range(4)]
         yield Await(jobs)
 
+    scope = LocalScope.from_module(sys.modules[__name__])
+    scope.add_job_spec(ParentJob)
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]),
+        scope=scope,
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 
@@ -77,8 +79,10 @@ def test_max_workers_limits_parallelism():
         jobs = [CPUBoundJob({"job_idx": idx}, {}, 0.1) for idx in range(4)]
         yield Await(jobs)
 
+    scope = LocalScope.from_module(sys.modules[__name__])
+    scope.add_job_spec(ParentJob2)
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]),
+        scope=scope,
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 

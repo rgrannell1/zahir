@@ -7,7 +7,7 @@ from zahir.base_types import Context, Job
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
-from zahir.jobs.decorator import job, spec
+from zahir.jobs.decorator import spec
 from zahir.jobs.sleep import Sleep
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
@@ -54,6 +54,7 @@ def ChapterProcessor(spec_args, context, args, dependencies) -> Generator[JobOut
     # return the longest word found in the chapter
     yield JobOutputEvent({"longest_word": get_longest_word(args["lines"])})
 
+
 class ChapterProcessorOutput(TypedDict):
     words: str
 
@@ -88,6 +89,7 @@ def UppercaseWords(spec_args, context: Context, args, dependencies) -> Generator
     """Uppercase a list of words."""
 
     yield JobOutputEvent({"words": [word.upper() for word in args["words"]]})
+
 
 # TODO debug why implicit scope fails.
 
