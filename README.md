@@ -211,6 +211,30 @@ We serialise jobs and dependencies to our registries for storage. We need to tra
 
 ### Transforms - Compose Jobs Together
 
+Transforms modify job behaviour. For example, they can apply retries or logging to the underlying job without modifying it.
+
+```python
+from zahir import job, JobOutputEvent, LocalWorkflow
+
+@job()
+def FetchData(spec_args, context, input, dependencies):
+    response = requests.get(input["url"])
+    response.raise_for_status()
+
+    yield JobOutputEvent({"data": response.json()})
+
+
+retrying_fetch = FetchData.with_transform("retry", {
+    "max_retries": 3,
+    "backoff_factor": 1.0  # 1s, 2s, 4s backoff
+})
+
+
+for event in LocalWorkflow().run(retrying_fetch({"url": "https://api.example.com/data"}, {})):
+    print(event)
+```
+
+Transforms are stored with the job when serialized, so retry behavior persists across workflow restarts.
 
 ## Modelling Workflows
 
@@ -265,7 +289,7 @@ queue_id, queue = context.add_queue()
 queue = context.get_queue(queue_id)
 ```
 
-### State
+### Storing State
 
 In order of my preferences:
 
@@ -298,6 +322,11 @@ except Exception as err:
 ```
 
 This prevents new jobs from being scheduled, but does not cancel currently active jobs. I don't plan on adding this feature.
+
+## Retries
+
+Zahir supports retries via the built-in `retry` transform. This transform runs your primary job as a child task, catches failures, waits with exponential backoff, and runs again after a delay on failure.
+
 
 ## Execution
 
