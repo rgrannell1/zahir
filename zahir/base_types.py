@@ -440,6 +440,11 @@ class Context:
     # Shared state dictionary. Used for storing semaphores (concurrencylimit)
     state: DictProxy[str, Any]
 
+    @abstractmethod
+    def get_queue(self, name: str) -> multiprocessing.Queue:
+        """Get a named queue from the context."""
+
+        raise NotImplementedError
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Jobs, Take II +++++++++++++++++++++++++++++
