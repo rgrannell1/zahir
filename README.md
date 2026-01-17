@@ -22,6 +22,7 @@ src/
         concurrency.py         await a free concurrency slot before starting a job
         group.py               await a group of dependencies
         job.py                 await a particular job-state
+        resources.py           await enough CPU / RAM to not OOM...
         semaphore.py           allow pending jobs to be flagged impossible, depending on some supervisor process
         time.py                await a particular time-range before starting a job
     job_registry/

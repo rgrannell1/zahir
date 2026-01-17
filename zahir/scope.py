@@ -6,8 +6,9 @@ from zahir.base_types import Dependency, JobSpec, Scope, Transform
 from zahir.dependencies.concurrency import ConcurrencyLimit
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
-from zahir.dependencies.time import TimeDependency
+from zahir.dependencies.resources import ResourceLimit
 from zahir.dependencies.semaphore import Semaphore
+from zahir.dependencies.time import TimeDependency
 from zahir.exception import DependencyNotInScopeError, JobNotInScopeError, TransformNotInScopeError
 from zahir.jobs import Sleep, Empty
 from zahir.transforms.retry import retry
@@ -20,11 +21,12 @@ INTERNAL_JOB_SPECS = {
 
 # Why make people work harder; just register all the built-in dependencies for free
 INTERNAL_DEPENDENCIES: dict[str, type[Dependency]] = {
-    'TimeDependency': TimeDependency,
     'ConcurrencyLimit': ConcurrencyLimit,
     'DependencyGroup': DependencyGroup,
     'JobDependency': JobDependency,
+    'ResourceLimit': ResourceLimit,
     'Semaphore': Semaphore,
+    'TimeDependency': TimeDependency,
 }
 
 # Built-in transforms available by default

@@ -7,7 +7,16 @@ must be serialisable, since we store them alongside jobs.
 from zahir.dependencies.concurrency import ConcurrencyLimit
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
+from zahir.dependencies.resources import ResourceLimit, ResourceType
 from zahir.dependencies.semaphore import Semaphore
 from zahir.dependencies.time import TimeDependency
 
-__all__ = ["ConcurrencyLimit", "DependencyGroup", "JobDependency", "Semaphore", "TimeDependency"]
+__all__ = [
+    "ConcurrencyLimit",
+    "DependencyGroup",
+    "JobDependency",
+    "ResourceLimit",
+    "ResourceType",
+    "Semaphore",
+    "TimeDependency",
+]
