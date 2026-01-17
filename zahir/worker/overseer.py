@@ -134,7 +134,7 @@ def dispatch_jobs_to_workers(
 def start_zahir_overseer(context: Context, start: JobInstance, worker_count: int = 4):
     """Start processes, create queues"""
 
-    workflow_id = generate_id(3)
+    workflow_id = generate_id()
     output_queue: OutputQueue = multiprocessing.Queue()
 
     output_queue.put(serialise_event(context, WorkflowStartedEvent(workflow_id=workflow_id)))

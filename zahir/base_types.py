@@ -669,7 +669,7 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
         job_id: str | None = None,
     ) -> "JobInstance[JobSpecArgs, ArgsType, OutputType]":
         if job_id is None:
-            job_id = generate_id(4)
+            job_id = generate_id()
 
         from zahir.dependencies.group import DependencyGroup
 
