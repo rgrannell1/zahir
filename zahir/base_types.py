@@ -521,7 +521,6 @@ def default_precheck[JobSpecArgs, ArgsType](job_args: JobSpecArgs, args: ArgsTyp
 
 class SerialisedJobData(TypedDict):
     type: str
-    transform_args: Mapping[str, Any] | None
     transforms: list["SerialisedJobData"]
 
 
@@ -535,9 +534,6 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
 
     # run the job
     run: Run[JobSpecArgs, ArgsType, OutputType]
-
-    # arguments to the `run` / `precheck` / `recover` middleware
-    transform_args: Mapping[str, Any] | None = None
 
     # a list of transformations that must be applied to the functions before they
     # can be run. Functions are instantiated with transform args
@@ -557,7 +553,6 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
 
         return {
             "type": self.type,
-            "transform_args": self.transform_args if self.transform_args else None,
             "transforms": [transform.save() for transform in self.transforms],
         }
 

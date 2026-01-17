@@ -10,7 +10,7 @@ class RetryArgs:
 
 
 
-def retry_spec(retry_args: RetryArgs, spec: JobSpec) -> JobSpec:
+def retry(retry_args: RetryArgs, spec: JobSpec) -> JobSpec:
     """Get the JobSpec for the Retry job."""
 
     def retry_run(spec_args, context, args, dependencies):

@@ -209,11 +209,16 @@ Workflow orchestrators need to store some operational data. The job-registry kee
 
 We serialise jobs and dependencies to our registries for storage. We need to translate this data back to the associated Python classes. `Scope` implementations handle this translation. Jobs and Dependencies have to be explicitly registered with a scope for a non-local workflow to run.
 
+### Transforms - Compose Jobs Together
+
+
 ## Modelling Workflows
 
 ### Scheduling
 
-Zahir does not have a dedicated scheduling feature, since there's many ways to approach scheduling. Jobs run under certain conditions and yield further jobs; jobs are all schedulers of a sort. But for simple time-based scheduling, use a `TimeDependency` to your task to have it run in a certain time-range. Or, construct a `Scheduler` job and attach conditions to each job it yields.
+Zahir does not have a dedicated scheduling feature, since there's many ways to approach scheduling. Jobs run under certain conditions and yield further jobs; jobs are all schedulers of a sort.
+
+Still, more practically, use a `TimeDependency` for simple time-based scheduling. For something more complex, model scheduling as a workflow which depends on some predicate about the world-state to be true through a custom dependency.
 
 ### Idempotency
 
@@ -222,9 +227,9 @@ We often want to run a workflow job to achieve a certain state (e.g create a res
 ### Checkpointing
 
 There are a few overlapping terms here, but each is worth addressing:
-- Job-level checkpointing: each step of workflow execution is persisted to disk (with the exception of mid-run tasks that use `Await`).
-- Job-level rollback: supported via a mix of `recover` method, which handles unhandled job-exceptions, and just try-catching in your job on actions that might fail then remediating by scheduling cleanup jobs
-- Branch-level checkpointing / rollbacks: "try to do XYZ, if that fails recover in this fashion" is possible using `Await`. Attempt to complete the branch, try-catch for failure, and on failure schedule an alternative course of action. Exceptions are not required for this branching logic; it's perfectly valid to `if-else` based on the output of a job's awaited output into different conditional branches of job-execution.
+- **Job-level checkpointing**: each step of workflow execution is persisted to disk (with the exception of mid-run tasks that use `Await`).
+- **Job-level rollback**: supported via a mix of `recover` method, which handles unhandled job-exceptions, and just try-catching in your job on actions that might fail then remediating by scheduling cleanup jobs
+- **Branch-level checkpointing / rollbacks**: "try to do XYZ, if that fails recover in this fashion" is possible using `Await`. Attempt to complete the branch, try-catch for failure, and on failure schedule an alternative course of action. Exceptions are not required for this branching logic; it's perfectly valid to `if-else` based on the output of a job's awaited output into different conditional branches of job-execution.
 
 ```
 try:
@@ -235,11 +240,18 @@ except Exception as err:
 
 ### Job-Expiration
 
-Jobs generally have a useful period in which we'd like to execute them (today, not a week from now, for example). This can be codified by using a `TimeDependency` with a before condition
+Jobs generally have a useful period in which we'd like to execute them (today, not a week from now, for example). This can be codified by using a `TimeDependency` with a `before` condition
 
 ### Parallel API Access
 
-Use a `ConcurrencyLimit` with the appropriate concurrency limit and slots (roughly, how many calls we'll make) to make API calls within a concurrency limit.
+Use a `ConcurrencyLimit` with the appropriate concurrency limit and slots (roughly, how many calls we'll make) to make API calls within a concurrency limit. Make sure to actually _use_ the limiter, otherwise it won't free the reserved slots! E.g
+
+```
+cdn_limit = dependencies.get("cdn_limit")
+
+with cdn_limit:
+    cdn.upload(...)
+```
 
 ### Inter-Job Communication
 
@@ -252,6 +264,16 @@ queue_id, queue = context.add_queue()
 # Subjobs can get the queue by this ID.
 queue = context.get_queue(queue_id)
 ```
+
+### State
+
+In order of my preferences:
+
+1. Simply pass data between jobs as parameters and returns
+2. Use an external data-store
+3. Use `context.state` to store "global" variables
+
+I think in virtually all cases option `1` will be enough. The only likely exception I can see if for propegating things like configuration values / flags into all jobs without updating every input type.
 
 ### Cancellation
 
@@ -275,7 +297,7 @@ except Exception as err:
     raise err
 ```
 
-This prevents new jobs from being scheduled, but does not cancel currently active jobs. Further design work is needed on how that can be achieved.
+This prevents new jobs from being scheduled, but does not cancel currently active jobs. I don't plan on adding this feature.
 
 ## Execution
 
