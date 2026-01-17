@@ -419,6 +419,16 @@ class Scope(ABC):
         """Get a dependency class by its type name."""
         ...
 
+    @abstractmethod
+    def get_transform(self, type_name: str) -> "Transform":
+        """Get a transform function by its type name."""
+        ...
+
+    @abstractmethod
+    def add_transform(self, type_name: str, transform: "Transform") -> Self:
+        """Add a transform function to the scope."""
+        ...
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Context +++++++++++++++++++++++++++++++++++
@@ -519,9 +529,43 @@ def default_precheck[JobSpecArgs, ArgsType](job_args: JobSpecArgs, args: ArgsTyp
     return None
 
 
+class SerialisedTransformSpec(TypedDict):
+    """Serialized form of a transform specification."""
+
+    type: str
+    args: Mapping[str, Any]
+
+
 class SerialisedJobData(TypedDict):
     type: str
-    transforms: list["SerialisedJobData"]
+    transforms: list[SerialisedTransformSpec]
+
+
+@dataclass
+class TransformSpec:
+    """A specification for a transform to apply to a JobSpec.
+
+    Transforms are looked up by type in the scope, then applied with the given args
+    to produce a transformed JobSpec.
+    """
+
+    # The type label for this transform (used for scope lookup)
+    type: str
+
+    # Arguments to pass to the transform function
+    args: Mapping[str, Any] = field(default_factory=dict)
+
+    def save(self) -> SerialisedTransformSpec:
+        """Serialize the transform spec to a dictionary."""
+        return {
+            "type": self.type,
+            "args": dict(self.args),
+        }
+
+    @classmethod
+    def load(cls, data: SerialisedTransformSpec) -> "TransformSpec":
+        """Load a transform spec from serialized data."""
+        return cls(type=data["type"], args=data.get("args", {}))
 
 
 @dataclass
@@ -536,8 +580,8 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
     run: Run[JobSpecArgs, ArgsType, OutputType]
 
     # a list of transformations that must be applied to the functions before they
-    # can be run. Functions are instantiated with transform args
-    transforms: list["JobSpec"] = field(default_factory=list)
+    # can be run. Each transform spec contains a type label and arguments dict.
+    transforms: list[TransformSpec] = field(default_factory=list)
 
     # recover on uncaught exception
     recover: Recover[JobSpecArgs, ArgsType, OutputType] | None = default_recover
@@ -555,6 +599,65 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
             "type": self.type,
             "transforms": [transform.save() for transform in self.transforms],
         }
+
+    def with_transform(self, transform_type: str, args: Mapping[str, Any] | None = None) -> "JobSpec[JobSpecArgs, ArgsType, OutputType]":
+        """Create a new JobSpec with an additional transform appended.
+
+        @param transform_type: The type label for the transform (looked up in scope)
+        @param args: Arguments to pass to the transform function
+        @return: A new JobSpec with the transform added
+        """
+        new_transforms = self.transforms.copy()
+        new_transforms.append(TransformSpec(type=transform_type, args=args or {}))
+
+        return JobSpec(
+            type=self.type,
+            run=self.run,
+            transforms=new_transforms,
+            recover=self.recover,
+            precheck=self.precheck,
+        )
+
+    def apply_transforms(self, scope: "Scope") -> "JobSpec[JobSpecArgs, ArgsType, OutputType]":
+        """Apply all transforms to produce the final runnable JobSpec.
+
+        Transforms are applied in order, each one wrapping the previous result.
+        The original transforms list is preserved on the result so it can be
+        serialized and re-applied after loading.
+
+        @param scope: The scope containing registered transforms
+        @return: The transformed JobSpec ready for execution
+        """
+
+        # If no transforms, return the original spec
+        if not self.transforms:
+            return self
+
+        # Start with the base spec
+        result: JobSpec = JobSpec(
+            type=self.type,
+            run=self.run,
+            transforms=self.transforms,  # Preserve transforms for serialization
+            recover=self.recover,
+            precheck=self.precheck,
+        )
+
+        # ...then, apply each transform in order
+        for transform_spec in self.transforms:
+            transform_fn = scope.get_transform(transform_spec.type)
+            result = transform_fn(transform_spec.args, result)
+
+            # Keep the transforms list on the result for serialization
+            # So this can be replayed on load
+            result = JobSpec(
+                type=result.type,
+                run=result.run,
+                transforms=self.transforms,
+                recover=result.recover,
+                precheck=result.precheck,
+            )
+
+        return result
 
     def __call__(
         self,
@@ -612,11 +715,12 @@ class JobArguments[ArgsType]:
     recover_timeout: float | None = None
 
 
-class SerialisedJobInstance[ArgsType](TypedDict):
+class SerialisedJobInstance[ArgsType](TypedDict, total=False):
     """A stored request for a job execution. Includes which
     `type`, arguments and dependencies, and timeouts."""
 
     type: str
+    transforms: list[SerialisedTransformSpec]
     job_id: str
     parent_id: str | None
     args: ArgsType
@@ -651,6 +755,7 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
     def save(self, context: "Context"):
         return {
             "type": self.spec.type,
+            "transforms": [trans.save() for trans in self.spec.transforms],
             "job_id": self.args.job_id,
             "parent_id": self.args.parent_id,
             "args": self.args.args,
@@ -662,7 +767,25 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
     @classmethod
     def load(cls, context: "Context", data: SerialisedJobInstance[ArgsType]):
         spec_type = data["type"]
-        spec = cast(JobSpec[JobSpecArgs, ArgsType, OutputType], context.scope.get_job_spec(spec_type))
+        base_spec = cast(JobSpec[JobSpecArgs, ArgsType, OutputType], context.scope.get_job_spec(spec_type))
+
+        transforms_data = data.get("transforms", [])
+
+        if transforms_data:
+            transform_specs = [TransformSpec.load(trans) for trans in transforms_data]
+            spec = JobSpec(
+                type=base_spec.type,
+                run=base_spec.run,
+                transforms=transform_specs,
+                recover=base_spec.recover,
+                precheck=base_spec.precheck,
+            )
+            # Apply transforms to get the runnable spec
+            spec = spec.apply_transforms(context.scope)
+        else:
+            # If no transforms, return the original spec
+            spec = base_spec
+
         from zahir.dependencies.group import DependencyGroup
 
         job_args = JobArguments[ArgsType](
@@ -677,4 +800,5 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
 
 
 # Transforms take a spec and give a new one.
-type Transform[TransformArgs] = Callable[[TransformArgs, JobSpec], JobSpec]
+# The args are a dictionary of transform-specific arguments.
+type Transform = Callable[[Mapping[str, Any], JobSpec], JobSpec]

@@ -2,14 +2,15 @@ import inspect
 from types import ModuleType
 from typing import Self
 
-from zahir.base_types import Dependency, JobSpec, Scope
+from zahir.base_types import Dependency, JobSpec, Scope, Transform
 from zahir.dependencies.concurrency import ConcurrencyLimit
 from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
 from zahir.dependencies.time import TimeDependency
 from zahir.dependencies.semaphore import Semaphore
-from zahir.exception import DependencyNotInScopeError, JobNotInScopeError
+from zahir.exception import DependencyNotInScopeError, JobNotInScopeError, TransformNotInScopeError
 from zahir.jobs import Sleep, Empty
+from zahir.transforms.retry import retry
 
 # Register built in job specs
 INTERNAL_JOB_SPECS = {
@@ -26,16 +27,31 @@ INTERNAL_DEPENDENCIES: dict[str, type[Dependency]] = {
     'Semaphore': Semaphore,
 }
 
+# Built-in transforms available by default
+INTERNAL_TRANSFORMS: dict[str, Transform] = {
+    'retry': retry,
+}
+
 class LocalScope(Scope):
     """A local translation layer between dependency / job names and
     their underlying Python classes."""
 
-    def __init__(self, dependencies: list[type[Dependency]] = [], specs: list["JobSpec"] = []) -> None:
+    def __init__(
+        self,
+        dependencies: list[type[Dependency]] = [],
+        specs: list["JobSpec"] = [],
+        transforms: dict[str, Transform] | None = None,
+    ) -> None:
         self.dependencies: dict[str, type[Dependency]] = INTERNAL_DEPENDENCIES.copy()
         self.specs: dict[str, JobSpec] = INTERNAL_JOB_SPECS.copy()
+        self.transforms: dict[str, Transform] = INTERNAL_TRANSFORMS.copy()
 
         self.add_dependency_classes(dependencies)
         self.add_job_specs(specs)
+
+        if transforms:
+            for name, transform in transforms.items():
+                self.add_transform(name, transform)
 
     def add_job_spec(self, spec: "JobSpec") -> Self:
         self.specs[spec.type] = spec
@@ -105,6 +121,27 @@ class LocalScope(Scope):
             raise DependencyNotInScopeError(f"Dependency class '{type_name}' not found in scope. Did you register it?")
 
         return self.dependencies[type_name]
+
+    def get_transform(self, type_name: str) -> Transform:
+        """Get a transform function from the scope by name.
+
+        @param type_name: The name of the transform to get.
+        """
+
+        if type_name not in self.transforms:
+            raise TransformNotInScopeError(f"Transform '{type_name}' not found in scope. Did you register it?")
+
+        return self.transforms[type_name]
+
+    def add_transform(self, type_name: str, transform: Transform) -> Self:
+        """Add a transform function to the scope.
+
+        @param type_name: The name to register the transform under.
+        @param transform: The transform function.
+        """
+
+        self.transforms[type_name] = transform
+        return self
 
     @classmethod
     def from_module(cls, module: ModuleType | None = None) -> Self:

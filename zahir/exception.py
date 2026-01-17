@@ -55,6 +55,10 @@ class DependencyNotInScopeError(NotInScopeError):
     """A dependency class was not found in the current scope."""
 
 
+class TransformNotInScopeError(NotInScopeError):
+    """A transform was not found in the current scope."""
+
+
 def exception_to_text_blob(exc: Exception) -> str:
     """Serialize an exception + traceback to a text blob."""
 

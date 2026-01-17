@@ -1,4 +1,3 @@
-
 from zahir.transforms.retry import retry
 
-__all__ = ["Retry"]
+__all__ = ["retry"]
