@@ -444,6 +444,7 @@ class ZahirCustomEvent[CustomEventOutputType](ZahirEvent):
     def load(cls, context: Context, data: Mapping[str, Any]) -> ZahirCustomEvent:
         return cls(
             workflow_id=data.get("workflow_id"),
+            job_id=data.get("job_id"),
             output=data.get("output"),
             pid=data.get("pid", 0),
         )

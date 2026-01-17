@@ -209,7 +209,7 @@ Workflow orchestrators need to store some operational data. The job-registry kee
 
 We serialise jobs and dependencies to our registries for storage. We need to translate this data back to the associated Python classes. `Scope` implementations handle this translation. Jobs and Dependencies have to be explicitly registered with a scope for a non-local workflow to run.
 
-### Transforms - Compose Jobs Together
+### Transforms - Modify Jobs
 
 Transforms modify job behaviour. For example, they can apply retries or logging to the underlying job without modifying it.
 

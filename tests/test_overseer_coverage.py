@@ -28,6 +28,7 @@ from zahir.exception import exception_to_text_blob
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
+from zahir.serialise import serialise_event
 from zahir.worker.overseer import shutdown, zahir_worker_overseer
 
 
@@ -90,10 +91,10 @@ def test_overseer_internal_error_without_error_message():
         mock_queue = MagicMock()
         mock_queue_class.return_value = mock_queue
 
-        # Set up the queue to return events in sequence
+        # Set up the queue to return events in sequence (serialised)
         events = [
-            WorkflowStartedEvent(workflow_id="wf-1"),
-            ZahirInternalErrorEvent(workflow_id="wf-1", error=None),  # No error message
+            serialise_event(context, WorkflowStartedEvent(workflow_id="wf-1")),
+            serialise_event(context, ZahirInternalErrorEvent(workflow_id="wf-1", error=None)),  # No error message
         ]
         mock_queue.get.side_effect = events
 
@@ -125,8 +126,8 @@ def test_overseer_internal_error_with_error_message():
         error_blob = exception_to_text_blob(test_error)
 
         events = [
-            WorkflowStartedEvent(workflow_id="wf-1"),
-            ZahirInternalErrorEvent(workflow_id="wf-1", error=error_blob),
+            serialise_event(context, WorkflowStartedEvent(workflow_id="wf-1")),
+            serialise_event(context, ZahirInternalErrorEvent(workflow_id="wf-1", error=error_blob)),
         ]
         mock_queue.get.side_effect = events
 
@@ -183,8 +184,8 @@ def test_overseer_all_events_flag():
         mock_queue_class.return_value = mock_queue
 
         events = [
-            WorkflowStartedEvent(workflow_id="wf-1"),
-            WorkflowCompleteEvent(workflow_id="wf-1", duration_seconds=5.0),
+            serialise_event(context, WorkflowStartedEvent(workflow_id="wf-1")),
+            serialise_event(context, WorkflowCompleteEvent(workflow_id="wf-1", duration_seconds=5.0)),
         ]
         mock_queue.get.side_effect = events
 
@@ -215,10 +216,10 @@ def test_overseer_yields_workflow_output_events():
         mock_queue_class.return_value = mock_queue
 
         events = [
-            WorkflowStartedEvent(workflow_id="wf-1"),
-            WorkflowOutputEvent(output={"data": "value"}),
-            ZahirCustomEvent(output={"custom": "event"}),
-            WorkflowCompleteEvent(workflow_id="wf-1", duration_seconds=5.0),
+            serialise_event(context, WorkflowStartedEvent(workflow_id="wf-1")),
+            serialise_event(context, WorkflowOutputEvent(output={"data": "value"})),
+            serialise_event(context, ZahirCustomEvent(output={"custom": "event"})),
+            serialise_event(context, WorkflowCompleteEvent(workflow_id="wf-1", duration_seconds=5.0)),
         ]
         mock_queue.get.side_effect = events
 

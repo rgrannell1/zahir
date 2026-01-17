@@ -271,6 +271,7 @@ class JobRegistry(ABC):
     @abstractmethod
     def set_state(
         self,
+        context: "Context",
         job_id: str,
         workflow_id: str,
         output_queue: multiprocessing.Queue,
@@ -293,7 +294,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_output(self, job_id: str, workflow_id: str, output_queue, output: Mapping, recovery: bool = False) -> None:
+    def set_output(self, context: "Context", job_id: str, workflow_id: str, output_queue, output: Mapping, recovery: bool = False) -> None:
         """Store the output of a completed job
 
         @param job_id: The ID of the job

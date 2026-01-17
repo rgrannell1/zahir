@@ -172,7 +172,7 @@ class SQLiteJobRegistry(JobRegistry):
 
             conn.commit()
 
-            output_queue.put(serialise_event(JobEvent(job=cast(SerialisedJobInstance, saved_job))))
+            output_queue.put(serialise_event(context, JobEvent(job=cast(SerialisedJobInstance, saved_job))))
 
         return job_id
 
@@ -234,6 +234,7 @@ class SQLiteJobRegistry(JobRegistry):
 
     def set_state(
         self,
+        context: Context,
         job_id: str,
         workflow_id: str,
         output_queue: multiprocessing.Queue,
@@ -289,12 +290,13 @@ class SQLiteJobRegistry(JobRegistry):
         timing = self.get_job_timing(job_id) if state in COMPLETED_JOB_STATES else None
         event = create_state_event(state, workflow_id, job_id, error=error, timing=timing)
         if event is not None:
-            output_queue.put(serialise_event(event))
+            output_queue.put(serialise_event(context, event))
 
         return job_id
 
     def set_output(
         self,
+        context: Context,
         job_id: str,
         workflow_id: str,
         output_queue: multiprocessing.Queue,
@@ -327,6 +329,7 @@ class SQLiteJobRegistry(JobRegistry):
         timing = self.get_job_timing(job_id)
         duration = timing.time_since_started() or 0.0
         output_queue.put(serialise_event(
+            context,
             JobCompletedEvent(
                 job_id=job_id,
                 workflow_id=workflow_id,

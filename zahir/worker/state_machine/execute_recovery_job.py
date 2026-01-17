@@ -38,7 +38,7 @@ def execute_recovery_job(
     # Some job implementations don't emit this implicitly, so the
     # worker should surface it when execution begins.
     state.context.job_registry.set_state(
-        state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.RUNNING, recovery=state.frame.recovery
+        state.context, state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.RUNNING, recovery=state.frame.recovery
     )
 
     job_timing = state.context.job_registry.get_job_timing(state.frame.job.job_id)
@@ -98,6 +98,6 @@ def execute_recovery_job(
         signal.alarm(0)
 
     # Signal we're ready for another job (fallthrough case)
-    state.output_queue.put(serialise_event(JobWorkerWaitingEvent(pid=os.getpid())))
+    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid())))
 
     return WaitForJobStateChange({"message": "Recovery execution complete, waiting for next dispatch"}), state

@@ -10,6 +10,7 @@ def handle_job_output(state) -> tuple[StartStateChange, None]:
     the output to the awaiting job"""
 
     state.context.job_registry.set_output(
+        state.context,
         state.frame.job.job_id,
         state.workflow_id,
         state.output_queue,
@@ -22,6 +23,6 @@ def handle_job_output(state) -> tuple[StartStateChange, None]:
     state.frame = None
 
     # Signal we're ready for another job
-    state.output_queue.put(serialise_event(JobWorkerWaitingEvent(pid=os.getpid())))
+    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid())))
 
     return StartStateChange({"message": "Setting job output"}), state

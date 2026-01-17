@@ -11,6 +11,7 @@ def handle_recovery_job_exception(state) -> tuple[WaitForJobStateChange, None]:
 
     # well, recovery didn't work. Ah, well.
     state.context.job_registry.set_state(
+        state.context,
         state.frame.job.job_id,
         state.workflow_id,
         state.output_queue,
@@ -23,6 +24,6 @@ def handle_recovery_job_exception(state) -> tuple[WaitForJobStateChange, None]:
     state.frame = None
 
     # Signal we're ready for another job
-    state.output_queue.put(serialise_event(JobWorkerWaitingEvent(pid=os.getpid())))
+    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid())))
 
     return WaitForJobStateChange({"message": f"Recovery job {job_type} irrecoverably failed"}), state

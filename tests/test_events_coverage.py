@@ -191,7 +191,7 @@ def test_zahir_custom_event_roundtrip(simple_context):
 
     loaded1 = ZahirCustomEvent.load(simple_context, saved1)
     assert loaded1.workflow_id == "wf-custom"
-    assert loaded1.job_id is None  # Note: load() uses get() which returns None if not in data
+    assert loaded1.job_id == "job-custom"  # job_id is now properly preserved through serialisation
     assert loaded1.output == {"custom_data": "value"}
 
     # Test with None/missing fields

@@ -33,7 +33,7 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
     current = StartStateChange({"message": "Starting job worker"})
 
     # Signal we're ready for work immediately
-    output_queue.put(serialise_event(JobWorkerWaitingEvent(pid=os.getpid())))
+    output_queue.put(serialise_event(context, JobWorkerWaitingEvent(pid=os.getpid())))
 
     # ...so I put a workflow engine inside your workflow engine
     while True:
@@ -45,6 +45,7 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
             result = handler(state)
         except Exception as err:
             output_queue.put(serialise_event(
+                context,
                 ZahirInternalErrorEvent(
                     workflow_id=workflow_id,
                     error=exception_to_text_blob(err),

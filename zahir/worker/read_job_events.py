@@ -142,18 +142,17 @@ def read_job_events(
         if isinstance(item, Await):
             return item
 
-        if isinstance(item, ZahirEvent):
-            item.set_ids(workflow_id=workflow_id, job_id=job_id)
-
-        output_queue.put(serialise_event(item))
-
-        if isinstance(item, JobOutputEvent):
-            # Nothing more to be done for this generator
-            return item
-
         if isinstance(item, JobInstance):
-            # new subjob, yield as a serialised event upstream
+            # new subjob - registry.add() emits a JobEvent for us
             # Set parent_id before saving to ensure it's persisted
             item.args.parent_id = job_id
             job_registry.add(state.context, item, output_queue)
             continue
+
+        if isinstance(item, ZahirEvent):
+            item.set_ids(workflow_id=workflow_id, job_id=job_id)
+            output_queue.put(serialise_event(state.context, item))
+
+        if isinstance(item, JobOutputEvent):
+            # Nothing more to be done for this generator
+            return item

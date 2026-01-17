@@ -40,6 +40,7 @@ from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import spec
 from zahir.jobs.sleep import Sleep
 from zahir.scope import LocalScope
+from zahir.serialise import deserialise_event
 from zahir.worker import LocalWorkflow
 
 __version__ = "0.1.0"
@@ -94,5 +95,6 @@ __all__ = [
     "ZahirEvent",
     "ZahirInternalError",
     "ZahirInternalErrorEvent",
+    "deserialise_event",
     "spec",
 ]

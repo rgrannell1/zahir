@@ -41,6 +41,7 @@ def execute_job(
     current_state = state.context.job_registry.get_state(state.frame.job.job_id)
     if current_state != JobState.RUNNING:
         state.context.job_registry.set_state(
+            state.context,
             state.frame.job.job_id,
             state.workflow_id,
             state.output_queue,
@@ -110,6 +111,6 @@ def execute_job(
         signal.alarm(0)
 
     # Signal we're ready for another job (fallthrough case)
-    state.output_queue.put(serialise_event(JobWorkerWaitingEvent(pid=os.getpid())))
+    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid())))
 
     return WaitForJobStateChange({"message": "Execution complete, waiting for next dispatch"}), state

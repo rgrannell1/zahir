@@ -14,6 +14,7 @@ from zahir.events import Await, JobEvent, JobOutputEvent, ZahirCustomEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
+from zahir.serialise import deserialise_event
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.read_job_events import read_job_events
 from zahir.worker.state_machine import ZahirWorkerState
@@ -210,10 +211,11 @@ def test_read_job_events_enqueues_intermediate_events():
     # Give the queue background thread time to finish pickling
     time.sleep(0.1)
 
-    # Collect all events from queue
+    # Collect all events from queue (deserialised)
     events = []
     while not output_queue.empty():
-        events.append(output_queue.get(timeout=1))
+        serialised = output_queue.get(timeout=1)
+        events.append(deserialise_event(context, serialised))
 
     # Should have enqueued intermediate events and final output
     custom_events = [e for e in events if isinstance(e, ZahirCustomEvent)]
@@ -269,7 +271,8 @@ def test_read_job_events_sets_workflow_id():
     # Check that custom events have workflow_id set
     events = []
     while not output_queue.empty():
-        events.append(output_queue.get(timeout=1))
+        serialised = output_queue.get(timeout=1)
+        events.append(deserialise_event(context, serialised))
 
     custom_events = [e for e in events if isinstance(e, ZahirCustomEvent)]
     assert len(custom_events) > 0
@@ -320,7 +323,8 @@ def test_read_job_events_sets_job_id():
     # Check that custom events have job_id set
     events = []
     while not output_queue.empty():
-        events.append(output_queue.get(timeout=1))
+        serialised = output_queue.get(timeout=1)
+        events.append(deserialise_event(context, serialised))
 
     custom_events = [e for e in events if isinstance(e, ZahirCustomEvent)]
     assert len(custom_events) > 0
@@ -415,7 +419,8 @@ def test_read_job_events_handles_subjobs():
     # Collect events from queue
     events = []
     while not output_queue.empty():
-        events.append(output_queue.get(timeout=1))
+        serialised = output_queue.get(timeout=1)
+        events.append(deserialise_event(context, serialised))
 
     # Should have JobEvent (from subjob) and JobOutputEvent
     job_events = [e for e in events if isinstance(e, JobEvent)]
@@ -464,7 +469,7 @@ def test_read_job_events_sends_awaited_output():
     # Manually add the awaited job to registry (in real flow, handle_await does this)
     awaited_job_id = context.job_registry.add(context, awaited_job, output_queue)
     # Set output for the awaited job
-    context.job_registry.set_output(awaited_job_id, workflow_id, output_queue, {"result": "done"}, recovery=False)
+    context.job_registry.set_output(context, awaited_job_id, workflow_id, output_queue, {"result": "done"}, recovery=False)
 
     # Mark job as required
     worker_state.frame.required_jobs.add(awaited_job_id)
@@ -521,7 +526,7 @@ def test_read_job_events_clears_required_jobs():
     # Manually add the awaited job to registry (in real flow, handle_await does this)
     awaited_job_id = context.job_registry.add(context, awaited_job, output_queue)
     # Set output for the awaited job
-    context.job_registry.set_output(awaited_job_id, workflow_id, output_queue, {"result": "done"}, recovery=False)
+    context.job_registry.set_output(context, awaited_job_id, workflow_id, output_queue, {"result": "done"}, recovery=False)
 
     # Mark job as required
     worker_state.frame.required_jobs.add(awaited_job_id)

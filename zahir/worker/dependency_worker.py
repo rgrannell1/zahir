@@ -31,6 +31,7 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
                 duration = job_registry.get_workflow_duration() or 0.0
                 output_queue.put(
                     serialise_event(
+                        context,
                         WorkflowCompleteEvent(
                             workflow_id=workflow_id,
                             duration_seconds=duration,
@@ -48,14 +49,14 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
                 dependencies_state = job.dependencies.satisfied()
 
                 if dependencies_state == DependencyState.SATISFIED:
-                    job_registry.set_state(job.job_id, workflow_id, output_queue, JobState.READY, recovery=False)
+                    job_registry.set_state(context, job.job_id, workflow_id, output_queue, JobState.READY, recovery=False)
                     any_ready = True
                 elif dependencies_state == DependencyState.IMPOSSIBLE:
                     # Set an error, as awaited jobs cannot be run if impossible dependencies are present.
 
                     error = ImpossibleDependencyError(f"Job {job.job_id} has impossible dependencies.")
                     job_registry.set_state(
-                        job.job_id, workflow_id, output_queue, JobState.IMPOSSIBLE, error=error, recovery=False
+                        context, job.job_id, workflow_id, output_queue, JobState.IMPOSSIBLE, error=error, recovery=False
                     )
 
             # Also check if there are any READY jobs that need dispatching
@@ -66,13 +67,14 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
 
             if any_ready:
                 # Let the overseer know that there are jobs ready to run
-                output_queue.put(serialise_event(JobReadyEvent()))
+                output_queue.put(serialise_event(context, JobReadyEvent()))
 
             time.sleep(1)
 
     except Exception as err:
         output_queue.put(
             serialise_event(
+                context,
                 ZahirInternalErrorEvent(
                     workflow_id=workflow_id,
                     error=exception_to_text_blob(err),

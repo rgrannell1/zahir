@@ -36,6 +36,7 @@ def check_preconditions(
         # let's report and continue.
 
         state.context.job_registry.set_state(
+            state.context,
             state.frame.job.job_id,
             state.workflow_id,
             state.output_queue,
