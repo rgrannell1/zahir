@@ -30,6 +30,7 @@ from zahir.job_registry.sqlite.tables import (
     JOB_ERRORS_TABLE_SCHEMA,
     JOB_OUTPUTS_TABLE_SCHEMA,
     JOBS_INDEX,
+    JOBS_PRIORITY_INDEX,
     JOBS_TABLE_SCHEMA,
 )
 from zahir.job_registry.state_event import create_state_event
@@ -78,6 +79,7 @@ class SQLiteJobRegistry(JobRegistry):
                 CLAIMED_JOBS_TABLE_SCHEMA,
                 EVENTS_TABLE_SCHEMA,
                 JOBS_INDEX,
+                JOBS_PRIORITY_INDEX,
             ]:
                 conn.execute(schema)
             conn.commit()
@@ -165,9 +167,10 @@ class SQLiteJobRegistry(JobRegistry):
                 raise DuplicateJobError(f"Job with ID {job_id} already exists in the registry.")
 
             created_at = datetime.now(tz=UTC).isoformat()
+            priority = job.args.priority
             conn.execute(
-                "insert into jobs (job_id, serialised_job, state, created_at) values (?, ?, ?, ?)",
-                (job_id, serialised, job_state, created_at),
+                "insert into jobs (job_id, serialised_job, state, priority, created_at) values (?, ?, ?, ?, ?)",
+                (job_id, serialised, job_state, priority, created_at),
             )
 
             conn.commit()
@@ -433,6 +436,7 @@ class SQLiteJobRegistry(JobRegistry):
             job.completed_at
           from jobs as job
           left join job_outputs as out on out.job_id = job.job_id
+          order by job.priority desc, job.created_at asc
           """).fetchall()
 
         for (

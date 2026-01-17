@@ -353,6 +353,12 @@ class JobRegistry(ABC):
 
         raise NotImplementedError
 
+    @abstractmethod
+    def close(self) -> None:
+        """Close the job registry."""
+
+        raise NotImplementedError
+
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Event Registry ++++++++++++++++++++++++++++
@@ -667,6 +673,7 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
         job_timeout: float | None = None,
         recover_timeout: float | None = None,
         job_id: str | None = None,
+        priority: int = 0,
     ) -> "JobInstance[JobSpecArgs, ArgsType, OutputType]":
         if job_id is None:
             job_id = generate_id()
@@ -687,6 +694,7 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
             job_id=job_id,
             # We'll set this at the workflow level.
             parent_id=None,
+            priority=priority,
         )
 
         return JobInstance(spec=self, args=job_args)
@@ -715,6 +723,9 @@ class JobArguments[ArgsType]:
     # Upper-limit on how long the recovery should run for
     recover_timeout: float | None = None
 
+    # Priority for job scheduling (higher values run first)
+    priority: int = 0
+
 
 class SerialisedJobInstance[ArgsType](TypedDict, total=False):
     """A stored request for a job execution. Includes which
@@ -728,6 +739,7 @@ class SerialisedJobInstance[ArgsType](TypedDict, total=False):
     dependencies: Mapping[str, Any]
     job_timeout: float | None
     recover_timeout: float | None
+    priority: int
 
 
 @dataclass
@@ -753,6 +765,11 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
         """Convenience property to access dependencies from args."""
         return self.args.dependencies
 
+    @property
+    def priority(self) -> int:
+        """Convenience property to access priority from args."""
+        return self.args.priority
+
     def save(self, context: "Context"):
         return {
             "type": self.spec.type,
@@ -763,6 +780,7 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
             "dependencies": self.args.dependencies.save(context),
             "job_timeout": self.args.job_timeout,
             "recover_timeout": self.args.recover_timeout,
+            "priority": self.args.priority,
         }
 
     @classmethod
@@ -796,6 +814,7 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
             parent_id=data["parent_id"],
             job_timeout=data["job_timeout"],
             recover_timeout=data["recover_timeout"],
+            priority=data.get("priority", 0),
         )
         return cls(spec=spec, args=job_args)
 

@@ -496,7 +496,6 @@ class JobEvent(ZahirEvent):
 
 
 @dataclass
-@dataclass
 class Await(ZahirEvent):
     """Indicates that a job is awaiting some condition before proceeding"""
 

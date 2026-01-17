@@ -1,5 +1,6 @@
 import multiprocessing
 import os
+import atexit
 
 from zahir.base_types import Context
 from zahir.events import (
@@ -12,9 +13,10 @@ from zahir.serialise import serialise_event
 from zahir.utils.logging_config import configure_logging
 from zahir.worker.state_machine import ZahirJobStateMachine, ZahirWorkerState
 from zahir.worker.state_machine.states import StartStateChange
+from zahir.serialise import SerialisedEvent
 
-type OutputQueue = multiprocessing.Queue["ZahirEvent"]
-type InputQueue = multiprocessing.Queue["ZahirEvent"]
+type OutputQueue = multiprocessing.Queue["SerialisedEvent"]
+type InputQueue = multiprocessing.Queue["SerialisedEvent"]
 
 
 def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: OutputQueue, workflow_id: str) -> None:
@@ -28,6 +30,7 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
     configure_logging()
 
     context.job_registry.init(str(os.getpid()))
+    atexit.register(lambda: context.job_registry.close())
 
     state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
     current = StartStateChange({"message": "Starting job worker"})

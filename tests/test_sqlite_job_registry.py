@@ -430,3 +430,71 @@ def test_set_state_recovering():
     finally:
         registry.conn.close()
         pathlib.Path(db_path).unlink()
+
+
+def test_jobs_ordered_by_priority():
+    """Test that jobs are returned ordered by priority (highest first), then by creation time."""
+    import time
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        db_path = tmp.name
+    try:
+        registry = SQLiteJobRegistry(db_path)
+        registry.init("worker-priority")
+        scope = LocalScope(specs=[DummyJobSpec])
+        context = MemoryContext(scope=scope, job_registry=registry)
+        dummy_queue = multiprocessing.Queue()
+
+        # Create jobs with different priorities (add in order: low, high, medium)
+        low_priority_job = JobInstance(
+            spec=DummyJobSpec,
+            args=JobArguments(
+                dependencies=DependencyGroup({}),
+                args={},
+                job_id="low-priority",
+                priority=1,
+            ),
+        )
+        time.sleep(0.01)  # Small delay to ensure different created_at times
+
+        high_priority_job = JobInstance(
+            spec=DummyJobSpec,
+            args=JobArguments(
+                dependencies=DependencyGroup({}),
+                args={},
+                job_id="high-priority",
+                priority=100,
+            ),
+        )
+        time.sleep(0.01)
+
+        medium_priority_job = JobInstance(
+            spec=DummyJobSpec,
+            args=JobArguments(
+                dependencies=DependencyGroup({}),
+                args={},
+                job_id="medium-priority",
+                priority=50,
+            ),
+        )
+
+        registry.add(context, low_priority_job, dummy_queue)
+        registry.add(context, high_priority_job, dummy_queue)
+        registry.add(context, medium_priority_job, dummy_queue)
+
+        # Retrieve jobs and verify ordering
+        jobs = list(registry.jobs(context))
+        job_ids = [j.job_id for j in jobs]
+
+        # Should be ordered: high (100), medium (50), low (1)
+        assert job_ids == ["high-priority", "medium-priority", "low-priority"], (
+            f"Expected priority ordering, got: {job_ids}"
+        )
+
+        # Also test that priority is correctly saved and loaded
+        assert jobs[0].job.priority == 100
+        assert jobs[1].job.priority == 50
+        assert jobs[2].job.priority == 1
+    finally:
+        registry.conn.close()
+        pathlib.Path(db_path).unlink()

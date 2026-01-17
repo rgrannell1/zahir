@@ -3,6 +3,7 @@ create table if not exists jobs (
     job_id                    text primary key,
     serialised_job            text not null,
     state                     text not null,
+    priority                  integer default 0,
     created_at                text,
     started_at                text,
     recovery_started_at       text,
@@ -50,5 +51,9 @@ create table if not exists events (
 """
 
 JOBS_INDEX = """
-CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs(state)
+CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs(state);
+"""
+
+JOBS_PRIORITY_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_jobs_priority ON jobs(state, priority DESC, created_at ASC);
 """
