@@ -258,7 +258,7 @@ There are a few overlapping terms here, but each is worth addressing:
 - **Job-level rollback**: supported via a mix of `recover` method, which handles unhandled job-exceptions, and just try-catching in your job on actions that might fail then remediating by scheduling cleanup jobs
 - **Branch-level checkpointing / rollbacks**: "try to do XYZ, if that fails recover in this fashion" is possible using `Await`. Attempt to complete the branch, try-catch for failure, and on failure schedule an alternative course of action. Exceptions are not required for this branching logic; it's perfectly valid to `if-else` based on the output of a job's awaited output into different conditional branches of job-execution.
 
-```
+```py
 try:
     result = yield Await(YourBranchJob(...))
 except Exception as err:
