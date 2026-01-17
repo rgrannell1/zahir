@@ -1,5 +1,4 @@
 from zahir.base_types import JobState
-from zahir.exception import JobPrecheckError
 from zahir.worker.state_machine.states import (
     ExecuteJobStateChange,
     ExecuteRecoveryJobStateChange,

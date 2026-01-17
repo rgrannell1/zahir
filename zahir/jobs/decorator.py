@@ -7,6 +7,7 @@ from zahir.base_types import JobSpec, Run
 ArgsType = TypeVar("ArgsType")
 OutputType = TypeVar("OutputType")
 
+
 def spec[JobSpecArgs, ArgsType, OutputType](**kwargs):
     """Construct a JobSpec from a run function, and optionally other jobspec parameters"""
 

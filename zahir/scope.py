@@ -3,18 +3,36 @@ from types import ModuleType
 from typing import Self
 
 from zahir.base_types import Dependency, JobSpec, Scope
+from zahir.dependencies.concurrency import ConcurrencyLimit
+from zahir.dependencies.group import DependencyGroup
+from zahir.dependencies.job import JobDependency
+from zahir.dependencies.time import TimeDependency
+from zahir.dependencies.semaphore import Semaphore
 from zahir.exception import DependencyNotInScopeError, JobNotInScopeError
+from zahir.jobs import Sleep, Empty
 
+# Register built in job specs
+INTERNAL_JOB_SPECS = {
+    'Sleep': Sleep,
+    'Empty': Empty
+}
+
+# Why make people work harder; just register all the built-in dependencies for free
+INTERNAL_DEPENDENCIES: dict[str, type[Dependency]] = {
+    'TimeDependency': TimeDependency,
+    'ConcurrencyLimit': ConcurrencyLimit,
+    'DependencyGroup': DependencyGroup,
+    'JobDependency': JobDependency,
+    'Semaphore': Semaphore,
+}
 
 class LocalScope(Scope):
     """A local translation layer between dependency / job names and
     their underlying Python classes."""
 
-    def __init__(
-        self, dependencies: list[type[Dependency]] = [], specs: list["JobSpec"] = []
-    ) -> None:
-        self.dependencies: dict[str, type[Dependency]] = {}
-        self.specs: dict[str, "JobSpec"] = {}
+    def __init__(self, dependencies: list[type[Dependency]] = [], specs: list["JobSpec"] = []) -> None:
+        self.dependencies: dict[str, type[Dependency]] = INTERNAL_DEPENDENCIES.copy()
+        self.specs: dict[str, JobSpec] = INTERNAL_JOB_SPECS.copy()
 
         self.add_dependency_classes(dependencies)
         self.add_job_specs(specs)
@@ -27,11 +45,6 @@ class LocalScope(Scope):
         for spec in specs:
             self.specs[spec.type] = spec
         return self
-
-    def get_job_spec(self, type: str) -> JobSpec:
-        if not type in self.specs:
-            raise KeyError(f"Job spec '{type}' not found in scope. Did you register it?")
-        return self.specs[type]
 
     def add_job_class(self, job_spec: JobSpec) -> Self:
         """Add a job spec to the scope.

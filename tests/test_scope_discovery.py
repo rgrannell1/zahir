@@ -101,9 +101,11 @@ def test_from_module_discovers_both():
 
     scope = LocalScope.from_module(test_module)
 
-    # Should have found 2 specs and 2 dependencies
-    assert len(scope.specs) == 2
-    assert len(scope.dependencies) == 2
+    # Should have found 2 specs (plus built-ins Sleep, Empty) and 2 dependencies (plus built-ins)
+    assert "SampleJob1" in scope.specs
+    assert "SampleJob2" in scope.specs
+    assert "SampleDependency1" in scope.dependencies
+    assert "SampleDependency2" in scope.dependencies
 
 
 def test_from_module_skips_base_classes():
@@ -155,8 +157,12 @@ def test_from_module_empty_module():
 
     scope = LocalScope.from_module(empty_module)
 
-    assert len(scope.specs) == 0
-    assert len(scope.dependencies) == 0
+    # Scope should have pre-loaded built-in specs and dependencies, but no module-specific ones
+    assert "SampleJob1" not in scope.specs
+    assert "SampleDependency1" not in scope.dependencies
+    # Built-ins should still be present
+    assert "Sleep" in scope.specs
+    assert "Empty" in scope.specs
 
 
 def test_from_module_get_job_class():

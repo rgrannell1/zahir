@@ -5,5 +5,7 @@ execution in workflows.
 """
 
 from zahir.jobs.decorator import spec
+from zahir.jobs.empty import Empty
+from zahir.jobs.sleep import Sleep
 
-__all__ = ["spec"]
+__all__ = ["spec", "Empty", "Sleep"]

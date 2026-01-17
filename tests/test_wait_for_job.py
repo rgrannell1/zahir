@@ -16,6 +16,7 @@ from zahir.events import JobAssignedEvent, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
+from zahir.serialise import serialise_event
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.states import PopJobStateChange, StartStateChange
 from zahir.worker.state_machine.wait_for_job import WAIT_TIMEOUT_SECONDS, wait_for_job
@@ -51,7 +52,7 @@ def test_wait_for_job_receives_assignment():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Put a job assignment on the input queue
-    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job.job_id))
+    input_queue.put(serialise_event(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job.job_id)))
 
     # Run wait_for_job
     result, returned_state = wait_for_job(worker_state)
@@ -124,7 +125,7 @@ def test_wait_for_job_times_out_and_rechecks():
         time.sleep(0.3)
         test_job_delayed = SimpleTestJob({}, {})
         job_registry.add(context, test_job_delayed, output_queue)
-        input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job_delayed.job_id))
+        input_queue.put(serialise_event(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job_delayed.job_id)))
 
     thread = threading.Thread(target=delayed_put)
     thread.start()
@@ -159,11 +160,11 @@ def test_wait_for_job_handles_missing_job():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Put an assignment for a job that doesn't exist
-    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id="nonexistent-job"))
+    input_queue.put(serialise_event(JobAssignedEvent(workflow_id=workflow_id, job_id="nonexistent-job")))
     # Then put a valid one so we don't hang
     test_job = SimpleTestJob({}, {})
     job_registry.add(context, test_job, output_queue)
-    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job.job_id))
+    input_queue.put(serialise_event(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job.job_id)))
 
     # Should handle missing job and continue
     result, _ = wait_for_job(worker_state)
@@ -196,7 +197,7 @@ def test_wait_for_job_preserves_state():
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
     # Put assignment on queue
-    input_queue.put(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job.job_id))
+    input_queue.put(serialise_event(JobAssignedEvent(workflow_id=workflow_id, job_id=test_job.job_id)))
 
     # Run wait_for_job
     result, returned_state = wait_for_job(worker_state)

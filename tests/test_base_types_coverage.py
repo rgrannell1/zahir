@@ -40,8 +40,10 @@ class MockDependency(Dependency):
     def load(cls, context: MemoryContext, data: Mapping[str, Any]) -> "MockDependency":
         return cls()
 
+
 # Note: Abstract classes can't be instantiated in Python, so we test
 # them indirectly through their concrete implementations
+
 
 def test_dependency_state_enum():
     """Test DependencyState enum values."""
@@ -195,16 +197,3 @@ def test_dependency_abstract_load_method():
     # Call the abstract method from the base class directly
     with pytest.raises(NotImplementedError):
         Dependency.load(context, {})
-
-
-# NOTE: Job class has been removed in favor of JobSpec decorator pattern.
-# The following tests were for the old Job class and are no longer applicable:
-# - test_job_registry_abstract_methods
-# - test_job_abstract_run_method
-# - test_job_recover_raises_error
-# - test_job_save_with_options
-# - test_job_save_without_options
-# - test_job_load_with_options
-# - test_job_load_without_options
-# - test_job_copy
-# - test_job_request_extension

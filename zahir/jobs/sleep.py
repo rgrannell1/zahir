@@ -1,8 +1,9 @@
 from collections.abc import Generator
-import time
 
-from zahir.base_types import Context
+from zahir.base_types import Context, JobInstance
+from zahir.dependencies.time import TimeDependency
 from zahir.events import JobOutputEvent
+from zahir.jobs import Empty
 from zahir.jobs.decorator import spec
 
 
@@ -20,14 +21,12 @@ def _sleep_precheck(spec_args, args):
 
 
 @spec(precheck=_sleep_precheck)
-def Sleep(spec_args, context: Context, args, dependencies) -> Generator[JobOutputEvent]:
+def Sleep(spec_args, context: Context, args, dependencies) -> Generator[JobInstance | JobOutputEvent]:
     """A job that sleeps for a specified duration."""
     duration_seconds = args.get("duration_seconds", 0)
 
-    if not isinstance(duration_seconds, (int, float)) or duration_seconds < 0:
-        raise ValueError("duration_seconds must be a non-negative number")
+    yield Empty({}, {
+        'wait_seconds': TimeDependency.seconds_from_now(duration_seconds)
+    })
 
-    # Not a good implementation (awaiting a job with a n-second timedependency
-    # would be better), but ok for now.
-    time.sleep(duration_seconds)
     yield JobOutputEvent(output={"duration_seconds": duration_seconds})

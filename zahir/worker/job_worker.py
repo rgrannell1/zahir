@@ -8,6 +8,7 @@ from zahir.events import (
     ZahirInternalErrorEvent,
 )
 from zahir.exception import exception_to_text_blob
+from zahir.serialise import serialise_event
 from zahir.utils.logging_config import configure_logging
 from zahir.worker.state_machine import ZahirJobStateMachine, ZahirWorkerState
 from zahir.worker.state_machine.states import StartStateChange
@@ -32,7 +33,7 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
     current = StartStateChange({"message": "Starting job worker"})
 
     # Signal we're ready for work immediately
-    output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
+    output_queue.put(serialise_event(JobWorkerWaitingEvent(pid=os.getpid())))
 
     # ...so I put a workflow engine inside your workflow engine
     while True:
@@ -43,11 +44,11 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
         try:
             result = handler(state)
         except Exception as err:
-            output_queue.put(
+            output_queue.put(serialise_event(
                 ZahirInternalErrorEvent(
                     workflow_id=workflow_id,
                     error=exception_to_text_blob(err),
-                )
+                ))
             )
             break
 

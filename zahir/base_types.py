@@ -17,7 +17,6 @@ from typing import (
 )
 
 from zahir.events import Await, ZahirEvent
-from zahir.serialisers.job import JobOptionsData, SerialisedJob
 from zahir.utils.id_generator import generate_id
 
 if TYPE_CHECKING:
@@ -393,7 +392,7 @@ class Scope(ABC):
     """
 
     @abstractmethod
-    def get_job_spec(self, job_spec: str) -> "JobSpec": ...
+    def get_job_spec(self, type_name: str) -> "JobSpec": ...
 
     @abstractmethod
     def add_job_specs(self, specs: list["JobSpec"]) -> Self:
@@ -443,7 +442,7 @@ class Context:
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
-# ++++++++++++++++++++++ Job II +++++++++++++++++++++++++++++++++++
+# ++++++++++++++++++++++ Jobs, Take II +++++++++++++++++++++++++++++
 #
 # Jobs conceptually have a few parts.
 #
@@ -468,7 +467,7 @@ from collections.abc import Callable
 
 type JobEventSet[OutputType] = (
     # Jobs can output jobs
-    Job
+    JobInstance
     |
     # ... and output
     JobOutputEvent[OutputType]
@@ -675,3 +674,7 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
             recover_timeout=data["recover_timeout"],
         )
         return cls(spec=spec, args=job_args)
+
+
+# Transforms take a spec and give a new one.
+type Transform[TransformArgs] = Callable[[TransformArgs, JobSpec], JobSpec]

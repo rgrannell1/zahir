@@ -33,6 +33,7 @@ from zahir.job_registry.sqlite.tables import (
     JOBS_TABLE_SCHEMA,
 )
 from zahir.job_registry.state_event import create_state_event
+from zahir.serialise import serialise_event
 from zahir.utils.logging_config import get_logger
 
 log = get_logger(__name__)
@@ -171,7 +172,7 @@ class SQLiteJobRegistry(JobRegistry):
 
             conn.commit()
 
-            output_queue.put(JobEvent(job=cast(SerialisedJobInstance, saved_job)))
+            output_queue.put(serialise_event(JobEvent(job=cast(SerialisedJobInstance, saved_job))))
 
         return job_id
 
@@ -288,7 +289,7 @@ class SQLiteJobRegistry(JobRegistry):
         timing = self.get_job_timing(job_id) if state in COMPLETED_JOB_STATES else None
         event = create_state_event(state, workflow_id, job_id, error=error, timing=timing)
         if event is not None:
-            output_queue.put(event)
+            output_queue.put(serialise_event(event))
 
         return job_id
 
@@ -325,12 +326,12 @@ class SQLiteJobRegistry(JobRegistry):
         # Emit event after transaction completes
         timing = self.get_job_timing(job_id)
         duration = timing.time_since_started() or 0.0
-        output_queue.put(
+        output_queue.put(serialise_event(
             JobCompletedEvent(
                 job_id=job_id,
                 workflow_id=workflow_id,
                 duration_seconds=duration,
-            )
+            ))
         )
 
     def get_output(self, job_id: str, recovery: bool = False) -> Mapping[str, Any] | None:

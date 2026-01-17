@@ -2,6 +2,7 @@ import os
 
 from zahir.base_types import JobState
 from zahir.events import JobWorkerWaitingEvent
+from zahir.serialise import serialise_event
 from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
@@ -22,6 +23,6 @@ def handle_recovery_job_exception(state) -> tuple[WaitForJobStateChange, None]:
     state.frame = None
 
     # Signal we're ready for another job
-    state.output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
+    state.output_queue.put(serialise_event(JobWorkerWaitingEvent(pid=os.getpid())))
 
     return WaitForJobStateChange({"message": f"Recovery job {job_type} irrecoverably failed"}), state

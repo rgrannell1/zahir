@@ -23,6 +23,7 @@ from zahir.events import (
     ZahirInternalErrorEvent,
 )
 from zahir.exception import exception_from_text_blob
+from zahir.serialise import deserialise_event, serialise_event
 from zahir.utils.id_generator import generate_id
 from zahir.worker.dependency_worker import zahir_dependency_worker
 from zahir.worker.job_worker import zahir_job_worker
@@ -121,12 +122,12 @@ def dispatch_jobs_to_workers(
 
         # Send job assignment to worker via input queue
         input_queue = process_queues[worker_pid]
-        input_queue.put(
+        input_queue.put(serialise_event(
             JobAssignedEvent(
                 workflow_id=workflow_id,
                 job_id=job.job_id,
             )
-        )
+        ))
 
 
 def start_zahir_overseer(context: Context, start: JobInstance, worker_count: int = 4):
@@ -135,7 +136,7 @@ def start_zahir_overseer(context: Context, start: JobInstance, worker_count: int
     workflow_id = generate_id(3)
     output_queue: OutputQueue = multiprocessing.Queue()
 
-    output_queue.put(WorkflowStartedEvent(workflow_id=workflow_id))
+    output_queue.put(serialise_event(WorkflowStartedEvent(workflow_id=workflow_id)))
 
     current_pid = os.getpid()
     context.job_registry.init(str(current_pid))
@@ -196,7 +197,7 @@ def zahir_worker_overseer(start: JobInstance | None, context, worker_count: int 
     exc: Exception | None = None
     try:
         while True:
-            event = output_queue.get()
+            event = deserialise_event(output_queue.get())
 
             if isinstance(event, ZahirInternalErrorEvent):
                 exc = (

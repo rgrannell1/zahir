@@ -1,6 +1,7 @@
 import os
 
 from zahir.events import JobWorkerWaitingEvent
+from zahir.serialise import serialise_event
 from zahir.worker.state_machine.states import StartStateChange
 
 
@@ -21,6 +22,6 @@ def handle_job_output(state) -> tuple[StartStateChange, None]:
     state.frame = None
 
     # Signal we're ready for another job
-    state.output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
+    state.output_queue.put(serialise_event(JobWorkerWaitingEvent(pid=os.getpid())))
 
     return StartStateChange({"message": "Setting job output"}), state

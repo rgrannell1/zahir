@@ -10,6 +10,7 @@ from zahir.events import (
     ZahirInternalErrorEvent,
 )
 from zahir.exception import ImpossibleDependencyError, exception_to_text_blob
+from zahir.serialise import serialise_event
 from zahir.utils.logging_config import configure_logging
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
@@ -29,9 +30,11 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
             if not job_registry.is_active():
                 duration = job_registry.get_workflow_duration() or 0.0
                 output_queue.put(
-                    WorkflowCompleteEvent(
-                        workflow_id=workflow_id,
-                        duration_seconds=duration,
+                    serialise_event(
+                        WorkflowCompleteEvent(
+                            workflow_id=workflow_id,
+                            duration_seconds=duration,
+                        )
                     )
                 )
                 return
@@ -63,15 +66,16 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
 
             if any_ready:
                 # Let the overseer know that there are jobs ready to run
-                output_queue.put(JobReadyEvent())
+                output_queue.put(serialise_event(JobReadyEvent()))
 
             time.sleep(1)
 
-            time.sleep(1)
     except Exception as err:
         output_queue.put(
-            ZahirInternalErrorEvent(
-                workflow_id=workflow_id,
-                error=exception_to_text_blob(err),
+            serialise_event(
+                ZahirInternalErrorEvent(
+                    workflow_id=workflow_id,
+                    error=exception_to_text_blob(err),
+                )
             )
         )

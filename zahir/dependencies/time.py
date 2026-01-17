@@ -49,6 +49,18 @@ class TimeDependency(Dependency):
         self.after = after
         self.allow_extensions = allow_extensions
 
+    @classmethod
+    def seconds_from_now(cls, seconds: float) -> "TimeDependency":
+        """Create a TimeDependency that is satisfied after `seconds` seconds from now.
+
+        @param seconds: Number of seconds from now.
+
+        @return: A TimeDependency that is satisfied after `seconds` seconds from now.
+        """
+
+        after = datetime.now(tz=UTC) + timedelta(seconds=seconds)
+        return cls(after=after)
+
     def satisfied(self) -> DependencyState:
         """Check whether the time dependency is satisfied."""
 

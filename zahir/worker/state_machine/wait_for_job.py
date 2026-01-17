@@ -2,6 +2,7 @@ import os
 import queue
 
 from zahir.events import JobAssignedEvent, JobWorkerWaitingEvent
+from zahir.serialise import serialise_event
 from zahir.utils.logging_config import get_logger
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine.states import PopJobStateChange, StartStateChange
@@ -51,7 +52,7 @@ def wait_for_job(state) -> tuple[StartStateChange | PopJobStateChange, None]:
         if job is None:
             log.error(f"Job {job_id} not found in registry")
             # Signal ready for another job
-            state.output_queue.put(JobWorkerWaitingEvent(pid=os.getpid()))
+            state.output_queue.put(serialise_event(JobWorkerWaitingEvent(pid=os.getpid())))
             return StartStateChange({"message": f"Job {job_id} not found, waiting for another"}), state
 
         # Create the job generator and stack frame

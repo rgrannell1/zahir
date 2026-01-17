@@ -3,7 +3,7 @@ import pathlib
 import re
 from typing import TypedDict, cast
 
-from zahir.base_types import Context, Job
+from zahir.base_types import Context, JobInstance
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
@@ -66,7 +66,7 @@ class BookProcessorOutput(TypedDict):
 @spec()
 def BookProcessor(
     spec_args, context, args, dependencies
-) -> Generator[Await | Job | WorkflowOutputEvent, ChapterProcessorOutput | BookProcessorOutput]:
+) -> Generator[Await | JobInstance | WorkflowOutputEvent, ChapterProcessorOutput | BookProcessorOutput]:
     longest_words = yield Await([
         ChapterProcessor({"lines": chapter_lines}, {}) for chapter_lines in read_chapters(args["file_path"])
     ])

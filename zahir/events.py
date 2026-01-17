@@ -11,10 +11,8 @@ from dataclasses import dataclass, field
 import os
 from typing import TYPE_CHECKING, Any, TypeVar
 
-from zahir.serialisers.job import SerialisedJob
-
 if TYPE_CHECKING:
-    from zahir.base_types import Context
+    from zahir.base_types import Context, JobInstance, SerialisedJobInstance
 
 OutputType = TypeVar("OutputType", bound=Mapping[str, Any])
 CustomEventOutputType = TypeVar("CustomEventOutputType", bound=Mapping[str, Any])
@@ -479,7 +477,7 @@ class ZahirInternalErrorEvent(ZahirEvent):
 class JobEvent(ZahirEvent):
     """Generic job event for various job state changes."""
 
-    job: "SerialisedJobInstance"
+    job: SerialisedJobInstance
     pid: int = field(default_factory=os.getpid)
 
     def save(self, context: Context) -> Mapping[str, Any]:
@@ -497,16 +495,17 @@ class JobEvent(ZahirEvent):
 
 
 @dataclass
+@dataclass
 class Await(ZahirEvent):
     """Indicates that a job is awaiting some condition before proceeding"""
 
-    job: Job | list[Job]
+    job: JobInstance | list[JobInstance]
     pid: int = field(default_factory=os.getpid)
 
     def save(self, context: Context) -> Mapping[str, Any]:
-        from zahir.base_types.job import Job
+        from zahir.base_types import JobInstance
 
-        if isinstance(self.job, Job):
+        if isinstance(self.job, JobInstance):
             return {
                 "job": self.job.save(context),
                 "is_list": False,
@@ -520,12 +519,12 @@ class Await(ZahirEvent):
 
     @classmethod
     def load(cls, context: Context, data: Mapping[str, Any]) -> Await:
-        from zahir.base_types.job import Job
+        from zahir.base_types import JobInstance
 
         if data.get("is_list"):
-            jobs = [Job.load(context, j) for j in data["job"]]
+            jobs = [JobInstance.load(context, j) for j in data["job"]]
             return cls(job=jobs)
-        job = Job.load(context, data["job"])
+        job = JobInstance.load(context, data["job"])
         return cls(job=job)
 
 

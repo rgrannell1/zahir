@@ -98,23 +98,10 @@ def test_parent_child_jobs_marco_polo_via_queues():
     workflow = LocalWorkflow(context, max_workers=4)
     # Use a longer timeout to allow child jobs to complete and communicate
     parent_job_instance = ParentJob({}, {}, 10.0)
-    events = list(workflow.run(parent_job_instance, events_filter=None))
+    result = workflow.run(parent_job_instance)
 
-    # Extract JobOutputEvent and check for results
-    output_events = [e for e in events if isinstance(e, JobOutputEvent)]
-
-    # Should have outputs from parent and both child jobs
-    assert len(output_events) >= 3, (
-        f"Expected at least 3 output events, got {len(output_events)}: {[type(e).__name__ for e in events]}"
-    )
-
-    # Find the parent job output
-    parent_output = None
-    for output_event in output_events:
-        if hasattr(output_event, "output") and isinstance(output_event.output, dict):
-            if output_event.output.get("parent") == "complete":
-                parent_output = output_event.output
-                break
-
-    assert parent_output is not None, "Parent output event not found"
-    assert parent_output["children_communicated"] is True
+    # The workflow.run() returns the output from the root job
+    # ParentJob yields JobOutputEvent with children_communicated: True if successful
+    assert result is not None, "Workflow should return a result"
+    assert result.get("parent") == "complete", f"Parent did not complete successfully: {result}"
+    assert result.get("children_communicated") is True, "Children should have communicated successfully"

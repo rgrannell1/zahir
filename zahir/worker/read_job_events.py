@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from zahir.base_types import JobInstance, JobRegistry
 from zahir.events import Await, JobOutputEvent, ZahirEvent
+from zahir.serialise import serialise_event
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent | JobInstance"]
 
@@ -144,7 +145,7 @@ def read_job_events(
         if isinstance(item, ZahirEvent):
             item.set_ids(workflow_id=workflow_id, job_id=job_id)
 
-        output_queue.put(item)
+        output_queue.put(serialise_event(item))
 
         if isinstance(item, JobOutputEvent):
             # Nothing more to be done for this generator
