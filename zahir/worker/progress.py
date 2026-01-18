@@ -316,7 +316,7 @@ class ZahirProgressMonitor:
         desc_parts = []
         if parts:
             desc_parts.append(", ".join(parts))
-        
+
         # Always show completed/failed counts
         if stats.completed > 0 or stats.failed > 0:
             status_text = f"{stats.completed} completed"

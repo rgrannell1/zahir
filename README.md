@@ -6,7 +6,7 @@
 
 > Perhaps I shall conclude by wearing away the Zahir simply through thinking of it again and again.
 
-[![asciicast](https://asciinema.org/a/miRO4y1D3Lxl9YfIdeorsim9M.svg)](https://asciinema.org/a/miRO4y1D3Lxl9YfIdeorsim9M)
+![](./progress.png)
 
 ## Motivation
 
