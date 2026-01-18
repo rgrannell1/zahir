@@ -13,3 +13,4 @@ integration_tests/data.txt
 jobs.db*
 .coverage
 coverage.xml
+zahir_logs/*

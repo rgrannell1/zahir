@@ -11,6 +11,7 @@ from zahir.events import (
 from zahir.exception import exception_to_text_blob
 from zahir.serialise import serialise_event
 from zahir.utils.logging_config import configure_logging
+from zahir.utils.output_logging import setup_output_logging
 from zahir.worker.state_machine import ZahirJobStateMachine, ZahirWorkerState
 from zahir.worker.state_machine.states import StartStateChange
 from zahir.serialise import SerialisedEvent
@@ -28,6 +29,11 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
 
     # Configure logging for this worker process
     configure_logging()
+
+    log_output_dir = context.state.get("_zahir_log_output_dir")
+    start_job_type = context.state.get("_zahir_start_job_type")
+    if log_output_dir:
+        setup_output_logging(log_output_dir=log_output_dir, start_job_type=start_job_type)
 
     context.job_registry.init(str(os.getpid()))
     atexit.register(lambda: context.job_registry.close())

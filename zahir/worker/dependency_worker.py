@@ -12,6 +12,7 @@ from zahir.events import (
 from zahir.exception import ImpossibleDependencyError, exception_to_text_blob
 from zahir.serialise import serialise_event
 from zahir.utils.logging_config import configure_logging
+from zahir.utils.output_logging import setup_output_logging
 
 type OutputQueue = multiprocessing.Queue["ZahirEvent"]
 
@@ -21,6 +22,12 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
 
     # Configure logging for this worker process
     configure_logging()
+
+    # Set up output logging if configured in context
+    log_output_dir = context.state.get("_zahir_log_output_dir")
+    start_job_type = context.state.get("_zahir_start_job_type")
+    if log_output_dir:
+        setup_output_logging(log_output_dir=log_output_dir, start_job_type=start_job_type)
 
     try:
         job_registry = context.job_registry

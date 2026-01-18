@@ -1,12 +1,14 @@
 from collections.abc import Iterator, Mapping
+from datetime import datetime, timezone
 import inspect
-from typing import Any, TypeVar
+from typing import Any, Optional, TypeVar
 
 from zahir.base_types import Context, JobInstance
 from zahir.context.memory import MemoryContext
 from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.scope import LocalScope
+from zahir.utils.output_logging import get_log_directory_path
 from zahir.worker.overseer import zahir_worker_overseer
 from zahir.worker.progress import NoOpProgressMonitor, ProgressMonitor, ZahirProgressMonitor
 
@@ -22,18 +24,23 @@ class LocalWorkflow[WorkflowOutputType]:
     context: Context | None
     max_workers: int
     progress_monitor: ProgressMonitor | None
+    log_output_dir: Optional[str]
+    start_job_type: Optional[str]
 
     def __init__(
         self,
         context: Context | None = None,
         max_workers: int = 4,
         progress_monitor: ProgressMonitor | None = None,
+        log_output_dir: Optional[str] = None,
+        start_job_type: Optional[str] = None,
     ) -> None:
         """Initialize a workflow execution engine
 
         @param context: The context containing scope, job registry, and event registry
         @param max_workers: Number of worker processes to use
         @param progress_monitor: Optional progress monitor for tracking workflow execution. Defaults to ZahirProgressMonitor if not provided.
+        @param log_output_dir: Directory to capture stdout/stderr from all processes. If None, logging is disabled.
         """
 
         if max_workers < 2:
@@ -41,6 +48,8 @@ class LocalWorkflow[WorkflowOutputType]:
 
         self.context = context
         self.progress_monitor = progress_monitor
+        self.log_output_dir = log_output_dir
+        self.start_job_type = start_job_type
 
         if not context:
             # TODO Ew ew ew ew ew
@@ -68,6 +77,15 @@ class LocalWorkflow[WorkflowOutputType]:
             new_context = MemoryContext(scope=scope, job_registry=job_registry)
 
             self.context = new_context
+
+        # Store output logging configuration in context state
+        if log_output_dir is None:
+            log_dir = "zahir_logs"
+        else:
+            log_dir = log_output_dir
+
+        self.context.state["_zahir_log_output_dir"] = log_dir
+        self.context.state["_zahir_start_job_type"] = start_job_type
 
         self.max_workers = max_workers
 
