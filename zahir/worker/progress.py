@@ -168,6 +168,7 @@ class ZahirProgressMonitor:
         self.job_id_to_active_state: dict[str, str] = {}
         self.workflow_task_id: TaskID | None = None
         self.system_stats_task_id: TaskID | None = None
+        self.impossible_jobs_count: int = 0
         # Track (timestamp, pid) tuples for active processes in a 3s window
         self.pid_events: deque[tuple[float, int]] = deque()
         # Track (timestamp, cpu_percent, ram_percent) tuples for 5-second window
@@ -182,9 +183,6 @@ class ZahirProgressMonitor:
 
     def handle_event(self, event: ZahirEvent) -> None:
         """Handle workflow events and update progress bars."""
-        # Update system stats on every event
-        self._update_system_stats()
-
         # Track PID from event if available
         if hasattr(event, "pid"):
             current_time = time.time()
@@ -192,11 +190,14 @@ class ZahirProgressMonitor:
             self._cleanup_old_pids(current_time)
             self._update_workflow_description()
 
+        # Update system stats on every event (after PID tracking for accurate core count)
+        self._update_system_stats()
+
         match event:
             case WorkflowStartedEvent():
                 # Add system stats task at the top
                 self.system_stats_task_id = self.progress.add_task(
-                    "Zahir |  | CPU 0.0% RAM 0.0%",
+                    "Zahir | 0 cores | CPU 0% RAM 0%",
                     total=1,
                     completed=0,
                     status="running",
@@ -302,11 +303,15 @@ class ZahirProgressMonitor:
                     stats.failed += 1
                     self._update_job_type_progress(job_type)
 
+            case JobImpossibleEvent():
+                self.impossible_jobs_count += 1
+                self._update_workflow_description()
+
             case WorkflowCompleteEvent():
                 self._finalize_workflow()
 
     def _update_system_stats(self) -> None:
-        """Update system stats display with 5-second averages."""
+        """Update system stats display with 5-second averages and core count."""
         if self.system_stats_task_id is None:
             return
 
@@ -330,9 +335,12 @@ class ZahirProgressMonitor:
             avg_cpu = cpu_percent
             avg_ram = ram_percent
 
+        # Get active process count (cores)
+        active_processes = self._get_active_process_count()
+
         self.progress.update(
             self.system_stats_task_id,
-            description=f"Zahir | CPU {avg_cpu:.0f}% RAM {avg_ram:.0f}%",
+            description=f"Zahir | {active_processes} cores | CPU {avg_cpu:.0f}% RAM {avg_ram:.0f}%",
         )
 
     def _cleanup_old_pids(self, current_time: float) -> None:
@@ -346,14 +354,17 @@ class ZahirProgressMonitor:
         return len(set(pid for _, pid in self.pid_events))
 
     def _update_workflow_description(self) -> None:
-        """Update workflow task description with active process count."""
+        """Update workflow task description with impossible jobs count."""
         if self.workflow_task_id is None:
             return
 
-        active_processes = self._get_active_process_count()
+        desc_parts = ["Workflow running"]
+        if self.impossible_jobs_count > 0:
+            desc_parts.append(f"{self.impossible_jobs_count} impossible")
+        
         self.progress.update(
             self.workflow_task_id,
-            description=f"Workflow running ({active_processes} cores)",
+            description=" ".join(desc_parts),
         )
 
     def _ensure_job_type_task(self, job_type: str) -> None:
