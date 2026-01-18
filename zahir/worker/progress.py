@@ -128,6 +128,8 @@ class ZahirProgressMonitor:
         )
         self.job_type_stats: dict[str, JobTypeStats] = {}
         self.job_id_to_type: dict[str, str] = {}
+        # Track active state of each job: "running", "paused", or "recovering"
+        self.job_id_to_active_state: dict[str, str] = {}
         self.workflow_task_id: TaskID | None = None
         # Track (timestamp, pid) tuples for active processes in a 3s window
         self.pid_events: deque[tuple[float, int]] = deque()
@@ -183,14 +185,25 @@ class ZahirProgressMonitor:
                 job_type = self.job_id_to_type.get(event.job_id)
                 if job_type:
                     stats = self.job_type_stats[job_type]
+                    # If job was previously paused, decrement paused count
+                    if self.job_id_to_active_state.get(event.job_id) == "paused":
+                        stats.paused = max(0, stats.paused - 1)
                     stats.running += 1
+                    self.job_id_to_active_state[event.job_id] = "running"
                     self._update_job_type_description(job_type)
 
             case JobCompletedEvent():
                 job_type = self.job_id_to_type.get(event.job_id)
                 if job_type:
                     stats = self.job_type_stats[job_type]
-                    stats.running = max(0, stats.running - 1)
+                    # Decrement the correct counter based on job's active state
+                    active_state = self.job_id_to_active_state.pop(event.job_id, "running")
+                    if active_state == "paused":
+                        stats.paused = max(0, stats.paused - 1)
+                    elif active_state == "recovering":
+                        stats.recovering = max(0, stats.recovering - 1)
+                    else:  # running or unknown
+                        stats.running = max(0, stats.running - 1)
                     stats.completed += 1
                     self._update_job_type_progress(job_type)
 
@@ -198,7 +211,11 @@ class ZahirProgressMonitor:
                 job_type = self.job_id_to_type.get(event.job_id)
                 if job_type:
                     stats = self.job_type_stats[job_type]
+                    # If job was previously running, decrement running count
+                    if self.job_id_to_active_state.get(event.job_id) == "running":
+                        stats.running = max(0, stats.running - 1)
                     stats.recovering += 1
+                    self.job_id_to_active_state[event.job_id] = "recovering"
                     self._update_job_type_description(job_type)
 
             case JobRecoveryCompletedEvent():
@@ -206,6 +223,7 @@ class ZahirProgressMonitor:
                 if job_type:
                     stats = self.job_type_stats[job_type]
                     stats.recovering = max(0, stats.recovering - 1)
+                    self.job_id_to_active_state.pop(event.job_id, None)
                     stats.completed += 1
                     self._update_job_type_progress(job_type)
 
@@ -213,14 +231,25 @@ class ZahirProgressMonitor:
                 job_type = self.job_id_to_type.get(event.job_id)
                 if job_type:
                     stats = self.job_type_stats[job_type]
+                    # If job was previously running, decrement running count
+                    if self.job_id_to_active_state.get(event.job_id) == "running":
+                        stats.running = max(0, stats.running - 1)
                     stats.paused += 1
+                    self.job_id_to_active_state[event.job_id] = "paused"
                     self._update_job_type_description(job_type)
 
             case JobIrrecoverableEvent():
                 job_type = self.job_id_to_type.get(event.job_id)
                 if job_type:
                     stats = self.job_type_stats[job_type]
-                    stats.running = max(0, stats.running - 1)
+                    # Decrement the correct counter based on job's active state
+                    active_state = self.job_id_to_active_state.pop(event.job_id, "running")
+                    if active_state == "paused":
+                        stats.paused = max(0, stats.paused - 1)
+                    elif active_state == "recovering":
+                        stats.recovering = max(0, stats.recovering - 1)
+                    else:  # running or unknown
+                        stats.running = max(0, stats.running - 1)
                     stats.failed += 1
                     self._update_job_type_progress(job_type)
 
