@@ -20,7 +20,7 @@ def DummyJobSpec(spec_args, context, input, dependencies):
     yield WorkflowOutputEvent({"result": 42})
 
 
-def DummyJob(input=None, dependencies=None, options=None, job_id=None, parent_id=None):
+def DummyJob(input=None, dependencies=None, options=None, job_id=None, parent_id=None, once=False):
     """Factory function to create dummy JobInstance objects for testing."""
     job_args = input if input is not None else {}
     job_deps = dependencies if dependencies is not None else {}
@@ -34,6 +34,7 @@ def DummyJob(input=None, dependencies=None, options=None, job_id=None, parent_id
         parent_id=parent_id,
         job_timeout=job_timeout,
         recover_timeout=recover_timeout,
+        once=once,
     )
     return JobInstance(spec=DummyJobSpec, args=job_arguments)
 
@@ -495,6 +496,141 @@ def test_jobs_ordered_by_priority():
         assert jobs[0].job.priority == 100
         assert jobs[1].job.priority == 50
         assert jobs[2].job.priority == 1
+    finally:
+        registry.conn.close()
+        pathlib.Path(db_path).unlink()
+
+
+def test_idempotency_once_flag_adds_job():
+    """Test that adding a job with once=True adds the job when no matching hash exists."""
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        db_path = tmp.name
+    try:
+        registry = SQLiteJobRegistry(db_path)
+        registry.init("worker-idempotency-1")
+        scope = LocalScope()
+        context = MemoryContext(scope=scope, job_registry=registry)
+        job = DummyJob(input={"key": "value"}, job_id="job1", once=True)
+        dummy_queue = multiprocessing.Queue()
+        
+        job_id = registry.add(context, job, dummy_queue)
+        assert job_id == "job1"
+        assert registry.get_state(job_id) == JobState.READY
+    finally:
+        registry.conn.close()
+        pathlib.Path(db_path).unlink()
+
+
+def test_idempotency_once_flag_returns_existing():
+    """Test that adding a job with once=True returns existing job_id when hash matches."""
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        db_path = tmp.name
+    try:
+        registry = SQLiteJobRegistry(db_path)
+        registry.init("worker-idempotency-2")
+        scope = LocalScope()
+        context = MemoryContext(scope=scope, job_registry=registry)
+        
+        # Add first job with once=True
+        job1 = DummyJob(input={"key": "value"}, job_id="job1", once=True)
+        dummy_queue = multiprocessing.Queue()
+        job_id1 = registry.add(context, job1, dummy_queue)
+        assert job_id1 == "job1"
+        
+        # Try to add second job with same inputs but different job_id and once=True
+        job2 = DummyJob(input={"key": "value"}, job_id="job2", once=True)
+        job_id2 = registry.add(context, job2, dummy_queue)
+        
+        # Should return the original job_id
+        assert job_id2 == "job1"
+        
+        # job2 should not exist in the registry
+        try:
+            registry.get_state("job2")
+            assert False, "job2 should not exist"
+        except MissingJobError:
+            pass
+        
+        # job1 should still exist
+        assert registry.get_state("job1") == JobState.READY
+    finally:
+        registry.conn.close()
+        pathlib.Path(db_path).unlink()
+
+
+def test_idempotency_once_flag_different_inputs_adds_both():
+    """Test that jobs with once=True but different inputs are both added."""
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        db_path = tmp.name
+    try:
+        registry = SQLiteJobRegistry(db_path)
+        registry.init("worker-idempotency-3")
+        scope = LocalScope()
+        context = MemoryContext(scope=scope, job_registry=registry)
+        
+        job1 = DummyJob(input={"key": "value1"}, job_id="job1", once=True)
+        job2 = DummyJob(input={"key": "value2"}, job_id="job2", once=True)
+        dummy_queue = multiprocessing.Queue()
+        
+        job_id1 = registry.add(context, job1, dummy_queue)
+        job_id2 = registry.add(context, job2, dummy_queue)
+        
+        assert job_id1 == "job1"
+        assert job_id2 == "job2"
+        assert registry.get_state("job1") == JobState.READY
+        assert registry.get_state("job2") == JobState.READY
+    finally:
+        registry.conn.close()
+        pathlib.Path(db_path).unlink()
+
+
+def test_idempotency_once_false_always_adds():
+    """Test that jobs with once=False always add, even with same inputs."""
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        db_path = tmp.name
+    try:
+        registry = SQLiteJobRegistry(db_path)
+        registry.init("worker-idempotency-4")
+        scope = LocalScope()
+        context = MemoryContext(scope=scope, job_registry=registry)
+        
+        job1 = DummyJob(input={"key": "value"}, job_id="job1", once=False)
+        job2 = DummyJob(input={"key": "value"}, job_id="job2", once=False)
+        dummy_queue = multiprocessing.Queue()
+        
+        job_id1 = registry.add(context, job1, dummy_queue)
+        job_id2 = registry.add(context, job2, dummy_queue)
+        
+        assert job_id1 == "job1"
+        assert job_id2 == "job2"
+        assert registry.get_state("job1") == JobState.READY
+        assert registry.get_state("job2") == JobState.READY
+    finally:
+        registry.conn.close()
+        pathlib.Path(db_path).unlink()
+
+
+def test_idempotency_hash_stable_ordering():
+    """Test that idempotency hash is stable regardless of dictionary key ordering."""
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        db_path = tmp.name
+    try:
+        registry = SQLiteJobRegistry(db_path)
+        registry.init("worker-idempotency-5")
+        scope = LocalScope()
+        context = MemoryContext(scope=scope, job_registry=registry)
+        
+        # Create two jobs with same content but potentially different dict ordering
+        # Python 3.7+ preserves insertion order, but we want to ensure hash is stable
+        job1 = DummyJob(input={"a": 1, "b": 2}, job_id="job1", once=True)
+        job2 = DummyJob(input={"b": 2, "a": 1}, job_id="job2", once=True)
+        dummy_queue = multiprocessing.Queue()
+        
+        job_id1 = registry.add(context, job1, dummy_queue)
+        job_id2 = registry.add(context, job2, dummy_queue)
+        
+        # Should return the same job_id since hash should be the same
+        assert job_id1 == job_id2 == "job1"
     finally:
         registry.conn.close()
         pathlib.Path(db_path).unlink()

@@ -676,6 +676,7 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
         recover_timeout: float | None = None,
         job_id: str | None = None,
         priority: int = 0,
+        once: bool = False,
     ) -> "JobInstance[JobSpecArgs, ArgsType, OutputType]":
         if job_id is None:
             job_id = generate_job_id(self.type)
@@ -697,6 +698,7 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
             # We'll set this at the workflow level.
             parent_id=None,
             priority=priority,
+            once=once,
         )
 
         return JobInstance(spec=self, args=job_args)
@@ -728,6 +730,9 @@ class JobArguments[ArgsType]:
     # Priority for job scheduling (higher values run first)
     priority: int = 0
 
+    # If True, only add this job once based on idempotency_hash
+    once: bool = False
+
 
 class SerialisedJobInstance[ArgsType](TypedDict, total=False):
     """A stored request for a job execution. Includes which
@@ -742,6 +747,7 @@ class SerialisedJobInstance[ArgsType](TypedDict, total=False):
     job_timeout: float | None
     recover_timeout: float | None
     priority: int
+    once: bool
 
 
 @dataclass
@@ -783,6 +789,7 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
             "job_timeout": self.args.job_timeout,
             "recover_timeout": self.args.recover_timeout,
             "priority": self.args.priority,
+            "once": self.args.once,
         }
 
     @classmethod
@@ -817,6 +824,7 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
             job_timeout=data["job_timeout"],
             recover_timeout=data["recover_timeout"],
             priority=data.get("priority", 0),
+            once=data.get("once", False),
         )
         return cls(spec=spec, args=job_args)
 

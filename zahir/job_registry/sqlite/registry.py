@@ -1,5 +1,6 @@
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
+import hashlib
 import json
 import multiprocessing
 import sqlite3
@@ -29,6 +30,7 @@ from zahir.job_registry.sqlite.tables import (
     EVENTS_TABLE_SCHEMA,
     JOB_ERRORS_TABLE_SCHEMA,
     JOB_OUTPUTS_TABLE_SCHEMA,
+    JOBS_IDEMPOTENCY_INDEX,
     JOBS_INDEX,
     JOBS_PRIORITY_INDEX,
     JOBS_TABLE_SCHEMA,
@@ -40,6 +42,30 @@ from zahir.utils.logging_config import get_logger
 log = get_logger(__name__)
 # Log level controlled by ZAHIR_LOG_LEVEL environment variable
 # Default is WARNING to reduce noise
+
+
+def compute_idempotency_hash(saved_job: dict[str, Any]) -> str:
+    """Compute a stable hash from job inputs for idempotency checking.
+
+    The hash is based on:
+    - job type
+    - args (with stable dictionary ordering)
+
+    Dependencies are excluded as they are too transient. This ensures that
+    jobs with the same type and args produce the same hash, regardless of
+    dictionary key ordering.
+    """
+    # Create a stable representation of the job inputs
+    hash_data = {
+        "type": saved_job["type"],
+        "args": saved_job["args"],
+    }
+
+    # Use json.dumps with sort_keys=True to ensure stable ordering
+    hash_string = json.dumps(hash_data, sort_keys=True)
+
+    # Compute SHA256 hash
+    return hashlib.sha256(hash_string.encode("utf-8")).hexdigest()
 
 
 class SQLiteJobRegistry(JobRegistry):
@@ -80,6 +106,7 @@ class SQLiteJobRegistry(JobRegistry):
                 EVENTS_TABLE_SCHEMA,
                 JOBS_INDEX,
                 JOBS_PRIORITY_INDEX,
+                JOBS_IDEMPOTENCY_INDEX,
             ]:
                 conn.execute(schema)
             conn.commit()
@@ -166,11 +193,25 @@ class SQLiteJobRegistry(JobRegistry):
                 conn.rollback()
                 raise DuplicateJobError(f"Job with ID {job_id} already exists in the registry.")
 
+            # If once flag is set, check for existing job with same idempotency hash
+            idempotency_hash = None
+            if job.args.once:
+                idempotency_hash = compute_idempotency_hash(saved_job)
+                existing_hash = conn.execute(
+                    "select job_id from jobs where idempotency_hash = ?", (idempotency_hash,)
+                ).fetchone()
+
+                if existing_hash is not None:
+                    existing_job_id = existing_hash[0]
+                    log.debug(f"Job with idempotency_hash {idempotency_hash} already exists as {existing_job_id}, skipping insert")
+                    conn.rollback()
+                    return existing_job_id
+
             created_at = datetime.now(tz=UTC).isoformat()
             priority = job.args.priority
             conn.execute(
-                "insert into jobs (job_id, serialised_job, state, priority, created_at) values (?, ?, ?, ?, ?)",
-                (job_id, serialised, job_state, priority, created_at),
+                "insert into jobs (job_id, serialised_job, state, priority, created_at, idempotency_hash) values (?, ?, ?, ?, ?, ?)",
+                (job_id, serialised, job_state, priority, created_at, idempotency_hash),
             )
 
             conn.commit()

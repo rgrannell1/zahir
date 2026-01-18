@@ -251,7 +251,10 @@ Still, more practically, use a `TimeDependency` for simple time-based scheduling
 
 ### Idempotency
 
-We often want to run a workflow job to achieve a certain state (e.g create a resource). To ensure we only do this once, construct a dependency that is `impossible` when the resource already exists, and attach it to the creation job. This ensures we'll only attempt to construct the resource once.
+We often want to run a workflow job to achieve a certain state (e.g create a resource). We have two options:
+
+1. Use `once=True` as a job argument to ignore jobs of the correct type that have already used those parameters
+2. Construct a dependency that's impossible if the resource exists. This is tidier, where possible.
 
 ### Checkpointing
 
