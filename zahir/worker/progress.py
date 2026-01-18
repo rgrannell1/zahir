@@ -57,6 +57,7 @@ class JobTypeStats:
     failed: int = 0
     recovering: int = 0
     paused: int = 0
+    total: int = 0  # Total number of jobs of this type
     task_id: TaskID | None = None
 
 
@@ -105,6 +106,16 @@ class ZahirProgressMonitor:
                 job_id = event.job["job_id"]
                 self.job_id_to_type[job_id] = job_type
                 self._ensure_job_type_task(job_type)
+                stats = self.job_type_stats[job_type]
+                stats.total += 1
+                # Update the progress bar total
+                if stats.task_id is not None:
+                    self.progress.update(
+                        stats.task_id,
+                        total=stats.total,
+                    )
+                # Update workflow total
+                self._update_workflow_progress()
 
             case JobStartedEvent():
                 job_type = self.job_id_to_type.get(event.job_id)
@@ -181,13 +192,14 @@ class ZahirProgressMonitor:
     def _ensure_job_type_task(self, job_type: str) -> None:
         """Ensure a progress task exists for the given job type."""
         if job_type not in self.job_type_stats:
-            self.job_type_stats[job_type] = JobTypeStats()
+            stats = JobTypeStats()
+            self.job_type_stats[job_type] = stats
             task_id = self.progress.add_task(
                 f"  {job_type}: starting",
                 total=0,
                 completed=0,
             )
-            self.job_type_stats[job_type].task_id = task_id
+            stats.task_id = task_id
 
     def _update_job_type_description(self, job_type: str) -> None:
         """Update the progress bar description for a specific job type."""
@@ -215,10 +227,11 @@ class ZahirProgressMonitor:
             return
 
         total_processed = stats.completed + stats.failed
+        # Use the actual total, not just processed count
         self.progress.update(
             stats.task_id,
             completed=total_processed,
-            total=total_processed,
+            total=stats.total,
         )
         self._update_job_type_description(job_type)
         self._update_workflow_progress()
@@ -231,11 +244,13 @@ class ZahirProgressMonitor:
         total_completed = sum(stats.completed for stats in self.job_type_stats.values())
         total_failed = sum(stats.failed for stats in self.job_type_stats.values())
         total_processed = total_completed + total_failed
+        # Use the actual total across all job types
+        total_jobs = sum(stats.total for stats in self.job_type_stats.values())
 
         self.progress.update(
             self.workflow_task_id,
             completed=total_processed,
-            total=total_processed,
+            total=total_jobs,
         )
 
     def _finalize_workflow(self) -> None:
@@ -243,12 +258,13 @@ class ZahirProgressMonitor:
         total_completed = sum(stats.completed for stats in self.job_type_stats.values())
         total_failed = sum(stats.failed for stats in self.job_type_stats.values())
         total_processed = total_completed + total_failed
+        total_jobs = sum(stats.total for stats in self.job_type_stats.values())
 
         if self.workflow_task_id is not None:
             self.progress.update(
                 self.workflow_task_id,
                 completed=total_processed,
-                total=total_processed,
+                total=total_jobs,
                 description=f"✓ Workflow complete: {total_completed} completed, {total_failed} failed",
             )
 
@@ -258,6 +274,6 @@ class ZahirProgressMonitor:
                 self.progress.update(
                     stats.task_id,
                     completed=job_total_processed,
-                    total=job_total_processed,
+                    total=stats.total,
                     description=f"  ✓ {job_type}: {stats.completed} completed, {stats.failed} failed",
                 )

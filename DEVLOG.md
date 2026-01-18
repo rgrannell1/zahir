@@ -7,4 +7,12 @@
 - Cancellation should be blockable
 - Jobs with tracebacks
 - We need a way of communicating progress to the user beyond our janky progress bar
-- Switch to JobInstances
+
+
+
+## Progress Redesign
+
+Zahir |  | CPU <avg CPU 5s>% RAM <avg RAM 5s>%
+
+JobType [ status broken by percentage ] (terminal) / (total
+)
