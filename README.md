@@ -136,7 +136,7 @@ Rollbacks are also not separate abstractions; if something goes wrong, detect it
 
 Jobs generally pass data to child-jobs through parameters, then yield those jobs to continue the workflow. This somewhat mimics the callback-pattern / continuation-style-passing found in JavaScript. I don't remember this pattern fondly. So, Zahir has friendlier concurrency tools:
 
-**Awaiting**
+**1. Awaiting**
 
 Zahir jobs are generators; they can await other Zahir jobs using the `Await` event in the following manner:
 
@@ -155,7 +155,7 @@ Awaited jobs may also throw exceptions if they were given invalid input, threw a
 
 Jobs should have most of their logic factored out into plain functions; the job itself should just take input, call the necessary library functions, event, and delegate to other jobs.
 
-**JobDependencies**
+**2. JobDependencies**
 
 We can access the output of a job, if any, by inspecting the job-dependency a task might take.
 
