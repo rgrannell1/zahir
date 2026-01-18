@@ -17,6 +17,7 @@ def handle_job_exception(state) -> tuple[CheckPreconditionsStateChange, None]:
     state.context.job_registry.set_state(
         state.context,
         frame.job.job_id,
+        frame.job.spec.type,
         state.workflow_id,
         state.output_queue,
         JobState.RECOVERING,

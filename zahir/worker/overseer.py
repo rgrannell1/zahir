@@ -118,7 +118,7 @@ def dispatch_jobs_to_workers(
         process_states[worker_pid] = WorkerState.BUSY
 
         # Set job state to RUNNING to prevent re-dispatch
-        job_registry.set_state(context, job.job_id, workflow_id, output_queue, JobState.RUNNING, recovery=False)
+        job_registry.set_state(context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.RUNNING, recovery=False)
 
         # Send job assignment to worker via input queue
         input_queue = process_queues[worker_pid]
@@ -127,6 +127,7 @@ def dispatch_jobs_to_workers(
             JobAssignedEvent(
                 workflow_id=workflow_id,
                 job_id=job.job_id,
+                job_type=job.spec.type,
             )
         ))
 

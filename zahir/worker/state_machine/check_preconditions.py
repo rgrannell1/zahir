@@ -38,6 +38,7 @@ def check_preconditions(
         state.context.job_registry.set_state(
             state.context,
             state.frame.job.job_id,
+            state.frame.job.spec.type,
             state.workflow_id,
             state.output_queue,
             JobState.PRECHECK_FAILED,

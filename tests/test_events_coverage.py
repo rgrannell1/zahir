@@ -32,7 +32,7 @@ from zahir.serialisers.job import SerialisedJob
 
 def test_zahir_event_set_ids(simple_context):
     """Test ZahirEvent.set_ids() method for events with job_id and workflow_id."""
-    event = JobStartedEvent(workflow_id="old-wf", job_id="old-job")
+    event = JobStartedEvent(workflow_id="old-wf", job_id="old-job", job_type="TestJob")
 
     # Test setting both IDs
     event.set_ids(job_id="new-job", workflow_id="new-wf")
@@ -40,13 +40,13 @@ def test_zahir_event_set_ids(simple_context):
     assert event.workflow_id == "new-wf"
 
     # Test setting only job_id
-    event2 = JobCompletedEvent(workflow_id="wf-1", job_id="job-1", duration_seconds=5.0)
+    event2 = JobCompletedEvent(workflow_id="wf-1", job_id="job-1", job_type="TestJob", duration_seconds=5.0)
     event2.set_ids(job_id="job-2")
     assert event2.job_id == "job-2"
     assert event2.workflow_id == "wf-1"
 
     # Test setting only workflow_id
-    event3 = JobPausedEvent(workflow_id="wf-1", job_id="job-1")
+    event3 = JobPausedEvent(workflow_id="wf-1", job_id="job-1", job_type="TestJob")
     event3.set_ids(workflow_id="wf-2")
     assert event3.workflow_id == "wf-2"
     assert event3.job_id == "job-1"
@@ -123,15 +123,17 @@ def test_job_output_event_roundtrip(simple_context):
 def test_job_paused_event_roundtrip(simple_context):
     """Test JobPausedEvent save/load roundtrip."""
 
-    event = JobPausedEvent(workflow_id="wf-pause", job_id="job-pause")
+    event = JobPausedEvent(workflow_id="wf-pause", job_id="job-pause", job_type="TestJob")
 
     saved = event.save(simple_context)
     assert saved["workflow_id"] == "wf-pause"
     assert saved["job_id"] == "job-pause"
+    assert saved["job_type"] == "TestJob"
 
     loaded = JobPausedEvent.load(simple_context, saved)
     assert loaded.workflow_id == "wf-pause"
     assert loaded.job_id == "job-pause"
+    assert loaded.job_type == "TestJob"
 
 
 def test_job_recovery_completed_event_roundtrip(simple_context):
@@ -140,17 +142,20 @@ def test_job_recovery_completed_event_roundtrip(simple_context):
     event = JobRecoveryCompletedEvent(
         workflow_id="wf-rec",
         job_id="job-rec",
+        job_type="TestJob",
         duration_seconds=45.5,
     )
 
     saved = event.save(simple_context)
     assert saved["workflow_id"] == "wf-rec"
     assert saved["job_id"] == "job-rec"
+    assert saved["job_type"] == "TestJob"
     assert saved["duration_seconds"] == 45.5
 
     loaded = JobRecoveryCompletedEvent.load(simple_context, saved)
     assert loaded.workflow_id == "wf-rec"
     assert loaded.job_id == "job-rec"
+    assert loaded.job_type == "TestJob"
     assert loaded.duration_seconds == 45.5
 
 
@@ -160,17 +165,20 @@ def test_job_recovery_timeout_event_roundtrip(simple_context):
     event = JobRecoveryTimeoutEvent(
         workflow_id="wf-timeout",
         job_id="job-timeout",
+        job_type="TestJob",
         duration_seconds=120.0,
     )
 
     saved = event.save(simple_context)
     assert saved["workflow_id"] == "wf-timeout"
     assert saved["job_id"] == "job-timeout"
+    assert saved["job_type"] == "TestJob"
     assert saved["duration_seconds"] == 120.0
 
     loaded = JobRecoveryTimeoutEvent.load(simple_context, saved)
     assert loaded.workflow_id == "wf-timeout"
     assert loaded.job_id == "job-timeout"
+    assert loaded.job_type == "TestJob"
     assert loaded.duration_seconds == 120.0
 
 

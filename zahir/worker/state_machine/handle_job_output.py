@@ -12,6 +12,7 @@ def handle_job_output(state) -> tuple[StartStateChange, None]:
     state.context.job_registry.set_output(
         state.context,
         state.frame.job.job_id,
+        state.frame.job.spec.type,
         state.workflow_id,
         state.output_queue,
         state.last_event.output,

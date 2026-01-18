@@ -469,7 +469,7 @@ def test_read_job_events_sends_awaited_output():
     # Manually add the awaited job to registry (in real flow, handle_await does this)
     awaited_job_id = context.job_registry.add(context, awaited_job, output_queue)
     # Set output for the awaited job
-    context.job_registry.set_output(context, awaited_job_id, workflow_id, output_queue, {"result": "done"}, recovery=False)
+    context.job_registry.set_output(context, awaited_job_id, awaited_job.spec.type, workflow_id, output_queue, {"result": "done"}, recovery=False)
 
     # Mark job as required
     worker_state.frame.required_jobs.add(awaited_job_id)
@@ -526,7 +526,7 @@ def test_read_job_events_clears_required_jobs():
     # Manually add the awaited job to registry (in real flow, handle_await does this)
     awaited_job_id = context.job_registry.add(context, awaited_job, output_queue)
     # Set output for the awaited job
-    context.job_registry.set_output(context, awaited_job_id, workflow_id, output_queue, {"result": "done"}, recovery=False)
+    context.job_registry.set_output(context, awaited_job_id, awaited_job.spec.type, workflow_id, output_queue, {"result": "done"}, recovery=False)
 
     # Mark job as required
     worker_state.frame.required_jobs.add(awaited_job_id)

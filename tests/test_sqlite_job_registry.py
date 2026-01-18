@@ -52,9 +52,9 @@ def test_sqlite_job_registry_lifecycle():
         job_id = registry.add(context, job, dummy_queue)
         assert job_id == "job1"
         assert registry.get_state(job_id) == JobState.READY
-        registry.set_state(context, job_id, "wf-test", dummy_queue, JobState.COMPLETED)
+        registry.set_state(context, job_id, "DummyJob", "wf-test", dummy_queue, JobState.COMPLETED)
         assert registry.get_state(job_id) == JobState.COMPLETED
-        registry.set_output(context, job_id, "wf-test", dummy_queue, {"result": 42}, recovery=False)
+        registry.set_output(context, job_id, "DummyJob", "wf-test", dummy_queue, {"result": 42}, recovery=False)
         output = registry.get_output(job_id)
         assert output is not None, "Output should not be None"
         assert output["result"] == 42
@@ -184,7 +184,7 @@ def test_get_job_timing():
         job = DummyJob(job_id="job-timing-1")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
-        registry.set_state(context, "job-timing-1", "wf-1", dummy_queue, JobState.RUNNING)
+        registry.set_state(context, "job-timing-1", "DummyJob", "wf-1", dummy_queue, JobState.RUNNING)
         timing = registry.get_job_timing("job-timing-1")
         assert isinstance(timing, JobTimingInformation)
     finally:
@@ -224,7 +224,7 @@ def test_is_finished():
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
         assert not registry.is_finished("job-finished-1")
-        registry.set_state(context, "job-finished-1", "wf-1", dummy_queue, JobState.COMPLETED)
+        registry.set_state(context, "job-finished-1", "DummyJob", "wf-1", dummy_queue, JobState.COMPLETED)
         assert registry.is_finished("job-finished-1")
     finally:
         registry.conn.close()
@@ -285,7 +285,7 @@ def test_set_state_with_error():
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
         err = ValueError("test error")
-        registry.set_state(context, "job-error-1", "wf-1", dummy_queue, JobState.IRRECOVERABLE, error=err)
+        registry.set_state(context, "job-error-1", "DummyJob", "wf-1", dummy_queue, JobState.IRRECOVERABLE, error=err)
     finally:
         registry.conn.close()
         pathlib.Path(db_path).unlink()
@@ -344,7 +344,7 @@ def test_is_active():
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
         assert registry.is_active()
-        registry.set_state(context, "job-active-1", "wf-1", dummy_queue, JobState.COMPLETED)
+        registry.set_state(context, "job-active-1", "DummyJob", "wf-1", dummy_queue, JobState.COMPLETED)
         assert not registry.is_active()
     finally:
         registry.conn.close()
@@ -365,7 +365,7 @@ def test_jobs_with_state_filter():
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job1, dummy_queue)
         registry.add(context, job2, dummy_queue)
-        registry.set_state(context, "job-filter-1", "wf-1", dummy_queue, JobState.COMPLETED)
+        registry.set_state(context, "job-filter-1", "DummyJob", "wf-1", dummy_queue, JobState.COMPLETED)
         completed_jobs = list(registry.jobs(context, state=JobState.COMPLETED))
         assert len(completed_jobs) == 1
     finally:
@@ -404,7 +404,7 @@ def test_set_state_running():
         job = DummyJob(job_id="job-running-1")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
-        registry.set_state(context, "job-running-1", "wf-1", dummy_queue, JobState.RUNNING)
+        registry.set_state(context, "job-running-1", "DummyJob", "wf-1", dummy_queue, JobState.RUNNING)
         timing = registry.get_job_timing("job-running-1")
         assert timing.started_at is not None
     finally:
@@ -424,7 +424,7 @@ def test_set_state_recovering():
         job = DummyJob(job_id="job-recovery-1")
         dummy_queue = multiprocessing.Queue()
         registry.add(context, job, dummy_queue)
-        registry.set_state(context, "job-recovery-1", "wf-1", dummy_queue, JobState.RECOVERING)
+        registry.set_state(context, "job-recovery-1", "DummyJob", "wf-1", dummy_queue, JobState.RECOVERING)
         timing = registry.get_job_timing("job-recovery-1")
         assert timing.recovery_started_at is not None
     finally:

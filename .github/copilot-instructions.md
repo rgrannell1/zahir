@@ -12,3 +12,5 @@
 - Use ZAHIR_LOG_LEVEL=DEBUG to see more logs
 - You can clear tempfiles if you need to
 - If I paste in a fragment of a broken test, try to print out a `uv run pytest ` command so I can recheck it quickly
+- Try to write tests that actually prove things
+- Let me know if you significantly change a tests purpose

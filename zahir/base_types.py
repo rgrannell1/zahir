@@ -17,7 +17,7 @@ from typing import (
 )
 
 from zahir.events import Await, ZahirEvent
-from zahir.utils.id_generator import generate_id
+from zahir.utils.id_generator import generate_id, generate_job_id
 
 if TYPE_CHECKING:
     from zahir.dependencies.group import DependencyGroup
@@ -273,6 +273,7 @@ class JobRegistry(ABC):
         self,
         context: "Context",
         job_id: str,
+        job_type: str,
         workflow_id: str,
         output_queue: multiprocessing.Queue,
         state: JobState,
@@ -294,10 +295,11 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_output(self, context: "Context", job_id: str, workflow_id: str, output_queue, output: Mapping, recovery: bool = False) -> None:
+    def set_output(self, context: "Context", job_id: str, job_type: str, workflow_id: str, output_queue, output: Mapping, recovery: bool = False) -> None:
         """Store the output of a completed job
 
         @param job_id: The ID of the job
+        @param job_type: The type of the job
         @param output: The output dictionary produced by the job
         @param recovery: Whether this output is from a recovery job
         """
@@ -676,7 +678,7 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
         priority: int = 0,
     ) -> "JobInstance[JobSpecArgs, ArgsType, OutputType]":
         if job_id is None:
-            job_id = generate_id()
+            job_id = generate_job_id(self.type)
 
         from zahir.dependencies.group import DependencyGroup
 

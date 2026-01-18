@@ -228,7 +228,7 @@ def test_check_preconditions_timeout_normal_job():
     job_id = context.job_registry.add(context, job_instance, output_queue)
 
     # Set job to running state first and record start time
-    context.job_registry.set_state(context, job_instance.job_id, workflow_id, output_queue, JobState.RUNNING)
+    context.job_registry.set_state(context, job_instance.job_id, job_instance.spec.type, workflow_id, output_queue, JobState.RUNNING)
 
     # Sleep long enough to ensure timeout
     import time
@@ -265,7 +265,7 @@ def test_check_preconditions_timeout_recovery_job():
     job_id = context.job_registry.add(context, job_instance, output_queue)
 
     # Set job to recovering state
-    context.job_registry.set_state(context, job_instance.job_id, workflow_id, output_queue, JobState.RECOVERING)
+    context.job_registry.set_state(context, job_instance.job_id, job_instance.spec.type, workflow_id, output_queue, JobState.RECOVERING)
 
     import time
 

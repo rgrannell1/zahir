@@ -72,7 +72,7 @@ def test_dependency_worker_marks_ready_when_satisfied():
     assert context.job_registry.get_state(job_id) == JobState.READY
 
     # Mark job as completed to stop the worker
-    context.job_registry.set_state(context, job_id, workflow_id, output_queue, JobState.COMPLETED)
+    context.job_registry.set_state(context, job_id, job.spec.type, workflow_id, output_queue, JobState.COMPLETED)
 
     # Wait for worker to finish
     worker_process.join(timeout=3)
@@ -171,7 +171,7 @@ def test_dependency_worker_handles_job_dependency():
     # Add first job that will be completed
     job1 = SimpleJob({"test": "data"}, {})
     job_id1 = context.job_registry.add(context, job1, output_queue)
-    context.job_registry.set_state(context, job_id1, workflow_id, output_queue, JobState.COMPLETED)
+    context.job_registry.set_state(context, job_id1, job1.spec.type, workflow_id, output_queue, JobState.COMPLETED)
 
     # Add second job that depends on the first
     job_dependency = JobDependency(job_id1, context.job_registry)
@@ -192,7 +192,7 @@ def test_dependency_worker_handles_job_dependency():
     assert context.job_registry.get_state(job_id2) == JobState.READY
 
     # Clean up
-    context.job_registry.set_state(context, job_id2, workflow_id, output_queue, JobState.COMPLETED)
+    context.job_registry.set_state(context, job_id2, job2.spec.type, workflow_id, output_queue, JobState.COMPLETED)
     worker_process.join(timeout=3)
     if worker_process.is_alive():
         worker_process.terminate()
@@ -216,7 +216,7 @@ def test_dependency_worker_waits_for_unsatisfied_dependency():
     # Add first job that is still running
     job1 = SimpleJob({"test": "data"}, {})
     job_id1 = context.job_registry.add(context, job1, output_queue)
-    context.job_registry.set_state(context, job_id1, workflow_id, output_queue, JobState.RUNNING)
+    context.job_registry.set_state(context, job_id1, job1.spec.type, workflow_id, output_queue, JobState.RUNNING)
 
     # Add second job that depends on the first
     job_dependency = JobDependency(job_id1, context.job_registry)
@@ -237,8 +237,8 @@ def test_dependency_worker_waits_for_unsatisfied_dependency():
     assert context.job_registry.get_state(job_id2) == JobState.PENDING
 
     # Clean up - mark both as completed
-    context.job_registry.set_state(context, job_id1, workflow_id, output_queue, JobState.COMPLETED)
-    context.job_registry.set_state(context, job_id2, workflow_id, output_queue, JobState.COMPLETED)
+    context.job_registry.set_state(context, job_id1, job1.spec.type, workflow_id, output_queue, JobState.COMPLETED)
+    context.job_registry.set_state(context, job_id2, job2.spec.type, workflow_id, output_queue, JobState.COMPLETED)
     worker_process.join(timeout=3)
     if worker_process.is_alive():
         worker_process.terminate()
@@ -263,7 +263,7 @@ def test_dependency_worker_marks_impossible_on_failed_job_dependency():
     job1 = SimpleJob({"test": "data"}, {})
     job_id1 = context.job_registry.add(context, job1, output_queue)
     context.job_registry.set_state(
-        context, job_id1, workflow_id, output_queue, JobState.IRRECOVERABLE, error=Exception("Test failure")
+        context, job_id1, job1.spec.type, workflow_id, output_queue, JobState.IRRECOVERABLE, error=Exception("Test failure")
     )
 
     # Add second job that depends on the first
@@ -334,7 +334,7 @@ def test_dependency_worker_handles_multiple_jobs():
     assert context.job_registry.get_state(job_id2) == JobState.IMPOSSIBLE
 
     # Clean up
-    context.job_registry.set_state(context, job_id1, workflow_id, output_queue, JobState.COMPLETED)
+    context.job_registry.set_state(context, job_id1, job1.spec.type, workflow_id, output_queue, JobState.COMPLETED)
     worker_process.join(timeout=3)
     if worker_process.is_alive():
         worker_process.terminate()
@@ -361,7 +361,7 @@ def test_dependency_worker_only_processes_pending_jobs():
     # Add a job in RUNNING state (not PENDING)
     job = SimpleJob({"test": "data"}, {"time_dep": satisfied_dep})
     job_id = context.job_registry.add(context, job, output_queue)
-    context.job_registry.set_state(context, job_id, workflow_id, output_queue, JobState.RUNNING)
+    context.job_registry.set_state(context, job_id, job.spec.type, workflow_id, output_queue, JobState.RUNNING)
 
     # Start dependency worker in a separate process
     worker_process = multiprocessing.Process(target=zahir_dependency_worker, args=(context, output_queue, workflow_id))
@@ -374,7 +374,7 @@ def test_dependency_worker_only_processes_pending_jobs():
     assert context.job_registry.get_state(job_id) == JobState.RUNNING
 
     # Clean up
-    context.job_registry.set_state(context, job_id, workflow_id, output_queue, JobState.COMPLETED)
+    context.job_registry.set_state(context, job_id, job.spec.type, workflow_id, output_queue, JobState.COMPLETED)
     worker_process.join(timeout=3)
     if worker_process.is_alive():
         worker_process.terminate()

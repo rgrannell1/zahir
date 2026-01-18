@@ -23,6 +23,7 @@ def create_state_event(
     state: JobState,
     workflow_id: str,
     job_id: str,
+    job_type: str,
     error: Exception | None = None,
     timing: JobTimingInformation | None = None,
 ) -> ZahirEvent | None:
@@ -39,34 +40,37 @@ def create_state_event(
             return None
         case JobState.IMPOSSIBLE:
             # Probably should emit an event, but not yet implemented
-            return JobImpossibleEvent(workflow_id=workflow_id, job_id=job_id)
+            return JobImpossibleEvent(workflow_id=workflow_id, job_id=job_id, job_type=job_type)
         case JobState.READY:
             # Not interesting enough to emit an event
             return None
         case JobState.PAUSED:
-            return JobPausedEvent(workflow_id=workflow_id, job_id=job_id)
+            return JobPausedEvent(workflow_id=workflow_id, job_id=job_id, job_type=job_type)
         case JobState.PRECHECK_FAILED:
             return JobPrecheckFailedEvent(
-                workflow_id=workflow_id, job_id=job_id, error=exception_to_text_blob(error) if error else ""
+                workflow_id=workflow_id, job_id=job_id, job_type=job_type, error=exception_to_text_blob(error) if error else ""
             )
         case JobState.RUNNING:
-            return JobStartedEvent(workflow_id=workflow_id, job_id=job_id)
+            return JobStartedEvent(workflow_id=workflow_id, job_id=job_id, job_type=job_type)
         case JobState.COMPLETED:
             duration = timing.time_since_started() if timing else 0.0
             return JobCompletedEvent(
                 job_id=job_id,
+                job_type=job_type,
                 workflow_id=workflow_id,
                 duration_seconds=duration or 0.0,
             )
         case JobState.RECOVERING:
             return JobRecoveryStartedEvent(
                 job_id=job_id,
+                job_type=job_type,
                 workflow_id=workflow_id,
             )
         case JobState.RECOVERED:
             duration = timing.time_since_recovery_started() if timing else 0.0
             return JobRecoveryCompletedEvent(
                 job_id=job_id,
+                job_type=job_type,
                 workflow_id=workflow_id,
                 duration_seconds=duration or 0.0,
             )
@@ -74,6 +78,7 @@ def create_state_event(
             duration = timing.time_since_started() if timing else 0.0
             return JobTimeoutEvent(
                 job_id=job_id,
+                job_type=job_type,
                 workflow_id=workflow_id,
                 duration_seconds=duration or 0.0,
             )
@@ -81,10 +86,11 @@ def create_state_event(
             duration = timing.time_since_recovery_started() if timing else 0.0
             return JobRecoveryTimeoutEvent(
                 job_id=job_id,
+                job_type=job_type,
                 workflow_id=workflow_id,
                 duration_seconds=duration or 0.0,
             )
         case JobState.IRRECOVERABLE:
             assert error is not None
 
-            return JobIrrecoverableEvent(job_id=job_id, workflow_id=workflow_id, error=error)
+            return JobIrrecoverableEvent(job_id=job_id, job_type=job_type, workflow_id=workflow_id, error=error)

@@ -119,12 +119,12 @@ def test_start_no_frame_with_paused_job_enqueues():
     # Add a job and set it to PAUSED
     job = SimpleJob({"test": "data"}, {})
     job_id = context.job_registry.add(context, job, output_queue)
-    context.job_registry.set_state(context, job.job_id, workflow_id, output_queue, JobState.PAUSED)
+    context.job_registry.set_state(context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.PAUSED)
 
     # Add another job that the first job is waiting for (not finished yet)
     another_job = AnotherJob({"count": 0}, {})
     required_job_id = context.job_registry.add(context, another_job, output_queue)
-    context.job_registry.set_state(context, required_job_id, workflow_id, output_queue, JobState.RUNNING)
+    context.job_registry.set_state(context, required_job_id, another_job.spec.type, workflow_id, output_queue, JobState.RUNNING)
 
     # Create a frame that requires another job (so it's waiting)
     job_generator = SimpleJob.run(None, context, job.input, job.dependencies)

@@ -38,7 +38,7 @@ def execute_recovery_job(
     # Some job implementations don't emit this implicitly, so the
     # worker should surface it when execution begins.
     state.context.job_registry.set_state(
-        state.context, state.frame.job.job_id, state.workflow_id, state.output_queue, JobState.RUNNING, recovery=state.frame.recovery
+        state.context, state.frame.job.job_id, state.frame.job.spec.type, state.workflow_id, state.output_queue, JobState.RUNNING, recovery=state.frame.recovery
     )
 
     job_timing = state.context.job_registry.get_job_timing(state.frame.job.job_id)
