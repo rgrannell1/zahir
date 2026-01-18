@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import time
 from typing import Protocol
 
+import psutil
 from rich.bar import Bar
 from rich.progress import (
     Progress,
@@ -71,6 +72,34 @@ class JobTypeStats:
     task_id: TaskID | None = None
 
 
+
+
+class ConditionalSpinnerColumn(SpinnerColumn):
+    """Spinner column that can be conditionally hidden based on task description."""
+
+    def __init__(self, hide_if_starts_with: str | None = None):
+        super().__init__()
+        self.hide_if_starts_with = hide_if_starts_with
+
+    def render(self, task) -> Text:
+        if self.hide_if_starts_with and task.description and task.description.startswith(self.hide_if_starts_with):
+            return Text("")  # Hide for system stats
+        return super().render(task)
+
+
+class ConditionalTextColumn(TextColumn):
+    """Text column that can be conditionally hidden based on task description."""
+
+    def __init__(self, text_format: str, hide_if_starts_with: str | None = None):
+        super().__init__(text_format)
+        self.hide_if_starts_with = hide_if_starts_with
+
+    def render(self, task) -> Text:
+        if self.hide_if_starts_with and task.description and task.description.startswith(self.hide_if_starts_with):
+            return Text("")  # Hide for system stats
+        return super().render(task)
+
+
 class StatusBarColumn(ProgressColumn):
     """Progress bar column whose color depends on task.fields['status'].
 
@@ -96,6 +125,10 @@ class StatusBarColumn(ProgressColumn):
         self.back_style = back_style
 
     def render(self, task) -> Text:
+        # Hide bar for system stats task (identified by description starting with "Zahir |")
+        if task.description and task.description.startswith("Zahir |"):
+            return Text("")  # Empty text, no bar
+
         status = task.fields.get("status", "running")
 
         if status == "failed":
@@ -121,18 +154,24 @@ class ZahirProgressMonitor:
 
     def __init__(self):
         self.progress = Progress(
-            SpinnerColumn(),
+            ConditionalSpinnerColumn(hide_if_starts_with="Zahir |"),
             TextColumn("{task.description}"),
             StatusBarColumn(width=30),
-            TextColumn("[progress.percentage]{task.completed}/{task.total}"),
+            ConditionalTextColumn(
+                "[progress.percentage]{task.completed}/{task.total}",
+                hide_if_starts_with="Zahir |"
+            ),
         )
         self.job_type_stats: dict[str, JobTypeStats] = {}
         self.job_id_to_type: dict[str, str] = {}
         # Track active state of each job: "running", "paused", or "recovering"
         self.job_id_to_active_state: dict[str, str] = {}
         self.workflow_task_id: TaskID | None = None
+        self.system_stats_task_id: TaskID | None = None
         # Track (timestamp, pid) tuples for active processes in a 3s window
         self.pid_events: deque[tuple[float, int]] = deque()
+        # Track (timestamp, cpu_percent, ram_percent) tuples for 5-second window
+        self.system_stats_history: deque[tuple[float, float, float]] = deque()
 
     def __enter__(self):
         self.progress.__enter__()
@@ -143,6 +182,9 @@ class ZahirProgressMonitor:
 
     def handle_event(self, event: ZahirEvent) -> None:
         """Handle workflow events and update progress bars."""
+        # Update system stats on every event
+        self._update_system_stats()
+
         # Track PID from event if available
         if hasattr(event, "pid"):
             current_time = time.time()
@@ -152,6 +194,13 @@ class ZahirProgressMonitor:
 
         match event:
             case WorkflowStartedEvent():
+                # Add system stats task at the top
+                self.system_stats_task_id = self.progress.add_task(
+                    "Zahir |  | CPU 0.0% RAM 0.0%",
+                    total=1,
+                    completed=0,
+                    status="running",
+                )
                 self.workflow_task_id = self.progress.add_task(
                     "Workflow running",
                     total=0,
@@ -255,6 +304,36 @@ class ZahirProgressMonitor:
 
             case WorkflowCompleteEvent():
                 self._finalize_workflow()
+
+    def _update_system_stats(self) -> None:
+        """Update system stats display with 5-second averages."""
+        if self.system_stats_task_id is None:
+            return
+
+        current_time = time.time()
+
+        # Add current stats
+        cpu_percent = psutil.cpu_percent(interval=0.0)  # Non-blocking
+        ram_percent = psutil.virtual_memory().percent
+        self.system_stats_history.append((current_time, cpu_percent, ram_percent))
+
+        # Remove stats older than 5 seconds
+        cutoff_time = current_time - 5.0
+        while self.system_stats_history and self.system_stats_history[0][0] < cutoff_time:
+            self.system_stats_history.popleft()
+
+        # Calculate averages
+        if self.system_stats_history:
+            avg_cpu = sum(cpu for _, cpu, _ in self.system_stats_history) / len(self.system_stats_history)
+            avg_ram = sum(ram for _, _, ram in self.system_stats_history) / len(self.system_stats_history)
+        else:
+            avg_cpu = cpu_percent
+            avg_ram = ram_percent
+
+        self.progress.update(
+            self.system_stats_task_id,
+            description=f"Zahir | CPU {avg_cpu:.0f}% RAM {avg_ram:.0f}%",
+        )
 
     def _cleanup_old_pids(self, current_time: float) -> None:
         """Remove PID events older than 3 seconds."""
