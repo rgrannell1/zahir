@@ -5,12 +5,14 @@
 [![codecov](https://codecov.io/gh/rgrannell1/zahir/branch/main/graph/badge.svg)](https://codecov.io/gh/rgrannell1/zahir)
 
 > Perhaps I shall conclude by wearing away the Zahir simply through thinking of it again and again.
-
-![](./progress.png)
-
+> 
 ## Motivation
 
 I'm writing a self-hosted digital library website, and I need a way of coordinating data-processing. My last workflow engine was written in PowerShell, so I'm not using that...
+
+![](./progress.png)
+
+It'll also be useful for my [photo website backend](https://github.com/rgrannell1/mirror). Mirror has already been a nice testing-ground to see what features I need in reality, such as a resource-limiter to stop OOMing my laptop.
 
 ## File-Structure
 
