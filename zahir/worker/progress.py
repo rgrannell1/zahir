@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import time
 from typing import Protocol
 
@@ -21,6 +21,7 @@ from zahir.events import (
     JobEvent,
     JobIrrecoverableEvent,
     JobPausedEvent,
+    JobImpossibleEvent,
     JobRecoveryCompletedEvent,
     JobRecoveryStartedEvent,
     JobStartedEvent,
@@ -70,6 +71,7 @@ class JobTypeStats:
     paused: int = 0
     total: int = 0  # Total number of jobs of this type
     task_id: TaskID | None = None
+    durations: list[float] = field(default_factory=list)  # Track durations for average calculation
 
 
 
@@ -255,7 +257,11 @@ class ZahirProgressMonitor:
                     else:  # running or unknown
                         stats.running = max(0, stats.running - 1)
                     stats.completed += 1
+                    # Track duration for average calculation
+                    stats.durations.append(event.duration_seconds)
                     self._update_job_type_progress(job_type)
+                    # Update workflow description to refresh ETA
+                    self._update_workflow_description()
 
             case JobRecoveryStartedEvent():
                 job_type = self.job_id_to_type.get(event.job_id)
@@ -275,7 +281,11 @@ class ZahirProgressMonitor:
                     stats.recovering = max(0, stats.recovering - 1)
                     self.job_id_to_active_state.pop(event.job_id, None)
                     stats.completed += 1
+                    # Track duration for average calculation
+                    stats.durations.append(event.duration_seconds)
                     self._update_job_type_progress(job_type)
+                    # Update workflow description to refresh ETA
+                    self._update_workflow_description()
 
             case JobPausedEvent():
                 job_type = self.job_id_to_type.get(event.job_id)
@@ -302,6 +312,8 @@ class ZahirProgressMonitor:
                         stats.running = max(0, stats.running - 1)
                     stats.failed += 1
                     self._update_job_type_progress(job_type)
+                    # Update workflow description to refresh ETA
+                    self._update_workflow_description()
 
             case JobImpossibleEvent():
                 self.impossible_jobs_count += 1
@@ -353,15 +365,53 @@ class ZahirProgressMonitor:
         """Get count of unique processes that emitted events in the last 3 seconds."""
         return len(set(pid for _, pid in self.pid_events))
 
+    def _calculate_eta_seconds(self) -> float | None:
+        total_eta_seconds = 0.0
+        has_data = False
+
+        for stats in self.job_type_stats.values():
+            remaining = stats.total - stats.completed - stats.failed
+
+            if remaining <= 0:
+                continue
+
+            if stats.durations:
+                # estimate remaining time based on average duration
+                avg_duration = sum(stats.durations) / len(stats.durations)
+                total_eta_seconds += avg_duration * remaining
+                has_data = True
+
+        return total_eta_seconds if has_data else None
+
+    def _format_eta_minutes(self, eta_seconds: float | None) -> str:
+        """Format ETA in seconds to a human-readable minutes string."""
+        if eta_seconds is None:
+            return ""
+
+        eta_minutes = eta_seconds / 60.0
+
+        if eta_minutes < 0.1:
+            return f" eta <1min"
+        elif eta_minutes < 1.0:
+            return f" eta {eta_minutes*60:.0f}s"
+        elif eta_minutes < 10.0:
+            return f" eta {eta_minutes:.1f}min"
+        else:
+            return f" eta {eta_minutes:.0f}min"
+
     def _update_workflow_description(self) -> None:
-        """Update workflow task description with impossible jobs count."""
         if self.workflow_task_id is None:
             return
 
         desc_parts = ["Workflow running"]
         if self.impossible_jobs_count > 0:
             desc_parts.append(f"{self.impossible_jobs_count} impossible")
-        
+
+        eta_seconds = self._calculate_eta_seconds()
+        eta_text = self._format_eta_minutes(eta_seconds)
+        if eta_text:
+            desc_parts.append(eta_text)
+
         self.progress.update(
             self.workflow_task_id,
             description=" ".join(desc_parts),
@@ -446,7 +496,20 @@ class ZahirProgressMonitor:
             # No active jobs and no completed jobs yet - show "starting"
             desc_parts.append("starting")
 
-        description = f"  {job_type}: {', '.join(desc_parts)}"
+        avg_duration_text = ""
+        if stats.durations:
+            avg_duration = sum(stats.durations) / len(stats.durations)
+            # Format: μ<seconds> with appropriate precision
+            if avg_duration < 0.1:
+                avg_duration_text = f" μ{avg_duration*1000:.0f}ms"
+            elif avg_duration < 1.0:
+                avg_duration_text = f" μ{avg_duration:.2f}s"
+            elif avg_duration < 10.0:
+                avg_duration_text = f" μ{avg_duration:.1f}s"
+            else:
+                avg_duration_text = f" μ{avg_duration:.0f}s"
+
+        description = f"  {job_type}: {', '.join(desc_parts)}{avg_duration_text}"
         self.progress.update(
             stats.task_id,
             description=description,
