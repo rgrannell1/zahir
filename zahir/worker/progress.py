@@ -173,6 +173,9 @@ class ZahirProgressMonitor:
                         total=stats.total,
                     )
 
+                # Update description to reflect current state
+                self._update_job_type_description(job_type)
+
                 # Update workflow total + status
                 self._update_workflow_progress()
 
@@ -309,9 +312,25 @@ class ZahirProgressMonitor:
         if stats.paused > 0:
             parts.append(f"{stats.paused} paused")
 
+        # Build description parts
+        desc_parts = []
+        if parts:
+            desc_parts.append(", ".join(parts))
+        
+        # Always show completed/failed counts
+        if stats.completed > 0 or stats.failed > 0:
+            status_text = f"{stats.completed} completed"
+            if stats.failed > 0:
+                status_text += f", {stats.failed} failed"
+            desc_parts.append(status_text)
+        elif not parts:
+            # No active jobs and no completed jobs yet - show "starting"
+            desc_parts.append("starting")
+
+        description = f"  {job_type}: {', '.join(desc_parts)}"
         self.progress.update(
             stats.task_id,
-            description=f"  {job_type}: {stats.completed} completed, {stats.failed} failed",
+            description=description,
         )
 
     def _update_job_type_progress(self, job_type: str) -> None:
