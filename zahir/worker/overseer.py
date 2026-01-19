@@ -240,6 +240,7 @@ def zahir_worker_overseer(start: JobInstance | None, context, worker_count: int 
         pass
     finally:
         shutdown(processes)
+        context.job_registry.close()
 
     if exc is not None:
         raise exc

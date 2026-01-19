@@ -1,3 +1,4 @@
+import atexit
 import multiprocessing
 import os
 import time
@@ -32,6 +33,7 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
     try:
         job_registry = context.job_registry
         job_registry.init(str(os.getpid()))
+        atexit.register(lambda: job_registry.close())
 
         while True:
             if not job_registry.is_active():
