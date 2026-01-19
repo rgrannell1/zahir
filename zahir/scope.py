@@ -13,6 +13,32 @@ from zahir.exception import DependencyNotInScopeError, JobNotInScopeError, Trans
 from zahir.jobs import Empty, Sleep
 from zahir.transforms.retry import retry
 
+
+def _find_caller_module() -> ModuleType | None:
+    """Find the calling module by walking up the call stack.
+    
+    Skips internal zahir modules and pytest modules to find the actual caller.
+    
+    @return: The calling module, or None if not found
+    """
+    frame = inspect.currentframe()
+    if frame is None:
+        return None
+    
+    # Walk up the stack to find a frame with a valid module
+    # Skip internal zahir modules and pytest modules
+    current_frame = frame.f_back  # Skip this function's frame
+    while current_frame is not None:
+        candidate_module = inspect.getmodule(current_frame)
+        if candidate_module is not None:
+            module_name = candidate_module.__name__
+            # Skip zahir internal modules and pytest modules
+            if not module_name.startswith(("zahir.", "_pytest", "pytest")):
+                return candidate_module
+        current_frame = current_frame.f_back
+    
+    return None
+
 # Register built in job specs
 INTERNAL_JOB_SPECS = {"Sleep": Sleep, "Empty": Empty}
 
@@ -167,24 +193,7 @@ class LocalScope(Scope):
         """
 
         if module is None:
-            # Get the caller's frame and extract their module
-            frame = inspect.currentframe()
-            if frame is None:
-                raise RuntimeError("Cannot determine calling module")
-
-            # Walk up the stack to find a frame with a valid module
-            # Skip internal zahir modules and pytest modules
-            current_frame = frame
-            while current_frame is not None:
-                candidate_module = inspect.getmodule(current_frame)
-                if candidate_module is not None:
-                    module_name = candidate_module.__name__
-                    # Skip zahir internal modules and pytest modules
-                    if not module_name.startswith(("zahir.", "_pytest", "pytest")):
-                        module = candidate_module
-                        break
-                current_frame = current_frame.f_back
-
+            module = _find_caller_module()
             if module is None:
                 raise RuntimeError("Cannot determine calling module")
 

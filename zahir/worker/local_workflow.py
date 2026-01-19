@@ -1,12 +1,11 @@
 from collections.abc import Iterator, Mapping
-import inspect
 from typing import Any, TypeVar
 
 from zahir.base_types import Context, JobInstance
 from zahir.context.memory import MemoryContext
 from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
-from zahir.scope import LocalScope
+from zahir.scope import LocalScope, _find_caller_module
 from zahir.worker.overseer import zahir_worker_overseer
 from zahir.worker.progress import NoOpProgressMonitor, ProgressMonitor, ZahirProgressMonitor
 
@@ -50,31 +49,16 @@ class LocalWorkflow[WorkflowOutputType]:
         self.start_job_type = start_job_type
 
         if not context:
-            # TODO Ew ew ew ew ew
-            # find which module called this one, and construct a scope based on the
-            # jobs and modules in that librart
-            caller_frame = inspect.currentframe()
-            caller_module = None
-
-            # Walk up the stack to find a valid module
-            # Skip internal zahir modules and pytest modules
-            current_frame = caller_frame
-            while current_frame is not None:
-                candidate_module = inspect.getmodule(current_frame)
-                if candidate_module is not None:
-                    module_name = candidate_module.__name__
-                    # Skip zahir internal modules and pytest modules
-                    if not module_name.startswith(("zahir.", "_pytest", "pytest")):
-                        caller_module = candidate_module
-                        break
-                current_frame = current_frame.f_back
+            # Find which module called this one, and construct a scope based on the
+            # jobs and modules in that library
+            caller_module = _find_caller_module()
 
             # Make an in-memory job-registry
             scope = LocalScope.from_module(caller_module)
             job_registry = SQLiteJobRegistry(":memory:")
-            new_context = MemoryContext(scope=scope, job_registry=job_registry)
+            context = MemoryContext(scope=scope, job_registry=job_registry)
 
-            self.context = new_context
+        self.context = context
 
         # Store output logging configuration in context state
         log_dir = "zahir_logs" if log_output_dir is None else log_output_dir
