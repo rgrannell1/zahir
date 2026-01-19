@@ -48,7 +48,11 @@ def get_longest_word(words: list[str]) -> str:
 
 
 @spec()
-def ChapterProcessor(spec_args, context, args, dependencies) -> Generator[JobOutputEvent]:
+def ChapterProcessor(
+    spec_args,
+    context,
+    args: TypedDict[{ "lines": list[str] }],
+    dependencies) -> Generator[JobOutputEvent]:
     """For each chapter, find the longest word."""
 
     # return the longest word found in the chapter
@@ -94,10 +98,11 @@ def UppercaseWords(spec_args, context: Context, args, dependencies) -> Generator
 # TODO debug why implicit scope fails.
 
 
-job_registry = SQLiteJobRegistry("jobs.db")
-context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registry)
+if __name__ == "__main__":
+    job_registry = SQLiteJobRegistry("jobs.db")
+    context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registry)
 
-start = BookProcessor({"file_path": "integration_tests/data.txt"}, {})
+    start = BookProcessor({"file_path": "integration_tests/data.txt"}, {})
 
-events = list(LocalWorkflow(context).run(start, events_filter=None))
-print(events[-5:-1])
+    events = list(LocalWorkflow(context).run(start, events_filter=None))
+    print(events[-5:-1])

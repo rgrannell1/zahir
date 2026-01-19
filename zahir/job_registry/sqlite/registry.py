@@ -49,6 +49,18 @@ class SQLiteJobRegistry(JobRegistry):
 
     def __init__(self, db_path: str):
         self._db_path = db_path
+        # Connection is created in init(), not here, so it won't be pickled
+
+    def __getstate__(self) -> dict:
+        """Custom pickling: don't pickle the connection, just the db path."""
+        state = {"_db_path": self._db_path}
+        # Don't include conn - it will be recreated in init()
+        return state
+
+    def __setstate__(self, state: dict) -> None:
+        """Custom unpickling: restore db path, connection will be created in init()."""
+        self._db_path = state["_db_path"]
+        # conn will be created when init() is called
 
     def _create_connection(self) -> sqlite3.Connection:
         """Create and configure a new database connection."""
