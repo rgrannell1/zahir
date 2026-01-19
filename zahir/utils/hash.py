@@ -1,8 +1,8 @@
 """Utility functions for computing stable hashes from job data."""
 
+from collections.abc import Callable, Mapping
 import hashlib
 import json
-from collections.abc import Callable, Mapping
 from typing import Any
 
 

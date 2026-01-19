@@ -1,14 +1,12 @@
 from collections.abc import Iterator, Mapping
-from datetime import datetime, timezone
 import inspect
-from typing import Any, Optional, TypeVar
+from typing import Any, TypeVar
 
 from zahir.base_types import Context, JobInstance
 from zahir.context.memory import MemoryContext
 from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.scope import LocalScope
-from zahir.utils.output_logging import get_log_directory_path
 from zahir.worker.overseer import zahir_worker_overseer
 from zahir.worker.progress import NoOpProgressMonitor, ProgressMonitor, ZahirProgressMonitor
 
@@ -24,16 +22,16 @@ class LocalWorkflow[WorkflowOutputType]:
     context: Context | None
     max_workers: int
     progress_monitor: ProgressMonitor | None
-    log_output_dir: Optional[str]
-    start_job_type: Optional[str]
+    log_output_dir: str | None
+    start_job_type: str | None
 
     def __init__(
         self,
         context: Context | None = None,
         max_workers: int = 4,
         progress_monitor: ProgressMonitor | None = None,
-        log_output_dir: Optional[str] = None,
-        start_job_type: Optional[str] = None,
+        log_output_dir: str | None = None,
+        start_job_type: str | None = None,
     ) -> None:
         """Initialize a workflow execution engine
 
@@ -79,10 +77,7 @@ class LocalWorkflow[WorkflowOutputType]:
             self.context = new_context
 
         # Store output logging configuration in context state
-        if log_output_dir is None:
-            log_dir = "zahir_logs"
-        else:
-            log_dir = log_output_dir
+        log_dir = "zahir_logs" if log_output_dir is None else log_output_dir
 
         self.context.state["_zahir_log_output_dir"] = log_dir
         self.context.state["_zahir_start_job_type"] = start_job_type
@@ -105,10 +100,9 @@ class LocalWorkflow[WorkflowOutputType]:
         - ZahirCustomEvent: any custom events emitted by workflows. Can be used for custom in-band eventing.
         """
 
-        if show_progress:
-            progress_monitor = self.progress_monitor or ZahirProgressMonitor()
-        else:
-            progress_monitor = NoOpProgressMonitor()
+        progress_monitor = (
+            self.progress_monitor or ZahirProgressMonitor() if show_progress else NoOpProgressMonitor()
+        )
 
         with progress_monitor as progress:
             for event in zahir_worker_overseer(start, self.context, self.max_workers):

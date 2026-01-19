@@ -19,9 +19,9 @@ from rich.text import Text
 from zahir.events import (
     JobCompletedEvent,
     JobEvent,
+    JobImpossibleEvent,
     JobIrrecoverableEvent,
     JobPausedEvent,
-    JobImpossibleEvent,
     JobRecoveryCompletedEvent,
     JobRecoveryStartedEvent,
     JobStartedEvent,
@@ -43,7 +43,7 @@ class ProgressMonitor(Protocol):
         """Handle workflow events and update progress tracking."""
         ...
 
-    def __enter__(self) -> "ProgressMonitor":
+    def __enter__(self) -> ProgressMonitor:
         """Context manager entry."""
         ...
 
@@ -58,7 +58,7 @@ class NoOpProgressMonitor:
     def handle_event(self, event: ZahirEvent) -> None:
         pass
 
-    def __enter__(self) -> "NoOpProgressMonitor":
+    def __enter__(self) -> NoOpProgressMonitor:
         return self
 
     def __exit__(self, exc_type: type | None, exc_val: Exception | None, exc_tb: object | None) -> bool | None:
@@ -77,8 +77,6 @@ class JobTypeStats:
     total: int = 0  # Total number of jobs of this type
     task_id: TaskID | None = None
     durations: list[float] = field(default_factory=list)  # Track durations for average calculation
-
-
 
 
 class ConditionalSpinnerColumn(SpinnerColumn):
@@ -145,7 +143,7 @@ class StatusBarColumn(ProgressColumn):
         else:
             complete_style = self.running_complete_style
 
-        bar = Bar(
+        return Bar(
             size=task.total or 1,
             begin=0,
             end=task.completed,
@@ -153,7 +151,6 @@ class StatusBarColumn(ProgressColumn):
             color=complete_style,
             bgcolor=self.back_style,
         )
-        return bar
 
 
 class ZahirProgressMonitor:
@@ -164,10 +161,7 @@ class ZahirProgressMonitor:
             ConditionalSpinnerColumn(hide_if_starts_with="Zahir |"),
             TextColumn("{task.description}"),
             StatusBarColumn(width=30),
-            ConditionalTextColumn(
-                "[progress.percentage]{task.completed}/{task.total}",
-                hide_if_starts_with="Zahir |"
-            ),
+            ConditionalTextColumn("[progress.percentage]{task.completed}/{task.total}", hide_if_starts_with="Zahir |"),
         )
         self.job_type_stats: dict[str, JobTypeStats] = {}
         self.job_id_to_type: dict[str, str] = {}
@@ -368,7 +362,7 @@ class ZahirProgressMonitor:
 
     def _get_active_process_count(self) -> int:
         """Get count of unique processes that emitted events in the last 3 seconds."""
-        return len(set(pid for _, pid in self.pid_events))
+        return len({pid for _, pid in self.pid_events})
 
     def _calculate_eta_seconds(self) -> float | None:
         total_eta_seconds = 0.0
@@ -388,7 +382,8 @@ class ZahirProgressMonitor:
 
         return total_eta_seconds if has_data else None
 
-    def _format_eta_minutes(self, eta_seconds: float | None) -> str:
+    @staticmethod
+    def _format_eta_minutes(eta_seconds: float | None) -> str:
         """Format ETA in seconds to a human-readable minutes string."""
         if eta_seconds is None:
             return ""
@@ -396,13 +391,12 @@ class ZahirProgressMonitor:
         eta_minutes = eta_seconds / 60.0
 
         if eta_minutes < 0.1:
-            return f"eta <1min"
-        elif eta_minutes < 1.0:
-            return f"eta {eta_minutes*60:.0f}s"
-        elif eta_minutes < 10.0:
+            return "eta <1min"
+        if eta_minutes < 1.0:
+            return f"eta {eta_minutes * 60:.0f}s"
+        if eta_minutes < 10.0:
             return f"eta {eta_minutes:.1f}min"
-        else:
-            return f"eta {eta_minutes:.0f}min"
+        return f"eta {eta_minutes:.0f}min"
 
     def _update_workflow_description(self) -> None:
         if self.workflow_task_id is None:
@@ -506,7 +500,7 @@ class ZahirProgressMonitor:
             avg_duration = sum(stats.durations) / len(stats.durations)
             # Format: μ<seconds> with appropriate precision
             if avg_duration < 0.1:
-                avg_duration_text = f" μ{avg_duration*1000:.0f}ms"
+                avg_duration_text = f" μ{avg_duration * 1000:.0f}ms"
             elif avg_duration < 1.0:
                 avg_duration_text = f" μ{avg_duration:.2f}s"
             elif avg_duration < 10.0:

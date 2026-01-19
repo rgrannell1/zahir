@@ -48,7 +48,10 @@ def create_state_event(
             return JobPausedEvent(workflow_id=workflow_id, job_id=job_id, job_type=job_type)
         case JobState.PRECHECK_FAILED:
             return JobPrecheckFailedEvent(
-                workflow_id=workflow_id, job_id=job_id, job_type=job_type, error=exception_to_text_blob(error) if error else ""
+                workflow_id=workflow_id,
+                job_id=job_id,
+                job_type=job_type,
+                error=exception_to_text_blob(error) if error else "",
             )
         case JobState.RUNNING:
             return JobStartedEvent(workflow_id=workflow_id, job_id=job_id, job_type=job_type)

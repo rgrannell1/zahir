@@ -263,7 +263,13 @@ def test_dependency_worker_marks_impossible_on_failed_job_dependency():
     job1 = SimpleJob({"test": "data"}, {})
     job_id1 = context.job_registry.add(context, job1, output_queue)
     context.job_registry.set_state(
-        context, job_id1, job1.spec.type, workflow_id, output_queue, JobState.IRRECOVERABLE, error=Exception("Test failure")
+        context,
+        job_id1,
+        job1.spec.type,
+        workflow_id,
+        output_queue,
+        JobState.IRRECOVERABLE,
+        error=Exception("Test failure"),
     )
 
     # Add second job that depends on the first

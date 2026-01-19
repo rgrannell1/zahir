@@ -13,8 +13,7 @@ from zahir.dependencies.resources import ResourceLimit
 # (GitHub CI servers often run hot)
 IS_LOCAL_MACHINE = socket.gethostname() == "rg-A7"
 skip_unless_local = pytest.mark.skipif(
-    not IS_LOCAL_MACHINE,
-    reason="Resource usage tests only run on local machine (rg-A7)"
+    not IS_LOCAL_MACHINE, reason="Resource usage tests only run on local machine (rg-A7)"
 )
 
 

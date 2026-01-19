@@ -218,10 +218,8 @@ class TestJobSpecWithTransform:
 
     def test_with_transform_chaining(self):
         """Test chaining multiple with_transform calls."""
-        transformed = (
-            SuccessfulJob
-            .with_transform("retry", {"max_retries": 3})
-            .with_transform("custom", {"key": "value"})
+        transformed = SuccessfulJob.with_transform("retry", {"max_retries": 3}).with_transform(
+            "custom", {"key": "value"}
         )
 
         assert len(transformed.transforms) == 2
@@ -296,11 +294,7 @@ class TestJobSpecApplyTransforms:
         scope.add_transform("a", transform_a)
         scope.add_transform("b", transform_b)
 
-        transformed = (
-            SuccessfulJob
-            .with_transform("a")
-            .with_transform("b")
-        )
+        transformed = SuccessfulJob.with_transform("a").with_transform("b")
         transformed.apply_transforms(scope)
 
         assert call_order == ["a", "b"]
@@ -340,11 +334,7 @@ class TestJobSpecSaveWithTransforms:
 
     def test_save_with_multiple_transforms(self):
         """Test saving a JobSpec with multiple transforms."""
-        transformed = (
-            SuccessfulJob
-            .with_transform("retry", {"max_retries": 3})
-            .with_transform("custom", {"foo": "bar"})
-        )
+        transformed = SuccessfulJob.with_transform("retry", {"max_retries": 3}).with_transform("custom", {"foo": "bar"})
         saved = transformed.save()
 
         assert len(saved["transforms"]) == 2
@@ -448,6 +438,7 @@ class TestRetryTransformIntegration:
 
 # Jobs for workflow integration tests - defined at module level for scope discovery
 
+
 @spec()
 def SimpleSuccessJob(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
     """A simple job that succeeds and returns input value."""
@@ -486,8 +477,7 @@ def WorkflowWithTransformedJob(spec_args, context: Context, input: dict, depende
 
     # Create and await the job instance
     job_instance = runnable_spec(
-        {"state_key": input["state_key"], "fail_until": input.get("fail_until", 0), "value": "transformed"},
-        {}
+        {"state_key": input["state_key"], "fail_until": input.get("fail_until", 0), "value": "transformed"}, {}
     )
 
     result = yield Await(job_instance)

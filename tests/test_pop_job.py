@@ -98,7 +98,9 @@ def test_pop_job_paused_state_executes():
     # Add the child job that the parent is awaiting, and mark it as COMPLETED
     child_job = SimpleJob({"child": "data"}, {})
     child_job_id = context.job_registry.add(context, child_job, output_queue)
-    context.job_registry.set_state(context, child_job_id, child_job.spec.type, workflow_id, output_queue, JobState.COMPLETED)
+    context.job_registry.set_state(
+        context, child_job_id, child_job.spec.type, workflow_id, output_queue, JobState.COMPLETED
+    )
 
     # Push job to stack - with required_jobs set to simulate awaiting a child job
     job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
@@ -137,7 +139,9 @@ def test_pop_job_running_state_executes():
     # Add the child job that the parent is awaiting, and mark it as COMPLETED
     child_job = SimpleJob({"child": "data"}, {})
     child_job_id = context.job_registry.add(context, child_job, output_queue)
-    context.job_registry.set_state(context, child_job_id, child_job.spec.type, workflow_id, output_queue, JobState.COMPLETED)
+    context.job_registry.set_state(
+        context, child_job_id, child_job.spec.type, workflow_id, output_queue, JobState.COMPLETED
+    )
 
     # Push job to stack - with required_jobs set to simulate resuming from await
     job_generator = SimpleJob.run(None, context, job.input, job.dependencies)

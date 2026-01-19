@@ -164,6 +164,7 @@ def test_sleep_job_dependencies_structure():
 
     # Verify it's an Empty job with dependencies
     from zahir.jobs import Empty
+
     assert first_event.spec == Empty or first_event.__class__.__name__ == "JobInstance"
 
     # The dependency should have wait_seconds set

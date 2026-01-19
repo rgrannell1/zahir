@@ -650,6 +650,7 @@ def test_idempotency_custom_hash_function():
         # Custom hash function that only uses a specific field
         def custom_hash(job_type: str, args: dict, dependencies: dict) -> str:
             import hashlib
+
             # Only hash the "id" field if present, otherwise use type
             key = args.get("id", job_type)
             return hashlib.sha256(str(key).encode("utf-8")).hexdigest()

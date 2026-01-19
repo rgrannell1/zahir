@@ -56,6 +56,7 @@ def test_serialise_event_raises_typeerror_for_non_serialisable(simple_context):
 
 def test_serialise_event_raises_typeerror_for_missing_save_method(simple_context):
     """Test serialise_event raises TypeError when save method is missing."""
+
     class NoSaveMethod:
         pass
 
@@ -102,10 +103,7 @@ def test_deserialise_event_raises_valueerror_missing_data_key(simple_context):
 
 def test_deserialise_event_raises_keyerror_unknown_event_type(simple_context):
     """Test deserialise_event raises KeyError for unknown event types."""
-    invalid_data = SerialisedEvent({
-        "type": "NonExistentEventType",
-        "data": {"output": {"test": "value"}}
-    })
+    invalid_data = SerialisedEvent({"type": "NonExistentEventType", "data": {"output": {"test": "value"}}})
 
     with pytest.raises(KeyError) as exc_info:
         deserialise_event(simple_context, invalid_data)
@@ -116,10 +114,7 @@ def test_deserialise_event_raises_keyerror_unknown_event_type(simple_context):
 
 def test_deserialise_event_raises_keyerror_empty_event_type(simple_context):
     """Test deserialise_event raises KeyError for empty event type."""
-    invalid_data = SerialisedEvent({
-        "type": "",
-        "data": {"output": {"test": "value"}}
-    })
+    invalid_data = SerialisedEvent({"type": "", "data": {"output": {"test": "value"}}})
 
     with pytest.raises(KeyError) as exc_info:
         deserialise_event(simple_context, invalid_data)

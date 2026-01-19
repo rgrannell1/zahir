@@ -1,6 +1,6 @@
-import json
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
+import json
 import multiprocessing
 import sqlite3
 import traceback
@@ -42,8 +42,6 @@ from zahir.utils.logging_config import get_logger
 log = get_logger(__name__)
 # Log level controlled by ZAHIR_LOG_LEVEL environment variable
 # Default is WARNING to reduce noise
-
-
 
 
 class SQLiteJobRegistry(JobRegistry):
@@ -187,7 +185,9 @@ class SQLiteJobRegistry(JobRegistry):
 
                 if existing_hash is not None:
                     existing_job_id = existing_hash[0]
-                    log.debug(f"Job with idempotency_hash {idempotency_hash} already exists as {existing_job_id}, skipping insert")
+                    log.debug(
+                        f"Job with idempotency_hash {idempotency_hash} already exists as {existing_job_id}, skipping insert"
+                    )
                     conn.rollback()
                     return existing_job_id
 
@@ -358,14 +358,16 @@ class SQLiteJobRegistry(JobRegistry):
         # Emit event after transaction completes
         timing = self.get_job_timing(job_id)
         duration = timing.time_since_started() or 0.0
-        output_queue.put(serialise_event(
-            context,
-            JobCompletedEvent(
-                job_id=job_id,
-                job_type=job_type,
-                workflow_id=workflow_id,
-                duration_seconds=duration,
-            ))
+        output_queue.put(
+            serialise_event(
+                context,
+                JobCompletedEvent(
+                    job_id=job_id,
+                    job_type=job_type,
+                    workflow_id=workflow_id,
+                    duration_seconds=duration,
+                ),
+            )
         )
 
     def get_output(self, job_id: str, recovery: bool = False) -> Mapping[str, Any] | None:
@@ -476,9 +478,6 @@ class SQLiteJobRegistry(JobRegistry):
             completed_at,
         ) in job_list:
             job_data = json.loads(serialised_job)
-            spec = context.scope.get_job_spec(job_data["type"])
-
-            from zahir.base_types import JobInstance
 
             job = JobInstance.load(context, job_data)
 

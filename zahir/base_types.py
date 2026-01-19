@@ -17,7 +17,7 @@ from typing import (
 )
 
 from zahir.events import Await, ZahirEvent
-from zahir.utils.id_generator import generate_id, generate_job_id
+from zahir.utils.id_generator import generate_job_id
 
 if TYPE_CHECKING:
     from zahir.dependencies.group import DependencyGroup
@@ -295,7 +295,16 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def set_output(self, context: "Context", job_id: str, job_type: str, workflow_id: str, output_queue, output: Mapping, recovery: bool = False) -> None:
+    def set_output(
+        self,
+        context: "Context",
+        job_id: str,
+        job_type: str,
+        workflow_id: str,
+        output_queue,
+        output: Mapping,
+        recovery: bool = False,
+    ) -> None:
         """Store the output of a completed job
 
         @param job_id: The ID of the job
@@ -465,6 +474,7 @@ class Context:
 
         raise NotImplementedError
 
+
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 # ++++++++++++++++++++++ Jobs, Take II +++++++++++++++++++++++++++++
 #
@@ -609,7 +619,9 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
             "transforms": [transform.save() for transform in self.transforms],
         }
 
-    def with_transform(self, transform_type: str, args: Mapping[str, Any] | None = None) -> "JobSpec[JobSpecArgs, ArgsType, OutputType]":
+    def with_transform(
+        self, transform_type: str, args: Mapping[str, Any] | None = None
+    ) -> "JobSpec[JobSpecArgs, ArgsType, OutputType]":
         """Create a new JobSpec with an additional transform appended.
 
         @param transform_type: The type label for the transform (looked up in scope)

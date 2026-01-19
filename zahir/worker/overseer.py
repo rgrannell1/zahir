@@ -99,9 +99,7 @@ def dispatch_jobs_to_workers(
     job_registry = context.job_registry
 
     # Fetch all READY jobs (not yet dispatched)
-    ready_jobs: list[JobInstance] = []
-    for job_info in job_registry.jobs(context, state=JobState.READY):
-        ready_jobs.append(job_info.job)
+    ready_jobs: list[JobInstance] = [job_info.job for job_info in job_registry.jobs(context, state=JobState.READY)]
 
     # Dispatch jobs to ready workers (round-robin via queue)
     while ready_jobs and ready_worker_queue:
@@ -118,18 +116,22 @@ def dispatch_jobs_to_workers(
         process_states[worker_pid] = WorkerState.BUSY
 
         # Set job state to RUNNING to prevent re-dispatch
-        job_registry.set_state(context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.RUNNING, recovery=False)
+        job_registry.set_state(
+            context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.RUNNING, recovery=False
+        )
 
         # Send job assignment to worker via input queue
         input_queue = process_queues[worker_pid]
-        input_queue.put(serialise_event(
-            context,
-            JobAssignedEvent(
-                workflow_id=workflow_id,
-                job_id=job.job_id,
-                job_type=job.spec.type,
+        input_queue.put(
+            serialise_event(
+                context,
+                JobAssignedEvent(
+                    workflow_id=workflow_id,
+                    job_id=job.job_id,
+                    job_type=job.spec.type,
+                ),
             )
-        ))
+        )
 
 
 def start_zahir_overseer(context: Context, start: JobInstance, worker_count: int = 4):

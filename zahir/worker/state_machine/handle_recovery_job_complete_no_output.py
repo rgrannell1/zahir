@@ -11,7 +11,13 @@ def handle_recovery_job_complete_no_output(state) -> tuple[WaitForJobStateChange
 
     # Recovery subjob complete, emit a recovery complete and null out the stack frame.
     state.context.job_registry.set_state(
-        state.context, state.frame.job.job_id, state.frame.job.spec.type, state.workflow_id, state.output_queue, JobState.RECOVERED, recovery=state.frame.recovery
+        state.context,
+        state.frame.job.job_id,
+        state.frame.job.spec.type,
+        state.workflow_id,
+        state.output_queue,
+        JobState.RECOVERED,
+        recovery=state.frame.recovery,
     )
 
     state.frame = None

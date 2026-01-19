@@ -1,4 +1,3 @@
-
 from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
@@ -52,12 +51,12 @@ def _populate_event_registry() -> None:
     Uses __subclasses__() to automatically discover all event types,
     eliminating the need for manual registration.
     """
-    global _EVENT_REGISTRY
+    global _EVENT_REGISTRY  # noqa: PLW0602
 
     if _EVENT_REGISTRY:
         return  # Already populated
 
-    from zahir.events import ZahirEvent
+    from zahir.events import ZahirEvent  # noqa: PLC0415
 
     # Auto-discover all ZahirEvent subclasses
     for cls in _get_all_subclasses(ZahirEvent):
@@ -66,8 +65,6 @@ def _populate_event_registry() -> None:
 
 class SerialisedEvent(dict):
     """A serialised event wrapper that includes type information."""
-
-    pass
 
 
 def serialise_event(context: "Context", event: "ZahirEvent") -> SerialisedEvent:
@@ -111,8 +108,7 @@ def deserialise_event(context: "Context", data: SerialisedEvent) -> "ZahirEvent"
 
     if event_type not in _EVENT_REGISTRY:
         raise KeyError(
-            f"Unknown event type '{event_type}'. "
-            f"Ensure the event class is registered in the event registry."
+            f"Unknown event type '{event_type}'. Ensure the event class is registered in the event registry."
         )
 
     event_class = _EVENT_REGISTRY[event_type]

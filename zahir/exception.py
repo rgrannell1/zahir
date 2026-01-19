@@ -2,7 +2,7 @@
 
 import base64
 import json
-import pickle
+import pickle  # noqa: S403
 import traceback
 from typing import Any
 

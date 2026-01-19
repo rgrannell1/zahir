@@ -1,20 +1,18 @@
+import atexit
 import multiprocessing
 import os
-import atexit
 
 from zahir.base_types import Context
 from zahir.events import (
     JobWorkerWaitingEvent,
-    ZahirEvent,
     ZahirInternalErrorEvent,
 )
 from zahir.exception import exception_to_text_blob
-from zahir.serialise import serialise_event
+from zahir.serialise import SerialisedEvent, serialise_event
 from zahir.utils.logging_config import configure_logging
 from zahir.utils.output_logging import setup_output_logging
 from zahir.worker.state_machine import ZahirJobStateMachine, ZahirWorkerState
 from zahir.worker.state_machine.states import StartStateChange
-from zahir.serialise import SerialisedEvent
 
 type OutputQueue = multiprocessing.Queue["SerialisedEvent"]
 type InputQueue = multiprocessing.Queue["SerialisedEvent"]
@@ -36,7 +34,7 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
         setup_output_logging(log_output_dir=log_output_dir, start_job_type=start_job_type)
 
     context.job_registry.init(str(os.getpid()))
-    atexit.register(lambda: context.job_registry.close())
+    atexit.register(context.job_registry.close)
 
     state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
     current = StartStateChange({"message": "Starting job worker"})
@@ -53,12 +51,14 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
         try:
             result = handler(state)
         except Exception as err:
-            output_queue.put(serialise_event(
-                context,
-                ZahirInternalErrorEvent(
-                    workflow_id=workflow_id,
-                    error=exception_to_text_blob(err),
-                ))
+            output_queue.put(
+                serialise_event(
+                    context,
+                    ZahirInternalErrorEvent(
+                        workflow_id=workflow_id,
+                        error=exception_to_text_blob(err),
+                    ),
+                )
             )
             break
 

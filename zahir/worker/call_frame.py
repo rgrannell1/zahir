@@ -47,7 +47,8 @@ class ZahirCallStack:
 
         for frame in reversed(self.frames):
             job = frame.job
-            job_state = job_registry.get_state(job.job_id)
+            # Check job state (currently unused but may be needed for future validation)
+            job_registry.get_state(job.job_id)
 
             # TO-DO: check call stack only maintained Ready and Pending jobs
 

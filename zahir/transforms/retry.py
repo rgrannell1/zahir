@@ -36,9 +36,7 @@ def retry(args: Mapping[str, Any], spec: JobSpec) -> JobSpec:
         for attempt in range(max_retries + 1):
             try:
                 # Run the original job as an awaited child job (to catch exceptions)
-                extended_dependencies = dependencies.request_extension(
-                    backoff_factor * (2 ** max_retries) * 2
-                )
+                extended_dependencies = dependencies.request_extension(backoff_factor * (2**max_retries) * 2)
 
                 # Create child job from base spec (no transforms)
                 child_job = base_spec(job_args, extended_dependencies)
@@ -47,16 +45,17 @@ def retry(args: Mapping[str, Any], spec: JobSpec) -> JobSpec:
                 # Only forward output if child produced one
                 if result is not None:
                     yield JobOutputEvent(result)
-                return
+                else:
+                    return
 
             except Exception as err:
                 last_error = err
                 if attempt < max_retries:
-                    backoff_time = backoff_factor * (2 ** attempt)
+                    backoff_time = backoff_factor * (2**attempt)
                     yield Await(Sleep({"duration_seconds": backoff_time}, {}))
                 else:
                     # Exhausted retries, re-raise the last error
-                    raise err
+                    raise
 
         # Should not reach here, but just in case
         if last_error:

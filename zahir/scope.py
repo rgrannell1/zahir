@@ -10,29 +10,27 @@ from zahir.dependencies.resources import ResourceLimit
 from zahir.dependencies.semaphore import Semaphore
 from zahir.dependencies.time import TimeDependency
 from zahir.exception import DependencyNotInScopeError, JobNotInScopeError, TransformNotInScopeError
-from zahir.jobs import Sleep, Empty
+from zahir.jobs import Empty, Sleep
 from zahir.transforms.retry import retry
 
 # Register built in job specs
-INTERNAL_JOB_SPECS = {
-    'Sleep': Sleep,
-    'Empty': Empty
-}
+INTERNAL_JOB_SPECS = {"Sleep": Sleep, "Empty": Empty}
 
 # Why make people work harder; just register all the built-in dependencies for free
 INTERNAL_DEPENDENCIES: dict[str, type[Dependency]] = {
-    'ConcurrencyLimit': ConcurrencyLimit,
-    'DependencyGroup': DependencyGroup,
-    'JobDependency': JobDependency,
-    'ResourceLimit': ResourceLimit,
-    'Semaphore': Semaphore,
-    'TimeDependency': TimeDependency,
+    "ConcurrencyLimit": ConcurrencyLimit,
+    "DependencyGroup": DependencyGroup,
+    "JobDependency": JobDependency,
+    "ResourceLimit": ResourceLimit,
+    "Semaphore": Semaphore,
+    "TimeDependency": TimeDependency,
 }
 
 # Built-in transforms available by default
 INTERNAL_TRANSFORMS: dict[str, Transform] = {
-    'retry': retry,
+    "retry": retry,
 }
+
 
 class LocalScope(Scope):
     """A local translation layer between dependency / job names and
@@ -40,16 +38,18 @@ class LocalScope(Scope):
 
     def __init__(
         self,
-        dependencies: list[type[Dependency]] = [],
-        specs: list["JobSpec"] = [],
+        dependencies: list[type[Dependency]] | None = None,
+        specs: list["JobSpec"] | None = None,
         transforms: dict[str, Transform] | None = None,
     ) -> None:
         self.dependencies: dict[str, type[Dependency]] = INTERNAL_DEPENDENCIES.copy()
         self.specs: dict[str, JobSpec] = INTERNAL_JOB_SPECS.copy()
         self.transforms: dict[str, Transform] = INTERNAL_TRANSFORMS.copy()
 
-        self.add_dependency_classes(dependencies)
-        self.add_job_specs(specs)
+        if dependencies:
+            self.add_dependency_classes(dependencies)
+        if specs:
+            self.add_job_specs(specs)
 
         if transforms:
             for name, transform in transforms.items():

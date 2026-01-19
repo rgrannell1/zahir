@@ -1,9 +1,8 @@
 """Utilities for capturing and logging process stdout/stderr with PID prepending."""
 
+from datetime import UTC, datetime
 import os
 import pathlib
-from datetime import datetime, timezone
-from typing import Optional
 import sys
 
 
@@ -41,15 +40,15 @@ class PIDPrependingWriter:
 
 
 def setup_output_logging(
-    log_output_dir: Optional[str] = None,
-    start_job_type: Optional[str] = None,
-) -> tuple[Optional[pathlib.Path], Optional[pathlib.Path]]:
+    log_output_dir: str | None = None,
+    start_job_type: str | None = None,
+) -> tuple[pathlib.Path | None, pathlib.Path | None]:
     if log_output_dir is None:
         return None, None
 
     current_pid = os.getpid()
     job_type_part = start_job_type or ""
-    iso_timestamp = datetime.now(timezone.utc).isoformat().replace(":", "-")
+    iso_timestamp = datetime.now(UTC).isoformat().replace(":", "-")
     log_subdir_name = f"{job_type_part}-{iso_timestamp}" if job_type_part else iso_timestamp
 
     log_path = pathlib.Path(log_output_dir) / log_subdir_name
@@ -58,8 +57,9 @@ def setup_output_logging(
     stdout_log_path = log_path / f"stdout_{current_pid}.log"
     stderr_log_path = log_path / f"stderr_{current_pid}.log"
 
-    stdout_file = open(stdout_log_path, "a", buffering=1)
-    stderr_file = open(stderr_log_path, "a", buffering=1)
+    # Files must stay open for process lifetime, so context manager is not appropriate
+    stdout_file = pathlib.Path(stdout_log_path).open("a", encoding="utf-8", buffering=1)  # noqa: SIM115
+    stderr_file = pathlib.Path(stderr_log_path).open("a", encoding="utf-8", buffering=1)  # noqa: SIM115
 
     sys.stdout = PIDPrependingWriter(stdout_file, current_pid)
     sys.stderr = PIDPrependingWriter(stderr_file, current_pid)
@@ -69,10 +69,10 @@ def setup_output_logging(
 
 def get_log_directory_path(
     base_dir: str,
-    start_job_type: Optional[str] = None,
+    start_job_type: str | None = None,
 ) -> pathlib.Path:
     job_type_part = start_job_type or ""
-    iso_timestamp = datetime.now(timezone.utc).isoformat().replace(":", "-")
+    iso_timestamp = datetime.now(UTC).isoformat().replace(":", "-")
     log_subdir_name = f"{job_type_part}-{iso_timestamp}" if job_type_part else iso_timestamp
 
     return pathlib.Path(base_dir) / log_subdir_name

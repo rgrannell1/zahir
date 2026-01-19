@@ -57,10 +57,9 @@ class ResourceLimit(Dependency):
 
         if self.resource == "cpu":
             return psutil.cpu_percent(interval=0.1)
-        elif self.resource == "memory":
+        if self.resource == "memory":
             return psutil.virtual_memory().percent
-        else:
-            raise ValueError(f"Unknown resource type: {self.resource}")
+        raise ValueError(f"Unknown resource type: {self.resource}")
 
     def satisfied(self) -> DependencyState:
         """Check whether the resource usage is below the threshold."""
@@ -86,10 +85,7 @@ class ResourceLimit(Dependency):
 
         new_timeout_at = self.timeout_at + timedelta(seconds=extra_seconds)
 
-        result = type(self)(
-            resource=self.resource,
-            max_percent=self.max_percent
-        )
+        result = type(self)(resource=self.resource, max_percent=self.max_percent)
         result.timeout_at = new_timeout_at
         return result
 
@@ -108,10 +104,7 @@ class ResourceLimit(Dependency):
         max_percent = data["max_percent"]
         timeout_at_str = data.get("timeout_at")
 
-        instance = cls(
-            resource=resource,
-            max_percent=max_percent
-        )
+        instance = cls(resource=resource, max_percent=max_percent)
 
         if timeout_at_str:
             instance.timeout_at = datetime.fromisoformat(timeout_at_str)

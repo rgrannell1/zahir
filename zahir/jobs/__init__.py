@@ -8,4 +8,4 @@ from zahir.jobs.decorator import spec
 from zahir.jobs.empty import Empty
 from zahir.jobs.sleep import Sleep
 
-__all__ = ["spec", "Empty", "Sleep"]
+__all__ = ["Empty", "Sleep", "spec"]

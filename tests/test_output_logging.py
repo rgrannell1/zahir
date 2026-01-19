@@ -30,10 +30,7 @@ def VerboseLoggingJob(spec_args, context: Context, input_dict, dependencies):
 def test_output_logging_with_log_directory():
     """Test that output logging creates files with PID prepending."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        workflow = LocalWorkflow(
-            log_output_dir=temp_dir,
-            start_job_type="TestJob"
-        )
+        workflow = LocalWorkflow(log_output_dir=temp_dir, start_job_type="TestJob")
         job = SimpleLoggingJob({}, {})
         events = list(workflow.run(job, show_progress=False, events_filter=None))
 
@@ -57,9 +54,9 @@ def test_output_logging_with_log_directory():
                     if "[PID" in content and "This is stdout output" in content:
                         return  # Test passes - we found the expected output
 
-        assert found_logs or any(
-            list(log_subdir.glob("stdout_*.log")) for log_subdir in subdirs
-        ), f"No stdout log files found in any subdirectory"
+        assert found_logs or any(list(log_subdir.glob("stdout_*.log")) for log_subdir in subdirs), (
+            f"No stdout log files found in any subdirectory"
+        )
 
 
 def test_output_logging_without_job_type():
@@ -78,10 +75,7 @@ def test_output_logging_without_job_type():
 def test_output_logging_multiple_lines():
     """Test that PID prepending works across multiple lines."""
     with tempfile.TemporaryDirectory() as temp_dir:
-        workflow = LocalWorkflow(
-            log_output_dir=temp_dir,
-            start_job_type="VerboseJob"
-        )
+        workflow = LocalWorkflow(log_output_dir=temp_dir, start_job_type="VerboseJob")
         job = VerboseLoggingJob({}, {})
         events = list(workflow.run(job, show_progress=False, events_filter=None))
 
@@ -198,10 +192,7 @@ def test_setup_output_logging_creates_files():
     from zahir.utils.output_logging import setup_output_logging
 
     with tempfile.TemporaryDirectory() as temp_dir:
-        stdout_path, stderr_path = setup_output_logging(
-            log_output_dir=temp_dir,
-            start_job_type="FileTest"
-        )
+        stdout_path, stderr_path = setup_output_logging(log_output_dir=temp_dir, start_job_type="FileTest")
 
         assert stdout_path is not None
         assert stderr_path is not None
