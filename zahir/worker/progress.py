@@ -31,6 +31,11 @@ from zahir.events import (
 )
 
 
+def format_job_type_blue(job_type: str) -> str:
+    """Wrap job type in blue Rich markup without affecting width."""
+    return f"[blue]{job_type}[/]"
+
+
 class ProgressMonitor(Protocol):
     """Protocol for progress monitors to support dependency injection."""
 
@@ -199,7 +204,7 @@ class ZahirProgressMonitor:
             case WorkflowStartedEvent():
                 # Add system stats task at the top
                 self.system_stats_task_id = self.progress.add_task(
-                    "Zahir | 0 cores | CPU 0% RAM 0%",
+                    "Zahir | 0 cores | cpu 0% ram 0%",
                     total=1,
                     completed=0,
                     status="running",
@@ -352,7 +357,7 @@ class ZahirProgressMonitor:
 
         self.progress.update(
             self.system_stats_task_id,
-            description=f"Zahir | {active_processes} cores | CPU {avg_cpu:.0f}% RAM {avg_ram:.0f}%",
+            description=f"Zahir | {active_processes} cores | cpu {avg_cpu:.0f}% ram {avg_ram:.0f}%",
         )
 
     def _cleanup_old_pids(self, current_time: float) -> None:
@@ -391,13 +396,13 @@ class ZahirProgressMonitor:
         eta_minutes = eta_seconds / 60.0
 
         if eta_minutes < 0.1:
-            return f" eta <1min"
+            return f"eta <1min"
         elif eta_minutes < 1.0:
-            return f" eta {eta_minutes*60:.0f}s"
+            return f"eta {eta_minutes*60:.0f}s"
         elif eta_minutes < 10.0:
-            return f" eta {eta_minutes:.1f}min"
+            return f"eta {eta_minutes:.1f}min"
         else:
-            return f" eta {eta_minutes:.0f}min"
+            return f"eta {eta_minutes:.0f}min"
 
     def _update_workflow_description(self) -> None:
         if self.workflow_task_id is None:
@@ -423,7 +428,7 @@ class ZahirProgressMonitor:
             stats = JobTypeStats()
             self.job_type_stats[job_type] = stats
             task_id = self.progress.add_task(
-                f"  {job_type}: starting",
+                f"  {format_job_type_blue(job_type)}: starting",
                 total=0,
                 completed=0,
                 status="running",
@@ -509,7 +514,7 @@ class ZahirProgressMonitor:
             else:
                 avg_duration_text = f" μ{avg_duration:.0f}s"
 
-        description = f"  {job_type}: {', '.join(desc_parts)}{avg_duration_text}"
+        description = f"  {format_job_type_blue(job_type)}: {', '.join(desc_parts)}{avg_duration_text}"
         self.progress.update(
             stats.task_id,
             description=description,
@@ -572,5 +577,5 @@ class ZahirProgressMonitor:
                     completed=job_total_processed,
                     total=stats.total,
                     status="failed" if stats.failed > 0 else "success",
-                    description=f"  ✓ {job_type}: {stats.completed} completed, {stats.failed} failed",
+                    description=f"  ✓ {format_job_type_blue(job_type)}: {stats.completed} completed, {stats.failed} failed",
                 )
