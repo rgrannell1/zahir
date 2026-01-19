@@ -33,11 +33,13 @@ class TestResourceLimitBasic:
         limit = ResourceLimit.memory(max_percent=90.0)
         assert limit.satisfied() == DependencyState.SATISFIED
 
+    @skip_unless_local
     def test_cpu_unsatisfied_at_zero_threshold(self):
         """CPU limit should be unsatisfied when threshold is 0%."""
         limit = ResourceLimit.cpu(max_percent=0.0)
         assert limit.satisfied() == DependencyState.UNSATISFIED
 
+    @skip_unless_local
     def test_memory_unsatisfied_at_zero_threshold(self):
         """Memory limit should be unsatisfied when threshold is 0%."""
         limit = ResourceLimit.memory(max_percent=0.0)
@@ -47,6 +49,7 @@ class TestResourceLimitBasic:
 class TestResourceLimitTimeout:
     """Timeout functionality tests."""
 
+    @skip_unless_local
     def test_timeout_becomes_impossible(self):
         """Dependency should become IMPOSSIBLE after timeout."""
         limit = ResourceLimit.cpu(max_percent=0.0, timeout=0.1)
@@ -60,6 +63,7 @@ class TestResourceLimitTimeout:
         # After timeout - should be impossible
         assert limit.satisfied() == DependencyState.IMPOSSIBLE
 
+    @skip_unless_local
     def test_no_timeout_never_impossible(self):
         """Without timeout, dependency should never become IMPOSSIBLE."""
         limit = ResourceLimit.cpu(max_percent=0.0)

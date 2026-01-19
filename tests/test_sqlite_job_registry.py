@@ -513,7 +513,7 @@ def test_idempotency_once_flag_adds_job():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(input={"key": "value"}, job_id="job1", once=True)
         dummy_queue = multiprocessing.Queue()
-        
+
         job_id = registry.add(context, job, dummy_queue)
         assert job_id == "job1"
         assert registry.get_state(job_id) == JobState.READY
@@ -531,27 +531,27 @@ def test_idempotency_once_flag_returns_existing():
         registry.init("worker-idempotency-2")
         scope = LocalScope()
         context = MemoryContext(scope=scope, job_registry=registry)
-        
+
         # Add first job with once=True
         job1 = DummyJob(input={"key": "value"}, job_id="job1", once=True)
         dummy_queue = multiprocessing.Queue()
         job_id1 = registry.add(context, job1, dummy_queue)
         assert job_id1 == "job1"
-        
+
         # Try to add second job with same inputs but different job_id and once=True
         job2 = DummyJob(input={"key": "value"}, job_id="job2", once=True)
         job_id2 = registry.add(context, job2, dummy_queue)
-        
+
         # Should return the original job_id
         assert job_id2 == "job1"
-        
+
         # job2 should not exist in the registry
         try:
             registry.get_state("job2")
             assert False, "job2 should not exist"
         except MissingJobError:
             pass
-        
+
         # job1 should still exist
         assert registry.get_state("job1") == JobState.READY
     finally:
@@ -568,14 +568,14 @@ def test_idempotency_once_flag_different_inputs_adds_both():
         registry.init("worker-idempotency-3")
         scope = LocalScope()
         context = MemoryContext(scope=scope, job_registry=registry)
-        
+
         job1 = DummyJob(input={"key": "value1"}, job_id="job1", once=True)
         job2 = DummyJob(input={"key": "value2"}, job_id="job2", once=True)
         dummy_queue = multiprocessing.Queue()
-        
+
         job_id1 = registry.add(context, job1, dummy_queue)
         job_id2 = registry.add(context, job2, dummy_queue)
-        
+
         assert job_id1 == "job1"
         assert job_id2 == "job2"
         assert registry.get_state("job1") == JobState.READY
@@ -594,14 +594,14 @@ def test_idempotency_once_false_always_adds():
         registry.init("worker-idempotency-4")
         scope = LocalScope()
         context = MemoryContext(scope=scope, job_registry=registry)
-        
+
         job1 = DummyJob(input={"key": "value"}, job_id="job1", once=False)
         job2 = DummyJob(input={"key": "value"}, job_id="job2", once=False)
         dummy_queue = multiprocessing.Queue()
-        
+
         job_id1 = registry.add(context, job1, dummy_queue)
         job_id2 = registry.add(context, job2, dummy_queue)
-        
+
         assert job_id1 == "job1"
         assert job_id2 == "job2"
         assert registry.get_state("job1") == JobState.READY
@@ -620,16 +620,16 @@ def test_idempotency_hash_stable_ordering():
         registry.init("worker-idempotency-5")
         scope = LocalScope()
         context = MemoryContext(scope=scope, job_registry=registry)
-        
+
         # Create two jobs with same content but potentially different dict ordering
         # Python 3.7+ preserves insertion order, but we want to ensure hash is stable
         job1 = DummyJob(input={"a": 1, "b": 2}, job_id="job1", once=True)
         job2 = DummyJob(input={"b": 2, "a": 1}, job_id="job2", once=True)
         dummy_queue = multiprocessing.Queue()
-        
+
         job_id1 = registry.add(context, job1, dummy_queue)
         job_id2 = registry.add(context, job2, dummy_queue)
-        
+
         # Should return the same job_id since hash should be the same
         assert job_id1 == job_id2 == "job1"
     finally:
@@ -646,14 +646,14 @@ def test_idempotency_custom_hash_function():
         registry.init("worker-idempotency-6")
         scope = LocalScope()
         context = MemoryContext(scope=scope, job_registry=registry)
-        
+
         # Custom hash function that only uses a specific field
         def custom_hash(job_type: str, args: dict, dependencies: dict) -> str:
             import hashlib
             # Only hash the "id" field if present, otherwise use type
             key = args.get("id", job_type)
             return hashlib.sha256(str(key).encode("utf-8")).hexdigest()
-        
+
         # Create jobs with same "id" field but different other fields
         job1 = DummyJob(
             input={"id": "same-id", "other": "value1"},
@@ -668,13 +668,13 @@ def test_idempotency_custom_hash_function():
             once_by=custom_hash,
         )
         dummy_queue = multiprocessing.Queue()
-        
+
         job_id1 = registry.add(context, job1, dummy_queue)
         job_id2 = registry.add(context, job2, dummy_queue)
-        
+
         # Should return the same job_id since custom hash only looks at "id" field
         assert job_id1 == job_id2 == "job1"
-        
+
         # But jobs with different "id" should be different
         job3 = DummyJob(
             input={"id": "different-id", "other": "value1"},
