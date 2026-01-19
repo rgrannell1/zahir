@@ -3,6 +3,7 @@
 import pathlib
 import sys
 import tempfile
+import time
 
 import pytest
 
@@ -767,3 +768,335 @@ class TestRetryTransformEdgeCases:
         # Should succeed after retry
         output_events = [e for e in events if isinstance(e, JobOutputEvent) and e.output.get("value") == "success"]
         assert len(output_events) >= 1
+
+
+# ============================================================
+# Additional workflow tests for retry transform
+# ============================================================
+
+
+@spec()
+def NestedJob(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+    """A job that spawns another job and awaits it."""
+    from zahir.events import Await
+
+    # Spawn a child job
+    child = SimpleSuccessJob({"value": input.get("child_value", 100)}, {})
+    result = yield Await(child)
+    yield JobOutputEvent({"parent_value": input.get("parent_value", 200), "child_result": result})
+
+
+@spec()
+def JobWithDependency(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+    """A job that depends on another job completing."""
+    from zahir.dependencies.job import JobDependency
+    from zahir.events import Await
+
+    # Wait for a dependency job
+    dep_job = SimpleSuccessJob({"value": input.get("dep_value", 300)}, {})
+    dep_id = dep_job.job_id
+
+    # Create a dependency on that job (needs job_registry)
+    deps = DependencyGroup({"dep": JobDependency(dep_id, context.job_registry)})
+    yield dep_job
+
+    # Now wait for the dependency
+    result = yield Await(SimpleSuccessJob({"value": input.get("value", 400)}, deps))
+    yield JobOutputEvent({"result": result, "dep_id": dep_id})
+
+
+@spec()
+def ChainedRetryJob(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+    """A job that calls another job that may fail."""
+    from zahir.events import Await
+
+    # Use context state to track attempts across retries
+    state_key = input.get("state_key", "chained_attempts")
+    current_count = context.state.get(state_key, 0)
+    current_count += 1
+    context.state[state_key] = current_count
+
+    fail_count = input.get("fail_count", 0)
+
+    if current_count <= fail_count:
+        raise ValueError(f"Chained job failing on attempt {current_count}")
+
+    # Call another job
+    result = yield Await(SimpleSuccessJob({"value": input.get("value", 500)}, {}))
+    yield JobOutputEvent({"chained_result": result, "attempts": current_count})
+
+
+@spec()
+def WorkflowWithRetry(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+    """A workflow that awaits a retried job."""
+    from zahir.events import Await
+
+    # Create a retried job
+    transformed_spec = CountingJob.with_transform("retry", {"max_retries": 1, "backoff_factor": 0.01})
+    runnable_spec = transformed_spec.apply_transforms(context.scope)
+
+    retry_job = runnable_spec(
+        {"state_key": "await_retry", "fail_until": 1, "value": "awaited"}, {}
+    )
+
+    result = yield Await(retry_job)
+    yield WorkflowOutputEvent({"result": result})
+
+
+class TestRetryTransformWorkflows:
+    """Comprehensive workflow tests for retry transform."""
+
+    def test_retry_with_nested_jobs(self):
+        """Test retry transform with jobs that spawn and await child jobs."""
+        tmp_file = "/tmp/zahir_retry_nested.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        # Retry a job that spawns nested jobs
+        transformed_spec = NestedJob.with_transform("retry", {"max_retries": 2, "backoff_factor": 0.01})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        job = runnable_spec({"parent_value": 999, "child_value": 888}, {})
+
+        workflow = LocalWorkflow(context)
+        events = list(workflow.run(job, events_filter=None))
+
+        # Should complete successfully
+        output_events = [
+            e for e in events if isinstance(e, JobOutputEvent) and e.output.get("parent_value") == 999
+        ]
+        assert len(output_events) >= 1
+
+        workflow_complete = [e for e in events if isinstance(e, WorkflowCompleteEvent)]
+        assert len(workflow_complete) == 1
+
+    def test_retry_with_job_dependencies(self):
+        """Test retry transform with jobs that have dependencies."""
+        tmp_file = "/tmp/zahir_retry_deps.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        # Retry a job that has dependencies
+        transformed_spec = JobWithDependency.with_transform("retry", {"max_retries": 1, "backoff_factor": 0.01})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        job = runnable_spec({"value": 777, "dep_value": 666}, {})
+
+        workflow = LocalWorkflow(context)
+        events = list(workflow.run(job, events_filter=None))
+
+        # Should complete successfully
+        output_events = [e for e in events if isinstance(e, JobOutputEvent) and e.output.get("result") is not None]
+        assert len(output_events) >= 1
+
+    def test_retry_multiple_jobs_in_workflow(self):
+        """Test workflow with multiple jobs that have retry transforms."""
+        tmp_file = "/tmp/zahir_retry_multi.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        # Create multiple transformed jobs
+        job1_spec = CountingJob.with_transform("retry", {"max_retries": 1, "backoff_factor": 0.01})
+        job1 = job1_spec.apply_transforms(scope)({"state_key": "multi1", "fail_until": 1, "value": "job1"}, {})
+
+        job2_spec = CountingJob.with_transform("retry", {"max_retries": 2, "backoff_factor": 0.01})
+        job2 = job2_spec.apply_transforms(scope)({"state_key": "multi2", "fail_until": 0, "value": "job2"}, {})
+
+        workflow = LocalWorkflow(context)
+        events = list(workflow.run(job1, events_filter=None))
+
+        # First job should complete
+        complete1 = [e for e in events if isinstance(e, WorkflowCompleteEvent)]
+        assert len(complete1) == 1
+
+        # Run second job
+        events2 = list(workflow.run(job2, events_filter=None))
+        complete2 = [e for e in events2 if isinstance(e, WorkflowCompleteEvent)]
+        assert len(complete2) == 1
+
+    def test_retry_with_chained_failing_jobs(self):
+        """Test retry transform on a job that calls another job that fails."""
+        tmp_file = "/tmp/zahir_retry_chained.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        # Job that fails internally but calls another job
+        transformed_spec = ChainedRetryJob.with_transform("retry", {"max_retries": 2, "backoff_factor": 0.01})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        job = runnable_spec({"state_key": "chained_attempts", "fail_count": 1, "value": 555}, {})
+
+        workflow = LocalWorkflow(context)
+        events = list(workflow.run(job, events_filter=None))
+
+        # Should succeed after retry
+        output_events = [
+            e for e in events if isinstance(e, JobOutputEvent) and e.output.get("chained_result") is not None
+        ]
+        assert len(output_events) >= 1
+
+        # Should have retried (final attempt count should be 2)
+        final_output = None
+        for e in reversed(output_events):
+            if isinstance(e, JobOutputEvent) and "attempts" in e.output:
+                final_output = e.output
+                break
+        assert final_output is not None
+        assert final_output["attempts"] == 2
+
+    def test_retry_exponential_backoff_timing(self):
+        """Test that retry transform uses exponential backoff correctly."""
+        tmp_file = "/tmp/zahir_retry_backoff_timing.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        # Use a job that tracks timing
+        backoff_factor = 0.05  # 50ms base
+        transformed_spec = CountingJob.with_transform("retry", {"max_retries": 2, "backoff_factor": backoff_factor})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        job = runnable_spec({"state_key": "backoff_timing", "fail_until": 2, "value": "timed"}, {})
+
+        workflow = LocalWorkflow(context)
+        start_time = time.time()
+        events = list(workflow.run(job, events_filter=None))
+        elapsed = time.time() - start_time
+
+        # Should have succeeded
+        output_events = [e for e in events if isinstance(e, JobOutputEvent) and e.output.get("value") == "timed"]
+        assert len(output_events) >= 1
+
+        # Should have taken at least some time due to backoff
+        # First retry: 0.05s, second retry: 0.1s = ~0.15s minimum
+        # Allow some margin for test execution overhead
+        assert elapsed >= 0.1, f"Expected at least 0.1s elapsed, got {elapsed}s"
+
+    def test_retry_preserves_job_output_structure(self):
+        """Test that retry transform correctly forwards job output structure."""
+        tmp_file = "/tmp/zahir_retry_output_structure.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        transformed_spec = SimpleSuccessJob.with_transform("retry", {"max_retries": 1, "backoff_factor": 0.01})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        job = runnable_spec({"value": {"nested": {"data": [1, 2, 3]}}}, {})
+
+        workflow = LocalWorkflow(context)
+        events = list(workflow.run(job, events_filter=None))
+
+        # Output should preserve the nested structure
+        output_events = [e for e in events if isinstance(e, JobOutputEvent)]
+        assert len(output_events) >= 1
+
+        # Find the final output
+        final_output = None
+        for e in reversed(output_events):
+            if isinstance(e, JobOutputEvent) and "value" in e.output:
+                final_output = e.output["value"]
+                break
+
+        assert final_output is not None
+        assert final_output == {"nested": {"data": [1, 2, 3]}}
+
+    def test_retry_with_zero_backoff(self):
+        """Test retry transform with zero backoff (immediate retry)."""
+        tmp_file = "/tmp/zahir_retry_zero_backoff.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        transformed_spec = CountingJob.with_transform("retry", {"max_retries": 2, "backoff_factor": 0.0})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        job = runnable_spec({"state_key": "zero_backoff", "fail_until": 1, "value": "fast"}, {})
+
+        workflow = LocalWorkflow(context)
+        start_time = time.time()
+        events = list(workflow.run(job, events_filter=None))
+        elapsed = time.time() - start_time
+
+        # Should succeed
+        output_events = [e for e in events if isinstance(e, JobOutputEvent) and e.output.get("value") == "fast"]
+        assert len(output_events) >= 1
+
+        # Should be relatively fast (zero backoff means minimal delay, but there's still overhead)
+        # Allow up to 3 seconds for test execution overhead
+        assert elapsed < 3.0, f"Expected relatively fast execution with zero backoff, got {elapsed}s"
+
+    def test_retry_serialization_roundtrip(self):
+        """Test that retry transform works after job serialization/deserialization."""
+        tmp_file = "/tmp/zahir_retry_serialize.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        # Create transformed job
+        transformed_spec = CountingJob.with_transform("retry", {"max_retries": 2, "backoff_factor": 0.01})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        job = runnable_spec({"state_key": "serialize_test", "fail_until": 1, "value": "serialized"}, {})
+
+        # Save and load the job (simulating what happens in the registry)
+        saved = job.save(context)
+        loaded_job = type(job).load(context, saved)
+
+        workflow = LocalWorkflow(context)
+        events = list(workflow.run(loaded_job, events_filter=None))
+
+        # Should succeed after retry
+        output_events = [
+            e for e in events if isinstance(e, JobOutputEvent) and e.output.get("value") == "serialized"
+        ]
+        assert len(output_events) >= 1
+
+@spec()
+def WorkflowWithRetry(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+    """A workflow that awaits a retried job."""
+    from zahir.events import Await
+
+    # Create a retried job
+    transformed_spec = CountingJob.with_transform("retry", {"max_retries": 1, "backoff_factor": 0.01})
+    runnable_spec = transformed_spec.apply_transforms(context.scope)
+
+    retry_job = runnable_spec(
+        {"state_key": "await_retry", "fail_until": 1, "value": "awaited"}, {}
+    )
+
+    result = yield Await(retry_job)
+    yield WorkflowOutputEvent({"result": result})
+
+
+class TestRetryTransformWorkflows:
+    """Comprehensive workflow tests for retry transform."""
+
+    def test_retry_in_workflow_with_await(self):
+        """Test retry transform in a workflow that awaits the retried job."""
+        tmp_file = "/tmp/zahir_retry_await.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        workflow = LocalWorkflow(context)
+        job = WorkflowWithRetry({}, {})
+        events = list(workflow.run(job))
+
+        # Should get workflow output
+        workflow_outputs = [e for e in events if isinstance(e, WorkflowOutputEvent)]
+        assert len(workflow_outputs) >= 1
+        assert workflow_outputs[0].output.get("result") is not None

@@ -16,15 +16,15 @@ from zahir.transforms.retry import retry
 
 def _find_caller_module() -> ModuleType | None:
     """Find the calling module by walking up the call stack.
-    
+
     Skips internal zahir modules and pytest modules to find the actual caller.
-    
+
     @return: The calling module, or None if not found
     """
     frame = inspect.currentframe()
     if frame is None:
         return None
-    
+
     # Walk up the stack to find a frame with a valid module
     # Skip internal zahir modules and pytest modules
     current_frame = frame.f_back  # Skip this function's frame
@@ -36,7 +36,7 @@ def _find_caller_module() -> ModuleType | None:
             if not module_name.startswith(("zahir.", "_pytest", "pytest")):
                 return candidate_module
         current_frame = current_frame.f_back
-    
+
     return None
 
 # Register built in job specs
