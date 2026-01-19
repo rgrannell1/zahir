@@ -106,3 +106,107 @@ def test_output_logging_multiple_lines():
 
         # If we get here, we didn't find the job output, but that's OK
         # The important thing is that logging directories were created
+
+
+def test_pid_prepending_writer_empty_text():
+    """Test PIDPrependingWriter.write() with empty text."""
+    import io
+    from zahir.utils.output_logging import PIDPrependingWriter
+
+    file_obj = io.StringIO()
+    writer = PIDPrependingWriter(file_obj, process_id=12345)
+
+    # Writing empty string should return 0
+    result = writer.write("")
+    assert result == 0
+    assert file_obj.getvalue() == ""
+
+    # Writing None-like empty string
+    result = writer.write("")
+    assert result == 0
+
+
+def test_pid_prepending_writer_flush_with_buffer():
+    """Test PIDPrependingWriter.flush() with remaining buffer."""
+    import io
+    from zahir.utils.output_logging import PIDPrependingWriter
+
+    file_obj = io.StringIO()
+    writer = PIDPrependingWriter(file_obj, process_id=99999)
+
+    # Write partial line (no newline)
+    writer.write("partial line")
+    assert file_obj.getvalue() == ""
+
+    # Flush should write the buffered content
+    writer.flush()
+    assert "[PID 99999] partial line\n" in file_obj.getvalue()
+
+
+def test_pid_prepending_writer_multiple_writes():
+    """Test PIDPrependingWriter with multiple writes that build up lines."""
+    import io
+    from zahir.utils.output_logging import PIDPrependingWriter
+
+    file_obj = io.StringIO()
+    writer = PIDPrependingWriter(file_obj, process_id=11111)
+
+    # Write in chunks
+    writer.write("line 1\n")
+    writer.write("line 2")
+    writer.write(" continued\n")
+    writer.write("line 3\n")
+
+    content = file_obj.getvalue()
+    assert "[PID 11111] line 1\n" in content
+    assert "[PID 11111] line 2 continued\n" in content
+    assert "[PID 11111] line 3\n" in content
+
+
+def test_setup_output_logging_returns_none_when_no_dir():
+    """Test setup_output_logging returns None, None when log_output_dir is None."""
+    from zahir.utils.output_logging import setup_output_logging
+
+    stdout_path, stderr_path = setup_output_logging(log_output_dir=None)
+    assert stdout_path is None
+    assert stderr_path is None
+
+
+def test_get_log_directory_path():
+    """Test get_log_directory_path function."""
+    import tempfile
+    from zahir.utils.output_logging import get_log_directory_path
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # Test with job type
+        path = get_log_directory_path(temp_dir, start_job_type="TestJob")
+        assert path.parent == pathlib.Path(temp_dir)
+        assert path.name.startswith("TestJob-")
+
+        # Test without job type
+        path2 = get_log_directory_path(temp_dir, start_job_type=None)
+        assert path2.parent == pathlib.Path(temp_dir)
+        # Should be just a timestamp, no job type prefix
+        assert not path2.name.startswith("TestJob-")
+        assert "-" in path2.name  # Should have timestamp separator
+
+
+def test_setup_output_logging_creates_files():
+    """Test setup_output_logging actually creates log files."""
+    import tempfile
+    import os
+    from zahir.utils.output_logging import setup_output_logging
+
+    with tempfile.TemporaryDirectory() as temp_dir:
+        stdout_path, stderr_path = setup_output_logging(
+            log_output_dir=temp_dir,
+            start_job_type="FileTest"
+        )
+
+        assert stdout_path is not None
+        assert stderr_path is not None
+        assert stdout_path.exists()
+        assert stderr_path.exists()
+        assert stdout_path.name.startswith("stdout_")
+        assert stderr_path.name.startswith("stderr_")
+        assert "FileTest" in str(stdout_path.parent)

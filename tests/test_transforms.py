@@ -648,3 +648,132 @@ class TestLocalWorkflowWithTransforms:
         # Workflow should still complete
         complete_events = [e for e in events if isinstance(e, WorkflowCompleteEvent)]
         assert len(complete_events) == 1
+
+
+@spec()
+def JobWithNoOutput(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+    """A job that completes but produces no output."""
+    # Just return without yielding JobOutputEvent
+    return
+
+
+@spec()
+def JobWithDifferentException(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+    """A job that raises a different exception type."""
+    exception_type = input.get("exception_type", "ValueError")
+    if exception_type == "RuntimeError":
+        raise RuntimeError("Runtime error occurred")
+    elif exception_type == "KeyError":
+        raise KeyError("Key not found")
+    else:
+        raise ValueError("Default error")
+    yield  # Make it a generator
+
+
+class TestRetryTransformEdgeCases:
+    """Tests for retry transform edge cases and error handling."""
+
+    def test_retry_with_job_no_output(self):
+        """Test retry transform with a job that produces no output."""
+        tmp_file = "/tmp/zahir_retry_no_output.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        # Job that completes but has no output
+        transformed_spec = JobWithNoOutput.with_transform("retry", {"max_retries": 1, "backoff_factor": 0.01})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        job = runnable_spec({}, {})
+
+        workflow = LocalWorkflow(context)
+        events = list(workflow.run(job, events_filter=None))
+
+        # Job should complete successfully even without output
+        complete_events = [e for e in events if isinstance(e, WorkflowCompleteEvent)]
+        assert len(complete_events) == 1
+
+    def test_retry_with_different_exception_types(self):
+        """Test retry transform handles different exception types."""
+        tmp_file = "/tmp/zahir_retry_exception_types.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        # Test with RuntimeError
+        transformed_spec = JobWithDifferentException.with_transform("retry", {"max_retries": 1, "backoff_factor": 0.01})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        job = runnable_spec({"exception_type": "RuntimeError"}, {})
+
+        workflow = LocalWorkflow(context)
+        events = list(workflow.run(job, events_filter=None))
+
+        # Should exhaust retries and fail
+        complete_events = [e for e in events if isinstance(e, WorkflowCompleteEvent)]
+        assert len(complete_events) == 1
+
+    def test_retry_with_keyerror_exception(self):
+        """Test retry transform handles KeyError exceptions."""
+        tmp_file = "/tmp/zahir_retry_keyerror.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        transformed_spec = JobWithDifferentException.with_transform("retry", {"max_retries": 2, "backoff_factor": 0.01})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        job = runnable_spec({"exception_type": "KeyError"}, {})
+
+        workflow = LocalWorkflow(context)
+        events = list(workflow.run(job, events_filter=None))
+
+        # Should exhaust retries
+        complete_events = [e for e in events if isinstance(e, WorkflowCompleteEvent)]
+        assert len(complete_events) == 1
+
+    def test_retry_zero_max_retries(self):
+        """Test retry transform with zero max retries (only initial attempt)."""
+        tmp_file = "/tmp/zahir_retry_zero.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        # Zero retries means only one attempt
+        transformed_spec = FailingJob.with_transform("retry", {"max_retries": 0, "backoff_factor": 0.01})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        job = runnable_spec({}, {})
+
+        workflow = LocalWorkflow(context)
+        events = list(workflow.run(job, events_filter=None))
+
+        # Should fail immediately without retrying
+        complete_events = [e for e in events if isinstance(e, WorkflowCompleteEvent)]
+        assert len(complete_events) == 1
+
+    def test_retry_custom_backoff_factor(self):
+        """Test retry transform with custom backoff factor."""
+        tmp_file = "/tmp/zahir_retry_backoff.db"
+        pathlib.Path(tmp_file).unlink(missing_ok=True)
+
+        scope = LocalScope.from_module(sys.modules[__name__])
+        context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
+
+        # Use a larger backoff factor
+        transformed_spec = CountingJob.with_transform("retry", {"max_retries": 2, "backoff_factor": 0.1})
+        runnable_spec = transformed_spec.apply_transforms(scope)
+
+        # Job that fails once then succeeds
+        job = runnable_spec({"state_key": "backoff_test", "fail_until": 1, "value": "success"}, {})
+
+        workflow = LocalWorkflow(context)
+        events = list(workflow.run(job, events_filter=None))
+
+        # Should succeed after retry
+        output_events = [e for e in events if isinstance(e, JobOutputEvent) and e.output.get("value") == "success"]
+        assert len(output_events) >= 1
