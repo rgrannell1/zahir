@@ -20,7 +20,7 @@ def DummyJobSpec(spec_args, context, input, dependencies):
     yield WorkflowOutputEvent({"result": 42})
 
 
-def DummyJob(input=None, dependencies=None, options=None, job_id=None, parent_id=None, once=False):
+def DummyJob(input=None, dependencies=None, options=None, job_id=None, parent_id=None, once=False, once_by=None):
     """Factory function to create dummy JobInstance objects for testing."""
     job_args = input if input is not None else {}
     job_deps = dependencies if dependencies is not None else {}
@@ -35,6 +35,7 @@ def DummyJob(input=None, dependencies=None, options=None, job_id=None, parent_id
         job_timeout=job_timeout,
         recover_timeout=recover_timeout,
         once=once,
+        once_by=once_by,
     )
     return JobInstance(spec=DummyJobSpec, args=job_arguments)
 
@@ -631,6 +632,58 @@ def test_idempotency_hash_stable_ordering():
         
         # Should return the same job_id since hash should be the same
         assert job_id1 == job_id2 == "job1"
+    finally:
+        registry.conn.close()
+        pathlib.Path(db_path).unlink()
+
+
+def test_idempotency_custom_hash_function():
+    """Test that a custom idempotency hash function works correctly."""
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        db_path = tmp.name
+    try:
+        registry = SQLiteJobRegistry(db_path)
+        registry.init("worker-idempotency-6")
+        scope = LocalScope()
+        context = MemoryContext(scope=scope, job_registry=registry)
+        
+        # Custom hash function that only uses a specific field
+        def custom_hash(job_type: str, args: dict, dependencies: dict) -> str:
+            import hashlib
+            # Only hash the "id" field if present, otherwise use type
+            key = args.get("id", job_type)
+            return hashlib.sha256(str(key).encode("utf-8")).hexdigest()
+        
+        # Create jobs with same "id" field but different other fields
+        job1 = DummyJob(
+            input={"id": "same-id", "other": "value1"},
+            job_id="job1",
+            once=True,
+            once_by=custom_hash,
+        )
+        job2 = DummyJob(
+            input={"id": "same-id", "other": "value2"},
+            job_id="job2",
+            once=True,
+            once_by=custom_hash,
+        )
+        dummy_queue = multiprocessing.Queue()
+        
+        job_id1 = registry.add(context, job1, dummy_queue)
+        job_id2 = registry.add(context, job2, dummy_queue)
+        
+        # Should return the same job_id since custom hash only looks at "id" field
+        assert job_id1 == job_id2 == "job1"
+        
+        # But jobs with different "id" should be different
+        job3 = DummyJob(
+            input={"id": "different-id", "other": "value1"},
+            job_id="job3",
+            once=True,
+            once_by=custom_hash,
+        )
+        job_id3 = registry.add(context, job3, dummy_queue)
+        assert job_id3 == "job3"
     finally:
         registry.conn.close()
         pathlib.Path(db_path).unlink()

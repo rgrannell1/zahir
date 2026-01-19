@@ -1,7 +1,6 @@
+import json
 from collections.abc import Iterator, Mapping
 from datetime import UTC, datetime
-import hashlib
-import json
 import multiprocessing
 import sqlite3
 import traceback
@@ -37,6 +36,7 @@ from zahir.job_registry.sqlite.tables import (
 )
 from zahir.job_registry.state_event import create_state_event
 from zahir.serialise import serialise_event
+from zahir.utils.hash import compute_idempotence_key
 from zahir.utils.logging_config import get_logger
 
 log = get_logger(__name__)
@@ -44,28 +44,6 @@ log = get_logger(__name__)
 # Default is WARNING to reduce noise
 
 
-def compute_idempotency_hash(saved_job: dict[str, Any]) -> str:
-    """Compute a stable hash from job inputs for idempotency checking.
-
-    The hash is based on:
-    - job type
-    - args (with stable dictionary ordering)
-
-    Dependencies are excluded as they are too transient. This ensures that
-    jobs with the same type and args produce the same hash, regardless of
-    dictionary key ordering.
-    """
-    # Create a stable representation of the job inputs
-    hash_data = {
-        "type": saved_job["type"],
-        "args": saved_job["args"],
-    }
-
-    # Use json.dumps with sort_keys=True to ensure stable ordering
-    hash_string = json.dumps(hash_data, sort_keys=True)
-
-    # Compute SHA256 hash
-    return hashlib.sha256(hash_string.encode("utf-8")).hexdigest()
 
 
 class SQLiteJobRegistry(JobRegistry):
@@ -196,7 +174,13 @@ class SQLiteJobRegistry(JobRegistry):
             # If once flag is set, check for existing job with same idempotency hash
             idempotency_hash = None
             if job.args.once:
-                idempotency_hash = compute_idempotency_hash(saved_job)
+                # Use custom once_by function if provided, otherwise use default
+                idempotency_hash = compute_idempotence_key(
+                    job_type=saved_job["type"],
+                    args=saved_job["args"],
+                    dependencies=saved_job["dependencies"],
+                    once_by=getattr(job.args, "once_by", None),
+                )
                 existing_hash = conn.execute(
                     "select job_id from jobs where idempotency_hash = ?", (idempotency_hash,)
                 ).fetchone()

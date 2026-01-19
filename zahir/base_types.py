@@ -487,7 +487,7 @@ class Context:
 #
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 type JobEventSet[OutputType] = (
     # Jobs can output jobs
@@ -677,6 +677,7 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
         job_id: str | None = None,
         priority: int = 0,
         once: bool = False,
+        once_by: "Callable[[str, Mapping[str, Any], Mapping[str, Any]], str] | None" = None,
     ) -> "JobInstance[JobSpecArgs, ArgsType, OutputType]":
         if job_id is None:
             job_id = generate_job_id(self.type)
@@ -699,6 +700,7 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
             parent_id=None,
             priority=priority,
             once=once,
+            once_by=once_by,
         )
 
         return JobInstance(spec=self, args=job_args)
@@ -730,8 +732,11 @@ class JobArguments[ArgsType]:
     # Priority for job scheduling (higher values run first)
     priority: int = 0
 
-    # If True, only add this job once based on idempotency_hash
+    # If True, only add this job once based on an idempotence key
     once: bool = False
+
+    # Compute a hash for idempotence checking, based on deps + inputs
+    once_by: "Callable[[str, Mapping[str, Any], Mapping[str, Any]], str] | None" = None
 
 
 class SerialisedJobInstance[ArgsType](TypedDict, total=False):
