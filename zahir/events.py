@@ -505,10 +505,10 @@ class ZahirInternalErrorEvent(ZahirEvent):
 
 
 @dataclass
-class JobEvent(ZahirEvent):
+class JobEvent[ArgsType](ZahirEvent):
     """Generic job event for various job state changes."""
 
-    job: SerialisedJobInstance
+    job: SerialisedJobInstance[ArgsType]
     pid: int = field(default_factory=os.getpid)
 
     def save(self, context: Context) -> Mapping[str, Any]:
