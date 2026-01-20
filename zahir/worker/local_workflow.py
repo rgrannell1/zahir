@@ -23,6 +23,7 @@ class LocalWorkflow[WorkflowOutputType]:
     progress_monitor: ProgressMonitor | None
     log_output_dir: str | None
     start_job_type: str | None
+    otel_output_dir: str | None
 
     def __init__(
         self,
@@ -31,6 +32,7 @@ class LocalWorkflow[WorkflowOutputType]:
         progress_monitor: ProgressMonitor | None = None,
         log_output_dir: str | None = None,
         start_job_type: str | None = None,
+        otel_output_dir: str | None = "traces",
     ) -> None:
         """Initialize a workflow execution engine
 
@@ -38,6 +40,7 @@ class LocalWorkflow[WorkflowOutputType]:
         @param max_workers: Number of worker processes to use
         @param progress_monitor: Optional progress monitor for tracking workflow execution. Defaults to ZahirProgressMonitor if not provided.
         @param log_output_dir: Directory to capture stdout/stderr from all processes. If None, logging is disabled.
+        @param otel_output_dir: Directory to write OpenTelemetry trace files. Defaults to "traces". Pass None explicitly to disable tracing.
         """
 
         if max_workers < 2:
@@ -47,6 +50,7 @@ class LocalWorkflow[WorkflowOutputType]:
         self.progress_monitor = progress_monitor
         self.log_output_dir = log_output_dir
         self.start_job_type = start_job_type
+        self.otel_output_dir = otel_output_dir
 
         if not context:
             # Find which module called this one, and construct a scope based on the
@@ -84,12 +88,10 @@ class LocalWorkflow[WorkflowOutputType]:
         - ZahirCustomEvent: any custom events emitted by workflows. Can be used for custom in-band eventing.
         """
 
-        progress_monitor = (
-            self.progress_monitor or ZahirProgressMonitor() if show_progress else NoOpProgressMonitor()
-        )
+        progress_monitor = self.progress_monitor or ZahirProgressMonitor() if show_progress else NoOpProgressMonitor()
 
         with progress_monitor as progress:
-            for event in zahir_worker_overseer(start, self.context, self.max_workers):
+            for event in zahir_worker_overseer(start, self.context, self.max_workers, self.otel_output_dir):
                 progress.handle_event(event)
 
                 if events_filter is None:

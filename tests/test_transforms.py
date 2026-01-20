@@ -835,9 +835,7 @@ def WorkflowWithRetry(context: Context, input: dict, dependencies: DependencyGro
     transformed_spec = CountingJob.with_transform("retry", {"max_retries": 1, "backoff_factor": 0.01})
     runnable_spec = transformed_spec.apply_transforms(context.scope)
 
-    retry_job = runnable_spec(
-        {"state_key": "await_retry", "fail_until": 1, "value": "awaited"}, {}
-    )
+    retry_job = runnable_spec({"state_key": "await_retry", "fail_until": 1, "value": "awaited"}, {})
 
     result = yield Await(retry_job)
     yield WorkflowOutputEvent({"result": result})
@@ -864,9 +862,7 @@ class TestRetryTransformWorkflows:
         events = list(workflow.run(job, events_filter=None))
 
         # Should complete successfully
-        output_events = [
-            e for e in events if isinstance(e, JobOutputEvent) and e.output.get("parent_value") == 999
-        ]
+        output_events = [e for e in events if isinstance(e, JobOutputEvent) and e.output.get("parent_value") == 999]
         assert len(output_events) >= 1
 
         workflow_complete = [e for e in events if isinstance(e, WorkflowCompleteEvent)]
@@ -1059,10 +1055,9 @@ class TestRetryTransformWorkflows:
         events = list(workflow.run(loaded_job, events_filter=None))
 
         # Should succeed after retry
-        output_events = [
-            e for e in events if isinstance(e, JobOutputEvent) and e.output.get("value") == "serialized"
-        ]
+        output_events = [e for e in events if isinstance(e, JobOutputEvent) and e.output.get("value") == "serialized"]
         assert len(output_events) >= 1
+
 
 @spec()
 def WorkflowWithRetry(context: Context, input: dict, dependencies: DependencyGroup):
@@ -1073,9 +1068,7 @@ def WorkflowWithRetry(context: Context, input: dict, dependencies: DependencyGro
     transformed_spec = CountingJob.with_transform("retry", {"max_retries": 1, "backoff_factor": 0.01})
     runnable_spec = transformed_spec.apply_transforms(context.scope)
 
-    retry_job = runnable_spec(
-        {"state_key": "await_retry", "fail_until": 1, "value": "awaited"}, {}
-    )
+    retry_job = runnable_spec({"state_key": "await_retry", "fail_until": 1, "value": "awaited"}, {})
 
     result = yield Await(retry_job)
     yield WorkflowOutputEvent({"result": result})

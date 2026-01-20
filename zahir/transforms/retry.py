@@ -7,7 +7,9 @@ from zahir.events import Await, JobOutputEvent
 from zahir.jobs.sleep import Sleep
 
 
-def retry[ArgsType, OutputType](args: Mapping[str, Any], spec: JobSpec[ArgsType, OutputType]) -> JobSpec[ArgsType, OutputType]:
+def retry[ArgsType, OutputType](
+    args: Mapping[str, Any], spec: JobSpec[ArgsType, OutputType]
+) -> JobSpec[ArgsType, OutputType]:
     """Transform a JobSpec to add retry logic with exponential backoff.
 
     This works by running the original job as an Awaited child job, which allows
@@ -28,7 +30,9 @@ def retry[ArgsType, OutputType](args: Mapping[str, Any], spec: JobSpec[ArgsType,
     # We'll look up the base spec from scope when running to create child jobs.
     original_type = spec.type
 
-    def retry_run(context: Context, job_args: ArgsType, dependencies: DependencyGroup) -> Generator[JobEventSet[OutputType], Any, Any]:
+    def retry_run(
+        context: Context, job_args: ArgsType, dependencies: DependencyGroup
+    ) -> Generator[JobEventSet[OutputType], Any, Any]:
         last_error: Exception | None = None
 
         # Get the base spec from scope (without transforms applied)

@@ -27,6 +27,7 @@ from zahir.serialise import SerialisedEvent, deserialise_event, serialise_event
 from zahir.utils.id_generator import generate_id
 from zahir.worker.dependency_worker import zahir_dependency_worker
 from zahir.worker.job_worker import zahir_job_worker
+from zahir.utils.opentelemetry import TraceContextManager
 
 type OutputQueue = multiprocessing.Queue["SerialisedEvent"]
 type InputQueue = multiprocessing.Queue["SerialisedEvent"]
@@ -190,7 +191,9 @@ def start_zahir_overseer(context: Context, start: JobInstance | None, worker_cou
     return processes, process_queues, process_states, ready_worker_queue, output_queue, workflow_id
 
 
-def zahir_worker_overseer(start: JobInstance | None, context, worker_count: int = 4) -> Iterator[ZahirEvent]:
+def zahir_worker_overseer(
+    start: JobInstance | None, context, worker_count: int = 4, otel_output_dir: str | None = None
+) -> Iterator[ZahirEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 
@@ -198,10 +201,19 @@ def zahir_worker_overseer(start: JobInstance | None, context, worker_count: int 
         context, start, worker_count
     )
 
+    # Initialize trace context manager if tracing is enabled
+    trace_manager = None
+    if otel_output_dir is not None:
+        trace_manager = TraceContextManager(otel_output_dir, context)
+
     exc: Exception | None = None
     try:
         while True:
             event = deserialise_event(context, output_queue.get())
+
+            # Handle trace context if enabled
+            if trace_manager:
+                trace_manager.handle_event(event)
 
             if isinstance(event, ZahirInternalErrorEvent):
                 exc = (
@@ -241,6 +253,8 @@ def zahir_worker_overseer(start: JobInstance | None, context, worker_count: int 
     except KeyboardInterrupt:
         pass
     finally:
+        if trace_manager:
+            trace_manager.close()
         shutdown(processes)
         context.job_registry.close()
 

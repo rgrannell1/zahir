@@ -96,7 +96,7 @@ def test_recovery_function_signature():
 
     def capture_args_recovery(context: Context, input, dependencies, err):
         """Recovery that captures arguments."""
-        
+
         captured_args["context"] = context
         captured_args["input"] = input
         captured_args["dependencies"] = dependencies
@@ -121,7 +121,7 @@ def test_recovery_function_signature():
     list(TestJob.recover(test_context, test_input, test_dependencies, test_error))
 
     # Verify all arguments were passed correctly
-    
+
     assert captured_args["context"] == test_context
     assert captured_args["input"] == test_input
     assert captured_args["dependencies"] == test_dependencies

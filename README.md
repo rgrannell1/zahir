@@ -379,6 +379,15 @@ rs check && rs check:mypy
 rs test
 ```
 
+1. Start tracing stack: `docker compose up -d`
+2. Run workflow: `python integration_tests/main.py` (traces written to `traces/`)
+3. Send traces: `python bs/send-traces.py`
+4. View in Jaeger: http://localhost:16686
+
+```
+Zahir → Trace Files → OTLP Collector → Jaeger UI
+```
+
 ## License
 
 Copyright (c) 2025 Róisín Grannell

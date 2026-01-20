@@ -1,11 +1,11 @@
 from collections.abc import Generator, Iterator
 import pathlib
 import re
-from typing import TypedDict, cast
+from typing import Any, TypedDict, cast
 
 from zahir.base_types import Context, JobInstance
 from zahir.context import MemoryContext
-from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
+from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent, ZahirEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import spec
 from zahir.jobs.sleep import Sleep
@@ -90,10 +90,14 @@ def UppercaseWords(context: Context, args, dependencies) -> Generator[JobOutputE
 
     yield JobOutputEvent({"words": [word.upper() for word in args["words"]]})
 
+
 job_registry = SQLiteJobRegistry("jobs.db")
 context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registry)
 
 start = BookProcessor({"file_path": "integration_tests/data.txt"}, {})
 
-events = list(LocalWorkflow(context).run(start, events_filter=None))
+# Traces are written to "traces/" by default
+workflow = LocalWorkflow(context=context)
+
+events = list[WorkflowOutputEvent | ZahirEvent](workflow.run(start, events_filter=None))
 print(events[-5:-1])
