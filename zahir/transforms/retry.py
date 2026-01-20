@@ -1,10 +1,10 @@
-from collections.abc import Mapping
-from typing import Any, Generator, cast
+from collections.abc import Generator, Mapping
+from typing import Any, cast
 
 from zahir.base_types import Context, JobEventSet, JobInstance, JobSpec
 from zahir.dependencies.group import DependencyGroup
 from zahir.events import Await, JobOutputEvent
-from zahir.jobs.sleep import Sleep, SleepArgs, SleepOutput
+from zahir.jobs.sleep import Sleep
 
 
 def retry[ArgsType, OutputType](args: Mapping[str, Any], spec: JobSpec[ArgsType, OutputType]) -> JobSpec[ArgsType, OutputType]:

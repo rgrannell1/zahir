@@ -21,13 +21,16 @@ def _sleep_precheck(args):
 
     return None
 
+
 @dataclass
 class SleepOutput(TypedDict):
     duration_seconds: float
 
+
 @dataclass
 class SleepArgs(TypedDict):
     duration_seconds: float
+
 
 @spec(precheck=_sleep_precheck)
 def Sleep(context: Context, args: SleepArgs, dependencies) -> Generator[JobInstance | JobOutputEvent[SleepOutput]]:
