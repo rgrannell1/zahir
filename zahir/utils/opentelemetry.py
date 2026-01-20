@@ -3,7 +3,9 @@
 from collections.abc import Mapping
 from datetime import UTC, datetime
 import json
+import os
 import pathlib
+import socket
 from typing import Any
 
 from zahir.base_types import Context, JobRegistry
@@ -41,12 +43,17 @@ class FileOtelExporter:
         self.file_handle = file_path.open("a", encoding="utf-8", buffering=1)
 
     def export_span(self, span_data: dict[str, Any]) -> None:
+        # Resource attributes are consistent across all spans (overseer process)
+        # Process-specific info is in span attributes (process.pid) for filtering/grouping
         resource_span = {
             "resourceSpans": [
                 {
                     "resource": {
                         "attributes": [
                             {"key": "service.name", "value": {"stringValue": "zahir"}},
+                            {"key": "service.instance.id", "value": {"stringValue": f"overseer-{os.getpid()}"}},
+                            {"key": "host.name", "value": {"stringValue": socket.gethostname()}},
+                            {"key": "process.pid", "value": {"intValue": str(os.getpid())}},
                         ],
                     },
                     "scopeSpans": [
@@ -327,6 +334,7 @@ def _handle_workflow_started(manager: TraceContextManager, event: WorkflowStarte
     attributes: dict[str, Any] = {
         "workflow.id": event.workflow_id,
         "workflow.pid": event.pid,
+        "process.pid": event.pid,
     }
 
     # Add workflow inputs as attributes (truncate if needed)
@@ -388,6 +396,7 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
         "job.type": event.job_type,
         "job.workflow_id": event.workflow_id,
         "job.worker_pid": event.pid,
+        "process.pid": event.pid,
     }
 
     # Add job inputs as attributes

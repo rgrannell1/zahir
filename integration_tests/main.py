@@ -97,7 +97,7 @@ context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registr
 start = BookProcessor({"file_path": "integration_tests/data.txt"}, {})
 
 # Traces are written to "traces/" by default
-workflow = LocalWorkflow(context=context)
+workflow = LocalWorkflow(context=context, max_workers=15)
 
 events = list[WorkflowOutputEvent | ZahirEvent](workflow.run(start, events_filter=None))
 print(events[-5:-1])
