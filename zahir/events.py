@@ -526,10 +526,10 @@ class JobEvent(ZahirEvent):
 
 
 @dataclass
-class Await(ZahirEvent):
+class Await[JobSpecArgs, ArgsType, OutputType](ZahirEvent):
     """Indicates that a job is awaiting some condition before proceeding"""
 
-    job: JobInstance | list[JobInstance]
+    job: JobInstance[JobSpecArgs, ArgsType, OutputType] | list[JobInstance[JobSpecArgs, ArgsType, OutputType]]
     pid: int = field(default_factory=os.getpid)
 
     def save(self, context: Context) -> Mapping[str, Any]:
@@ -548,7 +548,7 @@ class Await(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, context: Context, data: Mapping[str, Any]) -> Await:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> Await[JobSpecArgs, ArgsType, OutputType]:
         from zahir.base_types import JobInstance
 
         if data.get("is_list"):
