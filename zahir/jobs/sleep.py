@@ -1,4 +1,6 @@
 from collections.abc import Generator
+from dataclasses import dataclass
+from typing import TypedDict
 
 from zahir.base_types import Context, JobInstance
 from zahir.dependencies.time import TimeDependency
@@ -19,12 +21,18 @@ def _sleep_precheck(args):
 
     return None
 
+@dataclass
+class SleepOutput(TypedDict):
+    duration_seconds: float
+
+@dataclass
+class SleepArgs(TypedDict):
+    duration_seconds: float
 
 @spec(precheck=_sleep_precheck)
-def Sleep(context: Context, args, dependencies) -> Generator[JobInstance | JobOutputEvent]:
+def Sleep(context: Context, args: SleepArgs, dependencies) -> Generator[JobInstance | JobOutputEvent[SleepOutput]]:
     """A job that sleeps for a specified duration."""
     duration_seconds = args.get("duration_seconds", 0)
 
-    yield Empty({}, {"wait_seconds": TimeDependency.seconds_from_now(duration_seconds)})
-
-    yield JobOutputEvent(output={"duration_seconds": duration_seconds})
+    yield Empty[None, None]({}, {"wait_seconds": TimeDependency.seconds_from_now(duration_seconds)})
+    yield JobOutputEvent[SleepOutput](output={"duration_seconds": duration_seconds})

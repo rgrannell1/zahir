@@ -39,6 +39,7 @@ def _find_caller_module() -> ModuleType | None:
 
     return None
 
+
 # Register built in job specs
 INTERNAL_JOB_SPECS = {"Sleep": Sleep, "Empty": Empty}
 

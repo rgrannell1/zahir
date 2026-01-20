@@ -1,12 +1,13 @@
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Generator, cast
 
-from zahir.base_types import JobSpec
+from zahir.base_types import Context, JobEventSet, JobInstance, JobSpec
+from zahir.dependencies.group import DependencyGroup
 from zahir.events import Await, JobOutputEvent
-from zahir.jobs.sleep import Sleep
+from zahir.jobs.sleep import Sleep, SleepArgs, SleepOutput
 
 
-def retry(args: Mapping[str, Any], spec: JobSpec) -> JobSpec:
+def retry[ArgsType, OutputType](args: Mapping[str, Any], spec: JobSpec[ArgsType, OutputType]) -> JobSpec[ArgsType, OutputType]:
     """Transform a JobSpec to add retry logic with exponential backoff.
 
     This works by running the original job as an Awaited child job, which allows
@@ -27,11 +28,12 @@ def retry(args: Mapping[str, Any], spec: JobSpec) -> JobSpec:
     # We'll look up the base spec from scope when running to create child jobs.
     original_type = spec.type
 
-    def retry_run(context, job_args, dependencies):
+    def retry_run(context: Context, job_args: ArgsType, dependencies: DependencyGroup) -> Generator[JobEventSet[OutputType], Any, Any]:
         last_error: Exception | None = None
 
         # Get the base spec from scope (without transforms applied)
-        base_spec = context.scope.get_job_spec(original_type)
+        # Cast to preserve the generic types
+        base_spec = cast(JobSpec[ArgsType, OutputType], context.scope.get_job_spec(original_type))
 
         for attempt in range(max_retries + 1):
             try:
@@ -39,12 +41,12 @@ def retry(args: Mapping[str, Any], spec: JobSpec) -> JobSpec:
                 extended_dependencies = dependencies.request_extension(backoff_factor * (2**max_retries) * 2)
 
                 # Create child job from base spec (no transforms)
-                child_job = base_spec(job_args, extended_dependencies)
-                result = yield Await(child_job)
+                child_job: JobInstance[ArgsType, OutputType] = base_spec(job_args, extended_dependencies)
+                result = yield Await[ArgsType, OutputType](child_job)
 
                 # Only forward output if child produced one
                 if result is not None:
-                    yield JobOutputEvent(result)
+                    yield JobOutputEvent[OutputType](result)
                 else:
                     return
 
@@ -52,16 +54,12 @@ def retry(args: Mapping[str, Any], spec: JobSpec) -> JobSpec:
                 last_error = err
                 if attempt < max_retries:
                     backoff_time = backoff_factor * (2**attempt)
-                    yield Await(Sleep({"duration_seconds": backoff_time}, {}))
+
+                    yield Await[SleepArgs, SleepOutput](Sleep({"duration_seconds": backoff_time}, {}))
                 else:
-                    # Exhausted retries, re-raise the last error
-                    raise
+                    raise last_error
 
-        # Should not reach here, but just in case
-        if last_error:
-            raise last_error
-
-    return JobSpec(
+    return JobSpec[ArgsType, OutputType](
         type=spec.type,
         precheck=spec.precheck,
         recover=spec.recover,
