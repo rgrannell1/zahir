@@ -1,4 +1,4 @@
-from decimal import Context
+from zahir.base_types import Context
 from typing import Generator
 from zahir.dependencies.group import DependencyGroup
 from zahir.jobs.decorator import spec
