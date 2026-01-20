@@ -34,5 +34,5 @@ def Sleep(context: Context, args: SleepArgs, dependencies) -> Generator[JobInsta
     """A job that sleeps for a specified duration."""
     duration_seconds = args.get("duration_seconds", 0)
 
-    yield Empty[None, None]({}, {"wait_seconds": TimeDependency.seconds_from_now(duration_seconds)})
-    yield JobOutputEvent[SleepOutput](output={"duration_seconds": duration_seconds})
+    yield Empty({}, {"wait_seconds": TimeDependency.seconds_from_now(duration_seconds)})
+    yield JobOutputEvent(output={"duration_seconds": duration_seconds})

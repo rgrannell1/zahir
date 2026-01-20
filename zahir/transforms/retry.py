@@ -42,11 +42,11 @@ def retry[ArgsType, OutputType](args: Mapping[str, Any], spec: JobSpec[ArgsType,
 
                 # Create child job from base spec (no transforms)
                 child_job: JobInstance[ArgsType, OutputType] = base_spec(job_args, extended_dependencies)
-                result = yield Await[ArgsType, OutputType](child_job)
+                result = yield Await(child_job)
 
                 # Only forward output if child produced one
                 if result is not None:
-                    yield JobOutputEvent[OutputType](result)
+                    yield JobOutputEvent(output=result)
                 else:
                     return
 
@@ -54,12 +54,13 @@ def retry[ArgsType, OutputType](args: Mapping[str, Any], spec: JobSpec[ArgsType,
                 last_error = err
                 if attempt < max_retries:
                     backoff_time = backoff_factor * (2**attempt)
-
-                    yield Await[SleepArgs, SleepOutput](Sleep({"duration_seconds": backoff_time}, {}))
+                    # Wait for the backoff period before retrying
+                    _ = yield Await(Sleep({"duration_seconds": backoff_time}, {}))
+                    # Continue to next iteration to retry
                 else:
                     raise last_error
 
-    return JobSpec[ArgsType, OutputType](
+    return JobSpec(
         type=spec.type,
         precheck=spec.precheck,
         recover=spec.recover,
