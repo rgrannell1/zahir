@@ -7,7 +7,7 @@ name = "zahir"
 version = "0.1.0"
 description = "A parallel workflow execution engine with dependency management"
 readme = "README.md"
-requires-python = ">=3.15"
+requires-python = ">=3.13"
 authors = [
     { name = "Róisín Grannell" }
 ]
@@ -18,7 +18,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.15",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
     "croniter>=2.0.0",
@@ -61,4 +61,4 @@ test = [
 ignore = ["E402"]
 
 [tool.ruff]
-target-version = "py315"
+target-version = "py313"

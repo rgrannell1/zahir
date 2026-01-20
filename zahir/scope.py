@@ -67,13 +67,10 @@ class LocalScope(Scope):
         dependencies: list[type[Dependency]] | None = None,
         specs: list["JobSpec"] | None = None,
         transforms: dict[str, Transform] | None = None,
-        _source_module: ModuleType | str | None = None,
     ) -> None:
         self.dependencies: dict[str, type[Dependency]] = INTERNAL_DEPENDENCIES.copy()
         self.specs: dict[str, JobSpec] = INTERNAL_JOB_SPECS.copy()
         self.transforms: dict[str, Transform] = INTERNAL_TRANSFORMS.copy()
-        # Store module reference for pickling/unpickling
-        self._source_module: ModuleType | str | None = _source_module
 
         if dependencies:
             self.add_dependency_classes(dependencies)
@@ -200,32 +197,6 @@ class LocalScope(Scope):
             if module is None:
                 raise RuntimeError("Cannot determine calling module")
 
-        scope = cls(_source_module=module)
-        scope._populate_from_module(module)
-        return scope
-    
-    def __getstate__(self) -> dict:
-        """Custom pickling: serialize only the module name, not the functions."""
-        # Store module name instead of module object
-        module_name: str | None = None
-        if self._source_module is not None:
-            if isinstance(self._source_module, ModuleType):
-                module_name = self._source_module.__name__
-            else:
-                module_name = str(self._source_module)
-        
-        return {
-            "_source_module": module_name,
-            # Store spec type names (functions will be reconstructed from module)
-            "_spec_type_names": list(self.specs.keys()),
-            # Store dependency class names (classes will be reconstructed from module)
-            "_dependency_class_names": list(self.dependencies.keys()),
-            # Store transform names (functions will be reconstructed from module)
-            "_transform_names": list(self.transforms.keys()),
-        }
-    
-    def _populate_from_module(self, module: ModuleType) -> None:
-        """Populate this scope by discovering JobSpecs and Dependencies from a module."""
         specs: list[JobSpec] = []
         dependencies: list[type[Dependency]] = []
 
@@ -239,53 +210,4 @@ class LocalScope(Scope):
             if issubclass(obj, Dependency) and obj is not Dependency:
                 dependencies.append(obj)
 
-        if dependencies:
-            self.add_dependency_classes(dependencies)
-        if specs:
-            self.add_job_specs(specs)
-
-    def __setstate__(self, state: dict) -> None:
-        """Custom unpickling: reconstruct scope from module."""
-        # Initialize with defaults
-        self.dependencies = INTERNAL_DEPENDENCIES.copy()
-        self.specs = INTERNAL_JOB_SPECS.copy()
-        self.transforms = INTERNAL_TRANSFORMS.copy()
-        
-        module_name = state.get("_source_module")
-        
-        # Reconstruct from module if available
-        if module_name:
-            try:
-                import importlib
-                import sys
-                
-                # Handle __main__ specially - try to get it from sys.modules
-                if module_name == "__main__":
-                    module = sys.modules.get("__main__")
-                    if module is not None and hasattr(module, "__file__"):
-                        # We have the main module, try to populate from it
-                        try:
-                            self._populate_from_module(module)
-                            self._source_module = module
-                        except Exception:
-                            # If population fails, keep defaults
-                            self._source_module = module_name
-                    else:
-                        # Can't get main module, keep defaults
-                        self._source_module = module_name
-                else:
-                    # Regular module - try to import it
-                    try:
-                        module = importlib.import_module(module_name)
-                        # Populate scope from module
-                        self._populate_from_module(module)
-                        self._source_module = module
-                    except ImportError:
-                        # Module not importable - keep defaults
-                        self._source_module = module_name
-            except Exception:
-                # Any other error - fallback to defaults
-                self._source_module = module_name
-        else:
-            # No module info, use defaults
-            self._source_module = None
+        return cls(dependencies=dependencies, specs=specs)

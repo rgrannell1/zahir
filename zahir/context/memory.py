@@ -14,35 +14,8 @@ class MemoryContext(Context):
         @param scope: The scope for the context
         @param job_registry: The job registry
         """
-        self._scope = scope
-        self._job_registry = job_registry
-        self._manager: Manager | None = None
-        self._state: multiprocessing.managers.DictProxy | None = None
-    
-    @property
-    def scope(self) -> Scope:
-        return self._scope
-    
-    @property
-    def job_registry(self) -> JobRegistry:
-        return self._job_registry
-    
-    @property
-    def manager(self) -> Manager:
-        """Lazy initialization of Manager to avoid issues during unpickling."""
-        if self._manager is None:
-            self._manager = Manager()
-            self._state = self._manager.dict()
-        return self._manager
-    
-    @property
-    def state(self) -> multiprocessing.managers.DictProxy:
-        """Lazy initialization of state dict."""
-        if self._state is None:
-            # Trigger manager creation
-            _ = self.manager
-        assert self._state is not None
-        return self._state
+
+        super().__init__(scope=scope, job_registry=job_registry, manager=(manager := Manager()), state=manager.dict())
 
     def add_queue(self) -> tuple[str, multiprocessing.Queue]:
         """Create a new queue and store it in context.state.
@@ -65,19 +38,3 @@ class MemoryContext(Context):
         if key not in self.state:
             raise KeyError(f"Queue with ID '{queue_id}' not found")
         return self.state[key]
-    
-    def __getstate__(self) -> dict:
-        """Custom pickling: don't pickle the Manager, reconstruct it on unpickle."""
-        return {
-            "_scope": self._scope,
-            "_job_registry": self._job_registry,
-            # Don't pickle manager or state - they'll be reconstructed lazily
-        }
-    
-    def __setstate__(self, state: dict) -> None:
-        """Custom unpickling: restore scope and registry, Manager will be created lazily."""
-        self._scope = state["_scope"]
-        self._job_registry = state["_job_registry"]
-        # Don't create Manager here - it will be created lazily on first access
-        self._manager = None
-        self._state = None
