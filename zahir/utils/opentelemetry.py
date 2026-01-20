@@ -128,6 +128,20 @@ class TraceContextManager:
 
         return parent_span.get("spanId")
 
+    def _get_job_from_registry(self, job_id: str) -> Any | None:
+        """Get a job instance from the job registry.
+
+        @param job_id: The job ID
+        @return: The JobInstance, or None if not found
+        """
+        try:
+            for job_info in self.context.job_registry.jobs(self.context):
+                if job_info.job_id == job_id:
+                    return job_info.job
+        except Exception:
+            pass
+        return None
+
     def _get_job_parent_id(self, job_id: str) -> str | None:
         """Get the parent job ID from the job registry.
 
@@ -139,17 +153,39 @@ class TraceContextManager:
             return self.job_parents[job_id]
 
         # Try to get it from the job registry
-        try:
-            for job_info in self.context.job_registry.jobs(self.context):
-                if job_info.job_id == job_id:
-                    parent_id: str | None = job_info.job.args.parent_id
-                    self.job_parents[job_id] = parent_id
-                    return parent_id
-        except Exception:
-            # no parent found
-            pass
+        job = self._get_job_from_registry(job_id)
+        if job is not None:
+            parent_id: str | None = job.args.parent_id
+            self.job_parents[job_id] = parent_id
+            return parent_id
 
         return None
+
+    def _get_workflow_inputs(self, workflow_id: str) -> dict[str, Any]:
+        """Get workflow input arguments from root jobs (jobs with no parent).
+
+        @param workflow_id: The workflow ID
+        @return: Dictionary of input arguments from root jobs
+        """
+        inputs: dict[str, Any] = {}
+        try:
+            for job_info in self.context.job_registry.jobs(self.context):
+                # Find root jobs (no parent) that belong to this workflow
+                if job_info.job.args.parent_id is None:
+                    # Try to match workflow_id - we'll use job_id prefix or check if it's a start job
+                    # For now, capture all root jobs' inputs
+                    job_input = job_info.job.input
+                    if isinstance(job_input, dict):
+                        # Merge inputs, prefixing with job type to avoid collisions
+                        job_type = job_info.job.spec.type
+                        for key, value in job_input.items():
+                            inputs[f"{job_type}.{key}"] = value
+                    else:
+                        # Non-dict input - store as job type
+                        inputs[job_info.job.spec.type] = job_input
+        except Exception:
+            pass
+        return inputs
 
     def _create_span(
         self,
@@ -282,18 +318,32 @@ def _handle_workflow_started(manager: TraceContextManager, event: WorkflowStarte
     trace_id = generate_trace_id()
     manager.workflow_traces[event.workflow_id] = trace_id
 
+    # Get workflow inputs from root jobs in the registry
+    workflow_inputs = manager._get_workflow_inputs(event.workflow_id)
+
     # Create root span for the workflow
     span_id = generate_span_id()
     start_time = datetime.now(UTC)
+    attributes: dict[str, Any] = {
+        "workflow.id": event.workflow_id,
+        "workflow.pid": event.pid,
+    }
+
+    # Add workflow inputs as attributes (truncate if needed)
+    for key, value in workflow_inputs.items():
+        if isinstance(value, (str, int, float, bool)):
+            attributes[f"workflow.input.{key}"] = value
+        else:
+            # Serialize complex types and truncate
+            input_str = json.dumps(value)[:500]
+            attributes[f"workflow.input.{key}"] = input_str
+
     span = manager._create_span(
         trace_id=trace_id,
         span_id=span_id,
         name=f"workflow:{event.workflow_id}",
         start_time=start_time,
-        attributes={
-            "workflow.id": event.workflow_id,
-            "workflow.pid": event.pid,
-        },
+        attributes=attributes,
     )
     # Store workflow span with a special key
     manager.job_spans[f"_workflow:{event.workflow_id}"] = span
@@ -331,6 +381,31 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
         if parent_job_id:
             parent_span_id = manager._get_parent_span_id(parent_job_id)
 
+    # Get job inputs from the registry
+    job = manager._get_job_from_registry(event.job_id)
+    attributes: dict[str, Any] = {
+        "job.id": event.job_id,
+        "job.type": event.job_type,
+        "job.workflow_id": event.workflow_id,
+        "job.worker_pid": event.pid,
+    }
+
+    # Add job inputs as attributes
+    if job is not None:
+        job_input = job.input
+        if isinstance(job_input, dict):
+            for key, value in job_input.items():
+                if isinstance(value, (str, int, float, bool)):
+                    attributes[f"job.input.{key}"] = value
+                else:
+                    # Serialize complex types and truncate
+                    input_str = json.dumps(value)[:500]
+                    attributes[f"job.input.{key}"] = input_str
+        elif job_input is not None:
+            # Non-dict input - serialize and truncate
+            input_str = json.dumps(job_input)[:500]
+            attributes["job.input"] = input_str
+
     span_id = generate_span_id()
     start_time = datetime.now(UTC)
     span = manager._create_span(
@@ -339,12 +414,7 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
         name=f"job:{event.job_type}",
         start_time=start_time,
         parent_span_id=parent_span_id,
-        attributes={
-            "job.id": event.job_id,
-            "job.type": event.job_type,
-            "job.workflow_id": event.workflow_id,
-            "job.worker_pid": event.pid,
-        },
+        attributes=attributes,
     )
     manager.job_spans[event.job_id] = span
 
