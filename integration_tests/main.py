@@ -90,10 +90,6 @@ def UppercaseWords(spec_args, context: Context, args, dependencies) -> Generator
 
     yield JobOutputEvent({"words": [word.upper() for word in args["words"]]})
 
-
-# TODO debug why implicit scope fails.
-
-
 job_registry = SQLiteJobRegistry("jobs.db")
 context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registry)
 

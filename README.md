@@ -67,34 +67,39 @@ So Zahir is maximally expressive and extensible, at some cost to static analysab
 The following example workflow reads the text of a book, splits it into chapters, and `ChapterProcessor` computes the longest word in each chapter. `LongestWordAssembly` depends on these results, aggregates them, and emits an output event with the longest words by chapter.
 
 ```python
-from zahir import (
-    Await,
-    Context,
-    DependencyGroup,
-    JobDependency,
-    JobOutputEvent,
-    LocalScope,
-    LocalWorkflow,
-    MemoryContext,
-    SQLiteJobRegistry,
-    WorkflowOutputEvent,
-    job,
-)
+from collections.abc import Generator, Iterator
+from typing import TypedDict
 
-@job()
-def ChapterProcessor(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
+from zahir.base_types import Context, JobInstance
+from zahir.context import MemoryContext
+from zahir.events import Await, JobOutputEvent, WorkflowOutputEvent
+from zahir.job_registry import SQLiteJobRegistry
+from zahir.jobs.decorator import spec
+from zahir.scope import LocalScope
+from zahir.worker import LocalWorkflow
+
+@spec()
+def ChapterProcessor(spec_args, context, args, dependencies) -> Generator[JobOutputEvent]:
     """For each chapter, find the longest word."""
 
     # return the longest word found in the chapter
-    yield JobOutputEvent({"longest_word": get_longest_word(input["lines"])})
+    yield JobOutputEvent({"longest_word": get_longest_word(args["lines"])})
 
-@job()
-def BookProcessor(context: Context, input, dependencies) -> Generator[Await | Job | JobOutputEvent]:
+class ChapterProcessorOutput(TypedDict):
+    words: str
+
+class BookProcessorOutput(TypedDict):
+    words: list[str]
+
+@spec()
+def BookProcessor(
+    spec_args, context, args, dependencies
+) -> Generator[Await | JobInstance | WorkflowOutputEvent, ChapterProcessorOutput | BookProcessorOutput]:
     longest_words = yield Await([
-        ChapterProcessor({"lines": chapter_lines}, {}) for chapter_lines in read_chapters(input["file_path"])
+        ChapterProcessor({"lines": chapter_lines}, {}) for chapter_lines in read_chapters(args["file_path"])
     ])
 
-    long_words = set()
+    long_words: set[str] = set()
 
     for summary in longest_words:
         if summary is not None:
@@ -104,20 +109,23 @@ def BookProcessor(context: Context, input, dependencies) -> Generator[Await | Jo
 
     yield WorkflowOutputEvent({"longest_words": uppercased["words"]})
 
-@job()
-def UppercaseWords(context: Context, input, dependencies) -> Iterator[JobOutputEvent]:
+@spec()
+def UppercaseWords(spec_args, context: Context, args, dependencies) -> Generator[JobOutputEvent]:
     """Uppercase a list of words."""
 
-    yield JobOutputEvent({"words": [word.upper() for word in input["words"]]})
+    yield JobOutputEvent({"words": [word.upper() for word in args["words"]]})
 ```
 
-Jobs can be started without much boilerplate. By default:
-- Workflows will register all jobs / dependencies loaded in a file to a scope object internally. the `Scope` is needed to translate between classes and serialised data.
-- Job execution will be coordinated in an in-memory SQLite database.
+Jobs can be started with a context that includes a scope and job registry:
 
 ```py
-for event in LocalWorkflow().run(BookProcessor({"file_path": "./war-and-peace.txt"}, {})):
-    print(event) # WorkflowOutputEvent({ "longest_words_by_chapter": [...] })
+job_registry = SQLiteJobRegistry("jobs.db")
+context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registry)
+
+start = BookProcessor({"file_path": "./war-and-peace.txt"}, {})
+
+for event in LocalWorkflow(context).run(start, events_filter=None):
+    print(event) # WorkflowOutputEvent({ "longest_words": [...] })
 ```
 
 ## Constructs
