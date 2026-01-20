@@ -10,7 +10,7 @@ def handle_job_exception(state) -> tuple[CheckPreconditionsStateChange, None]:
     # Let's fork execution back to the job's recovery mechanism
     # we keep the same process ID. We should update the job registry.
     frame.job_generator = frame.job.spec.recover(
-        None, state.context, frame.job.input, frame.job.dependencies, state.last_event
+        state.context, frame.job.input, frame.job.dependencies, state.last_event
     )
 
     frame.recovery = True

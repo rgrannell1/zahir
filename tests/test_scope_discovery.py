@@ -14,13 +14,13 @@ test_module = ModuleType("test_workflows")
 
 # Define some test jobs and dependencies in the module
 @spec()
-def SampleJob1(spec_args, context: Context, input, dependencies):
+def SampleJob1(context: Context, input, dependencies):
     """A test job."""
     yield JobOutputEvent({"result": "test1"})
 
 
 @spec()
-def SampleJob2(spec_args, context: Context, input, dependencies):
+def SampleJob2(context: Context, input, dependencies):
     """Another test job."""
     yield JobOutputEvent({"result": "test2"})
 
@@ -131,7 +131,7 @@ def test_from_module_includes_imported_classes():
     other_module = ModuleType("other_module")
 
     @spec()
-    def ExternalJob(spec_args, context: Context, input, dependencies):
+    def ExternalJob(context: Context, input, dependencies):
         """A job from another module."""
         yield JobOutputEvent({"result": "external"})
 

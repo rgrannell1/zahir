@@ -27,7 +27,7 @@ def retry(args: Mapping[str, Any], spec: JobSpec) -> JobSpec:
     # We'll look up the base spec from scope when running to create child jobs.
     original_type = spec.type
 
-    def retry_run(spec_args, context, job_args, dependencies):
+    def retry_run(context, job_args, dependencies):
         last_error: Exception | None = None
 
         # Get the base spec from scope (without transforms applied)

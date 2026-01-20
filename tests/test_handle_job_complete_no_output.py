@@ -22,13 +22,13 @@ from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
 @spec()
-def SimpleJob(spec_args, context: Context, input, dependencies):
+def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
 @spec()
-def AnotherJob(spec_args, context: Context, input, dependencies):
+def AnotherJob(context: Context, input, dependencies):
     """Another job for testing."""
     yield JobOutputEvent({"count": 1})
 
@@ -54,7 +54,7 @@ def test_handle_job_complete_no_output_sets_completed_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -87,7 +87,7 @@ def test_handle_job_complete_no_output_transitions_to_enqueue():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -120,7 +120,7 @@ def test_handle_job_complete_no_output_clears_frame():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -155,7 +155,7 @@ def test_handle_job_complete_no_output_preserves_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -187,7 +187,7 @@ def test_handle_job_complete_no_output_workflow_id_used():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -220,7 +220,7 @@ def test_handle_job_complete_no_output_multiple_calls():
     job_id1 = context.job_registry.add(context, job1, output_queue)
 
     # Set up frame for first job
-    job_generator1 = SimpleJob.run(None, context, job1.input, job1.dependencies)
+    job_generator1 = SimpleJob.run(context, job1.input, job1.dependencies)
     frame1 = ZahirStackFrame(job=job1, job_generator=job_generator1, recovery=False)
     worker_state.frame = frame1
 
@@ -236,7 +236,7 @@ def test_handle_job_complete_no_output_multiple_calls():
     job_id2 = context.job_registry.add(context, job2, output_queue)
 
     # Set up frame for second job
-    job_generator2 = AnotherJob.run(None, context, job2.input, job2.dependencies)
+    job_generator2 = AnotherJob.run(context, job2.input, job2.dependencies)
     frame2 = ZahirStackFrame(job=job2, job_generator=job_generator2, recovery=False)
     worker_state.frame = frame2
 
@@ -269,7 +269,7 @@ def test_handle_job_complete_no_output_recovery_job():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -303,7 +303,7 @@ def test_handle_job_complete_no_output_clears_frame_completely():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 

@@ -15,7 +15,7 @@ from zahir.scope import LocalScope
 
 # Create a test spec and a helper function to create test job instances
 @spec()
-def DummyJobSpec(spec_args, context, input, dependencies):
+def DummyJobSpec(context, input, dependencies):
     """Dummy job spec for testing."""
     yield WorkflowOutputEvent({"result": 42})
 

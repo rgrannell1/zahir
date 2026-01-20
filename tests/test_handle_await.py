@@ -22,20 +22,20 @@ from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
 @spec()
-def SimpleJob(spec_args, context: Context, input, dependencies):
+def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
 @spec()
-def AwaitingJob(spec_args, context: Context, input, dependencies):
+def AwaitingJob(context: Context, input, dependencies):
     """A job that awaits another job."""
     result = yield Await(SimpleJob({"test": "data"}, {}))
     yield JobOutputEvent({"result": result})
 
 
 @spec()
-def MultiAwaitJob(spec_args, context: Context, input, dependencies):
+def MultiAwaitJob(context: Context, input, dependencies):
     """A job that awaits multiple jobs."""
     results = yield Await([
         SimpleJob({"idx": 0}, {}),
@@ -65,7 +65,7 @@ def test_handle_await_pauses_current_job():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -104,7 +104,7 @@ def test_handle_await_adds_awaited_job_to_registry():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -144,7 +144,7 @@ def test_handle_await_pushes_frame_to_stack():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -186,7 +186,7 @@ def test_handle_await_clears_current_frame():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -227,7 +227,7 @@ def test_handle_await_transitions_to_enqueue():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -267,7 +267,7 @@ def test_handle_await_sets_required_jobs():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -310,7 +310,7 @@ def test_handle_await_multiple_jobs():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = MultiAwaitJob.run(None, context, job.input, job.dependencies)
+        job_generator = MultiAwaitJob.run(context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -352,7 +352,7 @@ def test_handle_await_multiple_jobs_sets_await_many():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = MultiAwaitJob.run(None, context, job.input, job.dependencies)
+        job_generator = MultiAwaitJob.run(context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -395,7 +395,7 @@ def test_handle_await_preserves_state():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 
@@ -433,7 +433,7 @@ def test_handle_await_workflow_id_used():
         job_id = context.job_registry.add(context, job, output_queue)
 
         # Set up frame
-        job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
         frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
         worker_state.frame = frame
 

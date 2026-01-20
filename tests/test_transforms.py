@@ -25,20 +25,20 @@ from zahir.worker import LocalWorkflow
 
 
 @spec()
-def SuccessfulJob(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def SuccessfulJob(context: Context, input: dict, dependencies: DependencyGroup):
     """A job that always succeeds."""
     yield JobOutputEvent({"result": "success", "value": input.get("value", 0)})
 
 
 @spec()
-def FailingJob(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def FailingJob(context: Context, input: dict, dependencies: DependencyGroup):
     """A job that always fails."""
     raise ValueError("This job always fails")
     yield  # Make it a generator
 
 
 @spec()
-def FailNTimesJob(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def FailNTimesJob(context: Context, input: dict, dependencies: DependencyGroup):
     """A job that fails N times then succeeds.
 
     Uses input["fail_count"] to track how many times to fail.
@@ -441,13 +441,13 @@ class TestRetryTransformIntegration:
 
 
 @spec()
-def SimpleSuccessJob(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def SimpleSuccessJob(context: Context, input: dict, dependencies: DependencyGroup):
     """A simple job that succeeds and returns input value."""
     yield JobOutputEvent({"value": input.get("value", 42)})
 
 
 @spec()
-def CountingJob(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def CountingJob(context: Context, input: dict, dependencies: DependencyGroup):
     """A job that tracks attempt counts via context state.
 
     Uses context.state to track attempts across retries.
@@ -468,7 +468,7 @@ def CountingJob(spec_args, context: Context, input: dict, dependencies: Dependen
 
 
 @spec()
-def WorkflowWithTransformedJob(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def WorkflowWithTransformedJob(context: Context, input: dict, dependencies: DependencyGroup):
     """A workflow that uses a transformed job via apply_transforms."""
     from zahir.events import Await
 
@@ -642,14 +642,14 @@ class TestLocalWorkflowWithTransforms:
 
 
 @spec()
-def JobWithNoOutput(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def JobWithNoOutput(context: Context, input: dict, dependencies: DependencyGroup):
     """A job that completes but produces no output."""
     # Just return without yielding JobOutputEvent
     return
 
 
 @spec()
-def JobWithDifferentException(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def JobWithDifferentException(context: Context, input: dict, dependencies: DependencyGroup):
     """A job that raises a different exception type."""
     exception_type = input.get("exception_type", "ValueError")
     if exception_type == "RuntimeError":
@@ -776,7 +776,7 @@ class TestRetryTransformEdgeCases:
 
 
 @spec()
-def NestedJob(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def NestedJob(context: Context, input: dict, dependencies: DependencyGroup):
     """A job that spawns another job and awaits it."""
     from zahir.events import Await
 
@@ -787,7 +787,7 @@ def NestedJob(spec_args, context: Context, input: dict, dependencies: Dependency
 
 
 @spec()
-def JobWithDependency(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def JobWithDependency(context: Context, input: dict, dependencies: DependencyGroup):
     """A job that depends on another job completing."""
     from zahir.dependencies.job import JobDependency
     from zahir.events import Await
@@ -806,7 +806,7 @@ def JobWithDependency(spec_args, context: Context, input: dict, dependencies: De
 
 
 @spec()
-def ChainedRetryJob(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def ChainedRetryJob(context: Context, input: dict, dependencies: DependencyGroup):
     """A job that calls another job that may fail."""
     from zahir.events import Await
 
@@ -827,7 +827,7 @@ def ChainedRetryJob(spec_args, context: Context, input: dict, dependencies: Depe
 
 
 @spec()
-def WorkflowWithRetry(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def WorkflowWithRetry(context: Context, input: dict, dependencies: DependencyGroup):
     """A workflow that awaits a retried job."""
     from zahir.events import Await
 
@@ -1065,7 +1065,7 @@ class TestRetryTransformWorkflows:
         assert len(output_events) >= 1
 
 @spec()
-def WorkflowWithRetry(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def WorkflowWithRetry(context: Context, input: dict, dependencies: DependencyGroup):
     """A workflow that awaits a retried job."""
     from zahir.events import Await
 

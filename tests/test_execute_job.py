@@ -28,45 +28,45 @@ from zahir.worker.state_machine.states import (
 
 
 @spec()
-def SimpleJobWithOutput(spec_args, context: Context, input, dependencies):
+def SimpleJobWithOutput(context: Context, input, dependencies):
     """A simple job that produces output."""
     yield JobOutputEvent({"result": "done"})
 
 
 @spec()
-def JobWithoutOutput(spec_args, context: Context, input, dependencies):
+def JobWithoutOutput(context: Context, input, dependencies):
     """A job that completes without output."""
     # Yields an empty iterator to complete without output
     yield iter([])
 
 
 @spec()
-def AwaitingJob(spec_args, context: Context, input, dependencies):
+def AwaitingJob(context: Context, input, dependencies):
     """A job that awaits another job."""
     result = yield Await(SimpleJobWithOutput({"test": "data"}, {}))
     yield JobOutputEvent({"result": result})
 
 
 @spec()
-def TimeoutJob(spec_args, context: Context, input, dependencies):
+def TimeoutJob(context: Context, input, dependencies):
     """A job that sleeps longer than its timeout."""
     time.sleep(10)
     yield JobOutputEvent({"result": "should not reach here"})
 
 
-def _exception_job_recover(spec_args, context, input, dependencies, err):
+def _exception_job_recover(context, input, dependencies, err):
     yield JobOutputEvent({"recovered": True})
 
 
 @spec(recover=_exception_job_recover)
-def ExceptionJob(spec_args, context: Context, input, dependencies):
+def ExceptionJob(context: Context, input, dependencies):
     """A job that raises an exception."""
     raise ValueError("Test exception")
     yield iter([])
 
 
 @spec()
-def MultiStepJob(spec_args, context: Context, input, dependencies):
+def MultiStepJob(context: Context, input, dependencies):
     """A job with multiple steps."""
     yield JobOutputEvent({"step": 1})
 
@@ -91,7 +91,7 @@ def test_execute_job_sets_running_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithOutput.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -123,7 +123,7 @@ def test_execute_job_with_output():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithOutput.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -156,7 +156,7 @@ def test_execute_job_stores_output_event():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithOutput.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -189,7 +189,7 @@ def test_execute_job_without_output():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = JobWithoutOutput.run(None, context, job.input, job.dependencies)
+    job_generator = JobWithoutOutput.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -221,7 +221,7 @@ def test_execute_job_with_await():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -253,7 +253,7 @@ def test_execute_job_stores_await_event():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -285,7 +285,7 @@ def test_execute_job_with_timeout():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = TimeoutJob.run(None, context, job.input, job.dependencies)
+    job_generator = TimeoutJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -317,7 +317,7 @@ def test_execute_job_with_exception():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = ExceptionJob.run(None, context, job.input, job.dependencies)
+    job_generator = ExceptionJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -349,7 +349,7 @@ def test_execute_job_stores_exception_event():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = ExceptionJob.run(None, context, job.input, job.dependencies)
+    job_generator = ExceptionJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -382,7 +382,7 @@ def test_execute_job_preserves_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithOutput.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -413,7 +413,7 @@ def test_execute_job_workflow_id_used():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithOutput.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -445,7 +445,7 @@ def test_execute_job_no_timeout_configured():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithOutput.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 

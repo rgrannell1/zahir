@@ -33,7 +33,7 @@ from zahir.worker.overseer import shutdown, zahir_worker_overseer
 
 
 @spec()
-def SimpleOutputJob(spec_args, context, input, dependencies):
+def SimpleOutputJob(context, input, dependencies):
     """A simple job that outputs a result."""
     yield JobOutputEvent(output={"result": "success"})
 

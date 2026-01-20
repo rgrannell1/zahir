@@ -27,13 +27,13 @@ from zahir.worker.state_machine.states import (
 
 
 @spec()
-def SimpleJob(spec_args, context: Context, input, dependencies):
+def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
 @spec()
-def AnotherJob(spec_args, context: Context, input, dependencies):
+def AnotherJob(context: Context, input, dependencies):
     """Another job for testing."""
     yield JobOutputEvent({"count": 1})
 
@@ -58,7 +58,7 @@ def test_pop_job_ready_state_checks_preconditions():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Push job to stack
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -103,7 +103,7 @@ def test_pop_job_paused_state_executes():
     )
 
     # Push job to stack - with required_jobs set to simulate awaiting a child job
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False, required_jobs={child_job_id})
     worker_state.job_stack.push(frame)
 
@@ -144,7 +144,7 @@ def test_pop_job_running_state_executes():
     )
 
     # Push job to stack - with required_jobs set to simulate resuming from await
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False, required_jobs={child_job_id})
     worker_state.job_stack.push(frame)
 
@@ -182,7 +182,7 @@ def test_pop_job_timeout_normal_job():
     time.sleep(0.01)
 
     # Push job to stack
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -214,7 +214,7 @@ def test_pop_job_removes_from_stack():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Push job to stack
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -248,7 +248,7 @@ def test_pop_job_sets_active_frame():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Push job to stack
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -289,7 +289,7 @@ def test_pop_job_multiple_jobs_pops_runnable():
     context.job_registry.set_state(context, dep_id, dep_job.spec.type, workflow_id, output_queue, JobState.RUNNING)
 
     # Create frame that requires the dependency
-    job_generator1 = SimpleJob.run(None, context, job1.input, job1.dependencies)
+    job_generator1 = SimpleJob.run(context, job1.input, job1.dependencies)
     frame1 = ZahirStackFrame(job=job1, job_generator=job_generator1, recovery=False)
     frame1.required_jobs.add(dep_id)
     worker_state.job_stack.push(frame1)
@@ -299,7 +299,7 @@ def test_pop_job_multiple_jobs_pops_runnable():
     job_id2 = context.job_registry.add(context, job2, output_queue)
 
     # Push second job (runnable)
-    job_generator2 = AnotherJob.run(None, context, job2.input, job2.dependencies)
+    job_generator2 = AnotherJob.run(context, job2.input, job2.dependencies)
     frame2 = ZahirStackFrame(job=job2, job_generator=job_generator2, recovery=False)
     worker_state.job_stack.push(frame2)
 
@@ -330,7 +330,7 @@ def test_pop_job_preserves_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Push job to stack
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -362,7 +362,7 @@ def test_pop_job_no_timeout_configured():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Push job to stack
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -398,7 +398,7 @@ def test_pop_job_timeout_recovery_job():
     time.sleep(0.01)
 
     # Push recovery job to stack
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.job_stack.push(frame)
 

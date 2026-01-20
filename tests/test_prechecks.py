@@ -21,19 +21,19 @@ from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
 
-def _precheck_fails_job_precheck(spec_args, input):
+def _precheck_fails_job_precheck(input):
     """Precheck that always fails"""
     return JobPrecheckError("oh I don't like that.")
 
 
 @spec(precheck=_precheck_fails_job_precheck)
-def PrecheckFailsJob(spec_args, context: Context, input, dependencies):
+def PrecheckFailsJob(context: Context, input, dependencies):
     """Job that always fails precheck"""
     yield JobOutputEvent({})
 
 
 @spec()
-def ParentJob(spec_args, context: Context, input, dependencies):
+def ParentJob(context: Context, input, dependencies):
     """A parent job that yields to the inner async job. Proves nested awaits work."""
 
     _ = yield Await(PrecheckFailsJob({"test": 1234}, {}))

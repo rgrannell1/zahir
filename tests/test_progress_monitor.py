@@ -82,7 +82,7 @@ def test_progress_monitor_injection():
     mock_monitor = MockProgressMonitor()
 
     @spec()
-    def SimpleTask(spec_args, context: Context, input, dependencies):
+    def SimpleTask(context: Context, input, dependencies):
         yield JobOutputEvent({"result": 42})
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -115,7 +115,7 @@ def test_progress_monitor_tracks_job_lifecycle():
     mock_monitor = MockProgressMonitor()
 
     @spec()
-    def LifecycleTask(spec_args, context: Context, input, dependencies):
+    def LifecycleTask(context: Context, input, dependencies):
         yield JobOutputEvent({"status": "done"})
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -151,15 +151,15 @@ def test_multiple_jobs_progress_tracking():
     mock_monitor = MockProgressMonitor()
 
     @spec()
-    def JobOne(spec_args, context: Context, input, dependencies):
+    def JobOne(context: Context, input, dependencies):
         yield JobOutputEvent({"value": 1})
 
     @spec()
-    def JobTwo(spec_args, context: Context, input, dependencies):
+    def JobTwo(context: Context, input, dependencies):
         yield JobOutputEvent({"value": 2})
 
     @spec()
-    def JobThree(spec_args, context: Context, input, dependencies):
+    def JobThree(context: Context, input, dependencies):
         yield JobOutputEvent({"value": 3})
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
@@ -190,7 +190,7 @@ def test_progress_monitor_default_behavior():
     """Test that default progress monitor is used when not injected."""
 
     @spec()
-    def DefaultTask(spec_args, context: Context, input, dependencies):
+    def DefaultTask(context: Context, input, dependencies):
         yield JobOutputEvent({"result": 99})
 
     with tempfile.NamedTemporaryFile(delete=False) as tmp:

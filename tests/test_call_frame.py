@@ -12,7 +12,7 @@ from zahir.worker.call_frame import ZahirCallStack, ZahirStackFrame
 
 
 @spec()
-def MockJobSpec(spec_args, context, input, dependencies) -> Generator[Any, Any, Any]:
+def MockJobSpec(context, input, dependencies) -> Generator[Any, Any, Any]:
     """A mock job spec for testing."""
     yield "test"
 

@@ -25,32 +25,32 @@ from zahir.worker.state_machine.states import HandleJobCompleteNoOutputStateChan
 
 def test_sleep_job_precheck_valid_duration():
     """Test that Sleep job precheck accepts valid durations."""
-    result = Sleep.precheck(None, {"duration_seconds": 1.5})
+    result = Sleep.precheck({"duration_seconds": 1.5})
     assert result is None
 
 
 def test_sleep_job_precheck_zero_duration():
     """Test that Sleep job precheck accepts zero duration."""
-    result = Sleep.precheck(None, {"duration_seconds": 0})
+    result = Sleep.precheck({"duration_seconds": 0})
     assert result is None
 
 
 def test_sleep_job_precheck_invalid_duration_negative():
     """Test that Sleep job precheck rejects negative duration."""
-    result = Sleep.precheck(None, {"duration_seconds": -1})
+    result = Sleep.precheck({"duration_seconds": -1})
     assert isinstance(result, ValueError)
     assert "non-negative" in str(result)
 
 
 def test_sleep_job_precheck_invalid_duration_type():
     """Test that Sleep job precheck rejects non-numeric duration."""
-    result = Sleep.precheck(None, {"duration_seconds": "invalid"})
+    result = Sleep.precheck({"duration_seconds": "invalid"})
     assert isinstance(result, ValueError)
 
 
 def test_sleep_job_precheck_missing_duration():
     """Test that Sleep job precheck accepts missing duration."""
-    result = Sleep.precheck(None, {})
+    result = Sleep.precheck({})
     assert result is None
 
 
@@ -72,7 +72,7 @@ def test_sleep_job_executes():
     job_id = context.job_registry.add(context, job, output_queue)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
-    job_generator = Sleep.run(None, context, job.input, job.dependencies)
+    job_generator = Sleep.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -103,7 +103,7 @@ def test_sleep_job_stores_output():
     job_id = context.job_registry.add(context, job, output_queue)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
-    job_generator = Sleep.run(None, context, job.input, job.dependencies)
+    job_generator = Sleep.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -132,7 +132,7 @@ def test_sleep_job_very_small_duration():
     job_id = context.job_registry.add(context, job, output_queue)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
-    job_generator = Sleep.run(None, context, job.input, job.dependencies)
+    job_generator = Sleep.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -157,7 +157,7 @@ def test_sleep_job_dependencies_structure():
 
     duration = 0.05
     job = Sleep({"duration_seconds": duration})
-    job_generator = Sleep.run(None, context, job.input, job.dependencies)
+    job_generator = Sleep.run(context, job.input, job.dependencies)
 
     # Get the first yielded event (should be Empty with TimeDependency)
     first_event = next(job_generator)
@@ -187,7 +187,7 @@ def test_sleep_job_zero_duration():
     job_id = context.job_registry.add(context, job, output_queue)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
-    job_generator = Sleep.run(None, context, job.input, job.dependencies)
+    job_generator = Sleep.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -217,7 +217,7 @@ def test_sleep_job_float_duration():
     job_id = context.job_registry.add(context, job, output_queue)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
-    job_generator = Sleep.run(None, context, job.input, job.dependencies)
+    job_generator = Sleep.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -228,7 +228,7 @@ def test_sleep_job_float_duration():
 
 
 @spec()
-def SleepAndAwaitJob(spec_args, context: Context, input, dependencies):
+def SleepAndAwaitJob(context: Context, input, dependencies):
     """A job that awaits Sleep."""
     sleep_result = yield Await(Sleep({"duration_seconds": 0.01}, {}))
     yield JobOutputEvent({"slept": True, "sleep_output": sleep_result})
@@ -248,7 +248,7 @@ def test_sleep_job_yields_correct_structure():
     job = Sleep({"duration_seconds": duration})
 
     # Get the generator and collect all events
-    job_generator = Sleep.run(None, context, job.input, job.dependencies)
+    job_generator = Sleep.run(context, job.input, job.dependencies)
     events = list(job_generator)
 
     # Should have 2 events: Empty (with dependency) and JobOutputEvent
@@ -271,30 +271,30 @@ def test_sleep_job_yields_correct_structure():
 def test_sleep_job_precheck_error_messages():
     """Test that precheck error messages are descriptive."""
     # Negative duration
-    result = Sleep.precheck(None, {"duration_seconds": -5})
+    result = Sleep.precheck({"duration_seconds": -5})
     assert isinstance(result, ValueError)
     assert "non-negative" in str(result).lower()
 
     # Non-numeric duration
-    result = Sleep.precheck(None, {"duration_seconds": "not_a_number"})
+    result = Sleep.precheck({"duration_seconds": "not_a_number"})
     assert isinstance(result, ValueError)
     assert "number" in str(result).lower()
 
     # List instead of number
-    result = Sleep.precheck(None, {"duration_seconds": [1, 2, 3]})
+    result = Sleep.precheck({"duration_seconds": [1, 2, 3]})
     assert isinstance(result, ValueError)
 
     # Dict instead of number
-    result = Sleep.precheck(None, {"duration_seconds": {"value": 1}})
+    result = Sleep.precheck({"duration_seconds": {"value": 1}})
     assert isinstance(result, ValueError)
 
 
 def test_sleep_job_large_duration():
     """Test precheck accepts large duration values."""
-    result = Sleep.precheck(None, {"duration_seconds": 3600})
+    result = Sleep.precheck({"duration_seconds": 3600})
     assert result is None
 
-    result = Sleep.precheck(None, {"duration_seconds": 999999.999})
+    result = Sleep.precheck({"duration_seconds": 999999.999})
     assert result is None
 
 
@@ -315,7 +315,7 @@ def test_sleep_job_output_event_type():
     job_id = context.job_registry.add(context, job, output_queue)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
-    job_generator = Sleep.run(None, context, job.input, job.dependencies)
+    job_generator = Sleep.run(context, job.input, job.dependencies)
 
     # Iterate through job generator
     events = list(job_generator)

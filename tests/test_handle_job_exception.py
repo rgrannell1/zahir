@@ -19,32 +19,32 @@ from zahir.worker.state_machine.handle_job_exception import handle_job_exception
 from zahir.worker.state_machine.states import CheckPreconditionsStateChange
 
 
-def simple_job_with_recovery_recover(spec_args, context, input, dependencies, err):
+def simple_job_with_recovery_recover(context, input, dependencies, err):
     """Recovery handler for SimpleJobWithRecovery."""
     yield JobOutputEvent({"recovered": True})
 
 
 @spec(recover=simple_job_with_recovery_recover)
-def SimpleJobWithRecovery(spec_args, context, input, dependencies):
+def SimpleJobWithRecovery(context, input, dependencies):
     """A simple job that has a recovery mechanism."""
     raise Exception("Simulated failure")
     yield iter([])
 
 
-def job_with_custom_recovery_recover(spec_args, context, input, dependencies, err):
+def job_with_custom_recovery_recover(context, input, dependencies, err):
     """Recovery handler for JobWithCustomRecovery."""
     yield JobOutputEvent({"error_type": type(err).__name__, "recovered": True})
 
 
 @spec(recover=job_with_custom_recovery_recover)
-def JobWithCustomRecovery(spec_args, context, input, dependencies):
+def JobWithCustomRecovery(context, input, dependencies):
     """A job with custom recovery logic."""
     raise ValueError("Custom error")
     yield iter([])
 
 
 @spec()
-def SimpleJob(spec_args, context, input, dependencies):
+def SimpleJob(context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
@@ -69,7 +69,7 @@ def test_handle_job_exception_sets_recovery_mode():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -107,7 +107,7 @@ def test_handle_job_exception_updates_job_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -142,7 +142,7 @@ def test_handle_job_exception_transitions_to_check_preconditions():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -187,7 +187,7 @@ def test_handle_job_exception_replaces_generator():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -225,7 +225,7 @@ def test_handle_job_exception_preserves_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -259,7 +259,7 @@ def test_handle_job_exception_with_custom_exception():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = JobWithCustomRecovery.run(None, context, job.input, job.dependencies)
+    job_generator = JobWithCustomRecovery.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -295,7 +295,7 @@ def test_handle_job_exception_preserves_job_info():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -332,7 +332,7 @@ def test_handle_job_exception_workflow_id_used():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -367,7 +367,7 @@ def test_handle_job_exception_message_includes_job_type():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithRecovery.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithRecovery.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 

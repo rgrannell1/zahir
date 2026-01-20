@@ -16,7 +16,7 @@ from zahir.worker import LocalWorkflow
 
 
 @spec()
-def CPUBoundJob(spec_args, context: Context, input, dependencies):
+def CPUBoundJob(context: Context, input, dependencies):
     """A CPU-bound job that tracks which process it runs on."""
 
     yield JobOutputEvent({"pid": os.getpid(), "job_idx": input["job_idx"]})
@@ -30,7 +30,7 @@ def test_jobs_run_on_multiple_processes():
 
     # Create a parent job that spawns multiple CPU-bound jobs
     @spec()
-    def ParentJob(spec_args, context: Context, input, dependencies):
+    def ParentJob(context: Context, input, dependencies):
         """Parent job that spawns multiple CPU-bound child jobs."""
         from zahir.events import Await
 
@@ -71,7 +71,7 @@ def test_max_workers_limits_parallelism():
 
     # Create a parent job that spawns multiple CPU-bound jobs
     @spec()
-    def ParentJob2(spec_args, context: Context, input, dependencies):
+    def ParentJob2(context: Context, input, dependencies):
         """Parent job that spawns multiple CPU-bound child jobs."""
         from zahir.events import Await
 

@@ -22,13 +22,13 @@ import sys
 
 
 @spec()
-def SimpleJobWithOutput(spec_args, context: Context, input, dependencies):
+def SimpleJobWithOutput(context: Context, input, dependencies):
     """A simple job that produces output."""
     yield JobOutputEvent({"result": "done"})
 
 
 @spec()
-def JobWithMultipleEvents(spec_args, context: Context, input, dependencies):
+def JobWithMultipleEvents(context: Context, input, dependencies):
     """A job that yields multiple events before output."""
     yield ZahirCustomEvent(output={"step": 1})
     yield ZahirCustomEvent(output={"step": 2})
@@ -36,20 +36,20 @@ def JobWithMultipleEvents(spec_args, context: Context, input, dependencies):
 
 
 @spec()
-def JobWithoutOutput(spec_args, context: Context, input, dependencies):
+def JobWithoutOutput(context: Context, input, dependencies):
     """A job that completes without output."""
     yield iter([])
 
 
 @spec()
-def AwaitingJob(spec_args, context: Context, input, dependencies):
+def AwaitingJob(context: Context, input, dependencies):
     """A job that awaits another job."""
     result = yield Await(SimpleJobWithOutput({"test": "data"}, {}))
     yield JobOutputEvent({"result": result})
 
 
 @spec()
-def SubjobCreator(spec_args, context: Context, input, dependencies):
+def SubjobCreator(context: Context, input, dependencies):
     """A job that creates subjobs."""
     subjob = SimpleJobWithOutput({"test": "data"}, {})
     yield subjob
@@ -76,7 +76,7 @@ def test_read_job_events_returns_output_event():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = SimpleJobWithOutput.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -114,7 +114,7 @@ def test_read_job_events_returns_none_for_complete():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = JobWithoutOutput.run(None, context, job.input, job.dependencies)
+    job_generator = JobWithoutOutput.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -151,7 +151,7 @@ def test_read_job_events_returns_await():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -192,7 +192,7 @@ def test_read_job_events_enqueues_intermediate_events():
         output_queue.get()
 
     # Set up frame
-    job_generator = JobWithMultipleEvents.run(None, context, job.input, job.dependencies)
+    job_generator = JobWithMultipleEvents.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -252,7 +252,7 @@ def test_read_job_events_sets_workflow_id():
         output_queue.get()
 
     # Set up frame
-    job_generator = JobWithMultipleEvents.run(None, context, job.input, job.dependencies)
+    job_generator = JobWithMultipleEvents.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -304,7 +304,7 @@ def test_read_job_events_sets_job_id():
         output_queue.get()
 
     # Set up frame
-    job_generator = JobWithMultipleEvents.run(None, context, job.input, job.dependencies)
+    job_generator = JobWithMultipleEvents.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -396,7 +396,7 @@ def test_read_job_events_handles_subjobs():
         output_queue.get()
 
     # Set up frame
-    job_generator = SubjobCreator.run(None, context, job.input, job.dependencies)
+    job_generator = SubjobCreator.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -450,7 +450,7 @@ def test_read_job_events_sends_awaited_output():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 
@@ -510,7 +510,7 @@ def test_read_job_events_clears_required_jobs():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame
-    job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.frame = frame
 

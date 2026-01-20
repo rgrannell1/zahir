@@ -7,7 +7,7 @@ from zahir.jobs import Empty
 from zahir.jobs.decorator import spec
 
 
-def _sleep_precheck(spec_args, args):
+def _sleep_precheck(args):
     """Validate sleep job arguments before execution."""
     duration_seconds = args.get("duration_seconds", 0)
 
@@ -21,7 +21,7 @@ def _sleep_precheck(spec_args, args):
 
 
 @spec(precheck=_sleep_precheck)
-def Sleep(spec_args, context: Context, args, dependencies) -> Generator[JobInstance | JobOutputEvent]:
+def Sleep(context: Context, args, dependencies) -> Generator[JobInstance | JobOutputEvent]:
     """A job that sleeps for a specified duration."""
     duration_seconds = args.get("duration_seconds", 0)
 

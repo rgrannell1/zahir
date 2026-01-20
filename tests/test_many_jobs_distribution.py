@@ -17,7 +17,7 @@ import sys
 
 
 @spec()
-def CPUBoundJob(spec_args, context: Context, input, dependencies):
+def CPUBoundJob(context: Context, input, dependencies):
     """A trivial job that returns its process ID."""
 
     time.sleep(1)
@@ -26,7 +26,7 @@ def CPUBoundJob(spec_args, context: Context, input, dependencies):
 
 
 @spec()
-def SpawnManyJobs(spec_args, context: Context, input, dependencies):
+def SpawnManyJobs(context: Context, input, dependencies):
     """Spawns 50 CPU-bound jobs."""
 
     jobs = [CPUBoundJob({"idx": i}, {}) for i in range(50)]

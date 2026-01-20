@@ -9,13 +9,13 @@ import sys
 
 # Define jobs and dependencies at module level that should be discovered
 @spec()
-def WorkflowTestJob1(spec_args, context: Context, input, dependencies):
+def WorkflowTestJob1(context: Context, input, dependencies):
     """A test job that should be discovered by LocalWorkflow."""
     yield JobOutputEvent({"result": "job1_output"})
 
 
 @spec()
-def WorkflowTestJob2(spec_args, context: Context, input, dependencies):
+def WorkflowTestJob2(context: Context, input, dependencies):
     """Another test job that should be discovered by LocalWorkflow."""
     yield JobOutputEvent({"result": "job2_output"})
 
@@ -138,7 +138,7 @@ def test_localworkflow_respects_provided_context():
 
     # Create a custom context with a custom job
     @spec()
-    def CustomJob(spec_args, context: Context, input, dependencies):
+    def CustomJob(context: Context, input, dependencies):
         yield JobOutputEvent({"custom": "result"})
 
     custom_scope = LocalScope.from_module(sys.modules[__name__])

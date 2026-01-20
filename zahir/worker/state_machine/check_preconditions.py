@@ -23,7 +23,7 @@ def check_preconditions(
     precheck_err: Exception | ExceptionGroup | None = None
     try:
         job = state.frame.job
-        precheck_err = job.spec.precheck(None, job.input) if job.spec.precheck else None
+        precheck_err = job.spec.precheck(job.input) if job.spec.precheck else None
     except Exception as err:
         # Things can fail, expecially in a precheck step.
         # This should also capture thrown exception or exception groups,

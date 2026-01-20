@@ -516,21 +516,20 @@ type JobEventSet[OutputType] = (
     Await
 )
 
-type Precheck[JobSpecArgs, ArgsType] = Callable[[JobSpecArgs, ArgsType], Exception | None]
+type Precheck[ArgsType] = Callable[[ArgsType], Exception | None]
 
-type Run[JobSpecArgs, ArgsType, JobOutputType] = Callable[
-    [JobSpecArgs, Context, ArgsType, DependencyGroup],
+type Run[ArgsType, JobOutputType] = Callable[
+    [Context, ArgsType, DependencyGroup],
     Generator[JobEventSet[JobOutputType], Any, Any],
 ]
 
-type Recover[JobSpecArgs, ArgsType, JobOutputType] = Callable[
-    [JobSpecArgs, Context, ArgsType, DependencyGroup, Exception],
+type Recover[ArgsType, JobOutputType] = Callable[
+    [Context, ArgsType, DependencyGroup, Exception],
     Generator[JobEventSet[JobOutputType], Any, Any],
 ]
 
 
-def default_recover[JobSpecArgs, ArgsType](
-    job_args: JobSpecArgs,
+def default_recover[ArgsType](
     context: Context,
     args: ArgsType,  # type: ignore
     dependencies: "DependencyGroup",
@@ -542,7 +541,7 @@ def default_recover[JobSpecArgs, ArgsType](
     yield
 
 
-def default_precheck[JobSpecArgs, ArgsType](job_args: JobSpecArgs, args: ArgsType) -> Exception | None:  # type: ignore
+def default_precheck[ArgsType](args: ArgsType) -> Exception | None:  # type: ignore
     """Default precheck function that always passes."""
 
     return None
@@ -588,7 +587,7 @@ class TransformSpec:
 
 
 @dataclass
-class JobSpec[JobSpecArgs, ArgsType, OutputType]:
+class JobSpec[ArgsType, OutputType]:
     """The specification for a job; how it runs, precovers, and prechecks. Jobspecs
     are later associated with job-parameters to form an actual job."""
 
@@ -596,17 +595,17 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
     type: str
 
     # run the job
-    run: Run[JobSpecArgs, ArgsType, OutputType]
+    run: Run[ArgsType, OutputType]
 
     # a list of transformations that must be applied to the functions before they
     # can be run. Each transform spec contains a type label and arguments dict.
     transforms: list[TransformSpec] = field(default_factory=list)
 
     # recover on uncaught exception
-    recover: Recover[JobSpecArgs, ArgsType, OutputType] | None = default_recover
+    recover: Recover[ArgsType, OutputType] | None = default_recover
 
     # precheck inputs
-    precheck: Precheck[JobSpecArgs, ArgsType] | None = default_precheck
+    precheck: Precheck[ArgsType] | None = default_precheck
 
     def save(self) -> SerialisedJobData:
         """Serialize the job spec to a dictionary.
@@ -621,7 +620,7 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
 
     def with_transform(
         self, transform_type: str, args: Mapping[str, Any] | None = None
-    ) -> "JobSpec[JobSpecArgs, ArgsType, OutputType]":
+    ) -> "JobSpec[ArgsType, OutputType]":
         """Create a new JobSpec with an additional transform appended.
 
         @param transform_type: The type label for the transform (looked up in scope)
@@ -639,7 +638,7 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
             precheck=self.precheck,
         )
 
-    def apply_transforms(self, scope: "Scope") -> "JobSpec[JobSpecArgs, ArgsType, OutputType]":
+    def apply_transforms(self, scope: "Scope") -> "JobSpec[ArgsType, OutputType]":
         """Apply all transforms to produce the final runnable JobSpec.
 
         Transforms are applied in order, each one wrapping the previous result.
@@ -690,7 +689,7 @@ class JobSpec[JobSpecArgs, ArgsType, OutputType]:
         priority: int = 0,
         once: bool = False,
         once_by: "Callable[[str, Mapping[str, Any], Mapping[str, Any]], str] | None" = None,
-    ) -> "JobInstance[JobSpecArgs, ArgsType, OutputType]":
+    ) -> "JobInstance[ArgsType, OutputType]":
         if job_id is None:
             job_id = generate_job_id(self.type)
 
@@ -768,11 +767,11 @@ class SerialisedJobInstance[ArgsType](TypedDict, total=False):
 
 
 @dataclass
-class JobInstance[JobSpecArgs, ArgsType, OutputType]:
+class JobInstance[ArgsType, OutputType]:
     """A full job instance, consisting of a JobSpec and JobArguments. This is runnable by
     the Zahir state-machine"""
 
-    spec: JobSpec[JobSpecArgs, ArgsType, OutputType]
+    spec: JobSpec[ArgsType, OutputType]
     args: JobArguments[ArgsType]
 
     @property
@@ -812,7 +811,7 @@ class JobInstance[JobSpecArgs, ArgsType, OutputType]:
     @classmethod
     def load(cls, context: "Context", data: SerialisedJobInstance[ArgsType]):
         spec_type = data["type"]
-        base_spec = cast(JobSpec[JobSpecArgs, ArgsType, OutputType], context.scope.get_job_spec(spec_type))
+        base_spec = cast(JobSpec[ArgsType, OutputType], context.scope.get_job_spec(spec_type))
 
         transforms_data = data.get("transforms", [])
 

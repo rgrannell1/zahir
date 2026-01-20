@@ -27,70 +27,70 @@ from zahir.worker.state_machine.states import (
 )
 
 
-def recovery_with_output_handler(spec_args, context: Context, input, dependencies, err):
+def recovery_with_output_handler(context: Context, input, dependencies, err):
     """Recovery handler that produces output."""
     yield JobOutputEvent({"recovered": True})
 
 
 @spec(recover=recovery_with_output_handler)
-def RecoveryJobWithOutput(spec_args, context: Context, input, dependencies):
+def RecoveryJobWithOutput(context: Context, input, dependencies):
     """A recovery job that produces output."""
     raise Exception("Initial failure")
     yield iter([])
 
 
-def recovery_without_output_handler(spec_args, context: Context, input, dependencies, err):
+def recovery_without_output_handler(context: Context, input, dependencies, err):
     """Recovery handler that completes without output."""
     yield iter([])
 
 
 @spec(recover=recovery_without_output_handler)
-def RecoveryJobWithoutOutput(spec_args, context: Context, input, dependencies):
+def RecoveryJobWithoutOutput(context: Context, input, dependencies):
     """A recovery job that completes without output."""
     raise Exception("Initial failure")
     yield iter([])
 
 
 @spec()
-def SimpleJob(spec_args, context: Context, input, dependencies):
+def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
-def recovery_with_await_handler(spec_args, context: Context, input, dependencies, err):
+def recovery_with_await_handler(context: Context, input, dependencies, err):
     """Recovery handler that awaits another job."""
     result = yield Await(SimpleJob({"test": "data"}, {}))
     yield JobOutputEvent({"result": result})
 
 
 @spec(recover=recovery_with_await_handler)
-def RecoveryJobWithAwait(spec_args, context: Context, input, dependencies):
+def RecoveryJobWithAwait(context: Context, input, dependencies):
     """A recovery job that awaits another job."""
     raise Exception("Initial failure")
     yield iter([])
 
 
-def recovery_timeout_handler(spec_args, context: Context, input, dependencies, err):
+def recovery_timeout_handler(context: Context, input, dependencies, err):
     """Recovery handler that times out."""
     time.sleep(10)
     yield JobOutputEvent({"result": "should not reach here"})
 
 
 @spec(recover=recovery_timeout_handler)
-def RecoveryTimeoutJob(spec_args, context: Context, input, dependencies):
+def RecoveryTimeoutJob(context: Context, input, dependencies):
     """A recovery job that times out during recovery."""
     raise Exception("Initial failure")
     yield iter([])
 
 
-def recovery_exception_handler(spec_args, context: Context, input, dependencies, err):
+def recovery_exception_handler(context: Context, input, dependencies, err):
     """Recovery handler that raises an exception."""
     raise ValueError("Recovery failed")
     yield iter([])
 
 
 @spec(recover=recovery_exception_handler)
-def RecoveryExceptionJob(spec_args, context: Context, input, dependencies):
+def RecoveryExceptionJob(context: Context, input, dependencies):
     """A recovery job that raises an exception during recovery."""
     raise Exception("Initial failure")
     yield iter([])
@@ -116,7 +116,7 @@ def test_execute_recovery_job_sets_running_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryJobWithOutput.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -148,7 +148,7 @@ def test_execute_recovery_job_with_output():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryJobWithOutput.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -181,7 +181,7 @@ def test_execute_recovery_job_stores_output_event():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryJobWithOutput.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -214,7 +214,7 @@ def test_execute_recovery_job_without_output():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryJobWithoutOutput.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryJobWithoutOutput.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -247,7 +247,7 @@ def test_execute_recovery_job_with_await():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryJobWithAwait.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryJobWithAwait.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -280,7 +280,7 @@ def test_execute_recovery_job_stores_await_event():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryJobWithAwait.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryJobWithAwait.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -312,7 +312,7 @@ def test_execute_recovery_job_with_timeout():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryTimeoutJob.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryTimeoutJob.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -345,7 +345,7 @@ def test_execute_recovery_job_with_exception():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryExceptionJob.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryExceptionJob.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -378,7 +378,7 @@ def test_execute_recovery_job_stores_exception_event():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryExceptionJob.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryExceptionJob.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -411,7 +411,7 @@ def test_execute_recovery_job_preserves_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryJobWithOutput.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -442,7 +442,7 @@ def test_execute_recovery_job_workflow_id_used():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryJobWithOutput.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -474,7 +474,7 @@ def test_execute_recovery_job_no_timeout_configured():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryJobWithOutput.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 
@@ -505,7 +505,7 @@ def test_execute_recovery_job_frame_recovery_mode():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Set up frame in recovery mode
-    job_generator = RecoveryJobWithOutput.recover(None, context, job.input, job.dependencies, Exception("Test"))
+    job_generator = RecoveryJobWithOutput.recover(context, job.input, job.dependencies, Exception("Test"))
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
     worker_state.frame = frame
 

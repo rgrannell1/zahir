@@ -10,7 +10,7 @@ from zahir.worker import LocalWorkflow
 
 
 @spec()
-def SimpleLoggingJob(spec_args, context: Context, input_dict, dependencies):
+def SimpleLoggingJob(context: Context, input_dict, dependencies):
     """A test job that writes to stdout and stderr."""
     print("This is stdout output")
     sys.stderr.write("This is stderr output\n")
@@ -19,7 +19,7 @@ def SimpleLoggingJob(spec_args, context: Context, input_dict, dependencies):
 
 
 @spec()
-def VerboseLoggingJob(spec_args, context: Context, input_dict, dependencies):
+def VerboseLoggingJob(context: Context, input_dict, dependencies):
     """A test job with multiple lines of output."""
     for idx in range(3):
         print(f"Line {idx} to stdout")

@@ -41,38 +41,38 @@ from zahir.worker.state_machine.states import (
 
 
 @spec()
-def SimpleOutputJob(spec_args, context: Context, input, dependencies):
+def SimpleOutputJob(context: Context, input, dependencies):
     """A job that produces output."""
     yield JobOutputEvent({"result": input.get("value", 42)})
 
 
 @spec()
-def NoOutputJob(spec_args, context: Context, input, dependencies):
+def NoOutputJob(context: Context, input, dependencies):
     """A job that completes without output."""
     yield iter([])
 
 
 @spec()
-def AwaitingJob(spec_args, context: Context, input, dependencies):
+def AwaitingJob(context: Context, input, dependencies):
     """A job that awaits another job."""
     result = yield Await(SimpleOutputJob({"value": 100}, {}))
     yield JobOutputEvent({"awaited_result": result["result"]})
 
 
-def default_recover_exception(spec_args, context: Context, input, dependencies, err):
+def default_recover_exception(context: Context, input, dependencies, err):
     """Recovery handler for exception job."""
     yield JobOutputEvent({"recovered": True})
 
 
 @spec(recover=default_recover_exception)
-def ExceptionJob(spec_args, context: Context, input, dependencies):
+def ExceptionJob(context: Context, input, dependencies):
     """A job that raises an exception."""
     raise ValueError("Test exception")
     yield iter([])
 
 
 @spec()
-def TimeoutJobTest(spec_args, context: Context, input, dependencies):
+def TimeoutJobTest(context: Context, input, dependencies):
     """A job that times out."""
     import time
 
@@ -134,7 +134,7 @@ def test_state_machine_simple_job_with_output_lifecycle():
     # Add a job directly and verify the pop → check → execute flow
     job = SimpleOutputJob({"value": 42}, {})
     job_id = context.job_registry.add(context, job, output_queue)
-    job_generator = SimpleOutputJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleOutputJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.job_stack.push(frame)
 
@@ -187,7 +187,7 @@ def test_state_machine_job_without_output_lifecycle():
     # Set up a frame with the no-output job
     job = NoOutputJob({}, {})
     job_id = context.job_registry.add(context, job, output_queue)
-    job_generator = NoOutputJob.run(None, context, job.input, job.dependencies)
+    job_generator = NoOutputJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.frame = frame
 
@@ -227,7 +227,7 @@ def test_state_machine_await_handling():
     # Set up the awaiting job
     job = AwaitingJob({}, {})
     job_id = context.job_registry.add(context, job, output_queue)
-    job_generator = AwaitingJob.run(None, context, job.input, job.dependencies)
+    job_generator = AwaitingJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.frame = frame
 
@@ -267,7 +267,7 @@ def test_state_machine_exception_handling():
     # Set up the exception job
     job = ExceptionJob({}, {})
     job_id = context.job_registry.add(context, job, output_queue)
-    job_generator = ExceptionJob.run(None, context, job.input, job.dependencies)
+    job_generator = ExceptionJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.frame = frame
 
@@ -307,7 +307,7 @@ def test_state_machine_timeout_handling():
     # Set up the timeout job with 0.1 second timeout
     job = TimeoutJobTest({}, {}, job_timeout=0.1)
     job_id = context.job_registry.add(context, job, output_queue)
-    job_generator = TimeoutJobTest.run(None, context, job.input, job.dependencies)
+    job_generator = TimeoutJobTest.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.frame = frame
 
@@ -356,7 +356,7 @@ def test_state_machine_state_transitions_are_consistent():
     # Add a job to the stack first
     job = SimpleOutputJob({"value": 1}, {})
     context.job_registry.add(context, job, output_queue)
-    job_generator = SimpleOutputJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleOutputJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.job_stack.push(frame)
 
@@ -419,7 +419,7 @@ def test_state_machine_pop_to_execute_flow():
     # Set up a job on the stack
     job = SimpleOutputJob({"value": 123}, {})
     job_id = context.job_registry.add(context, job, output_queue)
-    job_generator = SimpleOutputJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleOutputJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.job_stack.push(frame)
 
@@ -541,7 +541,7 @@ def test_state_machine_recovery_job_exception():
     job_registry.init("test-worker-sm-11")
 
 
-def recovery_exception_recover(spec_args, context: Context, input, dependencies, err):
+def recovery_exception_recover(context: Context, input, dependencies, err):
     """Recovery handler that raises exception."""
     # Make it a generator that raises on first iteration
     raise RuntimeError("Recovery also failed")
@@ -549,7 +549,7 @@ def recovery_exception_recover(spec_args, context: Context, input, dependencies,
 
 
 @spec(recover=recovery_exception_recover)
-def RecoveryExceptionJob(spec_args, context: Context, input, dependencies):
+def RecoveryExceptionJob(context: Context, input, dependencies):
     """A job that raises an exception in recovery."""
     raise ValueError("Initial error")
     yield iter([])
@@ -578,5 +578,5 @@ def test_state_machine_recovery_job_exception():
     # Try to execute the recovery job - it should raise when we iterate the generator
     # because the recovery handler raises RuntimeError
     with pytest.raises(RuntimeError, match="Recovery also failed"):
-        job_generator = RecoveryExceptionJob.recover(None, context, job.input, job.dependencies, Exception("test"))
+        job_generator = RecoveryExceptionJob.recover(context, job.input, job.dependencies, Exception("test"))
         next(job_generator)  # Try to iterate the generator, which triggers the raise

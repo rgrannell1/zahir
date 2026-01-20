@@ -12,13 +12,13 @@ from zahir.scope import LocalScope
 
 
 @spec()
-def SampleJobSpec(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def SampleJobSpec(context: Context, input: dict, dependencies: DependencyGroup):
     """Simple test job for scope tests."""
     yield JobOutputEvent({"result": "test"})
 
 
 @spec()
-def AnotherSampleJobSpec(spec_args, context: Context, input: dict, dependencies: DependencyGroup):
+def AnotherSampleJobSpec(context: Context, input: dict, dependencies: DependencyGroup):
     """Another test job for scope tests."""
     yield JobOutputEvent({"result": "another"})
 

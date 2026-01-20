@@ -24,13 +24,13 @@ from zahir.worker.state_machine.states import WaitForJobStateChange
 
 
 @spec()
-def SimpleJob(spec_args, context: Context, input, dependencies):
+def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
 @spec()
-def AnotherJob(spec_args, context: Context, input, dependencies):
+def AnotherJob(context: Context, input, dependencies):
     """Another job for testing."""
     yield JobOutputEvent({"count": 1})
 
@@ -56,7 +56,7 @@ def test_handle_job_timeout_returns_enqueue_state_change():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal (non-recovery) frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     # Run handle_job_timeout
@@ -89,7 +89,7 @@ def test_handle_job_timeout_sets_timed_out_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     # Run handle_job_timeout
@@ -121,7 +121,7 @@ def test_handle_job_timeout_records_error():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     # Run handle_job_timeout
@@ -155,7 +155,7 @@ def test_handle_job_timeout_clears_frame():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     # Verify frame is set
@@ -189,7 +189,7 @@ def test_handle_job_timeout_preserves_state():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     # Run handle_job_timeout
@@ -220,7 +220,7 @@ def test_handle_job_timeout_includes_job_type_in_message():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
-    job_generator = AnotherJob.run(None, context, job.input, job.dependencies)
+    job_generator = AnotherJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     # Run handle_job_timeout
@@ -251,7 +251,7 @@ def test_handle_job_timeout_transitions_to_enqueue():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     # Run handle_job_timeout
@@ -284,7 +284,7 @@ def test_handle_job_timeout_error_message():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a normal frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     # Run handle_job_timeout

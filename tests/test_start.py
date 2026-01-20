@@ -24,13 +24,13 @@ from zahir.worker.state_machine.states import (
 
 
 @spec()
-def SimpleJob(spec_args, context: Context, input, dependencies):
+def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
 @spec()
-def AnotherJob(spec_args, context: Context, input, dependencies):
+def AnotherJob(context: Context, input, dependencies):
     """Another job for testing."""
     yield JobOutputEvent({"count": 1})
 
@@ -84,7 +84,7 @@ def test_start_no_frame_with_runnable_job_pops():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create a frame and push it to the stack
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
@@ -129,7 +129,7 @@ def test_start_no_frame_with_paused_job_enqueues():
     )
 
     # Create a frame that requires another job (so it's waiting)
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     frame.required_jobs.add(required_job_id)  # Make it require the other job
     worker_state.job_stack.push(frame)
@@ -167,7 +167,7 @@ def test_start_with_active_frame_checks_preconditions():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create and set an active frame
-    job_generator = SimpleJob.run(None, context, job.input, job.dependencies)
+    job_generator = SimpleJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     # Run start
@@ -223,7 +223,7 @@ def test_start_job_type_in_message():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create and set an active frame
-    job_generator = AnotherJob.run(None, context, job.input, job.dependencies)
+    job_generator = AnotherJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
 
     # Run start
@@ -284,7 +284,7 @@ def test_start_with_recovery_frame():
     job_id = context.job_registry.add(context, job, output_queue)
 
     # Create and set an active recovery frame
-    job_generator = SimpleJob.recover(None, context, job.input, job.dependencies, None)
+    job_generator = SimpleJob.recover(context, job.input, job.dependencies, None)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
 
     # Run start

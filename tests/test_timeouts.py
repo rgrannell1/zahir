@@ -25,13 +25,13 @@ from zahir.worker import LocalWorkflow
 
 
 @spec()
-def Adder(spec_args, context, input, dependencies):
+def Adder(context, input, dependencies):
     time.sleep(5)
     yield JobOutputEvent({"count": input["count"] + 1})
 
 
 @spec()
-def TimeOutRunner(spec_args, context, input, dependencies):
+def TimeOutRunner(context, input, dependencies):
     yield Await(Adder({"count": 0}, {}, job_timeout=2))
 
     yield ZahirCustomEvent(output={"message": "this should never be seen"})
@@ -67,20 +67,20 @@ def test_timeout():
     assert isinstance(events[11], WorkflowCompleteEvent)
 
 
-def _fails_then_recovers_recover(spec_args, context, input, dependencies, err):
+def _fails_then_recovers_recover(context, input, dependencies, err):
     """Recovery function that takes too long"""
     time.sleep(5)
     yield JobOutputEvent({"recovered": True})
 
 
 @spec(recover=_fails_then_recovers_recover)
-def FailsThenRecoversSlowly(spec_args, context: Context, input, dependencies):
+def FailsThenRecoversSlowly(context: Context, input, dependencies):
     raise Exception("Simulated Failure")
     yield iter([])
 
 
 @spec()
-def RecoveryTimeoutRunner(spec_args, context, input, dependencies):
+def RecoveryTimeoutRunner(context, input, dependencies):
     yield Await(FailsThenRecoversSlowly({}, {}, recover_timeout=2))
     yield ZahirCustomEvent(output={"message": "this should never be seen"})
 

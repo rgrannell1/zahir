@@ -24,13 +24,13 @@ import sys
 
 
 @spec()
-def SimpleJob(spec_args, context: Context, input, dependencies):
+def SimpleJob(context: Context, input, dependencies):
     """A simple job for testing."""
     yield JobOutputEvent({"result": "done"})
 
 
 @spec()
-def JobWithOutput(spec_args, context: Context, input, dependencies):
+def JobWithOutput(context: Context, input, dependencies):
     """A job that produces output."""
     yield JobOutputEvent({"count": input.get("count", 0) + 1})
 

@@ -27,14 +27,14 @@ from zahir.worker import LocalWorkflow
 
 
 @spec()
-def AddJob(spec_args, context: Context, input, dependencies):
+def AddJob(context: Context, input, dependencies):
     """Add to the input count and yield it"""
 
     yield JobOutputEvent({"count": input["count"] + 1})
 
 
 @spec()
-def YieldMany(spec_args, context: Context, input, dependencies):
+def YieldMany(context: Context, input, dependencies):
     """Interyield to another job"""
 
     count = 0
@@ -47,7 +47,7 @@ def YieldMany(spec_args, context: Context, input, dependencies):
 
 
 @spec()
-def ParentJob(spec_args, context: Context, input, dependencies):
+def ParentJob(context: Context, input, dependencies):
     """A parent job that yields to the inner async job. Proves nested awaits work."""
 
     subcount = yield Await(YieldMany({}, {}))
@@ -75,7 +75,7 @@ def test_nested_async_workflow():
 
 
 @spec()
-def ImpossibleParentJob(spec_args, context: Context, input, dependencies):
+def ImpossibleParentJob(context: Context, input, dependencies):
     """A parent job that yields to an impossible inner job."""
 
     dependency = TimeDependency(before=datetime.datetime(2000, 1, 1, 0, 0, 0, tzinfo=datetime.UTC))
@@ -113,7 +113,7 @@ def test_impossible_async_workflow():
 
 
 @spec()
-def AwaitMany(spec_args, context: Context, input, dependencies):
+def AwaitMany(context: Context, input, dependencies):
     """Interyield to multiple jobs"""
 
     results = yield Await([
@@ -168,7 +168,7 @@ def test_await_many_workflow():
 
 
 @spec()
-def AwaitEmpty(spec_args, context: Context, input, dependencies):
+def AwaitEmpty(context: Context, input, dependencies):
     """Interyield to an empty list of jobs"""
 
     results = yield Await([])
@@ -205,7 +205,7 @@ def test_await_empty_workflow():
 
 
 @spec()
-def FailingJob(spec_args, context: Context, input, dependencies):
+def FailingJob(context: Context, input, dependencies):
     """A job that always fails."""
 
     raise ValueError("This job always fails.")
@@ -213,7 +213,7 @@ def FailingJob(spec_args, context: Context, input, dependencies):
 
 
 @spec()
-def AwaitManyFailing(spec_args, context: Context, input, dependencies):
+def AwaitManyFailing(context: Context, input, dependencies):
     """Interyield to multiple jobs, one of which fails."""
 
     try:
@@ -269,7 +269,7 @@ def test_await_many_failing_workflow():
 
 
 @spec()
-def AwaitEmptyNoOutput(spec_args, context: Context, input, dependencies):
+def AwaitEmptyNoOutput(context: Context, input, dependencies):
     """Interyield to an empty list of jobs but don't yield output"""
 
     results = yield Await([])

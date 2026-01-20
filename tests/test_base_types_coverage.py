@@ -59,7 +59,7 @@ def test_job_information_dataclass():
     from zahir.jobs.decorator import spec
 
     @spec()
-    def TestJobSpec(spec_args, context: Context, input, dependencies):
+    def TestJobSpec(context: Context, input, dependencies):
         yield JobOutputEvent({"result": "test"})
 
     job_args = JobArguments(

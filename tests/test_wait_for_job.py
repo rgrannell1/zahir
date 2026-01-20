@@ -23,7 +23,7 @@ from zahir.worker.state_machine.wait_for_job import WAIT_TIMEOUT_SECONDS, wait_f
 
 
 @spec()
-def SimpleTestJob(spec_args, context: Context, input, dependencies):
+def SimpleTestJob(context: Context, input, dependencies):
     """A simple test job for testing wait_for_job."""
     yield JobOutputEvent({"result": "done"})
 
@@ -94,7 +94,7 @@ def test_wait_for_job_checks_runnable_stack():
     # Push a frame to the stack
     from zahir.worker.call_frame import ZahirStackFrame
 
-    job_generator = SimpleTestJob.run(None, context, None, {})
+    job_generator = SimpleTestJob.run(context, None, {})
     frame = ZahirStackFrame(job=test_job, job_generator=job_generator, recovery=False)
     worker_state.job_stack.push(frame)
 
