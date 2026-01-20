@@ -22,12 +22,10 @@ def _sleep_precheck(args):
     return None
 
 
-@dataclass
 class SleepOutput(TypedDict):
     duration_seconds: float
 
 
-@dataclass
 class SleepArgs(TypedDict):
     duration_seconds: float
 
