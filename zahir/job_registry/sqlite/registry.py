@@ -32,6 +32,7 @@ from zahir.job_registry.sqlite.tables import (
     JOBS_IDEMPOTENCY_INDEX,
     JOBS_INDEX,
     JOBS_PRIORITY_INDEX,
+    JOBS_WORKFLOW_INDEX,
     JOBS_TABLE_SCHEMA,
 )
 from zahir.job_registry.state_event import create_state_event
@@ -74,17 +75,25 @@ class SQLiteJobRegistry(JobRegistry):
 
         with self.conn as conn:
             conn.execute("begin;")
+            # Create tables first
             for schema in [
                 JOBS_TABLE_SCHEMA,
                 JOB_OUTPUTS_TABLE_SCHEMA,
                 JOB_ERRORS_TABLE_SCHEMA,
                 CLAIMED_JOBS_TABLE_SCHEMA,
                 EVENTS_TABLE_SCHEMA,
+            ]:
+                conn.execute(schema)
+
+            # Create indexes after ensuring the column exists
+            for schema in [
                 JOBS_INDEX,
                 JOBS_PRIORITY_INDEX,
                 JOBS_IDEMPOTENCY_INDEX,
+                JOBS_WORKFLOW_INDEX,
             ]:
                 conn.execute(schema)
+
             conn.commit()
 
     def store_event(self, context, event: Any) -> None:
@@ -113,20 +122,26 @@ class SQLiteJobRegistry(JobRegistry):
             conn.commit()
 
     def on_startup(self) -> None:
-        """Delete all job claims. Used at startup to clear any stale claims."""
+        """Delete all job claims and reset RUNNING and PAUSED jobs to READY.
 
-        log.debug("Clearing all job claims from previous runs")
+        Used at startup to clear any stale claims from crashed processes.
+        RUNNING and PAUSED jobs are reset to READY since they need to be restarted.
+        Other active jobs (PENDING, READY, etc.) are left alone to allow workflows
+        to continue processing.
+        """
+
+        log.debug("Clearing all job claims and resetting RUNNING/PAUSED jobs to READY")
 
         with self.conn as conn:
             conn.execute("begin immediate;")
+            # Clear all claims (from crashed processes)
             conn.execute("delete from claimed_jobs;")
 
-            # Reset all active (non-terminal) jobs to PENDING
-            # This includes READY, RUNNING, PAUSED, RECOVERING, PENDING, BLOCKED
-            q_marks = ",".join("?" for _ in ACTIVE_JOB_STATES)
+            # Reset RUNNING and PAUSED jobs to READY since they need to be restarted
+            # RUNNING jobs were from crashed processes, PAUSED jobs must be restarted
             conn.execute(
-                f"update jobs set state = ? where state in ({q_marks})",  # noqa: S608
-                (JobState.PENDING.value, *[state.value for state in ACTIVE_JOB_STATES]),
+                "update jobs set state = ? where state in (?, ?)",
+                (JobState.READY.value, JobState.RUNNING.value, JobState.PAUSED.value),
             )
 
             conn.commit()
@@ -147,11 +162,11 @@ class SQLiteJobRegistry(JobRegistry):
 
             return cursor.lastrowid == 1
 
-    def add(self, context: Context, job: JobInstance, output_queue: multiprocessing.Queue) -> str:
+    def add(self, context: Context, job: JobInstance, output_queue: multiprocessing.Queue, workflow_id: str) -> str:
         """Add the job to the database exactly once"""
 
         job_id = job.args.job_id
-        log.debug(f"Adding job {job_id} to registry")
+        log.debug(f"Adding job {job_id} to registry for workflow {workflow_id}")
 
         saved_job = job.save(context)
         serialised = json.dumps(saved_job)
@@ -194,8 +209,8 @@ class SQLiteJobRegistry(JobRegistry):
             created_at = datetime.now(tz=UTC).isoformat()
             priority = job.args.priority
             conn.execute(
-                "insert into jobs (job_id, serialised_job, state, priority, created_at, idempotency_hash) values (?, ?, ?, ?, ?, ?)",
-                (job_id, serialised, job_state, priority, created_at, idempotency_hash),
+                "insert into jobs (job_id, serialised_job, state, priority, created_at, idempotency_hash, workflow_id) values (?, ?, ?, ?, ?, ?, ?)",
+                (job_id, serialised, job_state, priority, created_at, idempotency_hash, workflow_id),
             )
 
             conn.commit()
@@ -429,46 +444,69 @@ class SQLiteJobRegistry(JobRegistry):
 
             return errors
 
-    def is_active(self) -> bool:
+    def is_active(self, workflow_id: str | None = None) -> bool:
         """Are any jobs active in the registry?
 
-        @return: True if there are any jobs in non-terminal states.
+        @param workflow_id: Optional workflow ID to filter by. If None, checks all workflows.
+        @return: True if there are any jobs in non-terminal states (optionally for the specified workflow).
         """
 
-        log.debug("Checking if any jobs are active in the registry")
+        log.debug(f"Checking if any jobs are active in the registry (workflow_id={workflow_id})")
 
         with self.conn as conn:
             q_marks = ",".join("?" for _ in ACTIVE_JOB_STATES)
-            row = conn.execute(
-                f"select 1 from jobs where state in ({q_marks}) limit 1",  # noqa: S608
-                tuple(state.value for state in ACTIVE_JOB_STATES),
-            ).fetchone()
+            if workflow_id is not None:
+                row = conn.execute(
+                    f"select 1 from jobs where state in ({q_marks}) and workflow_id = ? limit 1",  # noqa: S608
+                    tuple(state.value for state in ACTIVE_JOB_STATES) + (workflow_id,),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    f"select 1 from jobs where state in ({q_marks}) limit 1",  # noqa: S608
+                    tuple(state.value for state in ACTIVE_JOB_STATES),
+                ).fetchone()
 
         return row is not None
 
-    def jobs(self, context: Context, state: JobState | None = None) -> Iterator[JobInformation]:
-        """Retrieve all jobs, optionally filtered by state.
+    def jobs(self, context: Context, state: JobState | None = None, workflow_id: str | None = None) -> Iterator[JobInformation]:
+        """Retrieve all jobs, optionally filtered by state and workflow.
 
         @param context: The context to use for loading job classes.
         @param state: Optional state to filter jobs by.
+        @param workflow_id: Optional workflow ID to filter jobs by.
         @return: A list of job information
         """
 
-        log.debug(f"Retrieving jobs from registry with state filter: {state}")
+        log.debug(f"Retrieving jobs from registry with state filter: {state}, workflow_id: {workflow_id}")
 
         with self.conn as conn:
-            job_list = conn.execute("""
-          select
-            job.job_id,
-            job.serialised_job,
-            job.state,
-            out.output,
-            job.started_at,
-            job.completed_at
-          from jobs as job
-          left join job_outputs as out on out.job_id = job.job_id
-          order by job.priority desc, job.created_at asc
-          """).fetchall()
+            if workflow_id is not None:
+                job_list = conn.execute("""
+              select
+                job.job_id,
+                job.serialised_job,
+                job.state,
+                out.output,
+                job.started_at,
+                job.completed_at
+              from jobs as job
+              left join job_outputs as out on out.job_id = job.job_id
+              where job.workflow_id = ?
+              order by job.priority desc, job.created_at asc
+              """, (workflow_id,)).fetchall()
+            else:
+                job_list = conn.execute("""
+              select
+                job.job_id,
+                job.serialised_job,
+                job.state,
+                out.output,
+                job.started_at,
+                job.completed_at
+              from jobs as job
+              left join job_outputs as out on out.job_id = job.job_id
+              order by job.priority desc, job.created_at asc
+              """).fetchall()
 
         for (
             job_id,
@@ -499,23 +537,36 @@ class SQLiteJobRegistry(JobRegistry):
                 completed_at=parsed_completed_at,
             )
 
-    def get_workflow_duration(self) -> float | None:
+    def get_workflow_duration(self, workflow_id: str | None = None) -> float | None:
         """Get the duration of the workflow based on earliest created_at and latest completed_at.
 
+        @param workflow_id: Optional workflow ID to filter by. If None, computes duration for all workflows.
         @return: The duration in seconds, or None if workflow hasn't completed
         """
 
-        log.debug("Computing workflow duration")
+        log.debug(f"Computing workflow duration (workflow_id={workflow_id})")
 
         with self.conn as conn:
-            row = conn.execute(
+            if workflow_id is not None:
+                row = conn.execute(
+                    """
+                select
+                    min(created_at) as earliest_created,
+                    max(completed_at) as latest_completed
+                from jobs
+                where workflow_id = ?
+                """,
+                    (workflow_id,),
+                ).fetchone()
+            else:
+                row = conn.execute(
+                    """
+                select
+                    min(created_at) as earliest_created,
+                    max(completed_at) as latest_completed
+                from jobs
                 """
-            select
-                min(created_at) as earliest_created,
-                max(completed_at) as latest_completed
-            from jobs
-            """
-            ).fetchone()
+                ).fetchone()
 
             if row is None:
                 return None

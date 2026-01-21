@@ -8,7 +8,8 @@ create table if not exists jobs (
     started_at                text,
     recovery_started_at       text,
     completed_at              text,
-    idempotency_hash          text
+    idempotency_hash          text,
+    workflow_id               text
 );
 """
 
@@ -57,6 +58,10 @@ CREATE INDEX IF NOT EXISTS idx_jobs_state ON jobs(state);
 
 JOBS_PRIORITY_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_jobs_priority ON jobs(state, priority DESC, created_at ASC);
+"""
+
+JOBS_WORKFLOW_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_jobs_workflow_id ON jobs(workflow_id);
 """
 
 JOBS_IDEMPOTENCY_INDEX = """

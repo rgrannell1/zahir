@@ -33,7 +33,7 @@ def handle_await(state) -> tuple[WaitForJobStateChange, None]:
         awaited_job.args.parent_id = frame_job_id
         # The awaited job can just be run through the normal lifecycle, with the caveat that the _awaiting_
         # job needs a marker thart it's awaiting the new job.
-        job_registry.add(state.context, awaited_job, state.output_queue)
+        job_registry.add(state.context, awaited_job, state.output_queue, state.workflow_id)
 
     # Pause the current job, and put it back on the registry. `Paused` jobs
     # are awaiting some job or other to be updated.

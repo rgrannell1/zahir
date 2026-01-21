@@ -103,8 +103,8 @@ def dispatch_jobs_to_workers(
     """
     job_registry = context.job_registry
 
-    # Fetch all READY jobs (not yet dispatched)
-    ready_jobs: list[JobInstance] = [job_info.job for job_info in job_registry.jobs(context, state=JobState.READY)]
+    # Fetch all READY jobs for this workflow (not yet dispatched)
+    ready_jobs: list[JobInstance] = [job_info.job for job_info in job_registry.jobs(context, state=JobState.READY, workflow_id=workflow_id)]
 
 
     # Limit dispatch to prevent one worker from claiming all jobs in a large batch
@@ -161,7 +161,7 @@ def start_zahir_overseer(context: Context, start: JobInstance | None, worker_cou
 
     # Start with initial job if provided
     if start is not None:
-        context.job_registry.add(context, start, output_queue)
+        context.job_registry.add(context, start, output_queue, workflow_id)
 
     # Start a single dependency-checker process
     processes = []

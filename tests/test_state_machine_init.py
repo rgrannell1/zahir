@@ -133,7 +133,7 @@ def test_state_machine_simple_job_with_output_lifecycle():
 
     # Add a job directly and verify the pop → check → execute flow
     job = SimpleOutputJob({"value": 42}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     job_generator = SimpleOutputJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.job_stack.push(frame)
@@ -186,7 +186,7 @@ def test_state_machine_job_without_output_lifecycle():
 
     # Set up a frame with the no-output job
     job = NoOutputJob({}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     job_generator = NoOutputJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.frame = frame
@@ -226,7 +226,7 @@ def test_state_machine_await_handling():
 
     # Set up the awaiting job
     job = AwaitingJob({}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     job_generator = AwaitingJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.frame = frame
@@ -266,7 +266,7 @@ def test_state_machine_exception_handling():
 
     # Set up the exception job
     job = ExceptionJob({}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     job_generator = ExceptionJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.frame = frame
@@ -306,7 +306,7 @@ def test_state_machine_timeout_handling():
 
     # Set up the timeout job with 0.1 second timeout
     job = TimeoutJobTest({}, {}, job_timeout=0.1)
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     job_generator = TimeoutJobTest.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.frame = frame
@@ -418,7 +418,7 @@ def test_state_machine_pop_to_execute_flow():
 
     # Set up a job on the stack
     job = SimpleOutputJob({"value": 123}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     job_generator = SimpleOutputJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.job_stack.push(frame)
@@ -463,7 +463,7 @@ def test_state_machine_recovery_job_complete_no_output():
 
     # Set up a recovery job that completes without output
     job = ExceptionJob({}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     # Use an empty generator to simulate no output
     job_generator = iter([])
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=True)
@@ -503,7 +503,7 @@ def test_state_machine_recovery_job_timeout():
 
     # Set up a recovery job with timeout
     job = TimeoutJobTest({}, {}, recover_timeout=0.1)
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     def timeout_generator():
         import time
@@ -573,7 +573,7 @@ def test_state_machine_recovery_job_exception():
 
     # Set up a recovery job that raises exception
     job = RecoveryExceptionJob({}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Try to execute the recovery job - it should raise when we iterate the generator
     # because the recovery handler raises RuntimeError

@@ -36,8 +36,8 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
         atexit.register(job_registry.close)
 
         while True:
-            if not job_registry.is_active():
-                duration = job_registry.get_workflow_duration() or 0.0
+            if not job_registry.is_active(workflow_id=workflow_id):
+                duration = job_registry.get_workflow_duration(workflow_id=workflow_id) or 0.0
                 output_queue.put(
                     serialise_event(
                         context,
@@ -51,8 +51,8 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
 
             any_ready = False
 
-            # try to find blocked jobs whose dependencies are now satisfied
-            for job_info in job_registry.jobs(context, state=JobState.PENDING):
+            # try to find blocked jobs whose dependencies are now satisfied (for this workflow)
+            for job_info in job_registry.jobs(context, state=JobState.PENDING, workflow_id=workflow_id):
                 job = job_info.job
 
                 dependencies_state = job.dependencies.satisfied()
@@ -77,9 +77,9 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
                         recovery=False,
                     )
 
-            # Also check if there are any READY jobs that need dispatching
+            # Also check if there are any READY jobs that need dispatching (for this workflow)
             # (includes jobs that started as READY because they have no dependencies)
-            for _ in job_registry.jobs(context, state=JobState.READY):
+            for _ in job_registry.jobs(context, state=JobState.READY, workflow_id=workflow_id):
                 any_ready = True
                 break
 

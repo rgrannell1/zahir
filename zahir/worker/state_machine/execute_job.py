@@ -50,7 +50,7 @@ def execute_job(
             recovery=state.frame.recovery,
         )
 
-    job_timing = state.context.job_registry.get_job_timing(job_id)
+    job_timing = state.context.job_registry.get_job_timing(state.frame.job.job_id)
     time_since_started = job_timing.time_since_started() if job_timing else None
     job_timeout = state.frame.job.args.job_timeout
 

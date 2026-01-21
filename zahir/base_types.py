@@ -229,7 +229,7 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def add(self, context: "Context", job: "JobInstance", output_queue) -> str:
+    def add(self, context: "Context", job: "JobInstance", output_queue, workflow_id: str) -> str:
         """
         Register a job with the job registry, returning a job ID.
 
@@ -238,6 +238,7 @@ class JobRegistry(ABC):
         - This ensures that each job is run at most once per registry instance.
 
         @param job: The job to register
+        @param workflow_id: The ID of the workflow this job belongs to
         @return: The job ID assigned to the job
         @raises ValueError: If the job_id is already registered
         """
@@ -245,8 +246,12 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def is_active(self) -> bool:
-        """Return True if any jobs are in a non-terminal state"""
+    def is_active(self, workflow_id: str | None = None) -> bool:
+        """Return True if any jobs are in a non-terminal state
+        
+        @param workflow_id: Optional workflow ID to filter by. If None, checks all workflows.
+        @return: True if there are any active jobs (optionally for the specified workflow)
+        """
 
         raise NotImplementedError
 
@@ -331,10 +336,12 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def jobs(self, context: "Context", state: JobState | None = None) -> Iterator[JobInformation]:
+    def jobs(self, context: "Context", state: JobState | None = None, workflow_id: str | None = None) -> Iterator[JobInformation]:
         """Get an iterator of all jobs with their information.
 
         @param context: The context containing scope and registries for deserialization
+        @param state: Optional state to filter jobs by
+        @param workflow_id: Optional workflow ID to filter jobs by
         @return: An iterator of JobInformation objects
         """
 
@@ -354,9 +361,10 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def get_workflow_duration(self) -> float | None:
+    def get_workflow_duration(self, workflow_id: str | None = None) -> float | None:
         """Get the duration of the workflow in seconds.
 
+        @param workflow_id: Optional workflow ID to filter by. If None, computes duration for all workflows.
         @return: The duration in seconds, or None if workflow hasn't completed
         """
 

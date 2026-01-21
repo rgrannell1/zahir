@@ -146,7 +146,7 @@ def read_job_events(
             # new subjob - registry.add() emits a JobEvent for us
             # Set parent_id before saving to ensure it's persisted
             item.args.parent_id = job_id
-            job_registry.add(state.context, item, output_queue)
+            job_registry.add(state.context, item, output_queue, workflow_id)
             continue
 
         if isinstance(item, ZahirEvent):

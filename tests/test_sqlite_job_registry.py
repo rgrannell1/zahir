@@ -51,7 +51,7 @@ def test_sqlite_job_registry_lifecycle():
         job = DummyJob(job_id="job1")
 
         dummy_queue = multiprocessing.Queue()
-        job_id = registry.add(context, job, dummy_queue)
+        job_id = registry.add(context, job, dummy_queue, "test-workflow")
         assert job_id == "job1"
         assert registry.get_state(job_id) == JobState.READY
         registry.set_state(context, job_id, "DummyJob", "wf-test", dummy_queue, JobState.COMPLETED)
@@ -480,9 +480,9 @@ def test_jobs_ordered_by_priority():
             ),
         )
 
-        registry.add(context, low_priority_job, dummy_queue)
-        registry.add(context, high_priority_job, dummy_queue)
-        registry.add(context, medium_priority_job, dummy_queue)
+        registry.add(context, low_priority_job, dummy_queue, "test-workflow")
+        registry.add(context, high_priority_job, dummy_queue, "test-workflow")
+        registry.add(context, medium_priority_job, dummy_queue, "test-workflow")
 
         # Retrieve jobs and verify ordering
         jobs = list(registry.jobs(context))
