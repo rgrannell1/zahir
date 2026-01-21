@@ -279,8 +279,12 @@ class JobRegistry(ABC):
         state: JobState,
         recovery: bool = False,
         error: Exception | None = None,
+        pid: int | None = None,
     ) -> str:
-        """Set the state of a job by ID."""
+        """Set the state of a job by ID.
+        
+        @param pid: Optional process ID of the worker executing the job. Used for events like JobStartedEvent.
+        """
 
         raise NotImplementedError
 

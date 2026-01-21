@@ -37,6 +37,7 @@ def handle_await(state) -> tuple[WaitForJobStateChange, None]:
 
     # Pause the current job, and put it back on the registry. `Paused` jobs
     # are awaiting some job or other to be updated.
+    worker_pid = os.getpid()
     job_registry.set_state(
         state.context,
         frame_job_id,
@@ -45,12 +46,14 @@ def handle_await(state) -> tuple[WaitForJobStateChange, None]:
         state.output_queue,
         JobState.PAUSED,
         recovery=state.frame.recovery,
+        pid=worker_pid,
     )
     job_stack.push(state.frame)
     state.frame = None
 
     # Signal we're ready for another job
-    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid())))
+    worker_pid = os.getpid()
+    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=worker_pid, workflow_id=state.workflow_id)))
 
     return WaitForJobStateChange(
         {"message": f"Paused job {frame_job_id}, awaiting job(s), waiting for next dispatch..."},

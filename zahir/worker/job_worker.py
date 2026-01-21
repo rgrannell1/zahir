@@ -40,7 +40,7 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
     current = StartStateChange({"message": "Starting job worker"})
 
     # Signal we're ready for work immediately
-    output_queue.put(serialise_event(context, JobWorkerWaitingEvent(pid=os.getpid())))
+    output_queue.put(serialise_event(context, JobWorkerWaitingEvent(pid=os.getpid(), workflow_id=workflow_id)))
 
     # ...so I put a workflow engine inside your workflow engine
     while True:

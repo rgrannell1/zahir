@@ -26,6 +26,6 @@ def handle_job_complete_no_output(state) -> tuple[WaitForJobStateChange, None]:
     state.frame = None
 
     # Signal we're ready for another job
-    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid())))
+    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid(), workflow_id=state.workflow_id)))
 
     return WaitForJobStateChange({"message": "Job completed with no output"}), state

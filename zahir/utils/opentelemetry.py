@@ -22,6 +22,7 @@ from zahir.events import (
     JobRecoveryTimeoutEvent,
     JobStartedEvent,
     JobTimeoutEvent,
+    JobWorkerWaitingEvent,
     WorkflowCompleteEvent,
     WorkflowStartedEvent,
     ZahirEvent,
@@ -95,6 +96,8 @@ class TraceContextManager:
         self.workflow_traces: dict[str, str] = {}  # workflow_id -> trace_id
         self.job_spans: dict[str, dict[str, Any]] = {}  # job_id -> span data
         self.job_parents: dict[str, str | None] = {}  # job_id -> parent_job_id
+        self.process_spans: dict[int, dict[str, Any]] = {}  # pid -> process span data
+        self.process_workflows: dict[int, str] = {}  # pid -> workflow_id (to track which workflow a process belongs to)
 
         self.exporters: dict[str, FileOtelExporter] = {}
 
@@ -167,6 +170,73 @@ class TraceContextManager:
             return parent_id
 
         return None
+
+    def _get_or_create_process_span(self, pid: int, workflow_id: str, start_time: datetime) -> str | None:
+        """Get or create a process span for a worker process.
+
+        @param pid: The process ID
+        @param workflow_id: The workflow ID
+        @param start_time: The start time for the process span
+        @return: The process span ID, or None if workflow not started
+        """
+        # Check if process span already exists
+        if pid in self.process_spans:
+            return self.process_spans[pid]["spanId"]
+
+        # Get trace ID for this workflow
+        trace_id = self.workflow_traces.get(workflow_id)
+        if trace_id is None:
+            # Workflow not started yet, can't create process span
+            return None
+
+        # Get workflow span ID as parent
+        workflow_key = f"_workflow:{workflow_id}"
+        workflow_span = self.job_spans.get(workflow_key)
+        parent_span_id = workflow_span["spanId"] if workflow_span else None
+
+        # Create process span
+        span_id = generate_span_id()
+        attributes: dict[str, Any] = {
+            "process.pid": pid,
+            "process.type": "worker",
+        }
+
+        span = self._create_span(
+            trace_id=trace_id,
+            span_id=span_id,
+            name=f"process:worker-{pid}",
+            start_time=start_time,
+            parent_span_id=parent_span_id,
+            attributes=attributes,
+        )
+
+        self.process_spans[pid] = span
+        self.process_workflows[pid] = workflow_id
+        return span_id
+
+    def _end_process_span(self, pid: int, end_time: datetime) -> None:
+        """End a process span and export it.
+
+        @param pid: The process ID
+        @param end_time: The end time for the process span
+        """
+        span = self.process_spans.get(pid)
+        if span is None:
+            return
+
+        span["endTimeUnixNano"] = _nanoseconds_since_epoch(end_time)
+        span["status"] = {"code": 1}  # OK
+
+        workflow_id = self.process_workflows.get(pid)
+        if workflow_id:
+            exporter = self._get_exporter(workflow_id)
+            if exporter:
+                exporter.export_span(span)
+
+        # Remove from active spans
+        del self.process_spans[pid]
+        if pid in self.process_workflows:
+            del self.process_workflows[pid]
 
     def _get_workflow_inputs(self, workflow_id: str) -> dict[str, Any]:
         """Get workflow input arguments from root jobs (jobs with no parent).
@@ -290,6 +360,8 @@ class TraceContextManager:
             _handle_workflow_started(self, event)
         elif isinstance(event, WorkflowCompleteEvent):
             _handle_workflow_complete(self, event)
+        elif isinstance(event, JobWorkerWaitingEvent):
+            _handle_job_worker_waiting(self, event)
         elif isinstance(event, JobStartedEvent):
             _handle_job_started(self, event)
         elif isinstance(event, JobCompletedEvent):
@@ -374,6 +446,82 @@ def _handle_workflow_complete(manager: TraceContextManager, event: WorkflowCompl
             exporter.export_span(span)
         del manager.job_spans[workflow_key]
 
+    # End all process spans for this workflow
+    end_time = datetime.now(UTC)
+    pids_to_end = [pid for pid, wf_id in manager.process_workflows.items() if wf_id == event.workflow_id]
+    for pid in pids_to_end:
+        manager._end_process_span(pid, end_time)
+
+
+def _handle_job_worker_waiting(manager: TraceContextManager, event: JobWorkerWaitingEvent) -> None:
+    """Handle JobWorkerWaitingEvent - track when workers signal they're ready for work."""
+    # Use workflow_id from event if available, otherwise try to find it from process_workflows
+    workflow_id = event.workflow_id or manager.process_workflows.get(event.pid)
+    if workflow_id is None:
+        # Process not yet associated with a workflow, can't track yet
+        return
+
+    # Store the workflow association for future events
+    if event.pid not in manager.process_workflows:
+        manager.process_workflows[event.pid] = workflow_id
+
+    trace_id = manager.workflow_traces.get(workflow_id)
+    if trace_id is None:
+        # Workflow not started yet, can't create spans
+        return
+
+    # Get or create process span
+    process_span = manager.process_spans.get(event.pid)
+    if process_span is None:
+        # Create process span if it doesn't exist - this allows us to track workers even before they get jobs
+        start_time = datetime.now(UTC)
+        process_span_id = manager._get_or_create_process_span(event.pid, workflow_id, start_time)
+        if process_span_id is None:
+            return
+        process_span = manager.process_spans.get(event.pid)
+        if process_span is None:
+            return
+
+    # Add an event to the process span indicating the worker is ready
+    # We'll add this as an attribute update since OpenTelemetry events are complex
+    # Instead, we'll track this in the process span attributes
+    ready_count = 0
+    for attr in process_span.get("attributes", []):
+        if attr.get("key") == "worker.ready_count":
+            ready_count = int(attr.get("value", {}).get("intValue", "0"))
+            break
+
+    ready_count += 1
+    ready_time = datetime.now(UTC)
+
+    # Update or add ready_count attribute
+    attributes = process_span.get("attributes", [])
+    # Remove old ready_count if present
+    attributes = [attr for attr in attributes if attr.get("key") != "worker.ready_count"]
+    attributes.append({"key": "worker.ready_count", "value": {"intValue": str(ready_count)}})
+    attributes.append({"key": "worker.last_ready_time", "value": {"stringValue": ready_time.isoformat()}})
+    process_span["attributes"] = attributes
+
+    # Export updated process span
+    exporter = manager._get_exporter(workflow_id)
+    if exporter:
+        # Create a new span event for this ready signal
+        ready_span = manager._create_span(
+            trace_id=trace_id,
+            span_id=generate_span_id(),
+            name=f"worker-ready-{event.pid}",
+            start_time=ready_time,
+            parent_span_id=process_span["spanId"],
+            attributes={
+                "worker.pid": event.pid,
+                "worker.ready_signal": True,
+                "worker.ready_count": ready_count,
+            },
+        )
+        ready_span["endTimeUnixNano"] = _nanoseconds_since_epoch(ready_time)
+        ready_span["status"] = {"code": 1}  # OK
+        exporter.export_span(ready_span)
+
 
 def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) -> None:
     """Handle JobStartedEvent."""
@@ -381,16 +529,32 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
     if trace_id is None:
         return
 
-    # Get parent span ID
-    parent_span_id = manager._get_parent_span_id(event.job_id)
+    # Get or create process span for this worker
+    start_time = datetime.now(UTC)
+    process_span_id = manager._get_or_create_process_span(event.pid, event.workflow_id, start_time)
+
+    # Jobs are always children of their process span (not parent jobs)
+    # This ensures process-level grouping in Jaeger
+    parent_span_id = process_span_id
     if parent_span_id is None:
-        # Try to get parent from job registry
-        parent_job_id = manager._get_job_parent_id(event.job_id)
-        if parent_job_id:
-            parent_span_id = manager._get_parent_span_id(parent_job_id)
+        # Fallback to workflow span if process span creation failed
+        workflow_key = f"_workflow:{event.workflow_id}"
+        workflow_span = manager.job_spans.get(workflow_key)
+        if workflow_span:
+            parent_span_id = workflow_span["spanId"]
+    
+    # Ensure we have a valid parent - if not, we can't create the span properly
+    # This should rarely happen, but if it does, log it and skip span creation
+    if parent_span_id is None:
+        import logging
+        logging.getLogger(__name__).warning(
+            f"Cannot create job span for {event.job_id}: no valid parent span (process={event.pid}, workflow={event.workflow_id})"
+        )
+        return
 
     # Get job inputs from the registry
     job = manager._get_job_from_registry(event.job_id)
+    
     attributes: dict[str, Any] = {
         "job.id": event.job_id,
         "job.type": event.job_type,
@@ -398,22 +562,46 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
         "job.worker_pid": event.pid,
         "process.pid": event.pid,
     }
+    
+    # Track when job was assigned vs when it started (dispatch timing)
+    # started_at is set when the job state is set to RUNNING (during dispatch)
+    # This allows us to measure the delay between dispatch and actual execution start
+    try:
+        job_timing = manager.context.job_registry.get_job_timing(event.job_id)
+        start_time_obj = datetime.now(UTC)
+        
+        # Add dispatch timing information if available
+        if job_timing and job_timing.started_at:
+            # Calculate delay between when job was marked RUNNING (dispatch) and when it actually started
+            dispatch_delay_ms = (start_time_obj - job_timing.started_at).total_seconds() * 1000
+            attributes["job.dispatch_delay_ms"] = round(dispatch_delay_ms, 2)
+            attributes["job.dispatched_at"] = job_timing.started_at.isoformat()
+    except Exception as e:
+        # If we can't get timing info, continue without it - don't break span creation
+        # Log the error for debugging but don't fail
+        import logging
+        logging.getLogger(__name__).debug(f"Could not get job timing for {event.job_id}: {e}")
 
     # Add job inputs as attributes
     if job is not None:
-        job_input = job.input
-        if isinstance(job_input, dict):
-            for key, value in job_input.items():
-                if isinstance(value, (str, int, float, bool)):
-                    attributes[f"job.input.{key}"] = value
-                else:
-                    # Serialize complex types and truncate
-                    input_str = json.dumps(value)[:500]
-                    attributes[f"job.input.{key}"] = input_str
-        elif job_input is not None:
-            # Non-dict input - serialize and truncate
-            input_str = json.dumps(job_input)[:500]
-            attributes["job.input"] = input_str
+        try:
+            job_input = job.input
+            if isinstance(job_input, dict):
+                for key, value in job_input.items():
+                    if isinstance(value, (str, int, float, bool)):
+                        attributes[f"job.input.{key}"] = value
+                    else:
+                        # Serialize complex types and truncate
+                        input_str = json.dumps(value)[:500]
+                        attributes[f"job.input.{key}"] = input_str
+            elif job_input is not None:
+                # Non-dict input - serialize and truncate
+                input_str = json.dumps(job_input)[:500]
+                attributes["job.input"] = input_str
+        except Exception as e:
+            # If we can't serialize job inputs, continue without them
+            import logging
+            logging.getLogger(__name__).debug(f"Could not serialize job inputs for {event.job_id}: {e}")
 
     span_id = generate_span_id()
     start_time = datetime.now(UTC)

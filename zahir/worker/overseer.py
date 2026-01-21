@@ -96,14 +96,24 @@ def dispatch_jobs_to_workers(
 
     Jobs are fetched from the registry and assigned to workers in order.
     Workers are tracked in ready_worker_queue to ensure fair distribution.
+
+    To prevent one worker from claiming all jobs when a large batch becomes ready,
+    we limit dispatch to at most 2 jobs per ready worker per call. This allows
+    other workers time to signal READY and get jobs too.
     """
     job_registry = context.job_registry
 
     # Fetch all READY jobs (not yet dispatched)
     ready_jobs: list[JobInstance] = [job_info.job for job_info in job_registry.jobs(context, state=JobState.READY)]
 
+
+    # Limit dispatch to prevent one worker from claiming all jobs in a large batch
+    # Dispatch at most 2 jobs per ready worker to allow other workers time to signal READY
+    max_jobs_to_dispatch = len(ready_worker_queue) * 2 if ready_worker_queue else 0
+    jobs_dispatched = 0
+
     # Dispatch jobs to ready workers (round-robin via queue)
-    while ready_jobs and ready_worker_queue:
+    while ready_jobs and ready_worker_queue and jobs_dispatched < max_jobs_to_dispatch:
         job = ready_jobs.pop(0)
         worker_pid = ready_worker_queue.pop(0)
 
@@ -117,8 +127,9 @@ def dispatch_jobs_to_workers(
         process_states[worker_pid] = WorkerState.BUSY
 
         # Set job state to RUNNING to prevent re-dispatch
+        # Pass the worker PID so JobStartedEvent has the correct PID
         job_registry.set_state(
-            context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.RUNNING, recovery=False
+            context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.RUNNING, recovery=False, pid=worker_pid
         )
 
         # Send job assignment to worker via input queue
@@ -133,6 +144,7 @@ def dispatch_jobs_to_workers(
                 ),
             )
         )
+        jobs_dispatched += 1
 
 
 def start_zahir_overseer(context: Context, start: JobInstance | None, worker_count: int = 4):

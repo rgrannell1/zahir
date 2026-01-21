@@ -270,6 +270,7 @@ class SQLiteJobRegistry(JobRegistry):
         state: JobState,
         recovery: bool = False,
         error: Exception | None = None,
+        pid: int | None = None,
     ) -> str:
         """Set the state of a job. Optionally add an error if transitioning to a failure state."""
 
@@ -317,7 +318,7 @@ class SQLiteJobRegistry(JobRegistry):
             conn.commit()
 
         timing = self.get_job_timing(job_id) if state in COMPLETED_JOB_STATES else None
-        event = create_state_event(state, workflow_id, job_id, job_type, error=error, timing=timing)
+        event = create_state_event(state, workflow_id, job_id, job_type, error=error, timing=timing, pid=pid)
         if event is not None:
             output_queue.put(serialise_event(context, event))
 

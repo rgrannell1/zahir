@@ -2,6 +2,8 @@
 State changes correspond to events that get emitted.
 """
 
+import os
+
 from zahir.base_types import JobState, JobTimingInformation
 from zahir.events import (
     JobCompletedEvent,
@@ -26,6 +28,7 @@ def create_state_event(
     job_type: str,
     error: Exception | None = None,
     timing: JobTimingInformation | None = None,
+    pid: int | None = None,
 ) -> ZahirEvent | None:
     """Create an event based on the job state transition.
 
@@ -45,7 +48,7 @@ def create_state_event(
             # Not interesting enough to emit an event
             return None
         case JobState.PAUSED:
-            return JobPausedEvent(workflow_id=workflow_id, job_id=job_id, job_type=job_type)
+            return JobPausedEvent(workflow_id=workflow_id, job_id=job_id, job_type=job_type, pid=pid if pid is not None else os.getpid())
         case JobState.PRECHECK_FAILED:
             return JobPrecheckFailedEvent(
                 workflow_id=workflow_id,
@@ -54,7 +57,7 @@ def create_state_event(
                 error=exception_to_text_blob(error) if error else "",
             )
         case JobState.RUNNING:
-            return JobStartedEvent(workflow_id=workflow_id, job_id=job_id, job_type=job_type)
+            return JobStartedEvent(workflow_id=workflow_id, job_id=job_id, job_type=job_type, pid=pid if pid is not None else os.getpid())
         case JobState.COMPLETED:
             duration = timing.time_since_started() if timing else 0.0
             return JobCompletedEvent(
@@ -68,6 +71,7 @@ def create_state_event(
                 job_id=job_id,
                 job_type=job_type,
                 workflow_id=workflow_id,
+                pid=pid if pid is not None else os.getpid(),
             )
         case JobState.RECOVERED:
             duration = timing.time_since_recovery_started() if timing else 0.0

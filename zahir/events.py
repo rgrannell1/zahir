@@ -563,15 +563,20 @@ class JobWorkerWaitingEvent(ZahirEvent):
     """Indicates that a job worker is waiting for jobs to process"""
 
     pid: int = field(default_factory=os.getpid)
+    workflow_id: str | None = None
 
     def save(self, context: Context) -> Mapping[str, Any]:
         return {
             "pid": self.pid,
+            "workflow_id": self.workflow_id,
         }
 
     @classmethod
     def load(cls, _context: Context, data: Mapping[str, Any]) -> JobWorkerWaitingEvent:
-        return cls(pid=data.get("pid", 0))
+        return cls(
+            pid=data.get("pid", 0),
+            workflow_id=data.get("workflow_id"),
+        )
 
 
 @dataclass

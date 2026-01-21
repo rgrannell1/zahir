@@ -50,7 +50,7 @@ def execute_job(
             recovery=state.frame.recovery,
         )
 
-    job_timing = state.context.job_registry.get_job_timing(state.frame.job.job_id)
+    job_timing = state.context.job_registry.get_job_timing(job_id)
     time_since_started = job_timing.time_since_started() if job_timing else None
     job_timeout = state.frame.job.args.job_timeout
 
@@ -112,6 +112,6 @@ def execute_job(
         signal.alarm(0)
 
     # Signal we're ready for another job (fallthrough case)
-    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid())))
+    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid(), workflow_id=state.workflow_id)))
 
     return WaitForJobStateChange({"message": "Execution complete, waiting for next dispatch"}), state
