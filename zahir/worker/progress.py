@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from collections import deque
 from dataclasses import dataclass, field
+from io import StringIO
 import time
 from typing import Protocol
 
 import psutil
 from rich.bar import Bar
+from rich.console import Console
 from rich.progress import (
     Progress,
     ProgressColumn,
@@ -152,7 +154,13 @@ class StatusBarColumn(ProgressColumn):
             color=complete_style,
             bgcolor=self.back_style,
         )
-        return Text(str(bar))
+        # Render the Bar through a Console to get the actual bar characters
+        # Bar is a renderable, so we need to render it to get the string representation
+        output = StringIO()
+        console = Console(file=output, force_terminal=True, width=80, legacy_windows=False)
+        console.print(bar, end="")
+        rendered_bar = output.getvalue()
+        return Text(rendered_bar.rstrip())
 
 
 class ZahirProgressMonitor:

@@ -5,12 +5,13 @@ and enqueues the awaited job(s).
 """
 
 import multiprocessing
+import pathlib
 import sys
 import tempfile
-import sys
 
-from zahir.base_types import Context, JobState
+from zahir.base_types import Context, JobArguments, JobInstance, JobState
 from zahir.context import MemoryContext
+from zahir.dependencies.group import DependencyGroup
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import spec
@@ -449,3 +450,70 @@ def test_handle_await_workflow_id_used():
         assert job_state == JobState.PAUSED
     finally:
         job_registry.close()
+
+
+def test_handle_await_uses_actual_job_id_for_idempotent_jobs():
+    """Test that handle_await uses the actual job_id returned by add() for idempotent jobs."""
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    job_registry = SQLiteJobRegistry(tmp_file)
+    job_registry.init("test-worker-idempotent-await")
+    try:
+        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        input_queue = multiprocessing.Queue()
+        output_queue = multiprocessing.Queue()
+        workflow_id = "test-workflow-idempotent-await"
+
+        worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
+
+        # Create and add a completed idempotent job first
+        existing_job = JobInstance(
+            spec=SimpleJob,
+            args=JobArguments(
+                dependencies=DependencyGroup({}),
+                args={"test": "data"},
+                job_id="existing-job-id",
+                once=True,
+            ),
+        )
+        existing_job_id = context.job_registry.add(context, existing_job, output_queue, workflow_id)
+        context.job_registry.set_state(
+            context, existing_job_id, "SimpleJob", workflow_id, output_queue, JobState.COMPLETED
+        )
+        context.job_registry.set_output(
+            context, existing_job_id, "SimpleJob", workflow_id, output_queue, {"result": "existing"}, recovery=False
+        )
+
+        # Now create an awaiting job
+        job = AwaitingJob({"test": "data"}, {})
+        job_id = context.job_registry.add(context, job, output_queue, workflow_id)
+
+        # Set up frame
+        job_generator = AwaitingJob.run(context, job.input, job.dependencies)
+        frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+        worker_state.frame = frame
+
+        # Create an awaited job with once=True that will match the existing job
+        awaited_job = JobInstance(
+            spec=SimpleJob,
+            args=JobArguments(
+                dependencies=DependencyGroup({}),
+                args={"test": "data"},
+                job_id="new-job-id",  # Different job_id, but same idempotency hash
+                once=True,
+            ),
+        )
+        worker_state.await_event = Await(awaited_job)
+
+        # Run handle_await
+        handle_await(worker_state)
+
+        # The required_jobs should contain the existing job_id, not the new one
+        pushed_frame = worker_state.job_stack.frames[0]
+        assert len(pushed_frame.required_jobs) == 1
+        assert existing_job_id in pushed_frame.required_jobs
+        assert "new-job-id" not in pushed_frame.required_jobs
+    finally:
+        job_registry.close()
+        pathlib.Path(tmp_file).unlink()
