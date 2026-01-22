@@ -1,5 +1,5 @@
-import multiprocessing
 import os
+from multiprocessing.queues import Queue
 from typing import Any
 
 from zahir.base_types import Context
@@ -51,7 +51,7 @@ def times_up(_signum, _frame):
     raise TimeoutError("Job execution timed out")
 
 
-type OutputQueue = multiprocessing.Queue["SerialisedEvent"]
+type OutputQueue = Queue[SerialisedEvent]
 
 
 def log_call(fn):
@@ -85,7 +85,7 @@ class ZahirWorkerState:
     def __init__(
         self,
         context: Context,
-        input_queue: "multiprocessing.Queue[SerialisedEvent] | None",
+        input_queue: Queue[SerialisedEvent] | None,
         output_queue: OutputQueue,
         workflow_id: str,
     ):

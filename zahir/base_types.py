@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 import multiprocessing
 from multiprocessing.managers import DictProxy, SyncManager
+from multiprocessing.queues import Queue as MPQueue
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -493,7 +494,7 @@ class Context:
     state: DictProxy[str, Any]
 
     @abstractmethod
-    def get_queue(self, name: str) -> multiprocessing.Queue:
+    def get_queue(self, name: str) -> MPQueue[Any]:
         """Get a named queue from the context."""
 
         raise NotImplementedError

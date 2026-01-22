@@ -4,6 +4,7 @@ from collections.abc import Iterator
 from enum import StrEnum
 import multiprocessing
 import os
+from multiprocessing.queues import Queue
 
 from zahir.base_types import Context, JobInstance, JobState
 from zahir.events import (
@@ -22,8 +23,8 @@ from zahir.worker.dependency_worker import zahir_dependency_worker
 from zahir.worker.job_worker import zahir_job_worker
 from zahir.utils.opentelemetry import TraceContextManager
 
-type OutputQueue = multiprocessing.Queue["SerialisedEvent"]
-type InputQueue = multiprocessing.Queue["SerialisedEvent"]
+type OutputQueue = Queue[SerialisedEvent]
+type InputQueue = Queue[SerialisedEvent]
 
 
 from zahir.utils.logging_config import configure_logging, get_logger

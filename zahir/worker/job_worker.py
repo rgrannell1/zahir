@@ -1,6 +1,6 @@
 import atexit
-import multiprocessing
 import os
+from multiprocessing.queues import Queue
 
 from zahir.base_types import Context
 from zahir.constants import ZAHIR_LOG_OUTPUT_DIR_KEY, ZAHIR_START_JOB_TYPE_KEY
@@ -15,8 +15,8 @@ from zahir.utils.output_logging import setup_output_logging
 from zahir.worker.state_machine import ZahirJobStateMachine, ZahirWorkerState
 from zahir.worker.state_machine.states import StartStateChange
 
-type OutputQueue = multiprocessing.Queue["SerialisedEvent"]
-type InputQueue = multiprocessing.Queue["SerialisedEvent"]
+type OutputQueue = Queue[SerialisedEvent]
+type InputQueue = Queue[SerialisedEvent]
 
 
 def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: OutputQueue, workflow_id: str) -> None:

@@ -32,14 +32,13 @@ class DependencyGroup(Dependency):
         """Ask each dependency for a time-extension and return
         the resulting DependencyGroup."""
 
-        return type(self)({
-            name: (
-                [dep.request_extension(extra_seconds) for dep in deps]
-                if isinstance(deps, list)
-                else deps.request_extension(extra_seconds)
-            )
-            for name, deps in self.dependencies.items()
-        })
+        result: dict[str, Dependency | list[Dependency]] = {}
+        for name, deps in self.dependencies.items():
+            if isinstance(deps, list):
+                result[name] = [dep.request_extension(extra_seconds) for dep in deps]
+            else:
+                result[name] = deps.request_extension(extra_seconds)
+        return type(self)(result)
 
     def save(self, context) -> Mapping:
         """Save all subdependencies to a dictionary."""

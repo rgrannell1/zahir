@@ -1,7 +1,7 @@
 import atexit
-import multiprocessing
 import os
 import time
+from multiprocessing.queues import Queue
 
 from zahir.base_types import Context, DependencyState, JobState
 from zahir.events import (
@@ -19,7 +19,7 @@ from zahir.serialise import SerialisedEvent, serialise_event
 from zahir.utils.logging_config import configure_logging
 from zahir.utils.output_logging import setup_output_logging
 
-type OutputQueue = multiprocessing.Queue["SerialisedEvent"]
+type OutputQueue = Queue[SerialisedEvent]
 
 
 def setup_dependency_worker(context: Context) -> None:

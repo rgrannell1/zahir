@@ -1,19 +1,22 @@
-from collections.abc import Iterator, Mapping
+from collections.abc import Generator, Iterator, Mapping
 import inspect
-import multiprocessing
+from multiprocessing.queues import Queue
 from types import GeneratorType
 from typing import Any, cast
 
 from zahir.base_types import JobInstance, JobRegistry
 from zahir.events import Await, JobOutputEvent, ZahirEvent
-from zahir.serialise import serialise_event
+from zahir.serialise import SerialisedEvent, serialise_event
 
-type OutputQueue = multiprocessing.Queue["ZahirEvent | JobInstance"]
+type OutputQueue = Queue[SerialisedEvent]
+
+# Type for values that can be sent to a generator via send()
+type GeneratorSendValue = Mapping[str, Any] | list[Mapping[str, Any] | None] | None
 
 
 def _resume_generator_after_await(
     *,
-    gen: GeneratorType,
+    gen: Generator[Any, GeneratorSendValue, Any],
     gen_state: str,
     job_registry: JobRegistry,
     state,
@@ -57,7 +60,7 @@ def _resume_generator_after_await(
 
         event = gen.throw(throwable)
     else:
-        generator_input = None
+        generator_input: GeneratorSendValue = None
         generator_input = outputs[0] if len(required_pids) == 1 else outputs
 
         # If the generator hasn't been started yet (GEN_CREATED state), we need to
@@ -69,10 +72,13 @@ def _resume_generator_after_await(
                     # We need to queue this event, then send the result back
 
                     queue.append(next(gen))
+                    # gen is typed as Generator[Any, GeneratorSendValue, Any], so send()
+                    # accepts GeneratorSendValue, which generator_input is.
                     event = gen.send(generator_input)
                 else:
                     event = next(gen)
             else:
+                # gen.send() accepts GeneratorSendValue, which generator_input is
                 event = gen.send(generator_input)
         except StopIteration:
             # Generator completed without yielding anything after the await
@@ -117,6 +123,8 @@ def read_job_events(
                 f"Job generator for job-id: {job_id} is not a generator function, cannot await jobs. Type is {type(gen)}",
             )
 
+        # gen_state is only None if gen is not a GeneratorType, but we just checked it is
+        assert gen_state is not None, "gen_state should be set for GeneratorType instances"
         queue, event = _resume_generator_after_await(
             gen=gen,
             gen_state=gen_state,
