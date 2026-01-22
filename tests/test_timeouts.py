@@ -18,6 +18,7 @@ from zahir.events import (
     WorkflowStartedEvent,
     ZahirCustomEvent,
 )
+from zahir.exception import exception_from_text_blob
 from zahir.job_registry.sqlite import SQLiteJobRegistry
 from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
@@ -63,7 +64,7 @@ def test_timeout():
     assert isinstance(events[8], JobRecoveryStartedEvent)
     assert isinstance(events[9], JobStartedEvent)
     assert isinstance(events[10], JobIrrecoverableEvent)
-    assert str(events[10].error) == "Job execution timed out"
+    assert str(exception_from_text_blob(events[10].error)) == "Job execution timed out"
     assert isinstance(events[11], WorkflowCompleteEvent)
 
 
@@ -113,5 +114,5 @@ def test_recovery_timeout():
     assert isinstance(events[10], JobRecoveryStartedEvent)
     assert isinstance(events[11], JobStartedEvent)
     assert isinstance(events[12], JobIrrecoverableEvent)
-    assert str(events[12].error) == "Recovery job execution timed out"
+    assert str(exception_from_text_blob(events[12].error)) == "Recovery job execution timed out"
     assert isinstance(events[13], WorkflowCompleteEvent)

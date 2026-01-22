@@ -35,15 +35,14 @@ type InputQueue = multiprocessing.Queue["SerialisedEvent"]
 
 from zahir.utils.logging_config import configure_logging, get_logger
 
-type JobStateEvent = (
-    JobStartedEvent
-    | JobPrecheckFailedEvent
-    | JobTimeoutEvent
-    | JobRecoveryTimeoutEvent
-    | JobIrrecoverableEvent
-    | JobCompletedEvent
-    | JobPausedEvent
-)
+configure_logging()
+log = get_logger(__name__)
+
+
+class WorkerState(StrEnum):
+    READY = "READY"
+    BUSY = "BUSY"
+
 
 EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
     # What jobstate does each event correspond to?
@@ -55,24 +54,6 @@ EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
     JobCompletedEvent: JobState.COMPLETED,
     JobPausedEvent: JobState.PAUSED,
 }
-
-
-class WorkerState(StrEnum):
-    READY = "READY"
-    BUSY = "BUSY"
-
-
-
-configure_logging()
-log = get_logger(__name__)
-
-class WorkerPool:
-    """Manage a pool of worker processes."""
-
-    processes: list[multiprocessing.Process]
-    process_queues: dict[int, InputQueue]
-    process_states: dict[int, "WorkerState"]
-
 
 def shutdown(processes: list[multiprocessing.Process]) -> None:
     """Terminate and join all worker processes."""

@@ -134,8 +134,13 @@ class WorkflowOutputEvent[OutputType](ZahirEvent):
         )
 
 
+class JobStateEvent(ZahirEvent):
+    """Base class for events that represent job state transitions."""
+    pass
+
+
 @dataclass
-class JobCompletedEvent(ZahirEvent):
+class JobCompletedEvent(JobStateEvent):
     """Indicates that a job has completed successfully"""
 
     workflow_id: str
@@ -192,7 +197,7 @@ class JobOutputEvent[OutputType](ZahirEvent):
 
 
 @dataclass
-class JobStartedEvent(ZahirEvent):
+class JobStartedEvent(JobStateEvent):
     """Indicates that a job has started execution"""
 
     workflow_id: str
@@ -219,7 +224,7 @@ class JobStartedEvent(ZahirEvent):
 
 
 @dataclass
-class JobPausedEvent(ZahirEvent):
+class JobPausedEvent(JobStateEvent):
     """Indicates that a job has paused execution"""
 
     workflow_id: str
@@ -273,7 +278,7 @@ class JobImpossibleEvent(ZahirEvent):
 
 
 @dataclass
-class JobTimeoutEvent(ZahirEvent):
+class JobTimeoutEvent(JobStateEvent):
     """Indicates that a job has timed out"""
 
     workflow_id: str
@@ -360,7 +365,7 @@ class JobRecoveryCompletedEvent(ZahirEvent):
 
 
 @dataclass
-class JobRecoveryTimeoutEvent(ZahirEvent):
+class JobRecoveryTimeoutEvent(JobStateEvent):
     """Indicates that a job recovery has timed out"""
 
     workflow_id: str
@@ -390,13 +395,13 @@ class JobRecoveryTimeoutEvent(ZahirEvent):
 
 
 @dataclass
-class JobIrrecoverableEvent(ZahirEvent):
+class JobIrrecoverableEvent(JobStateEvent):
     """Indicates that a job recovery has failed irrecoverably"""
 
     workflow_id: str
-    error: str
     job_id: str
     job_type: str
+    error: str
     pid: int = field(default_factory=os.getpid)
 
     def save(self, context: Context) -> Mapping[str, Any]:
@@ -423,7 +428,7 @@ class JobIrrecoverableEvent(ZahirEvent):
 
 
 @dataclass
-class JobPrecheckFailedEvent(ZahirEvent):
+class JobPrecheckFailedEvent(JobStateEvent):
     """Indicates that a job's precheck validation failed"""
 
     workflow_id: str
