@@ -47,7 +47,7 @@ def test_wait_for_job_receives_assignment():
 
     # Create a test job and add to registry
     test_job = SimpleTestJob({}, {})
-    job_registry.add(context, test_job, output_queue)
+    job_registry.add(context, test_job, output_queue, workflow_id)
 
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
@@ -87,7 +87,7 @@ def test_wait_for_job_checks_runnable_stack():
 
     # Create a job and add to registry as PAUSED
     test_job = SimpleTestJob({}, {})
-    job_registry.add(context, test_job, output_queue)
+    job_registry.add(context, test_job, output_queue, workflow_id)
 
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 
@@ -128,7 +128,7 @@ def test_wait_for_job_times_out_and_rechecks():
     def delayed_put():
         time.sleep(0.3)
         test_job_delayed = SimpleTestJob({}, {})
-        job_registry.add(context, test_job_delayed, output_queue)
+        job_registry.add(context, test_job_delayed, output_queue, workflow_id)
         input_queue.put(
             serialise_event(
                 context,
@@ -176,7 +176,7 @@ def test_wait_for_job_handles_missing_job():
     )
     # Then put a valid one so we don't hang
     test_job = SimpleTestJob({}, {})
-    job_registry.add(context, test_job, output_queue)
+    job_registry.add(context, test_job, output_queue, workflow_id)
     input_queue.put(
         serialise_event(
             context, JobAssignedEvent(workflow_id=workflow_id, job_id=test_job.job_id, job_type=test_job.spec.type)
@@ -209,7 +209,7 @@ def test_wait_for_job_preserves_state():
 
     # Create and add job
     test_job = SimpleTestJob({}, {})
-    job_registry.add(context, test_job, output_queue)
+    job_registry.add(context, test_job, output_queue, workflow_id)
 
     worker_state = ZahirWorkerState(context, input_queue, output_queue, workflow_id)
 

@@ -53,7 +53,9 @@ def handle_await(state) -> tuple[WaitForJobStateChange, None]:
 
     # Signal we're ready for another job
     worker_pid = os.getpid()
-    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=worker_pid, workflow_id=state.workflow_id)))
+    state.output_queue.put(
+        serialise_event(state.context, JobWorkerWaitingEvent(pid=worker_pid, workflow_id=state.workflow_id))
+    )
 
     return WaitForJobStateChange(
         {"message": f"Paused job {frame_job_id}, awaiting job(s), waiting for next dispatch..."},

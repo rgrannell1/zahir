@@ -468,7 +468,25 @@ class SQLiteJobRegistry(JobRegistry):
 
         return row is not None
 
-    def jobs(self, context: Context, state: JobState | None = None, workflow_id: str | None = None) -> Iterator[JobInformation]:
+    def get_active_workflow_ids(self) -> list[str]:
+        """Get a list of all workflow IDs that have active jobs.
+
+        @return: List of workflow IDs with active jobs
+        """
+        log.debug("Getting all active workflow IDs")
+
+        with self.conn as conn:
+            q_marks = ",".join("?" for _ in ACTIVE_JOB_STATES)
+            rows = conn.execute(
+                f"select distinct workflow_id from jobs where state in ({q_marks}) and workflow_id is not null",  # noqa: S608
+                tuple(state.value for state in ACTIVE_JOB_STATES),
+            ).fetchall()
+
+        return [row[0] for row in rows]
+
+    def jobs(
+        self, context: Context, state: JobState | None = None, workflow_id: str | None = None
+    ) -> Iterator[JobInformation]:
         """Retrieve all jobs, optionally filtered by state and workflow.
 
         @param context: The context to use for loading job classes.
@@ -481,19 +499,23 @@ class SQLiteJobRegistry(JobRegistry):
 
         with self.conn as conn:
             if workflow_id is not None:
-                job_list = conn.execute("""
+                job_list = conn.execute(
+                    """
               select
                 job.job_id,
                 job.serialised_job,
                 job.state,
                 out.output,
                 job.started_at,
-                job.completed_at
+                job.completed_at,
+                job.workflow_id
               from jobs as job
               left join job_outputs as out on out.job_id = job.job_id
               where job.workflow_id = ?
               order by job.priority desc, job.created_at asc
-              """, (workflow_id,)).fetchall()
+              """,
+                    (workflow_id,),
+                ).fetchall()
             else:
                 job_list = conn.execute("""
               select
@@ -502,7 +524,8 @@ class SQLiteJobRegistry(JobRegistry):
                 job.state,
                 out.output,
                 job.started_at,
-                job.completed_at
+                job.completed_at,
+                job.workflow_id
               from jobs as job
               left join job_outputs as out on out.job_id = job.job_id
               order by job.priority desc, job.created_at asc
@@ -515,6 +538,7 @@ class SQLiteJobRegistry(JobRegistry):
             serialised_output,
             started_at,
             completed_at,
+            job_workflow_id,
         ) in job_list:
             job_data = json.loads(serialised_job)
 
@@ -535,6 +559,7 @@ class SQLiteJobRegistry(JobRegistry):
                 output=output,
                 started_at=parsed_started_at,
                 completed_at=parsed_completed_at,
+                workflow_id=job_workflow_id,
             )
 
     def get_workflow_duration(self, workflow_id: str | None = None) -> float | None:

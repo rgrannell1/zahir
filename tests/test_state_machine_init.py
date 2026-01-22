@@ -355,7 +355,7 @@ def test_state_machine_state_transitions_are_consistent():
     # Test wait_for_job handler would block, so test pop_job instead
     # Add a job to the stack first
     job = SimpleOutputJob({"value": 1}, {})
-    context.job_registry.add(context, job, output_queue)
+    context.job_registry.add(context, job, output_queue, workflow_id)
     job_generator = SimpleOutputJob.run(context, job.input, job.dependencies)
     frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
     state.job_stack.push(frame)

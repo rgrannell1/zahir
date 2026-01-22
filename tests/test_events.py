@@ -82,21 +82,21 @@ def test_job_recovery_started_roundtrip(simple_context):
 def test_job_irrecoverable_event_roundtrip(simple_context):
     """Test JobIrrecoverableEvent save/load roundtrip."""
     error = ValueError("Something went wrong")
+    serialised_err = exception_to_text_blob(error)
 
-    event = JobIrrecoverableEvent(workflow_id="wf-ccc", error=error, job_id="job-ddd", job_type="TestJob")
+    event = JobIrrecoverableEvent(workflow_id="wf-ccc", error=serialised_err, job_id="job-ddd", job_type="TestJob")
 
     saved = event.save(simple_context)
     assert saved["workflow_id"] == "wf-ccc"
     assert saved["job_id"] == "job-ddd"
     assert saved["job_type"] == "TestJob"
-    assert saved["error"] == "Something went wrong"
-    assert saved["error_type"] == "ValueError"
+    assert saved["error"] == serialised_err
 
     loaded = JobIrrecoverableEvent.load(simple_context, saved)
     assert loaded.workflow_id == "wf-ccc"
     assert loaded.job_id == "job-ddd"
     assert loaded.job_type == "TestJob"
-    assert str(loaded.error) == "Something went wrong"
+    assert str(exception_from_text_blob(loaded.error)) == "Something went wrong"
 
 
 def test_job_precheck_failed_event_roundtrip(simple_context):
@@ -121,7 +121,7 @@ def test_all_events_save_include_workflow_id(simple_context):
         JobStartedEvent("wf-1", "job-1", "TestJob"),
         JobTimeoutEvent("wf-1", "job-1", "TestJob", 1.0),
         JobRecoveryStartedEvent("wf-1", "job-1", "TestJob"),
-        JobIrrecoverableEvent("wf-1", Exception("err"), "job-1", "TestJob"),
+        JobIrrecoverableEvent("wf-1", exception_to_text_blob(Exception("err")), "job-1", "TestJob"),
         JobPrecheckFailedEvent("wf-1", "job-1", "TestJob", "error"),
     ]
 

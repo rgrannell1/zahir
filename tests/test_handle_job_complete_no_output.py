@@ -51,7 +51,7 @@ def test_handle_job_complete_no_output_sets_completed_state():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -84,7 +84,7 @@ def test_handle_job_complete_no_output_transitions_to_enqueue():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -117,7 +117,7 @@ def test_handle_job_complete_no_output_clears_frame():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -152,7 +152,7 @@ def test_handle_job_complete_no_output_preserves_state():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -184,7 +184,7 @@ def test_handle_job_complete_no_output_workflow_id_used():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -217,7 +217,7 @@ def test_handle_job_complete_no_output_multiple_calls():
 
     # Add first job
     job1 = SimpleJob({"test": "data1"}, {})
-    job_id1 = context.job_registry.add(context, job1, output_queue)
+    job_id1 = context.job_registry.add(context, job1, output_queue, workflow_id)
 
     # Set up frame for first job
     job_generator1 = SimpleJob.run(context, job1.input, job1.dependencies)
@@ -233,7 +233,7 @@ def test_handle_job_complete_no_output_multiple_calls():
 
     # Add second job
     job2 = AnotherJob({"test": "data2"}, {})
-    job_id2 = context.job_registry.add(context, job2, output_queue)
+    job_id2 = context.job_registry.add(context, job2, output_queue, workflow_id)
 
     # Set up frame for second job
     job_generator2 = AnotherJob.run(context, job2.input, job2.dependencies)
@@ -266,7 +266,7 @@ def test_handle_job_complete_no_output_recovery_job():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame in recovery mode
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -300,7 +300,7 @@ def test_handle_job_complete_no_output_clears_frame_completely():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJob.run(context, job.input, job.dependencies)

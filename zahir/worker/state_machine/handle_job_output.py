@@ -24,6 +24,8 @@ def handle_job_output(state) -> tuple[StartStateChange, None]:
     state.frame = None
 
     # Signal we're ready for another job
-    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid(), workflow_id=state.workflow_id)))
+    state.output_queue.put(
+        serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid(), workflow_id=state.workflow_id))
+    )
 
     return StartStateChange({"message": "Setting job output"}), state

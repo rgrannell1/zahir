@@ -104,6 +104,8 @@ def execute_recovery_job(
         signal.alarm(0)
 
     # Signal we're ready for another job (fallthrough case)
-    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid(), workflow_id=state.workflow_id)))
+    state.output_queue.put(
+        serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid(), workflow_id=state.workflow_id))
+    )
 
     return WaitForJobStateChange({"message": "Recovery execution complete, waiting for next dispatch"}), state

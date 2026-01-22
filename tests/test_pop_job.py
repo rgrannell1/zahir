@@ -55,7 +55,7 @@ def test_pop_job_ready_state_checks_preconditions():
 
     # Add a job in READY state
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Push job to stack
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -92,12 +92,12 @@ def test_pop_job_paused_state_executes():
 
     # Add a job and set it to PAUSED
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     context.job_registry.set_state(context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.PAUSED)
 
     # Add the child job that the parent is awaiting, and mark it as COMPLETED
     child_job = SimpleJob({"child": "data"}, {})
-    child_job_id = context.job_registry.add(context, child_job, output_queue)
+    child_job_id = context.job_registry.add(context, child_job, output_queue, workflow_id)
     context.job_registry.set_state(
         context, child_job_id, child_job.spec.type, workflow_id, output_queue, JobState.COMPLETED
     )
@@ -133,12 +133,12 @@ def test_pop_job_running_state_executes():
 
     # Add a job and set it to RUNNING
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     context.job_registry.set_state(context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.RUNNING)
 
     # Add the child job that the parent is awaiting, and mark it as COMPLETED
     child_job = SimpleJob({"child": "data"}, {})
-    child_job_id = context.job_registry.add(context, child_job, output_queue)
+    child_job_id = context.job_registry.add(context, child_job, output_queue, workflow_id)
     context.job_registry.set_state(
         context, child_job_id, child_job.spec.type, workflow_id, output_queue, JobState.COMPLETED
     )
@@ -175,7 +175,7 @@ def test_pop_job_timeout_normal_job():
 
     # Add a job with timeout
     job = SimpleJob({"test": "data"}, {}, job_timeout=0.001)
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     context.job_registry.set_state(context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.RUNNING)
 
     # Sleep to ensure timeout
@@ -211,7 +211,7 @@ def test_pop_job_removes_from_stack():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Push job to stack
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -245,7 +245,7 @@ def test_pop_job_sets_active_frame():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Push job to stack
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -280,12 +280,12 @@ def test_pop_job_multiple_jobs_pops_runnable():
 
     # Add first job (not runnable - waiting on something)
     job1 = SimpleJob({"order": 1}, {})
-    job_id1 = context.job_registry.add(context, job1, output_queue)
+    job_id1 = context.job_registry.add(context, job1, output_queue, workflow_id)
     context.job_registry.set_state(context, job1.job_id, job1.spec.type, workflow_id, output_queue, JobState.PAUSED)
 
     # Add a dependency that's not finished
     dep_job = AnotherJob({"dep": True}, {})
-    dep_id = context.job_registry.add(context, dep_job, output_queue)
+    dep_id = context.job_registry.add(context, dep_job, output_queue, workflow_id)
     context.job_registry.set_state(context, dep_id, dep_job.spec.type, workflow_id, output_queue, JobState.RUNNING)
 
     # Create frame that requires the dependency
@@ -296,7 +296,7 @@ def test_pop_job_multiple_jobs_pops_runnable():
 
     # Add second job (runnable)
     job2 = AnotherJob({"order": 2}, {})
-    job_id2 = context.job_registry.add(context, job2, output_queue)
+    job_id2 = context.job_registry.add(context, job2, output_queue, workflow_id)
 
     # Push second job (runnable)
     job_generator2 = AnotherJob.run(context, job2.input, job2.dependencies)
@@ -327,7 +327,7 @@ def test_pop_job_preserves_state():
 
     # Add a job
     job = SimpleJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Push job to stack
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -359,7 +359,7 @@ def test_pop_job_no_timeout_configured():
     # Add a job with no timeout configured
     job = SimpleJob({"test": "data"}, {})
 
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Push job to stack
     job_generator = SimpleJob.run(context, job.input, job.dependencies)
@@ -391,7 +391,7 @@ def test_pop_job_timeout_recovery_job():
     # Add a job with recovery timeout
     job = SimpleJob({"test": "data"}, {}, recover_timeout=0.001)
 
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     context.job_registry.set_state(context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.RECOVERING)
 
     # Sleep to ensure timeout

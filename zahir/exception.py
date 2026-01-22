@@ -71,21 +71,28 @@ def exception_to_text_blob(exc: Exception) -> str:
         "traceback": tb_string,
     }
 
-    return base64.b64encode(json.dumps(payload, separators=(",", ":"), ensure_ascii=False).encode("utf8")).decode(
-        "ascii"
-    )
+    return json.dumps(payload, separators=(",", ":"), ensure_ascii=False)
 
 
 def exception_from_text_blob(blob: str) -> Exception:
     """Deserialize an exception + traceback from a text blob."""
 
-    payload = json.loads(base64.b64decode(blob.encode("ascii")).decode("utf8"))
+    try:
+        payload = json.loads(blob)
+    except json.JSONDecodeError as err:
+        raise ValueError(f"Failed to decode exception blob as JSON: {err}") from err
 
-    exc = pickle.loads(base64.b64decode(payload["exception"].encode("ascii")))
+    if "exception" not in payload or "traceback" not in payload:
+        raise ValueError("Exception blob missing required fields: 'exception' and 'traceback'")
+
+    try:
+        exc = pickle.loads(base64.b64decode(payload["exception"].encode("ascii")))
+    except Exception as err:
+        raise ValueError(f"Failed to unpickle exception: {err}") from err
 
     if not isinstance(exc, Exception):
         raise TypeError(f"Unpickled object is not an exception: {type(exc)!r}")
 
     # Attach the formatted traceback string to the exception for display
-    exc.__serialized_traceback__ = payload["traceback"]
+    setattr(exc, "__serialized_traceback__", payload["traceback"])
     return exc

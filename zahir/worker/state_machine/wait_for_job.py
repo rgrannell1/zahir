@@ -53,7 +53,9 @@ def wait_for_job(state) -> tuple[StartStateChange | PopJobStateChange, None]:
         if job is None:
             log.error(f"Job {job_id} not found in registry")
             # Signal ready for another job
-            state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid(), workflow_id=state.workflow_id)))
+            state.output_queue.put(
+                serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid(), workflow_id=state.workflow_id))
+            )
             return StartStateChange({"message": f"Job {job_id} not found, waiting for another"}), state
 
         # Create the job generator and stack frame

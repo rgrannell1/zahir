@@ -73,7 +73,7 @@ def test_read_job_events_returns_output_event():
 
     # Add a job
     job = SimpleJobWithOutput({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
@@ -111,7 +111,7 @@ def test_read_job_events_returns_none_for_complete():
 
     # Add a job
     job = JobWithoutOutput({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = JobWithoutOutput.run(context, job.input, job.dependencies)
@@ -148,7 +148,7 @@ def test_read_job_events_returns_await():
 
     # Add a job
     job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -185,7 +185,7 @@ def test_read_job_events_enqueues_intermediate_events():
 
     # Add a job
     job = JobWithMultipleEvents({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Clear the queue after job creation (job_registry.add puts JobEvent on queue)
     while not output_queue.empty():
@@ -245,7 +245,7 @@ def test_read_job_events_sets_workflow_id():
 
     # Add a job
     job = JobWithMultipleEvents({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Clear the queue after job creation (job_registry.add puts JobEvent on queue)
     while not output_queue.empty():
@@ -297,7 +297,7 @@ def test_read_job_events_sets_job_id():
 
     # Add a job
     job = JobWithMultipleEvents({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Clear the queue after job creation (job_registry.add puts JobEvent on queue)
     while not output_queue.empty():
@@ -349,7 +349,7 @@ def test_read_job_events_raises_on_non_iterator():
 
     # Add a job
     job = SimpleJobWithOutput({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     frame = ZahirStackFrame(job=job, job_generator=None, recovery=False)
@@ -386,7 +386,7 @@ def test_read_job_events_handles_subjobs():
 
     # Add a job
     job = SubjobCreator({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Give the queue background thread time to finish pickling
     time.sleep(0.1)
@@ -447,7 +447,7 @@ def test_read_job_events_sends_awaited_output():
 
     # Add main job
     job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -467,7 +467,7 @@ def test_read_job_events_sends_awaited_output():
     # Simulate awaited job completing
     awaited_job = result1.job
     # Manually add the awaited job to registry (in real flow, handle_await does this)
-    awaited_job_id = context.job_registry.add(context, awaited_job, output_queue)
+    awaited_job_id = context.job_registry.add(context, awaited_job, output_queue, workflow_id)
     # Set output for the awaited job
     context.job_registry.set_output(
         context, awaited_job_id, awaited_job.spec.type, workflow_id, output_queue, {"result": "done"}, recovery=False
@@ -507,7 +507,7 @@ def test_read_job_events_clears_required_jobs():
 
     # Add main job
     job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -526,7 +526,7 @@ def test_read_job_events_clears_required_jobs():
     # Simulate awaited job completing
     awaited_job = result1.job
     # Manually add the awaited job to registry (in real flow, handle_await does this)
-    awaited_job_id = context.job_registry.add(context, awaited_job, output_queue)
+    awaited_job_id = context.job_registry.add(context, awaited_job, output_queue, workflow_id)
     # Set output for the awaited job
     context.job_registry.set_output(
         context, awaited_job_id, awaited_job.spec.type, workflow_id, output_queue, {"result": "done"}, recovery=False

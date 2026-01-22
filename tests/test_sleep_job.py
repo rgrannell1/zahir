@@ -69,7 +69,7 @@ def test_sleep_job_executes():
     # Test with a very short sleep to keep tests fast
     # Create JobInstance by calling the JobSpec
     job = Sleep({"duration_seconds": 0.1})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
     job_generator = Sleep.run(context, job.input, job.dependencies)
@@ -100,7 +100,7 @@ def test_sleep_job_stores_output():
     duration = 0.05
     # Create JobInstance by calling the JobSpec
     job = Sleep({"duration_seconds": duration})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
     job_generator = Sleep.run(context, job.input, job.dependencies)
@@ -129,7 +129,7 @@ def test_sleep_job_very_small_duration():
 
     duration = 0.001
     job = Sleep({"duration_seconds": duration})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
     job_generator = Sleep.run(context, job.input, job.dependencies)
@@ -184,7 +184,7 @@ def test_sleep_job_zero_duration():
     workflow_id = "test-workflow-sleep-zero"
 
     job = Sleep({"duration_seconds": 0})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
     job_generator = Sleep.run(context, job.input, job.dependencies)
@@ -214,7 +214,7 @@ def test_sleep_job_float_duration():
 
     duration = 0.025
     job = Sleep({"duration_seconds": duration})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
     job_generator = Sleep.run(context, job.input, job.dependencies)
@@ -312,7 +312,7 @@ def test_sleep_job_output_event_type():
 
     duration = 0.02
     job = Sleep({"duration_seconds": duration})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
     job_generator = Sleep.run(context, job.input, job.dependencies)

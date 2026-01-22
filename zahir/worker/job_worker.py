@@ -3,6 +3,7 @@ import multiprocessing
 import os
 
 from zahir.base_types import Context
+from zahir.constants import ZAHIR_LOG_OUTPUT_DIR_KEY, ZAHIR_START_JOB_TYPE_KEY
 from zahir.events import (
     JobWorkerWaitingEvent,
     ZahirInternalErrorEvent,
@@ -28,8 +29,8 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
     # Configure logging for this worker process
     configure_logging()
 
-    log_output_dir = context.state.get("_zahir_log_output_dir")
-    start_job_type = context.state.get("_zahir_start_job_type")
+    log_output_dir = context.state.get(ZAHIR_LOG_OUTPUT_DIR_KEY)
+    start_job_type = context.state.get(ZAHIR_START_JOB_TYPE_KEY)
     if log_output_dir:
         setup_output_logging(log_output_dir=log_output_dir, start_job_type=start_job_type)
 

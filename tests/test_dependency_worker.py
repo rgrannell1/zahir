@@ -56,7 +56,7 @@ def test_dependency_worker_marks_ready_when_satisfied():
 
     # Add a job with satisfied dependency
     job = SimpleJob({"test": "data"}, {"time_dep": satisfied_dependency})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Job should initially be PENDING
     assert context.job_registry.get_state(job_id) == JobState.PENDING
@@ -101,7 +101,7 @@ def test_dependency_worker_marks_impossible_when_unsatisfiable():
 
     # Add a job with impossible dependency
     job = SimpleJob({"test": "data"}, {"time_dep": impossible_dependency})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Job should initially be PENDING
     assert context.job_registry.get_state(job_id) == JobState.PENDING
@@ -170,13 +170,13 @@ def test_dependency_worker_handles_job_dependency():
 
     # Add first job that will be completed
     job1 = SimpleJob({"test": "data"}, {})
-    job_id1 = context.job_registry.add(context, job1, output_queue)
+    job_id1 = context.job_registry.add(context, job1, output_queue, workflow_id)
     context.job_registry.set_state(context, job_id1, job1.spec.type, workflow_id, output_queue, JobState.COMPLETED)
 
     # Add second job that depends on the first
     job_dependency = JobDependency(job_id1, context.job_registry)
     job2 = JobWithOutput({"count": 0}, {"job_dep": job_dependency})
-    job_id2 = context.job_registry.add(context, job2, output_queue)
+    job_id2 = context.job_registry.add(context, job2, output_queue, workflow_id)
 
     # Job 2 should initially be PENDING
     assert context.job_registry.get_state(job_id2) == JobState.PENDING
@@ -215,13 +215,13 @@ def test_dependency_worker_waits_for_unsatisfied_dependency():
 
     # Add first job that is still running
     job1 = SimpleJob({"test": "data"}, {})
-    job_id1 = context.job_registry.add(context, job1, output_queue)
+    job_id1 = context.job_registry.add(context, job1, output_queue, workflow_id)
     context.job_registry.set_state(context, job_id1, job1.spec.type, workflow_id, output_queue, JobState.RUNNING)
 
     # Add second job that depends on the first
     job_dependency = JobDependency(job_id1, context.job_registry)
     job2 = JobWithOutput({"count": 0}, {"job_dep": job_dependency})
-    job_id2 = context.job_registry.add(context, job2, output_queue)
+    job_id2 = context.job_registry.add(context, job2, output_queue, workflow_id)
 
     # Job 2 should initially be PENDING
     assert context.job_registry.get_state(job_id2) == JobState.PENDING
@@ -261,7 +261,7 @@ def test_dependency_worker_marks_impossible_on_failed_job_dependency():
 
     # Add first job that becomes irrecoverable
     job1 = SimpleJob({"test": "data"}, {})
-    job_id1 = context.job_registry.add(context, job1, output_queue)
+    job_id1 = context.job_registry.add(context, job1, output_queue, workflow_id)
     context.job_registry.set_state(
         context,
         job_id1,
@@ -275,7 +275,7 @@ def test_dependency_worker_marks_impossible_on_failed_job_dependency():
     # Add second job that depends on the first
     job_dependency = JobDependency(job_id1, context.job_registry)
     job2 = JobWithOutput({"count": 0}, {"job_dep": job_dependency})
-    job_id2 = context.job_registry.add(context, job2, output_queue)
+    job_id2 = context.job_registry.add(context, job2, output_queue, workflow_id)
 
     # Job 2 should initially be PENDING
     assert context.job_registry.get_state(job_id2) == JobState.PENDING
@@ -318,11 +318,11 @@ def test_dependency_worker_handles_multiple_jobs():
 
     # Add job with satisfied dependency
     job1 = SimpleJob({"id": 1}, {"time_dep": satisfied_dep})
-    job_id1 = context.job_registry.add(context, job1, output_queue)
+    job_id1 = context.job_registry.add(context, job1, output_queue, workflow_id)
 
     # Add job with impossible dependency
     job2 = SimpleJob({"id": 2}, {"time_dep": impossible_dep})
-    job_id2 = context.job_registry.add(context, job2, output_queue)
+    job_id2 = context.job_registry.add(context, job2, output_queue, workflow_id)
 
     # Both should initially be PENDING
     assert context.job_registry.get_state(job_id1) == JobState.PENDING
@@ -366,7 +366,7 @@ def test_dependency_worker_only_processes_pending_jobs():
 
     # Add a job in RUNNING state (not PENDING)
     job = SimpleJob({"test": "data"}, {"time_dep": satisfied_dep})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
     context.job_registry.set_state(context, job_id, job.spec.type, workflow_id, output_queue, JobState.RUNNING)
 
     # Start dependency worker in a separate process
@@ -442,12 +442,12 @@ def test_dependency_worker_direct_impossible_path():
 
     # Add a job with impossible dependency
     job = SimpleJob({"test": "data"}, {"time_dep": impossible_dependency})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Mock is_active to return True twice (to allow processing), then False
     call_count = [0]
 
-    def mock_is_active():
+    def mock_is_active(workflow_id: str | None = None):
         call_count[0] += 1
         if call_count[0] > 2:  # Allow two iterations
             return False

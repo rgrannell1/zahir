@@ -3,10 +3,12 @@ import os
 from typing import Any
 
 from zahir.base_types import Context
+from zahir.constants import GREEN, RESET
 from zahir.events import (
     Await,
     ZahirEvent,
 )
+from zahir.serialise import SerialisedEvent
 from zahir.utils.logging_config import configure_logging, get_logger
 from zahir.worker.call_frame import ZahirCallStack, ZahirStackFrame
 from zahir.worker.state_machine.check_preconditions import check_preconditions
@@ -44,8 +46,6 @@ from zahir.worker.state_machine.wait_for_job import wait_for_job
 configure_logging()
 log = get_logger(__name__)
 
-GREEN = "\x1b[32m"
-RESET = "\x1b[0m"
 
 
 def times_up(_signum, _frame):
@@ -84,7 +84,7 @@ class ZahirWorkerState:
     """Mutable state held during job execution."""
 
     def __init__(
-        self, context: Context, input_queue: "multiprocessing.Queue | None", output_queue: OutputQueue, workflow_id: str
+        self, context: Context, input_queue: "multiprocessing.Queue[SerialisedEvent] | None", output_queue: OutputQueue, workflow_id: str
     ):
         self.job_stack: ZahirCallStack = ZahirCallStack([])
         self.input_queue: multiprocessing.Queue | None = input_queue

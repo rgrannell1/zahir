@@ -185,6 +185,8 @@ class JobInformation:
     started_at: datetime | None = None
     # When did the job complete?
     completed_at: datetime | None = None
+    # The workflow ID this job belongs to
+    workflow_id: str | None = None
 
 
 @dataclass
@@ -248,7 +250,7 @@ class JobRegistry(ABC):
     @abstractmethod
     def is_active(self, workflow_id: str | None = None) -> bool:
         """Return True if any jobs are in a non-terminal state
-        
+
         @param workflow_id: Optional workflow ID to filter by. If None, checks all workflows.
         @return: True if there are any active jobs (optionally for the specified workflow)
         """
@@ -287,7 +289,7 @@ class JobRegistry(ABC):
         pid: int | None = None,
     ) -> str:
         """Set the state of a job by ID.
-        
+
         @param pid: Optional process ID of the worker executing the job. Used for events like JobStartedEvent.
         """
 
@@ -336,7 +338,17 @@ class JobRegistry(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def jobs(self, context: "Context", state: JobState | None = None, workflow_id: str | None = None) -> Iterator[JobInformation]:
+    def get_active_workflow_ids(self) -> list[str]:
+        """Get a list of all workflow IDs that have active jobs.
+
+        @return: List of workflow IDs with active jobs
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def jobs(
+        self, context: "Context", state: JobState | None = None, workflow_id: str | None = None
+    ) -> Iterator[JobInformation]:
         """Get an iterator of all jobs with their information.
 
         @param context: The context containing scope and registries for deserialization

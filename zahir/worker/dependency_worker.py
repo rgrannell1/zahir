@@ -7,36 +7,177 @@ from zahir.base_types import Context, DependencyState, JobState
 from zahir.events import (
     JobReadyEvent,
     WorkflowCompleteEvent,
-    ZahirEvent,
     ZahirInternalErrorEvent,
 )
 from zahir.exception import ImpossibleDependencyError, exception_to_text_blob
-from zahir.serialise import serialise_event
+from zahir.constants import (
+    DEPENDENCY_LOOP_STALL_SECONDS,
+    ZAHIR_LOG_OUTPUT_DIR_KEY,
+    ZAHIR_START_JOB_TYPE_KEY,
+)
+from zahir.serialise import SerialisedEvent, serialise_event
 from zahir.utils.logging_config import configure_logging
 from zahir.utils.output_logging import setup_output_logging
 
-type OutputQueue = multiprocessing.Queue["ZahirEvent"]
+type OutputQueue = multiprocessing.Queue["SerialisedEvent"]
+
+
+def setup_dependency_worker(context: Context) -> None:
+    """Configure logging and output logging for the dependency worker."""
+
+    configure_logging()
+
+    log_output_dir = context.state.get(ZAHIR_LOG_OUTPUT_DIR_KEY)
+    start_job_type = context.state.get(ZAHIR_START_JOB_TYPE_KEY)
+    if log_output_dir:
+        setup_output_logging(log_output_dir=log_output_dir, start_job_type=start_job_type)
+
+
+def _setup_job_registry(context: Context) -> None:
+    """Initialize the job registry and register cleanup on exit."""
+
+    job_registry = context.job_registry
+    job_registry.init(str(os.getpid()))
+    atexit.register(job_registry.close)
+
+
+def workflow_completed(
+    job_registry,
+    workflow_id: str,
+) -> bool:
+    """
+    Check if the workflow is complete and handle completion if so.
+
+    Returns:
+        True if workflow is complete and worker should exit, False otherwise.
+    """
+    current_workflow_complete = not job_registry.is_active(workflow_id=workflow_id)
+    active_workflow_ids = job_registry.get_active_workflow_ids()
+
+    return current_workflow_complete and not active_workflow_ids
+
+
+def job_dependencies_satisfied(
+    context: Context,
+    output_queue: OutputQueue,
+    job_registry,
+    job,
+    workflow_id: str,
+) -> bool:
+    """
+    Process a single pending job by checking its dependencies.
+
+    Returns:
+        True if the job became ready, False otherwise.
+    """
+    dependencies_state = job.dependencies.satisfied()
+
+    if dependencies_state == DependencyState.SATISFIED:
+        job_registry.set_state(
+            context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.READY, recovery=False
+        )
+        return True
+    elif dependencies_state == DependencyState.IMPOSSIBLE:
+        error = ImpossibleDependencyError(f"Job {job.job_id} has impossible dependencies.")
+        job_registry.set_state(
+            context,
+            job.job_id,
+            job.spec.type,
+            workflow_id,
+            output_queue,
+            JobState.IMPOSSIBLE,
+            error=error,
+            recovery=False,
+        )
+    return False
+
+
+def has_ready_jobs(context: Context, job_registry, workflow_id: str) -> bool:
+    """Check if there are any READY jobs in the workflow."""
+    for _ in job_registry.jobs(context, state=JobState.READY, workflow_id=workflow_id):
+        return True
+
+    return False
+
+
+def has_active_jobs(
+    context: Context,
+    output_queue: OutputQueue,
+    job_registry,
+    workflow_id: str,
+) -> bool:
+    """
+    Process all jobs for a specific workflow.
+
+    Returns:
+        True if any jobs became ready, False otherwise.
+    """
+    any_ready = False
+
+    # Process pending jobs
+    for job_info in job_registry.jobs(context, state=JobState.PENDING, workflow_id=workflow_id):
+        job = job_info.job
+        if job_dependencies_satisfied(context, output_queue, job_registry, job, workflow_id):
+            any_ready = True
+
+    # Check for existing ready jobs
+    if has_ready_jobs(context, job_registry, workflow_id):
+        any_ready = True
+
+    return any_ready
+
+
+def has_active_workflows(
+    context: Context,
+    output_queue: OutputQueue,
+    job_registry,
+    workflow_id: str,
+    active_workflow_ids: list[str],
+) -> bool:
+    """
+    Process jobs from all active workflows.
+
+    Returns:
+        True if any jobs became ready
+    """
+    workflows = {workflow_id} | set(active_workflow_ids)
+
+    for workflow in workflows:
+        if has_active_jobs(context, output_queue, job_registry, workflow):
+            return True
+
+    return False
+
+
+def handle_exception(
+    context: Context,
+    output_queue: OutputQueue,
+    workflow_id: str,
+    err: Exception,
+) -> None:
+    """Sent error event on error."""
+
+    output_queue.put(
+        serialise_event(
+            context,
+            ZahirInternalErrorEvent(
+                workflow_id=workflow_id,
+                error=exception_to_text_blob(err),
+            ),
+        )
+    )
 
 
 def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflow_id: str) -> None:
     """Analyse job dependencies and mark jobs as pending."""
-
-    # Configure logging for this worker process
-    configure_logging()
-
-    # Set up output logging if configured in context
-    log_output_dir = context.state.get("_zahir_log_output_dir")
-    start_job_type = context.state.get("_zahir_start_job_type")
-    if log_output_dir:
-        setup_output_logging(log_output_dir=log_output_dir, start_job_type=start_job_type)
+    setup_dependency_worker(context)
 
     try:
+        _setup_job_registry(context)
         job_registry = context.job_registry
-        job_registry.init(str(os.getpid()))
-        atexit.register(job_registry.close)
 
         while True:
-            if not job_registry.is_active(workflow_id=workflow_id):
+            if workflow_completed(job_registry, workflow_id):
                 duration = job_registry.get_workflow_duration(workflow_id=workflow_id) or 0.0
                 output_queue.put(
                     serialise_event(
@@ -49,53 +190,13 @@ def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflo
                 )
                 return
 
-            any_ready = False
-
-            # try to find blocked jobs whose dependencies are now satisfied (for this workflow)
-            for job_info in job_registry.jobs(context, state=JobState.PENDING, workflow_id=workflow_id):
-                job = job_info.job
-
-                dependencies_state = job.dependencies.satisfied()
-
-                if dependencies_state == DependencyState.SATISFIED:
-                    job_registry.set_state(
-                        context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.READY, recovery=False
-                    )
-                    any_ready = True
-                elif dependencies_state == DependencyState.IMPOSSIBLE:
-                    # Set an error, as awaited jobs cannot be run if impossible dependencies are present.
-
-                    error = ImpossibleDependencyError(f"Job {job.job_id} has impossible dependencies.")
-                    job_registry.set_state(
-                        context,
-                        job.job_id,
-                        job.spec.type,
-                        workflow_id,
-                        output_queue,
-                        JobState.IMPOSSIBLE,
-                        error=error,
-                        recovery=False,
-                    )
-
-            # Also check if there are any READY jobs that need dispatching (for this workflow)
-            # (includes jobs that started as READY because they have no dependencies)
-            for _ in job_registry.jobs(context, state=JobState.READY, workflow_id=workflow_id):
-                any_ready = True
-                break
+            active_workflow_ids = job_registry.get_active_workflow_ids()
+            any_ready = has_active_workflows(context, output_queue, job_registry, workflow_id, active_workflow_ids)
 
             if any_ready:
-                # Let the overseer know that there are jobs ready to run
                 output_queue.put(serialise_event(context, JobReadyEvent()))
 
-            time.sleep(1)
+            time.sleep(DEPENDENCY_LOOP_STALL_SECONDS)
 
     except Exception as err:
-        output_queue.put(
-            serialise_event(
-                context,
-                ZahirInternalErrorEvent(
-                    workflow_id=workflow_id,
-                    error=exception_to_text_blob(err),
-                ),
-            )
-        )
+        handle_exception(context, output_queue, workflow_id, err)

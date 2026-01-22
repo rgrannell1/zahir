@@ -88,7 +88,7 @@ def test_execute_job_sets_running_state():
 
     # Add a job
     job = SimpleJobWithOutput({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
@@ -120,7 +120,7 @@ def test_execute_job_with_output():
 
     # Add a job
     job = SimpleJobWithOutput({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
@@ -153,7 +153,7 @@ def test_execute_job_stores_output_event():
 
     # Add a job
     job = SimpleJobWithOutput({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
@@ -186,7 +186,7 @@ def test_execute_job_without_output():
 
     # Add a job
     job = JobWithoutOutput({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = JobWithoutOutput.run(context, job.input, job.dependencies)
@@ -218,7 +218,7 @@ def test_execute_job_with_await():
 
     # Add a job
     job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -250,7 +250,7 @@ def test_execute_job_stores_await_event():
 
     # Add a job
     job = AwaitingJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = AwaitingJob.run(context, job.input, job.dependencies)
@@ -282,7 +282,7 @@ def test_execute_job_with_timeout():
 
     # Add a job with a very short timeout
     job = TimeoutJob({"test": "data"}, {}, job_timeout=0.01)
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = TimeoutJob.run(context, job.input, job.dependencies)
@@ -314,7 +314,7 @@ def test_execute_job_with_exception():
 
     # Add a job
     job = ExceptionJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = ExceptionJob.run(context, job.input, job.dependencies)
@@ -346,7 +346,7 @@ def test_execute_job_stores_exception_event():
 
     # Add a job
     job = ExceptionJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = ExceptionJob.run(context, job.input, job.dependencies)
@@ -379,7 +379,7 @@ def test_execute_job_preserves_state():
 
     # Add a job
     job = SimpleJobWithOutput({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
@@ -410,7 +410,7 @@ def test_execute_job_workflow_id_used():
 
     # Add a job
     job = SimpleJobWithOutput({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)
@@ -442,7 +442,7 @@ def test_execute_job_no_timeout_configured():
 
     # Add a job with no timeout configured
     job = SimpleJobWithOutput({}, {})
-    job_id = context.job_registry.add(context, job, output_queue)
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Set up frame
     job_generator = SimpleJobWithOutput.run(context, job.input, job.dependencies)

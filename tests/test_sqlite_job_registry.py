@@ -126,7 +126,7 @@ def test_on_startup():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-claim-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         registry.set_claim("job-claim-1", "worker-1")
         registry.on_startup()
     finally:
@@ -145,7 +145,7 @@ def test_set_claim():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-claim-2")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         result = registry.set_claim("job-claim-2", "worker-2")
         assert isinstance(result, bool)
     finally:
@@ -164,7 +164,7 @@ def test_claim_job():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-claim-3")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
     finally:
         registry.conn.close()
         pathlib.Path(db_path).unlink()
@@ -185,7 +185,7 @@ def test_get_job_timing():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-timing-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         registry.set_state(context, "job-timing-1", "DummyJob", "wf-1", dummy_queue, JobState.RUNNING)
         timing = registry.get_job_timing("job-timing-1")
         assert isinstance(timing, JobTimingInformation)
@@ -224,7 +224,7 @@ def test_is_finished():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-finished-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         assert not registry.is_finished("job-finished-1")
         registry.set_state(context, "job-finished-1", "DummyJob", "wf-1", dummy_queue, JobState.COMPLETED)
         assert registry.is_finished("job-finished-1")
@@ -244,9 +244,9 @@ def test_add_duplicate_job():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-dup")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         try:
-            registry.add(context, job, dummy_queue)
+            registry.add(context, job, dummy_queue, "test-workflow")
             assert False, "Should have raised DuplicateJobError"
         except DuplicateJobError:
             pass
@@ -285,7 +285,7 @@ def test_set_state_with_error():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-error-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         err = ValueError("test error")
         registry.set_state(context, "job-error-1", "DummyJob", "wf-1", dummy_queue, JobState.IRRECOVERABLE, error=err)
     finally:
@@ -304,7 +304,7 @@ def test_add_error():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-error-2")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         err = RuntimeError("test error")
         registry.add_error("job-error-2", err, recovery=False)
     finally:
@@ -323,7 +323,7 @@ def test_get_errors():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-error-3")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         err = RuntimeError("test error")
         registry.add_error("job-error-3", err, recovery=False)
         errors = registry.get_errors("job-error-3")
@@ -344,7 +344,7 @@ def test_is_active():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-active-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         assert registry.is_active()
         registry.set_state(context, "job-active-1", "DummyJob", "wf-1", dummy_queue, JobState.COMPLETED)
         assert not registry.is_active()
@@ -365,8 +365,8 @@ def test_jobs_with_state_filter():
         job1 = DummyJob(job_id="job-filter-1")
         job2 = DummyJob(job_id="job-filter-2")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job1, dummy_queue)
-        registry.add(context, job2, dummy_queue)
+        registry.add(context, job1, dummy_queue, "test-workflow")
+        registry.add(context, job2, dummy_queue, "test-workflow")
         registry.set_state(context, "job-filter-1", "DummyJob", "wf-1", dummy_queue, JobState.COMPLETED)
         completed_jobs = list(registry.jobs(context, state=JobState.COMPLETED))
         assert len(completed_jobs) == 1
@@ -386,7 +386,7 @@ def test_get_output_none():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-output-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         output = registry.get_output("job-output-1")
         assert output is None
     finally:
@@ -405,7 +405,7 @@ def test_set_state_running():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-running-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         registry.set_state(context, "job-running-1", "DummyJob", "wf-1", dummy_queue, JobState.RUNNING)
         timing = registry.get_job_timing("job-running-1")
         assert timing.started_at is not None
@@ -425,7 +425,7 @@ def test_set_state_recovering():
         context = MemoryContext(scope=scope, job_registry=registry)
         job = DummyJob(job_id="job-recovery-1")
         dummy_queue = multiprocessing.Queue()
-        registry.add(context, job, dummy_queue)
+        registry.add(context, job, dummy_queue, "test-workflow")
         registry.set_state(context, "job-recovery-1", "DummyJob", "wf-1", dummy_queue, JobState.RECOVERING)
         timing = registry.get_job_timing("job-recovery-1")
         assert timing.recovery_started_at is not None
@@ -514,7 +514,7 @@ def test_idempotency_once_flag_adds_job():
         job = DummyJob(input={"key": "value"}, job_id="job1", once=True)
         dummy_queue = multiprocessing.Queue()
 
-        job_id = registry.add(context, job, dummy_queue)
+        job_id = registry.add(context, job, dummy_queue, "test-workflow")
         assert job_id == "job1"
         assert registry.get_state(job_id) == JobState.READY
     finally:
@@ -535,12 +535,12 @@ def test_idempotency_once_flag_returns_existing():
         # Add first job with once=True
         job1 = DummyJob(input={"key": "value"}, job_id="job1", once=True)
         dummy_queue = multiprocessing.Queue()
-        job_id1 = registry.add(context, job1, dummy_queue)
+        job_id1 = registry.add(context, job1, dummy_queue, "test-workflow")
         assert job_id1 == "job1"
 
         # Try to add second job with same inputs but different job_id and once=True
         job2 = DummyJob(input={"key": "value"}, job_id="job2", once=True)
-        job_id2 = registry.add(context, job2, dummy_queue)
+        job_id2 = registry.add(context, job2, dummy_queue, "test-workflow")
 
         # Should return the original job_id
         assert job_id2 == "job1"
@@ -573,8 +573,8 @@ def test_idempotency_once_flag_different_inputs_adds_both():
         job2 = DummyJob(input={"key": "value2"}, job_id="job2", once=True)
         dummy_queue = multiprocessing.Queue()
 
-        job_id1 = registry.add(context, job1, dummy_queue)
-        job_id2 = registry.add(context, job2, dummy_queue)
+        job_id1 = registry.add(context, job1, dummy_queue, "test-workflow")
+        job_id2 = registry.add(context, job2, dummy_queue, "test-workflow")
 
         assert job_id1 == "job1"
         assert job_id2 == "job2"
@@ -599,8 +599,8 @@ def test_idempotency_once_false_always_adds():
         job2 = DummyJob(input={"key": "value"}, job_id="job2", once=False)
         dummy_queue = multiprocessing.Queue()
 
-        job_id1 = registry.add(context, job1, dummy_queue)
-        job_id2 = registry.add(context, job2, dummy_queue)
+        job_id1 = registry.add(context, job1, dummy_queue, "test-workflow")
+        job_id2 = registry.add(context, job2, dummy_queue, "test-workflow")
 
         assert job_id1 == "job1"
         assert job_id2 == "job2"
@@ -627,8 +627,8 @@ def test_idempotency_hash_stable_ordering():
         job2 = DummyJob(input={"b": 2, "a": 1}, job_id="job2", once=True)
         dummy_queue = multiprocessing.Queue()
 
-        job_id1 = registry.add(context, job1, dummy_queue)
-        job_id2 = registry.add(context, job2, dummy_queue)
+        job_id1 = registry.add(context, job1, dummy_queue, "test-workflow")
+        job_id2 = registry.add(context, job2, dummy_queue, "test-workflow")
 
         # Should return the same job_id since hash should be the same
         assert job_id1 == job_id2 == "job1"
@@ -670,8 +670,8 @@ def test_idempotency_custom_hash_function():
         )
         dummy_queue = multiprocessing.Queue()
 
-        job_id1 = registry.add(context, job1, dummy_queue)
-        job_id2 = registry.add(context, job2, dummy_queue)
+        job_id1 = registry.add(context, job1, dummy_queue, "test-workflow")
+        job_id2 = registry.add(context, job2, dummy_queue, "test-workflow")
 
         # Should return the same job_id since custom hash only looks at "id" field
         assert job_id1 == job_id2 == "job1"
@@ -683,7 +683,7 @@ def test_idempotency_custom_hash_function():
             once=True,
             once_by=custom_hash,
         )
-        job_id3 = registry.add(context, job3, dummy_queue)
+        job_id3 = registry.add(context, job3, dummy_queue, "test-workflow")
         assert job_id3 == "job3"
     finally:
         registry.conn.close()

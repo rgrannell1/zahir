@@ -542,11 +542,12 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
         workflow_span = manager.job_spans.get(workflow_key)
         if workflow_span:
             parent_span_id = workflow_span["spanId"]
-    
+
     # Ensure we have a valid parent - if not, we can't create the span properly
     # This should rarely happen, but if it does, log it and skip span creation
     if parent_span_id is None:
         import logging
+
         logging.getLogger(__name__).warning(
             f"Cannot create job span for {event.job_id}: no valid parent span (process={event.pid}, workflow={event.workflow_id})"
         )
@@ -554,7 +555,7 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
 
     # Get job inputs from the registry
     job = manager._get_job_from_registry(event.job_id)
-    
+
     attributes: dict[str, Any] = {
         "job.id": event.job_id,
         "job.type": event.job_type,
@@ -562,14 +563,14 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
         "job.worker_pid": event.pid,
         "process.pid": event.pid,
     }
-    
+
     # Track when job was assigned vs when it started (dispatch timing)
     # started_at is set when the job state is set to RUNNING (during dispatch)
     # This allows us to measure the delay between dispatch and actual execution start
     try:
         job_timing = manager.context.job_registry.get_job_timing(event.job_id)
         start_time_obj = datetime.now(UTC)
-        
+
         # Add dispatch timing information if available
         if job_timing and job_timing.started_at:
             # Calculate delay between when job was marked RUNNING (dispatch) and when it actually started
@@ -580,6 +581,7 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
         # If we can't get timing info, continue without it - don't break span creation
         # Log the error for debugging but don't fail
         import logging
+
         logging.getLogger(__name__).debug(f"Could not get job timing for {event.job_id}: {e}")
 
     # Add job inputs as attributes
@@ -601,6 +603,7 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
         except Exception as e:
             # If we can't serialize job inputs, continue without them
             import logging
+
             logging.getLogger(__name__).debug(f"Could not serialize job inputs for {event.job_id}: {e}")
 
     span_id = generate_span_id()
@@ -640,16 +643,25 @@ def _handle_job_timeout(manager: TraceContextManager, event: JobTimeoutEvent) ->
 
 def _handle_job_irrecoverable(manager: TraceContextManager, event: JobIrrecoverableEvent) -> None:
     """Handle JobIrrecoverableEvent."""
+    from zahir.exception import exception_from_text_blob
+
+    try:
+        exc = exception_from_text_blob(event.error)
+        error_msg = str(exc)
+        error_type = type(exc).__name__
+    except Exception:
+        error_msg = event.error  # Fallback to raw blob if deserialization fails
+        error_type = "Unknown"
+
     span = manager.job_spans.get(event.job_id)
     if span is not None:
-        error_msg = str(event.error)
         span["attributes"].append({"key": "job.error", "value": {"stringValue": error_msg}})
-        span["attributes"].append({"key": "job.error_type", "value": {"stringValue": type(event.error).__name__}})
+        span["attributes"].append({"key": "job.error_type", "value": {"stringValue": error_type}})
     manager._end_span(
         job_id=event.job_id,
         end_time=datetime.now(UTC),
         status_code=2,  # ERROR
-        status_message=f"Job failed irrecoverably: {str(event.error)}",
+        status_message=f"Job failed irrecoverably: {error_msg}",
     )
 
 

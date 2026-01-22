@@ -86,7 +86,7 @@ def test_check_preconditions_pass_normal_job():
 
     # Create and register job
     job = ValidInputJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue, "test-workflow")
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Create a frame for the job
     job_generator = ValidInputJob.run(context, job.input, job.dependencies)
@@ -116,7 +116,7 @@ def test_check_preconditions_pass_recovery_job():
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     job = ValidInputJob({"test": "data"}, {})
-    job_id = context.job_registry.add(context, job, output_queue, "test-workflow")
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     # Create frame as recovery job
     job_generator = ValidInputJob.run(context, job.input, job.dependencies)
@@ -144,7 +144,7 @@ def test_check_preconditions_fail_single_error():
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     job = InvalidInputJob({"bad": "input"}, {})
-    job_id = context.job_registry.add(context, job, output_queue, "test-workflow")
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     job_generator = InvalidInputJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
@@ -185,7 +185,7 @@ def test_check_preconditions_fail_multiple_errors():
     worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
 
     job = MultipleErrorsJob({}, {})
-    job_id = context.job_registry.add(context, job, output_queue, "test-workflow")
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     job_generator = MultipleErrorsJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
@@ -225,7 +225,7 @@ def test_check_preconditions_timeout_normal_job():
     # Create job with timeout - use job_timeout parameter
     job_instance = TimeoutDuringPrecheckJob({"test": "data"}, {}, job_timeout=0.001)
 
-    job_id = context.job_registry.add(context, job_instance, output_queue, "test-workflow")
+    job_id = context.job_registry.add(context, job_instance, output_queue, workflow_id)
 
     # Set job to running state first and record start time
     context.job_registry.set_state(
@@ -264,7 +264,7 @@ def test_check_preconditions_timeout_recovery_job():
 
     job_instance = TimeoutDuringPrecheckJob({"test": "data"}, {}, recover_timeout=0.001)
 
-    job_id = context.job_registry.add(context, job_instance, output_queue, "test-workflow")
+    job_id = context.job_registry.add(context, job_instance, output_queue, workflow_id)
 
     # Set job to recovering state
     context.job_registry.set_state(
@@ -304,7 +304,7 @@ def test_check_preconditions_no_timeout_configured():
     job = ValidInputJob({"test": "data"}, {})
     # No job_options set - default behavior
 
-    job_id = context.job_registry.add(context, job, output_queue, "test-workflow")
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
 
     job_generator = ValidInputJob.run(context, job.input, job.dependencies)
     worker_state.frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)

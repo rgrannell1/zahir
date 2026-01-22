@@ -35,10 +35,6 @@ type InputQueue = multiprocessing.Queue["SerialisedEvent"]
 
 from zahir.utils.logging_config import configure_logging, get_logger
 
-# Configure logging for this process
-configure_logging()
-log = get_logger(__name__)
-
 type JobStateEvent = (
     JobStartedEvent
     | JobPrecheckFailedEvent
@@ -66,6 +62,10 @@ class WorkerState(StrEnum):
     BUSY = "BUSY"
 
 
+
+configure_logging()
+log = get_logger(__name__)
+
 class WorkerPool:
     """Manage a pool of worker processes."""
 
@@ -92,35 +92,45 @@ def dispatch_jobs_to_workers(
     workflow_id: str,
     output_queue: OutputQueue,
 ) -> None:
-    """Dispatch READY jobs to READY workers fairly using round-robin.
+    """Dispatch jobs to workers fairly using round-robin.
 
     Jobs are fetched from the registry and assigned to workers in order.
     Workers are tracked in ready_worker_queue to ensure fair distribution.
 
     To prevent one worker from claiming all jobs when a large batch becomes ready,
-    we limit dispatch to at most 2 jobs per ready worker per call. This allows
-    other workers time to signal READY and get jobs too.
+    we limit dispatch per call. This allows other workers time to signal READY and get jobs too.
     """
+
     job_registry = context.job_registry
 
-    # Fetch all READY jobs for this workflow (not yet dispatched)
-    ready_jobs: list[JobInstance] = [job_info.job for job_info in job_registry.jobs(context, state=JobState.READY, workflow_id=workflow_id)]
+    # Fetch all READY jobs from all active workflows (prioritize current workflow)
+    # This allows us to "backfill" older workflows while processing the current one
+    ready_jobs: list[tuple[JobInstance, str]] = []  # (job, workflow_id)
 
+    # First, get jobs from current workflow...
+    for job_info in job_registry.jobs(context, state=JobState.READY, workflow_id=workflow_id):
+        ready_jobs.append((job_info.job, job_info.workflow_id or workflow_id))
+
+    # Then, get jobs from other active workflows...
+    active_workflow_ids = job_registry.get_active_workflow_ids()
+    for wf_id in active_workflow_ids:
+        if wf_id != workflow_id:
+            for job_info in job_registry.jobs(context, state=JobState.READY, workflow_id=wf_id):
+                ready_jobs.append((job_info.job, job_info.workflow_id or wf_id))
 
     # Limit dispatch to prevent one worker from claiming all jobs in a large batch
-    # Dispatch at most 2 jobs per ready worker to allow other workers time to signal READY
-    max_jobs_to_dispatch = len(ready_worker_queue) * 2 if ready_worker_queue else 0
+    # do not overdispatch jobs; give each worker a fair chance
+    max_jobs_to_dispatch = len(ready_worker_queue) if ready_worker_queue else 0
     jobs_dispatched = 0
 
     # Dispatch jobs to ready workers (round-robin via queue)
     while ready_jobs and ready_worker_queue and jobs_dispatched < max_jobs_to_dispatch:
-        job = ready_jobs.pop(0)
+        job, job_workflow_id = ready_jobs.pop(0)
         worker_pid = ready_worker_queue.pop(0)
 
-        # Verify worker is still in READY state
+        # Verify worker is still in READY state. If not, reenque
         if process_states.get(worker_pid) != WorkerState.READY:
-            # Worker no longer ready, put job back
-            ready_jobs.insert(0, job)
+            ready_jobs.insert(0, (job, job_workflow_id))
             continue
 
         # Mark worker as BUSY before dispatching
@@ -128,17 +138,26 @@ def dispatch_jobs_to_workers(
 
         # Set job state to RUNNING to prevent re-dispatch
         # Pass the worker PID so JobStartedEvent has the correct PID
+        # Use the job's workflow_id, not the current workflow_id
         job_registry.set_state(
-            context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.RUNNING, recovery=False, pid=worker_pid
+            context,
+            job.job_id,
+            job.spec.type,
+            job_workflow_id,
+            output_queue,
+            JobState.RUNNING,
+            recovery=False,
+            pid=worker_pid,
         )
 
         # Send job assignment to worker via input queue
+        # Use the job's workflow_id, not the current workflow_id
         input_queue = process_queues[worker_pid]
         input_queue.put(
             serialise_event(
                 context,
                 JobAssignedEvent(
-                    workflow_id=workflow_id,
+                    workflow_id=job_workflow_id,
                     job_id=job.job_id,
                     job_type=job.spec.type,
                 ),
@@ -163,7 +182,7 @@ def start_zahir_overseer(context: Context, start: JobInstance | None, worker_cou
     if start is not None:
         context.job_registry.add(context, start, output_queue, workflow_id)
 
-    # Start a single dependency-checker process
+    # Start a single dependency-checker process for the moment
     processes = []
     dep_proc = multiprocessing.Process(
         target=zahir_dependency_worker,
@@ -213,7 +232,7 @@ def zahir_worker_overseer(
         context, start, worker_count
     )
 
-    # Initialize trace context manager if tracing is enabled
+    # Initialize open telemetry if requested
     trace_manager = None
     if otel_output_dir is not None:
         trace_manager = TraceContextManager(otel_output_dir, context)
@@ -228,6 +247,7 @@ def zahir_worker_overseer(
                 trace_manager.handle_event(event)
 
             if isinstance(event, ZahirInternalErrorEvent):
+                # Thing broke, lets stop and raise the error
                 exc = (
                     exception_from_text_blob(event.error)
                     if event.error
@@ -241,22 +261,25 @@ def zahir_worker_overseer(
                 # Add to round-robin queue if not already present
                 if event.pid not in ready_worker_queue:
                     ready_worker_queue.append(event.pid)
-                # Try to dispatch any ready jobs to this worker
+                # Dispatch any ready jobs to the workers
+
                 dispatch_jobs_to_workers(
                     context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue
                 )
+
                 # Don't yield internal worker events
                 continue
 
             elif isinstance(event, JobReadyEvent):
-                # Dependency worker detected jobs are ready - dispatch to workers
+                # Dependency worker detected jobs are ready. Dispatch to workers
+                # Don't yield internal coordination events
                 dispatch_jobs_to_workers(
                     context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue
                 )
-                # Don't yield internal coordination events
                 continue
 
             elif isinstance(event, WorkflowCompleteEvent):
+                # Workflow is complete, lets yield the event and break
                 yield event
                 break
 

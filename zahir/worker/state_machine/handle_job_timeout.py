@@ -27,6 +27,8 @@ def handle_job_timeout(state) -> tuple[WaitForJobStateChange, None]:
     state.frame = None
 
     # Signal we're ready for another job
-    state.output_queue.put(serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid(), workflow_id=state.workflow_id)))
+    state.output_queue.put(
+        serialise_event(state.context, JobWorkerWaitingEvent(pid=os.getpid(), workflow_id=state.workflow_id))
+    )
 
     return WaitForJobStateChange({"message": f"Job {job_type} timed out"}), state

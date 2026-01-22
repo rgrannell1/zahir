@@ -394,7 +394,7 @@ class JobIrrecoverableEvent(ZahirEvent):
     """Indicates that a job recovery has failed irrecoverably"""
 
     workflow_id: str
-    error: Exception
+    error: str
     job_id: str
     job_type: str
     pid: int = field(default_factory=os.getpid)
@@ -404,18 +404,18 @@ class JobIrrecoverableEvent(ZahirEvent):
             "workflow_id": self.workflow_id,
             "job_id": self.job_id,
             "job_type": self.job_type,
-            "error": str(self.error),
-            "error_type": type(self.error).__name__,
+            "error": self.error,
             "pid": self.pid,
         }
 
     @classmethod
     def load(cls, context: Context, data: Mapping[str, Any]) -> JobIrrecoverableEvent:
-        # Recreate a generic exception from the error string
-        error_msg = data.get("error", "Unknown error")
+        from zahir.exception import exception_from_text_blob
+
+        error_blob = data.get("error", "")
         return cls(
             workflow_id=data["workflow_id"],
-            error=Exception(error_msg),
+            error=error_blob,
             job_id=data["job_id"],
             job_type=data.get("job_type", ""),
             pid=data.get("pid", 0),
