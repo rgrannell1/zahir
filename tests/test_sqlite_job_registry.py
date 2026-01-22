@@ -523,7 +523,7 @@ def test_idempotency_once_flag_adds_job():
 
 
 def test_idempotency_once_flag_returns_existing():
-    """Test that adding a job with once=True returns existing job_id when hash matches."""
+    """Test that adding a job with once=True returns existing job_id when hash matches and job is completed."""
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         db_path = tmp.name
     try:
@@ -537,6 +537,9 @@ def test_idempotency_once_flag_returns_existing():
         dummy_queue = multiprocessing.Queue()
         job_id1 = registry.add(context, job1, dummy_queue, "test-workflow")
         assert job_id1 == "job1"
+
+        # Set the first job to COMPLETED state
+        registry.set_state(context, job_id1, "DummyJob", "test-workflow", dummy_queue, JobState.COMPLETED)
 
         # Try to add second job with same inputs but different job_id and once=True
         job2 = DummyJob(input={"key": "value"}, job_id="job2", once=True)
@@ -552,8 +555,8 @@ def test_idempotency_once_flag_returns_existing():
         except MissingJobError:
             pass
 
-        # job1 should still exist
-        assert registry.get_state("job1") == JobState.READY
+        # job1 should still exist and be COMPLETED
+        assert registry.get_state("job1") == JobState.COMPLETED
     finally:
         registry.conn.close()
         pathlib.Path(db_path).unlink()
@@ -628,6 +631,8 @@ def test_idempotency_hash_stable_ordering():
         dummy_queue = multiprocessing.Queue()
 
         job_id1 = registry.add(context, job1, dummy_queue, "test-workflow")
+        # Set the first job to COMPLETED state so idempotency check will match
+        registry.set_state(context, job_id1, "DummyJob", "test-workflow", dummy_queue, JobState.COMPLETED)
         job_id2 = registry.add(context, job2, dummy_queue, "test-workflow")
 
         # Should return the same job_id since hash should be the same
@@ -671,6 +676,8 @@ def test_idempotency_custom_hash_function():
         dummy_queue = multiprocessing.Queue()
 
         job_id1 = registry.add(context, job1, dummy_queue, "test-workflow")
+        # Set the first job to COMPLETED state so idempotency check will match
+        registry.set_state(context, job_id1, "DummyJob", "test-workflow", dummy_queue, JobState.COMPLETED)
         job_id2 = registry.add(context, job2, dummy_queue, "test-workflow")
 
         # Should return the same job_id since custom hash only looks at "id" field
@@ -685,6 +692,73 @@ def test_idempotency_custom_hash_function():
         )
         job_id3 = registry.add(context, job3, dummy_queue, "test-workflow")
         assert job_id3 == "job3"
+    finally:
+        registry.conn.close()
+        pathlib.Path(db_path).unlink()
+
+
+def test_idempotency_only_matches_completed_or_recovered():
+    """Test that idempotency only matches jobs in COMPLETED or RECOVERED state."""
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        db_path = tmp.name
+    try:
+        registry = SQLiteJobRegistry(db_path)
+        registry.init("worker-idempotency-7")
+        scope = LocalScope()
+        context = MemoryContext(scope=scope, job_registry=registry)
+        dummy_queue = multiprocessing.Queue()
+
+        # Test with READY state - should allow new job
+        job1 = DummyJob(input={"key": "value"}, job_id="job1", once=True)
+        job_id1 = registry.add(context, job1, dummy_queue, "test-workflow")
+        assert job_id1 == "job1"
+        assert registry.get_state("job1") == JobState.READY
+
+        job2 = DummyJob(input={"key": "value"}, job_id="job2", once=True)
+        job_id2 = registry.add(context, job2, dummy_queue, "test-workflow")
+        # Should create new job since job1 is not completed
+        assert job_id2 == "job2"
+        assert registry.get_state("job2") == JobState.READY
+
+        # Test with PENDING state - should allow new job
+        job3 = DummyJob(input={"key": "value2"}, job_id="job3", once=True)
+        job_id3 = registry.add(context, job3, dummy_queue, "test-workflow")
+        registry.set_state(context, job_id3, "DummyJob", "test-workflow", dummy_queue, JobState.PENDING)
+
+        job4 = DummyJob(input={"key": "value2"}, job_id="job4", once=True)
+        job_id4 = registry.add(context, job4, dummy_queue, "test-workflow")
+        # Should create new job since job3 is not completed
+        assert job_id4 == "job4"
+
+        # Test with RUNNING state - should allow new job
+        job5 = DummyJob(input={"key": "value3"}, job_id="job5", once=True)
+        job_id5 = registry.add(context, job5, dummy_queue, "test-workflow")
+        registry.set_state(context, job_id5, "DummyJob", "test-workflow", dummy_queue, JobState.RUNNING)
+
+        job6 = DummyJob(input={"key": "value3"}, job_id="job6", once=True)
+        job_id6 = registry.add(context, job6, dummy_queue, "test-workflow")
+        # Should create new job since job5 is not completed
+        assert job_id6 == "job6"
+
+        # Test with COMPLETED state - should return existing job
+        job7 = DummyJob(input={"key": "value4"}, job_id="job7", once=True)
+        job_id7 = registry.add(context, job7, dummy_queue, "test-workflow")
+        registry.set_state(context, job_id7, "DummyJob", "test-workflow", dummy_queue, JobState.COMPLETED)
+
+        job8 = DummyJob(input={"key": "value4"}, job_id="job8", once=True)
+        job_id8 = registry.add(context, job8, dummy_queue, "test-workflow")
+        # Should return existing job since job7 is COMPLETED
+        assert job_id8 == "job7"
+
+        # Test with RECOVERED state - should return existing job
+        job9 = DummyJob(input={"key": "value5"}, job_id="job9", once=True)
+        job_id9 = registry.add(context, job9, dummy_queue, "test-workflow")
+        registry.set_state(context, job_id9, "DummyJob", "test-workflow", dummy_queue, JobState.RECOVERED)
+
+        job10 = DummyJob(input={"key": "value5"}, job_id="job10", once=True)
+        job_id10 = registry.add(context, job10, dummy_queue, "test-workflow")
+        # Should return existing job since job9 is RECOVERED
+        assert job_id10 == "job9"
     finally:
         registry.conn.close()
         pathlib.Path(db_path).unlink()

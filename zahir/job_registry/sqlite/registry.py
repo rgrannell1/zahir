@@ -195,16 +195,23 @@ class SQLiteJobRegistry(JobRegistry):
                     once_by=getattr(job.args, "once_by", None),
                 )
                 existing_hash = conn.execute(
-                    "select job_id from jobs where idempotency_hash = ?", (idempotency_hash,)
+                    "select job_id, state from jobs where idempotency_hash = ?", (idempotency_hash,)
                 ).fetchone()
 
                 if existing_hash is not None:
                     existing_job_id = existing_hash[0]
-                    log.debug(
-                        f"Job with idempotency_hash {idempotency_hash} already exists as {existing_job_id}, skipping insert"
-                    )
-                    conn.rollback()
-                    return existing_job_id
+                    existing_state = JobState(existing_hash[1])
+                    # Only consider it a duplicate if the existing job is completed or recovered
+                    if existing_state in {JobState.COMPLETED, JobState.RECOVERED}:
+                        log.debug(
+                            f"Job with idempotency_hash {idempotency_hash} already exists as {existing_job_id} in state {existing_state}, skipping insert"
+                        )
+                        conn.rollback()
+                        return existing_job_id
+                    else:
+                        log.debug(
+                            f"Job with idempotency_hash {idempotency_hash} exists as {existing_job_id} but is in state {existing_state}, allowing new job"
+                        )
 
             created_at = datetime.now(tz=UTC).isoformat()
             priority = job.args.priority
