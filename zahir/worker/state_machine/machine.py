@@ -47,12 +47,11 @@ configure_logging()
 log = get_logger(__name__)
 
 
-
 def times_up(_signum, _frame):
     raise TimeoutError("Job execution timed out")
 
 
-type OutputQueue = multiprocessing.Queue["ZahirEvent"]
+type OutputQueue = multiprocessing.Queue["SerialisedEvent"]
 
 
 def log_call(fn):
@@ -84,7 +83,11 @@ class ZahirWorkerState:
     """Mutable state held during job execution."""
 
     def __init__(
-        self, context: Context, input_queue: "multiprocessing.Queue[SerialisedEvent] | None", output_queue: OutputQueue, workflow_id: str
+        self,
+        context: Context,
+        input_queue: "multiprocessing.Queue[SerialisedEvent] | None",
+        output_queue: OutputQueue,
+        workflow_id: str,
     ):
         self.job_stack: ZahirCallStack = ZahirCallStack([])
         self.input_queue: multiprocessing.Queue | None = input_queue

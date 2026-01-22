@@ -136,6 +136,7 @@ class WorkflowOutputEvent[OutputType](ZahirEvent):
 
 class JobStateEvent(ZahirEvent):
     """Base class for events that represent job state transitions."""
+
     pass
 
 
@@ -577,7 +578,7 @@ class JobWorkerWaitingEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, _context: Context, data: Mapping[str, Any]) -> JobWorkerWaitingEvent:
+    def load(cls, _context: Context, data: Mapping[str, Any]) -> "JobWorkerWaitingEvent":
         return cls(
             pid=data.get("pid", 0),
             workflow_id=data.get("workflow_id"),
@@ -597,7 +598,7 @@ class JobReadyEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, _context: Context, data: Mapping[str, Any]) -> JobReadyEvent:
+    def load(cls, _context: Context, data: Mapping[str, Any]) -> "JobReadyEvent":
         return cls(pid=data.get("pid", 0))
 
 
@@ -619,7 +620,7 @@ class JobAssignedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, _context: Context, data: Mapping[str, Any]) -> JobAssignedEvent:
+    def load(cls, _context: Context, data: Mapping[str, Any]) -> "JobAssignedEvent":
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],

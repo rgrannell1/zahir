@@ -27,14 +27,14 @@ class MemoryContext(Context):
         self.state[f"_queue_{queue_id}"] = queue
         return queue_id, queue
 
-    def get_queue(self, queue_id: str) -> multiprocessing.Queue:
+    def get_queue(self, name: str) -> multiprocessing.Queue:
         """Get a queue by ID from context.state.
 
-        @param queue_id: The ID of the queue to retrieve
+        @param name: The ID of the queue to retrieve
         @return: The queue
         @raises KeyError: If the queue does not exist
         """
-        key = f"_queue_{queue_id}"
+        key = f"_queue_{name}"
         if key not in self.state:
-            raise KeyError(f"Queue with ID '{queue_id}' not found")
-        return self.state[key]
+            raise KeyError(f"Queue with ID '{name}' not found")
+        return self.state[key]  # type: ignore[return-value]

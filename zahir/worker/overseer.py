@@ -8,14 +8,7 @@ import os
 from zahir.base_types import Context, JobInstance, JobState
 from zahir.events import (
     JobAssignedEvent,
-    JobCompletedEvent,
-    JobIrrecoverableEvent,
-    JobPausedEvent,
-    JobPrecheckFailedEvent,
     JobReadyEvent,
-    JobRecoveryTimeoutEvent,
-    JobStartedEvent,
-    JobTimeoutEvent,
     JobWorkerWaitingEvent,
     WorkflowCompleteEvent,
     WorkflowStartedEvent,
@@ -43,17 +36,6 @@ class WorkerState(StrEnum):
     READY = "READY"
     BUSY = "BUSY"
 
-
-EVENT_TO_STATE: dict[type[ZahirEvent], JobState] = {
-    # What jobstate does each event correspond to?
-    JobStartedEvent: JobState.RUNNING,
-    JobPrecheckFailedEvent: JobState.PRECHECK_FAILED,
-    JobTimeoutEvent: JobState.TIMED_OUT,
-    JobRecoveryTimeoutEvent: JobState.RECOVERY_TIMED_OUT,
-    JobIrrecoverableEvent: JobState.IRRECOVERABLE,
-    JobCompletedEvent: JobState.COMPLETED,
-    JobPausedEvent: JobState.PAUSED,
-}
 
 def shutdown(processes: list[multiprocessing.Process]) -> None:
     """Terminate and join all worker processes."""

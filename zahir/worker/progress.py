@@ -89,7 +89,8 @@ class ConditionalSpinnerColumn(SpinnerColumn):
     def render(self, task) -> Text:
         if self.hide_if_starts_with and task.description and task.description.startswith(self.hide_if_starts_with):
             return Text("")  # Hide for system stats
-        return super().render(task)
+        result = super().render(task)
+        return Text(str(result)) if not isinstance(result, Text) else result
 
 
 class ConditionalTextColumn(TextColumn):
@@ -143,7 +144,7 @@ class StatusBarColumn(ProgressColumn):
         else:
             complete_style = self.running_complete_style
 
-        return Bar(
+        bar = Bar(
             size=task.total or 1,
             begin=0,
             end=task.completed,
@@ -151,6 +152,7 @@ class StatusBarColumn(ProgressColumn):
             color=complete_style,
             bgcolor=self.back_style,
         )
+        return Text(str(bar))
 
 
 class ZahirProgressMonitor:
@@ -187,7 +189,9 @@ class ZahirProgressMonitor:
         # Track PID from event if available
         if hasattr(event, "pid"):
             current_time = time.time()
-            self.pid_events.append((current_time, event.pid))
+            pid = getattr(event, "pid", 0)
+            if isinstance(pid, int):
+                self.pid_events.append((current_time, pid))
             self._cleanup_old_pids(current_time)
             self._update_workflow_description()
 
