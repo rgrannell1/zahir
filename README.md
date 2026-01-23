@@ -140,9 +140,13 @@ Jobs do something, based on an input. They can have dependencies that must be me
 
 Workflows comprise jobs that create other jobs. They aren't a separate abstraction; jobs yield further jobs they wish to complete after the current one. This can be done with conditional logic (so conditional workflows are of course supported). No automatic guarantee is given on job execution order (everything that can be run in parallel, is run in parallel). Jobs can however depend on other jobs and their outputs via a `JobDependency`. This allows patterns such as "process each item, await completion & update a database".
 
-Rollbacks are also not separate abstractions; if something goes wrong, detect it and schedule tasks to remediate it. Job-level rollbacks do not compose into workflow rollbacks; crouching, stepping backwards, and taking off your parachute will not get you back on your plane.
+Zahir jobs have some safety checks:
+- If input and output types are specified on the `JobSpec` class, Zahir will automatically type-check these values at runtime.
+- You can define your own custom precheck function & recovery function
 
-Jobs generally pass data to child-jobs through parameters, then yield those jobs to continue the workflow. This somewhat mimics the callback-pattern / continuation-style-passing found in JavaScript. I don't remember this pattern fondly. So, Zahir has friendlier concurrency tools:
+Rollbacks are also not separate abstractions; if something goes wrong, detect it and schedule tasks to remediate it. Job-level rollbacks do not compose into workflow rollbacks; crouching, stepping backwards, and taking off your parachute will not get you back on your plane. We do not encourage SAGA-pattern rollbacks.
+
+Jobs can pass data to child-jobs through parameters, then yield those jobs to continue the workflow. This somewhat mimics the callback-pattern / continuation-style-passing found in JavaScript. I don't remember this pattern fondly. So, Zahir has friendlier concurrency tools that you should use instead:
 
 **1. Awaiting**
 
@@ -159,7 +163,7 @@ job to complete before resuming Job A. `Promise.all([])` style execution is also
 - Job A is paused until the new jobs are completed
 - Job A is resumed with a list of outputs, one per job.
 
-Awaited jobs may also throw exceptions if they were given invalid input, threw an non-recoverable exception, or timed-out.
+Awaited jobs may also throw exceptions if they were given invalid input, threw an non-recoverable exception, or timed-out. We can also await dependencies, which allows us to conceptually wait on outcomes rather than jobs alone.
 
 Jobs should have most of their logic factored out into plain functions; the job itself should just take input, call the necessary library functions, event, and delegate to other jobs.
 
@@ -171,7 +175,7 @@ We can access the output of a job, if any, by inspecting the job-dependency a ta
 - Job B awaits this jobs via `list[JobDependency]`
 - On completion, Job B can access the output data from this array of jobs
 
-This is a second way in which a "fan-out, then aggregate" pattern can be implemented in Zahir.
+This is a second way in which a "fan-out, then aggregate" pattern can be implemented in Zahir. Semaphore dependencies, queues, and awaited dependencies can be used for cross-job communication.
 
 ### Dependencies - Await some precondition before doing things
 
@@ -185,8 +189,6 @@ Jobs may have preconditions before running.
 - `Semaphore`: a dependency that can be "toggled" by a supervisor process
 
 Dependencies can be flagged as impossible to fulfill; jobs with impossible dependencies are removed from the `pending` queue and flagged in the event registry.
-
-Dependency implementations must be serialisable to JSON.
 
 ### Events - Communicate how the workflow is going
 
@@ -207,7 +209,7 @@ Zahir communicates changes in workflow state as a stream of events emitted by `w
 - `ZahirEvent`
 - `ZahirInternalErrorEvent`
 
-A few can be used by jobs to communicate with the workflow engine:
+A few can be used by jobs as part of the effect system that communicates with the workflow engine:
 
 - `Await`: wait for the result (or an error) from another job before resuming this one
 - `JobOutputEvent`: return output from a job. Treated as a singular return; the task is dropped after this event is yielded.

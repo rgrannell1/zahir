@@ -17,6 +17,7 @@ from zahir.worker.state_machine.states import (
     HandleJobTimeoutStateChange,
     WaitForJobStateChange,
 )
+from zahir.worker.state_machine.utils import process_await
 
 
 def times_up(_signum, _frame):
@@ -90,7 +91,7 @@ def execute_job(
         if isinstance(job_generator_result, Await):
             # our job is now awaiting another; switch to that before resuming the first one
             # recovery workflows are also allowed await, of course.
-            state.await_event = job_generator_result
+            state.await_event = process_await(job_generator_result)
             return HandleAwaitStateChange(
                 {"message": f"Job {job_type} is awaiting another job"},
             ), state

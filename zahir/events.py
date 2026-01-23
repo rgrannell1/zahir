@@ -552,12 +552,13 @@ class JobPrecheckFailedEvent(JobStateEvent):
 ## At least, the effects a job may cause
 ## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+type Awaitable[ArgsType, OutputType] = "JobInstance | list[JobInstance] | Dependency"
 
 @dataclass
 class Await[ArgsType, OutputType](JobEffectEvent):
     """Indicates that a job is awaiting some condition before proceeding"""
 
-    job: JobInstance[ArgsType, OutputType] | list[JobInstance[ArgsType, OutputType]]
+    job: Awaitable[ArgsType, OutputType]
     pid: int = field(default_factory=os.getpid)
 
     def save(self, context: Context) -> Mapping[str, Any]:
