@@ -12,6 +12,30 @@ from zahir.jobs.sleep import Sleep
 from zahir.scope import LocalScope
 from zahir.worker import LocalWorkflow
 
+
+class ChapterProcessorInput(TypedDict):
+    lines: list[str]
+
+
+class ChapterProcessorOutput(TypedDict):
+    longest_word: str
+
+
+class BookProcessorInput(TypedDict):
+    file_path: str
+
+
+class BookProcessorOutput(TypedDict):
+    longest_words: list[str]
+
+
+class UppercaseWordsInput(TypedDict):
+    words: list[str]
+
+
+class UppercaseWordsOutput(TypedDict):
+    words: list[str]
+
 WORD_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
 
 
@@ -47,7 +71,7 @@ def get_longest_word(words: list[str]) -> str:
     return longest_word
 
 
-@spec()
+@spec(args=ChapterProcessorInput, output=ChapterProcessorOutput)
 def ChapterProcessor(context, args, dependencies) -> Generator[JobOutputEvent]:
     """For each chapter, find the longest word."""
 
@@ -55,15 +79,7 @@ def ChapterProcessor(context, args, dependencies) -> Generator[JobOutputEvent]:
     yield JobOutputEvent({"longest_word": get_longest_word(args["lines"])})
 
 
-class ChapterProcessorOutput(TypedDict):
-    words: str
-
-
-class BookProcessorOutput(TypedDict):
-    words: list[str]
-
-
-@spec()
+@spec(args=BookProcessorInput, output=BookProcessorOutput)
 def BookProcessor(
     context, args, dependencies
 ) -> Generator[Await | JobInstance | WorkflowOutputEvent, ChapterProcessorOutput | BookProcessorOutput]:
@@ -84,7 +100,7 @@ def BookProcessor(
     yield WorkflowOutputEvent({"longest_words": uppercased["words"]})
 
 
-@spec()
+@spec(args=UppercaseWordsInput, output=UppercaseWordsOutput)
 def UppercaseWords(context: Context, args, dependencies) -> Generator[JobOutputEvent]:
     """Uppercase a list of words."""
 
@@ -94,10 +110,10 @@ def UppercaseWords(context: Context, args, dependencies) -> Generator[JobOutputE
 job_registry = SQLiteJobRegistry("jobs.db")
 context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registry)
 
-start = BookProcessor({"file_path": "integration_tests/data.txt"}, {})
+start = BookProcessor({"file_path": "integration_tests/data.txt"}, {}) # type: ignore
 
 # Traces are written to "traces/" by default
-workflow = LocalWorkflow(context=context, max_workers=15)
+workflow = LocalWorkflow(context=context, max_workers=15) # type: ignore
 
 events = list[WorkflowOutputEvent | ZahirEvent](workflow.run(start, events_filter=None))
 print(events[-5:-1])
