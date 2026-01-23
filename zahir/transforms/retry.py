@@ -69,4 +69,7 @@ def retry[ArgsType, OutputType](
         precheck=spec.precheck,
         recover=spec.recover,
         run=retry_run,
+        args_type=spec.args_type,
+        output_type=spec.output_type,
+        calls=spec.calls,
     )
