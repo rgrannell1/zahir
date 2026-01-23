@@ -208,3 +208,148 @@ def test_typeddict_precheck_no_args_type():
 
     # Should complete successfully without validation
     assert any(isinstance(event, WorkflowCompleteEvent) for event in events)
+
+
+# TypedDict output validation tests
+class ValidOutput(TypedDict):
+    result: int
+    status: str
+
+
+class OptionalOutput(TypedDict, total=False):
+    optional_field: int
+    required_field: str
+
+
+@spec(output=ValidOutput)
+def TypedDictOutputJob(context: Context, input, dependencies):
+    """Job with TypedDict output validation."""
+    yield JobOutputEvent({"result": 42, "status": "ok"})
+
+
+@spec(output=OptionalOutput)
+def OptionalTypedDictOutputJob(context: Context, input, dependencies):
+    """Job with optional TypedDict output fields."""
+    yield JobOutputEvent({"required_field": "test"})
+
+
+@spec(output=OptionalOutput)
+def OptionalFieldOutputJob(context: Context, input, dependencies):
+    """Job with optional TypedDict output fields including optional field."""
+    yield JobOutputEvent({"required_field": "test", "optional_field": 42})
+
+
+@spec(output=ValidOutput)
+def InvalidOutputJob(context: Context, input, dependencies):
+    """Job that outputs invalid structure (missing required key)."""
+    yield JobOutputEvent({"result": 42})  # Missing "status"
+
+
+@spec(output=ValidOutput)
+def WrongTypeOutputJob(context: Context, input, dependencies):
+    """Job that outputs wrong type."""
+    yield JobOutputEvent({"result": "not an int", "status": "ok"})  # Wrong type for result
+
+
+@spec()
+def NoTypedDictOutputJob(context: Context, input, dependencies):
+    """Job without TypedDict output validation."""
+    yield JobOutputEvent({"anything": "goes"})
+
+
+def test_typeddict_postcheck_valid_output():
+    """Test that valid TypedDict output passes postcheck."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    context = MemoryContext(
+        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
+    workflow = LocalWorkflow(context)
+
+    job = TypedDictOutputJob({}, {})
+    events = list(workflow.run(job, events_filter=None))
+
+    # Should complete successfully
+    assert any(isinstance(event, WorkflowCompleteEvent) for event in events)
+    assert any(isinstance(event, JobOutputEvent) for event in events)
+
+
+def test_typeddict_postcheck_missing_required_key():
+    """Test that missing required key in output fails postcheck."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    context = MemoryContext(
+        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
+    workflow = LocalWorkflow(context)
+
+    job = InvalidOutputJob({}, {})
+    events = list(workflow.run(job, events_filter=None))
+
+    # Should fail postcheck and be treated as exception
+    assert any(isinstance(event, JobIrrecoverableEvent) for event in events)
+    assert any(isinstance(event, WorkflowCompleteEvent) for event in events)
+
+
+def test_typeddict_postcheck_wrong_type():
+    """Test that wrong type in output fails postcheck."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    context = MemoryContext(
+        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
+    workflow = LocalWorkflow(context)
+
+    job = WrongTypeOutputJob({}, {})
+    events = list(workflow.run(job, events_filter=None))
+
+    # Should fail postcheck and be treated as exception
+    assert any(isinstance(event, JobIrrecoverableEvent) for event in events)
+
+
+def test_typeddict_postcheck_optional_fields():
+    """Test that optional TypedDict output fields work correctly."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    context = MemoryContext(
+        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
+    workflow = LocalWorkflow(context)
+
+    # Should work with only required field
+    job = OptionalTypedDictOutputJob({}, {})
+    events = list(workflow.run(job, events_filter=None))
+
+    assert any(isinstance(event, WorkflowCompleteEvent) for event in events)
+
+    # Should also work with optional field
+    job2 = OptionalFieldOutputJob({}, {})
+    events2 = list(workflow.run(job2, events_filter=None))
+
+    assert any(isinstance(event, WorkflowCompleteEvent) for event in events2)
+
+
+def test_typeddict_postcheck_no_output_type():
+    """Test that jobs without output_type still work (no validation)."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    context = MemoryContext(
+        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
+    workflow = LocalWorkflow(context)
+
+    job = NoTypedDictOutputJob({}, {})
+    events = list(workflow.run(job, events_filter=None))
+
+    # Should complete successfully without validation
+    assert any(isinstance(event, WorkflowCompleteEvent) for event in events)
