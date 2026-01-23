@@ -8,14 +8,10 @@ from enum import StrEnum
 import multiprocessing
 from multiprocessing.managers import DictProxy, SyncManager
 from multiprocessing.queues import Queue as MPQueue
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Self,
-    TypedDict,
-    TypeVar,
-    cast,
-)
+from zahir.exception import JobPrecheckError
+
+from typeguard import check_type
+from typing import TYPE_CHECKING, Any, Self, TypedDict, TypeVar, cast
 
 from zahir.events import Await, ZahirEvent
 from zahir.utils.id_generator import generate_job_id
@@ -566,10 +562,24 @@ def default_recover[ArgsType](
     yield
 
 
-def default_precheck[ArgsType](args: ArgsType) -> Exception | None:  # type: ignore
-    """Default precheck function that always passes."""
+def create_typeddict_precheck[ArgsType](
+    args_type: type[ArgsType] | None,
+) -> Precheck[ArgsType]:
+    """Create a precheck function that validates against a TypedDict using typeguard."""
 
-    return None
+    if args_type is None:
+        return lambda args: None
+
+    def typeddict_precheck(args: ArgsType) -> Exception | None:
+        try:
+            check_type(args, args_type)
+            return None
+        except Exception as err:
+            exc = JobPrecheckError(f"TypedDict validation failed")
+            exc.__cause__ = err
+            return exc
+
+    return typeddict_precheck
 
 
 class SerialisedTransformSpec(TypedDict):
@@ -630,7 +640,16 @@ class JobSpec[ArgsType, OutputType]:
     recover: Recover[ArgsType, OutputType] | None = default_recover
 
     # precheck inputs
-    precheck: Precheck[ArgsType] | None = default_precheck
+    precheck: Precheck[ArgsType] | None = field(default=None)
+
+    # Optional TypedDict classes for runtime input/output validation
+    args_type: type[ArgsType] | None = None
+    output_type: type[OutputType] | None = None
+
+    def __post_init__(self):
+        """Set up default precheck if args_type is provided and no custom precheck."""
+        if self.precheck is None:
+            self.precheck = create_typeddict_precheck(self.args_type)
 
     def save(self) -> SerialisedJobData:
         """Serialize the job spec to a dictionary.
@@ -661,6 +680,8 @@ class JobSpec[ArgsType, OutputType]:
             transforms=new_transforms,
             recover=self.recover,
             precheck=self.precheck,
+            args_type=self.args_type,
+            output_type=self.output_type,
         )
 
     def apply_transforms(self, scope: "Scope") -> "JobSpec[ArgsType, OutputType]":
@@ -685,6 +706,8 @@ class JobSpec[ArgsType, OutputType]:
             transforms=self.transforms,  # Preserve transforms for serialization
             recover=self.recover,
             precheck=self.precheck,
+            args_type=self.args_type,
+            output_type=self.output_type,
         )
 
         # ...then, apply each transform in order
@@ -700,6 +723,8 @@ class JobSpec[ArgsType, OutputType]:
                 transforms=self.transforms,
                 recover=result.recover,
                 precheck=result.precheck,
+                args_type=result.args_type,
+                output_type=result.output_type,
             )
 
         return result

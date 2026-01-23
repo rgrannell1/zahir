@@ -1,5 +1,6 @@
 import sys
 import tempfile
+from typing import TypedDict
 
 from zahir.base_types import Context
 from zahir.context import MemoryContext
@@ -80,3 +81,130 @@ def test_awaited_prechecks():
 
     # Check jobirrecoverable failure due to precheck failure
     any(isinstance(event, JobIrrecoverableEvent) for event in events)
+
+
+# TypedDict validation tests
+class ValidInput(TypedDict):
+    value: int
+    name: str
+
+
+class OptionalInput(TypedDict, total=False):
+    optional_value: int
+    required_value: str
+
+
+@spec(args=ValidInput)
+def TypedDictJob(context: Context, input, dependencies):
+    """Job with TypedDict validation."""
+    yield JobOutputEvent({"result": input["value"] * 2})
+
+
+@spec(args=OptionalInput)
+def OptionalTypedDictJob(context: Context, input, dependencies):
+    """Job with optional TypedDict fields."""
+    yield JobOutputEvent({"result": "ok"})
+
+
+@spec()
+def NoTypedDictJob(context: Context, input, dependencies):
+    """Job without TypedDict validation."""
+    yield JobOutputEvent({"result": "ok"})
+
+
+def test_typeddict_precheck_valid_input():
+    """Test that valid TypedDict input passes precheck."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    context = MemoryContext(
+        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
+    workflow = LocalWorkflow(context)
+
+    job = TypedDictJob({"value": 42, "name": "test"}, {})
+    events = list(workflow.run(job, events_filter=None))
+
+    # Should complete successfully
+    assert any(isinstance(event, WorkflowCompleteEvent) for event in events)
+    assert any(isinstance(event, JobOutputEvent) for event in events)
+
+
+def test_typeddict_precheck_missing_required_key():
+    """Test that missing required key fails precheck."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    context = MemoryContext(
+        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
+    workflow = LocalWorkflow(context)
+
+    job = TypedDictJob({"value": 42}, {})  # Missing "name"
+    events = list(workflow.run(job, events_filter=None))
+
+    # Should fail precheck
+    assert any(isinstance(event, JobPrecheckFailedEvent) for event in events)
+    assert any(isinstance(event, WorkflowCompleteEvent) for event in events)
+
+
+def test_typeddict_precheck_wrong_type():
+    """Test that wrong type fails precheck."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    context = MemoryContext(
+        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
+    workflow = LocalWorkflow(context)
+
+    job = TypedDictJob({"value": "not an int", "name": "test"}, {})  # Wrong type for value
+    events = list(workflow.run(job, events_filter=None))
+
+    # Should fail precheck
+    assert any(isinstance(event, JobPrecheckFailedEvent) for event in events)
+
+
+def test_typeddict_precheck_optional_fields():
+    """Test that optional TypedDict fields work correctly."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    context = MemoryContext(
+        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
+    workflow = LocalWorkflow(context)
+
+    # Should work with only required field
+    job = OptionalTypedDictJob({"required_value": "test"}, {})
+    events = list(workflow.run(job, events_filter=None))
+
+    assert any(isinstance(event, WorkflowCompleteEvent) for event in events)
+
+    # Should also work with optional field
+    job2 = OptionalTypedDictJob({"required_value": "test", "optional_value": 42}, {})
+    events2 = list(workflow.run(job2, events_filter=None))
+
+    assert any(isinstance(event, WorkflowCompleteEvent) for event in events2)
+
+
+def test_typeddict_precheck_no_args_type():
+    """Test that jobs without args_type still work (no validation)."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    context = MemoryContext(
+        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+    )
+    workflow = LocalWorkflow(context)
+
+    job = NoTypedDictJob({"anything": "goes"}, {})
+    events = list(workflow.run(job, events_filter=None))
+
+    # Should complete successfully without validation
+    assert any(isinstance(event, WorkflowCompleteEvent) for event in events)

@@ -272,6 +272,7 @@ class TraceContextManager:
         start_time: datetime,
         parent_span_id: str | None = None,
         attributes: dict[str, Any] | None = None,
+        links: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         """Create a span data structure in OTLP format.
 
@@ -281,6 +282,7 @@ class TraceContextManager:
         @param start_time: The span start time
         @param parent_span_id: Optional parent span ID
         @param attributes: Optional span attributes
+        @param links: Optional list of span links for dependencies
         @return: The span data dictionary
         """
         span: dict[str, Any] = {
@@ -294,6 +296,9 @@ class TraceContextManager:
 
         if parent_span_id:
             span["parentSpanId"] = parent_span_id
+
+        if links:
+            span["links"] = links
 
         if attributes:
             for key, value in attributes.items():
@@ -606,6 +611,32 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
 
             logging.getLogger(__name__).debug(f"Could not serialize job inputs for {event.job_id}: {e}")
 
+    # Check if this job has a parent job (was awaited by another job)
+    # If so, add a span link to show the dependency relationship.
+    # Note: The parent job's span might not exist if it has already completed
+    # and been exported. In that case, we still add the parent_id attribute
+    # for querying, but skip the link.
+    links: list[dict[str, Any]] | None = None
+    parent_job_id = manager._get_job_parent_id(event.job_id)
+    if parent_job_id:
+        # Always add parent job info as an attribute for easier querying
+        attributes["job.parent_id"] = parent_job_id
+
+        # Try to create a link to the parent job's span if it still exists
+        parent_job_span = manager.job_spans.get(parent_job_id)
+        if parent_job_span:
+            # Create a link to the parent job's span
+            links = [
+                {
+                    "traceId": parent_job_span["traceId"],
+                    "spanId": parent_job_span["spanId"],
+                    "attributes": [
+                        {"key": "job.dependency.type", "value": {"stringValue": "awaited_by"}},
+                        {"key": "job.parent.id", "value": {"stringValue": parent_job_id}},
+                    ],
+                }
+            ]
+
     span_id = generate_span_id()
     start_time = datetime.now(UTC)
     span = manager._create_span(
@@ -615,6 +646,7 @@ def _handle_job_started(manager: TraceContextManager, event: JobStartedEvent) ->
         start_time=start_time,
         parent_span_id=parent_span_id,
         attributes=attributes,
+        links=links,
     )
     manager.job_spans[event.job_id] = span
 
