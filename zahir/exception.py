@@ -27,6 +27,10 @@ class JobPrecheckError(ZahirError):
     """A job precheck has failed."""
 
 
+class JobPostcheckError(ZahirError):
+    """A job postcheck (output validation) has failed."""
+
+
 class ImpossibleDependencyError(ZahirError):
     """A job has an impossible dependency."""
 

@@ -3,8 +3,9 @@ import os
 import signal
 from typing import cast
 
-from zahir.base_types import JobState
+from zahir.base_types import JobState, validate_output_type
 from zahir.events import Await, JobOutputEvent, JobWorkerWaitingEvent
+from zahir.exception import JobPostcheckError
 from zahir.serialise import serialise_event
 from zahir.worker.read_job_events import read_job_events
 from zahir.worker.state_machine.states import (
@@ -70,6 +71,15 @@ def execute_recovery_job(
         )
 
         if isinstance(job_generator_result, JobOutputEvent):
+            # Validate output type if output_type is set
+            output_type = state.frame.job.spec.output_type
+            postcheck_err = validate_output_type(job_generator_result.output, output_type)
+            if postcheck_err is not None:
+                state.last_event = postcheck_err
+                return HandleRecoveryJobExceptionStateChange(
+                    {"message": f"Recovery job {job_type} output validation failed: {postcheck_err}"},
+                ), state
+
             # store the event for the next handler to inspect. I think this should
             # be invariant for recover vs normal workflows.
 

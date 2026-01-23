@@ -64,7 +64,7 @@ class JobStateEvent(ZahirEvent):
     pass
 
 
-class EffectEvent(ZahirEvent):
+class JobEffectEvent(ZahirEvent):
     """Events that form part of Zahir's conceptual effect system (at the job output level)"""
 
     pass
@@ -554,7 +554,7 @@ class JobPrecheckFailedEvent(JobStateEvent):
 
 
 @dataclass
-class Await[ArgsType, OutputType](EffectEvent):
+class Await[ArgsType, OutputType](JobEffectEvent):
     """Indicates that a job is awaiting some condition before proceeding"""
 
     job: JobInstance[ArgsType, OutputType] | list[JobInstance[ArgsType, OutputType]]
@@ -587,7 +587,7 @@ class Await[ArgsType, OutputType](EffectEvent):
 
 
 @dataclass
-class JobOutputEvent[OutputType](EffectEvent):
+class JobOutputEvent[OutputType](JobEffectEvent):
     """Indicates that a job has produced output"""
 
     output: OutputType
@@ -614,7 +614,7 @@ class JobOutputEvent[OutputType](EffectEvent):
 
 
 @dataclass
-class WorkflowOutputEvent[OutputType](EffectEvent):
+class WorkflowOutputEvent[OutputType](JobEffectEvent):
     """Indicates that the workflow has produced output"""
 
     output: OutputType

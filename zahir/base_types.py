@@ -9,6 +9,7 @@ import multiprocessing
 from multiprocessing.managers import DictProxy, SyncManager
 from multiprocessing.queues import Queue as MPQueue
 from zahir.exception import JobPrecheckError
+from zahir.exception import JobPostcheckError
 
 from typeguard import check_type
 from typing import TYPE_CHECKING, Any, Self, TypedDict, TypeVar, cast
@@ -580,6 +581,25 @@ def create_typeddict_precheck[ArgsType](
             return exc
 
     return typeddict_precheck
+
+
+def validate_output_type(output: Any, output_type: type[Any] | None) -> Exception | None:
+    """Validate that output matches the TypedDict structure using typeguard.
+
+    @param output: The output to validate
+    @param output_type: The TypedDict class to validate against, or None
+    @return: None if valid, Exception if invalid
+    """
+    if output_type is None:
+        return None
+
+    try:
+        check_type(output, output_type)
+        return None
+    except Exception as err:
+        exc = JobPostcheckError(f"TypedDict output validation failed")
+        exc.__cause__ = err
+        return exc
 
 
 class SerialisedTransformSpec(TypedDict):
