@@ -666,9 +666,6 @@ class JobSpec[ArgsType, OutputType]:
     args_type: type[ArgsType] | None = None
     output_type: type[OutputType] | None = None
 
-    # List of JobSpecs that this job calls (for static validation)
-    calls: list["JobSpec"] = field(default_factory=list)
-
     def __post_init__(self):
         """Set up default precheck if args_type is provided and no custom precheck."""
         if self.precheck is None:
@@ -705,7 +702,6 @@ class JobSpec[ArgsType, OutputType]:
             precheck=self.precheck,
             args_type=self.args_type,
             output_type=self.output_type,
-            calls=self.calls,
         )
 
     def apply_transforms(self, scope: "Scope") -> "JobSpec[ArgsType, OutputType]":
@@ -732,7 +728,6 @@ class JobSpec[ArgsType, OutputType]:
             precheck=self.precheck,
             args_type=self.args_type,
             output_type=self.output_type,
-            calls=self.calls,
         )
 
         # ...then, apply each transform in order
@@ -750,7 +745,6 @@ class JobSpec[ArgsType, OutputType]:
                 precheck=result.precheck,
                 args_type=result.args_type,
                 output_type=result.output_type,
-                calls=result.calls,
             )
 
         return result
@@ -901,7 +895,6 @@ class JobInstance[ArgsType, OutputType]:
                 precheck=base_spec.precheck,
                 args_type=base_spec.args_type,
                 output_type=base_spec.output_type,
-                calls=base_spec.calls,
             )
             # Apply transforms to get the runnable spec
             spec = spec.apply_transforms(context.scope)

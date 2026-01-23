@@ -12,55 +12,14 @@ I'm writing a self-hosted digital library website, and I need a way of coordinat
 
 ![](./progress.png)
 
-It'll also be useful for my [photo website backend](https://github.com/rgrannell1/mirror). Mirror has already been a nice testing-ground to see what features I need in reality, such as a resource-limiter to stop OOMing my laptop.
-
-## File-Structure
-
-```
-src/
-    context/
-        memory.py              communicates workflow internals with dependencies and jobs
-    dependencies/
-        concurrency.py         await a free concurrency slot before starting a job
-        group.py               await a group of dependencies
-        job.py                 await a particular job-state
-        resources.py           await enough CPU / RAM to not OOM...
-        semaphore.py           allow pending jobs to be flagged impossible, depending on some supervisor process
-        time.py                await a particular time-range before starting a job
-    job_registry/
-        sqlite.py              register jobs in SQLite
-        state_event.py         emit events on job state-change
-    serialisers/
-    utils/
-        id_generator.py        adjective-noun ids
-        logging_config.py      shared logging setup
-    jobs/
-        decorator.py           a decorator to construct basic jobs from a function
-    worker/
-        state_machine/
-            ...                each job-state and how it's handled
-        call_frame.py          call-frame definitions used to manage paused jobs
-        dependency_worker.py   check if dependencies are satistfied
-        job_worker.py          claim and run a job freom the job registry
-        local_workflow.py      the core workflow implementation
-        overseer.py            manage the overall workflow execution
-        progress.py            progress bar!
-        read_job_events.py     handle job execution output
-
-    base_types.py              abstract types for key Zahir abstractions
-    events.py                  events describing workflow state-updates
-    exception.py               exceptions thrown by Zahir
-    scope.py                   handle translation from serialised data to instances
-    serialise.py               serialise events as they pass between processes
-```
 
 ## What is Zahir?
 
 Zahir is not a DAG workflow engine or a traditional state-machine workflow engine. It is a dynamically expanding event-driven state-machine where state transitions are defined at runtime by running jobs. It does not statically define a workflow; the workflow unfolds from the starting step's execution.
 
-There's tradeoffs. Static analysis is limited (we don't precompile a workflow structure like Airflow for example), and occasionally typing is also inexact (specifically when consuming output via a `JobDependency`). On the plus side, the dependency system covers all forms of constraint-based scheduling we could want; waiting for a HTTP resource, bailing if a file is already created, time-based scheduling, concurrency limiting. We can schedule jobs conditionally and dynamically, and workflow consumers can monitor and interact with the workflow via an eventing system. Jobs are just regular Python functions with a few optional attributes.
+Scheduling, dependencies, signals, and limits are unified into a single concept; we wait for a certain world-state (time, resources, URL access) to be satified before proceeding with a job.
 
-So Zahir is maximally expressive and extensible, at some cost to static analysability.
+Jobs are largely just regular python functions that can be used in regular ways; if-statements, loops, exceptions. The main tradeoff for having Python's full expressive power is that workflows aren't precompiled or pre-checkable and type-checking can be inexact.
 
 ## A Simple Workflow
 
@@ -251,6 +210,18 @@ for event in LocalWorkflow().run(retrying_fetch({"url": "https://api.example.com
 
 Transforms are stored with the job when serialized, so retry behavior persists across workflow restarts.
 
+## Typing & Validation
+
+We want to know our workflows are type-sound before executing them. Zahir does not precompile a workflow graph (it emerges at runtime); it relies on other methods to validate workflows.
+
+**Plain-Old Python Typing**
+
+Jobs directly take an input dictionary of arguments; this is legible to Python's type-system and gives us prior knowledge that our job-construction is type-sound.
+
+**Input-Output Checks**
+
+JobSpecs can specify expected input and output types. If provided, Zahir runtime-checks that job inputs and outputs are compliant. These types can also be used in more advanced modelling.
+
 ## Modelling Workflows
 
 ### Scheduling
@@ -311,7 +282,7 @@ queue = context.get_queue(queue_id)
 
 In order of my preferences:
 
-1. Simply pass data between jobs as parameters and returns
+1. Simply pass data between jobs as parameters and return values
 2. Use an external data-store
 3. Use `context.state` to store "global" variables
 
@@ -389,6 +360,49 @@ rs test
 ```
 Zahir → Trace Files → OTLP Collector → Jaeger UI
 ```
+
+## File-Structure
+
+<details>
+```
+src/
+    context/
+        memory.py              communicates workflow internals with dependencies and jobs
+    dependencies/
+        concurrency.py         await a free concurrency slot before starting a job
+        group.py               await a group of dependencies
+        job.py                 await a particular job-state
+        resources.py           await enough CPU / RAM to not OOM...
+        semaphore.py           allow pending jobs to be flagged impossible, depending on some supervisor process
+        time.py                await a particular time-range before starting a job
+    job_registry/
+        sqlite.py              register jobs in SQLite
+        state_event.py         emit events on job state-change
+    serialisers/
+    utils/
+        id_generator.py        adjective-noun ids
+        logging_config.py      shared logging setup
+    jobs/
+        decorator.py           a decorator to construct basic jobs from a function
+    worker/
+        state_machine/
+            ...                each job-state and how it's handled
+        call_frame.py          call-frame definitions used to manage paused jobs
+        dependency_worker.py   check if dependencies are satistfied
+        job_worker.py          claim and run a job freom the job registry
+        local_workflow.py      the core workflow implementation
+        overseer.py            manage the overall workflow execution
+        progress.py            progress bar!
+        read_job_events.py     handle job execution output
+
+    base_types.py              abstract types for key Zahir abstractions
+    events.py                  events describing workflow state-updates
+    exception.py               exceptions thrown by Zahir
+    scope.py                   handle translation from serialised data to instances
+    serialise.py               serialise events as they pass between processes
+```
+</details>
+
 
 ## License
 

@@ -12,14 +12,12 @@ def spec[ArgsType, OutputType](
     *,
     args: type[ArgsType] | None = None,
     output: type[OutputType] | None = None,
-    calls: list["JobSpec"] | None = None,
     **kwargs,
 ):
     """Construct a JobSpec from a run function, and optionally other jobspec parameters.
 
     @param args: Optional TypedDict class for input validation
     @param output: Optional TypedDict class for output validation
-    @param calls: Optional list of JobSpecs that this job calls (for static validation)
     @param kwargs: Additional JobSpec parameters (recover, precheck, etc.)
     """
 
@@ -33,7 +31,6 @@ def spec[ArgsType, OutputType](
             run=run,
             args_type=args,
             output_type=output,
-            calls=calls or [],
             **kwargs,
         )
         # Add __name__ attribute to JobSpec for backwards compatibility with tests
