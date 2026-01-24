@@ -1,15 +1,21 @@
 from collections.abc import Generator
-from dataclasses import dataclass
-from typing import TypedDict
+from typing import Never, TypedDict
 
-from zahir.base_types import Context, JobInstance
+from zahir.base_types import Context
 from zahir.dependencies.time import TimeDependency
-from zahir.events import JobOutputEvent
-from zahir.jobs import Empty
+from zahir.events import Await, JobOutputEvent
 from zahir.jobs.decorator import spec
 
 
-def _sleep_precheck(args):
+class SleepOutput(TypedDict):
+    duration_seconds: float
+
+
+class SleepArgs(TypedDict):
+    duration_seconds: float
+
+
+def sleep_precheck(args):
     """Validate sleep job arguments before execution."""
     duration_seconds = args.get("duration_seconds", 0)
 
@@ -22,18 +28,13 @@ def _sleep_precheck(args):
     return None
 
 
-class SleepOutput(TypedDict):
-    duration_seconds: float
-
-
-class SleepArgs(TypedDict):
-    duration_seconds: float
-
-
-@spec(precheck=_sleep_precheck)
-def Sleep(context: Context, args: SleepArgs, dependencies) -> Generator[JobInstance | JobOutputEvent[SleepOutput]]:
+@spec(args=SleepArgs, output=SleepOutput, precheck=sleep_precheck)
+def Sleep(
+    context: Context, args: SleepArgs, dependencies
+) -> Generator[Await[TimeDependency, Never] | JobOutputEvent[SleepOutput]]:
     """A job that sleeps for a specified duration."""
+
     duration_seconds = args.get("duration_seconds", 0)
 
-    yield Empty({}, {"wait_seconds": TimeDependency.seconds_from_now(duration_seconds)})
-    yield JobOutputEvent(output={"duration_seconds": duration_seconds})
+    yield Await(TimeDependency.seconds_from_now(duration_seconds))
+    yield JobOutputEvent[SleepOutput](output={"duration_seconds": duration_seconds})

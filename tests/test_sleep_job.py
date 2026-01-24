@@ -8,7 +8,7 @@ import sys
 import tempfile
 import time
 
-from zahir.base_types import Context, JobState
+from zahir.base_types import Context, JobState, JobInstance
 from zahir.context import MemoryContext
 from zahir.events import Await, JobOutputEvent
 from zahir.job_registry import SQLiteJobRegistry
@@ -20,7 +20,7 @@ from zahir.worker import LocalWorkflow
 from zahir.worker.call_frame import ZahirStackFrame
 from zahir.worker.state_machine import ZahirWorkerState
 from zahir.worker.state_machine.execute_job import execute_job
-from zahir.worker.state_machine.states import HandleJobCompleteNoOutputStateChange
+from zahir.worker.state_machine.states import HandleAwaitStateChange, HandleJobCompleteNoOutputStateChange
 
 
 def test_sleep_job_precheck_valid_duration():
@@ -80,13 +80,14 @@ def test_sleep_job_executes():
     # The timing happens in the dependency worker, not during job execution
     result, _ = execute_job(worker_state)
 
-    # The job should have completed with output
+    # The job should yield an Await event
     assert result is not None
-    assert worker_state.last_event is not None
+    assert isinstance(result, HandleAwaitStateChange)
+    assert worker_state.await_event is not None
 
 
 def test_sleep_job_stores_output():
-    """Test that Sleep job yields output event with the duration."""
+    """Test that Sleep job yields Await event with TimeDependency."""
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
@@ -109,10 +110,18 @@ def test_sleep_job_stores_output():
 
     result, _ = execute_job(worker_state)
 
-    # The last_event should contain the output event with the duration
-    assert worker_state.last_event is not None
-    assert hasattr(worker_state.last_event, "output")
-    assert worker_state.last_event.output.get("duration_seconds") == duration
+    # The job should yield an Await event with TimeDependency
+    assert result is not None
+    assert isinstance(result, HandleAwaitStateChange)
+    assert worker_state.await_event is not None
+    from zahir.dependencies.time import TimeDependency
+
+    # After process_await, the TimeDependency is wrapped in an Empty job
+    assert isinstance(worker_state.await_event.job, JobInstance)
+    assert worker_state.await_event.job.spec.type == "Empty"
+    # Check that the Empty job has the TimeDependency as a dependency
+    dependency = worker_state.await_event.job.dependencies.dependencies.get("dependencies")
+    assert isinstance(dependency, TimeDependency)
 
 
 def test_sleep_job_very_small_duration():
@@ -138,9 +147,10 @@ def test_sleep_job_very_small_duration():
 
     result, _ = execute_job(worker_state)
 
-    # Should complete successfully
-    assert worker_state.last_event is not None
-    assert worker_state.last_event.output.get("duration_seconds") == duration
+    # Should yield Await event
+    assert result is not None
+    assert isinstance(result, HandleAwaitStateChange)
+    assert worker_state.await_event is not None
 
 
 def test_sleep_job_dependencies_structure():
@@ -159,20 +169,20 @@ def test_sleep_job_dependencies_structure():
     job = Sleep({"duration_seconds": duration})
     job_generator = Sleep.run(context, job.input, job.dependencies)
 
-    # Get the first yielded event (should be Empty with TimeDependency)
+    # Get the first yielded event (should be Await with TimeDependency)
     first_event = next(job_generator)
 
-    # Verify it's an Empty job with dependencies
-    from zahir.jobs import Empty
+    # Verify it's an Await object
+    assert isinstance(first_event, Await)
 
-    assert first_event.spec == Empty or first_event.__class__.__name__ == "JobInstance"
+    # The job field should be a TimeDependency
+    from zahir.dependencies.time import TimeDependency
 
-    # The dependency should have wait_seconds set
-    assert first_event.dependencies.get("wait_seconds") is not None
+    assert isinstance(first_event.job, TimeDependency)
 
 
 def test_sleep_job_zero_duration():
-    """Test that Sleep job executes immediately with zero duration."""
+    """Test that Sleep job yields Await even with zero duration."""
     with tempfile.NamedTemporaryFile(delete=False) as tmp:
         tmp_file = tmp.name
 
@@ -195,9 +205,11 @@ def test_sleep_job_zero_duration():
     result, _ = execute_job(worker_state)
     elapsed_time = time.time() - start_time
 
-    # Should complete very quickly (within reasonable time)
+    # Should yield Await event quickly
     assert elapsed_time < 1.0
-    assert worker_state.last_event.output.get("duration_seconds") == 0
+    assert result is not None
+    assert isinstance(result, HandleAwaitStateChange)
+    assert worker_state.await_event is not None
 
 
 def test_sleep_job_float_duration():
@@ -223,8 +235,10 @@ def test_sleep_job_float_duration():
 
     result, _ = execute_job(worker_state)
 
-    # Verify output contains exact duration
-    assert worker_state.last_event.output.get("duration_seconds") == duration
+    # Should yield Await event
+    assert result is not None
+    assert isinstance(result, HandleAwaitStateChange)
+    assert worker_state.await_event is not None
 
 
 @spec()
@@ -251,17 +265,17 @@ def test_sleep_job_yields_correct_structure():
     job_generator = Sleep.run(context, job.input, job.dependencies)
     events = list(job_generator)
 
-    # Should have 2 events: Empty (with dependency) and JobOutputEvent
+    # Should have 2 events: Await (with TimeDependency) and JobOutputEvent
     assert len(events) == 2
 
-    empty_job = events[0]
+    await_event = events[0]
     output_event = events[1]
 
-    # First event should be an Empty job with wait_seconds dependency
-    assert empty_job.spec == Empty or empty_job.__class__.__name__ == "JobInstance"
-    # Check that wait_seconds is in the dependencies (DependencyGroup)
-    assert hasattr(empty_job.dependencies, "dependencies")
-    assert "wait_seconds" in empty_job.dependencies.dependencies
+    # First event should be an Await with TimeDependency
+    assert isinstance(await_event, Await)
+    from zahir.dependencies.time import TimeDependency
+
+    assert isinstance(await_event.job, TimeDependency)
 
     # Second event should be JobOutputEvent with duration
     assert isinstance(output_event, JobOutputEvent)

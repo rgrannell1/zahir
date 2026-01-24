@@ -49,9 +49,7 @@ def test_process_await_single_dependency():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker")
 
-    context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
 
     # Create a dependency
     dependency = TimeDependency(
@@ -96,9 +94,7 @@ def test_process_await_list_of_dependencies():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker")
 
-    context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
 
     # Create multiple dependencies
     dep1 = TimeDependency(
@@ -134,9 +130,7 @@ def test_process_await_mixed_jobs_and_dependencies():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker")
 
-    context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
 
     # Create a mix of jobs and dependencies
     job1 = SimpleJob({"idx": 0}, {})
@@ -179,9 +173,7 @@ def test_process_await_single_dependency_group():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker")
 
-    context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
 
     # Create a DependencyGroup
     dep1 = TimeDependency(
@@ -213,9 +205,7 @@ def test_process_await_list_with_dependency_group():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker")
 
-    context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
 
     job = SimpleJob({"test": "data"}, {})
 
@@ -260,9 +250,7 @@ def test_process_await_list_only_dependencies_creates_empty_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker")
 
-    context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
 
     dep1 = TimeDependency(
         after=datetime.now(UTC) - timedelta(seconds=1),
@@ -297,9 +285,7 @@ def test_process_await_preserves_job_order():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker")
 
-    context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry
-    )
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
 
     dep = TimeDependency(
         after=datetime.now(UTC) - timedelta(seconds=1),

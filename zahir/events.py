@@ -22,6 +22,7 @@ CustomEventOutputType = TypeVar("CustomEventOutputType", bound=Mapping[str, Any]
 ## Event Base-Classes
 ## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+
 class ZahirEvent(ABC):
     """Base class for all Zahir events"""
 
@@ -73,6 +74,7 @@ class JobEffectEvent(ZahirEvent):
 ## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ## General Zahir Events
 ## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 
 @dataclass
 class WorkflowStartedEvent(ZahirEvent):
@@ -312,6 +314,7 @@ class ZahirCustomEvent[CustomEventOutputType](ZahirEvent):
 ## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 ## State-Change Events
 ## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
 
 @dataclass
 class JobCompletedEvent(JobStateEvent):
@@ -553,6 +556,7 @@ class JobPrecheckFailedEvent(JobStateEvent):
 ## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 type Awaitable[ArgsType, OutputType] = "JobInstance | list[JobInstance] | Dependency"
+
 
 @dataclass
 class Await[ArgsType, OutputType](JobEffectEvent):

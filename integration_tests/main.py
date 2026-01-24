@@ -36,6 +36,7 @@ class UppercaseWordsInput(TypedDict):
 class UppercaseWordsOutput(TypedDict):
     words: list[str]
 
+
 WORD_RE = re.compile(r"[^\W\d_]+(?:-[^\W\d_]+)*", re.UNICODE)
 
 
@@ -110,10 +111,10 @@ def UppercaseWords(context: Context, args, dependencies) -> Generator[JobOutputE
 job_registry = SQLiteJobRegistry("jobs.db")
 context = MemoryContext(scope=LocalScope.from_module(), job_registry=job_registry)
 
-start = BookProcessor({"file_path": "integration_tests/data.txt"}, {}) # type: ignore
+start = BookProcessor({"file_path": "integration_tests/data.txt"}, {})  # type: ignore
 
 # Traces are written to "traces/" by default
-workflow = LocalWorkflow(context=context, max_workers=15) # type: ignore
+workflow = LocalWorkflow(context=context, max_workers=15)  # type: ignore
 
 events = list[WorkflowOutputEvent | ZahirEvent](workflow.run(start, events_filter=None))
 print(events[-5:-1])
