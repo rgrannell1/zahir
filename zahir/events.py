@@ -8,6 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+import json
 import os
 from typing import TYPE_CHECKING, Any, TypeVar
 
@@ -591,6 +592,19 @@ class Await[ArgsType, OutputType](JobEffectEvent):
         return cls(job=job)
 
 
+def check_output_json_serializable(obj: Any) -> None:
+    """Raise TypeError if obj is not JSON-serializable (e.g. for JobOutputEvent.output)."""
+
+    # yes I am aware this is expensive
+    try:
+        json.dumps(obj)
+    except TypeError as err:
+        raise TypeError(
+            "JobOutputEvent output must be JSON-serializable (outputs are stored as JSON). "
+            f"Original error: {err}"
+        ) from err
+
+
 @dataclass
 class JobOutputEvent[OutputType](JobEffectEvent):
     """Indicates that a job has produced output"""
@@ -599,6 +613,9 @@ class JobOutputEvent[OutputType](JobEffectEvent):
     workflow_id: str | None = None
     job_id: str | None = None
     pid: int = field(default_factory=os.getpid)
+
+    def __post_init__(self) -> None:
+        check_output_json_serializable(self.output)
 
     def save(self, context: Context) -> Mapping[str, Any]:
         return {

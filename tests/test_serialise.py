@@ -4,7 +4,7 @@ import pytest
 
 from zahir.base_types import Context
 from zahir.context import MemoryContext
-from zahir.events import JobOutputEvent, ZahirEvent
+from zahir.events import JobOutputEvent, ZahirEvent, check_output_json_serializable
 from zahir.scope import LocalScope
 from zahir.serialise import Serialisable, SerialisedEvent, deserialise_event, serialise_event
 
@@ -30,6 +30,21 @@ class MockSerialisableEvent:
     def load(cls, context: Context, data: dict):
         """Load method for Serialisable protocol."""
         return cls(data["value"])
+
+
+def test_job_output_event_rejects_non_json_serializable_output():
+    """JobOutputEvent must be given JSON-serializable output (stored as JSON)."""
+    with pytest.raises(TypeError) as exc_info:
+        JobOutputEvent(output={"triple": object()})  # object() is not JSON-serializable
+    assert "JobOutputEvent output must be JSON-serializable" in str(exc_info.value)
+    assert "object" in str(exc_info.value).lower() or "Object" in str(exc_info.value)
+
+
+def test_check_output_json_serializable_accepts_dict_and_list():
+    """check_output_json_serializable accepts dicts and lists."""
+    check_output_json_serializable({"a": 1, "b": [2, 3]})
+    check_output_json_serializable([])
+    check_output_json_serializable({})
 
 
 def test_serialise_event_with_valid_event(simple_context):
