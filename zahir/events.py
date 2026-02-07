@@ -592,7 +592,7 @@ class Await[ArgsType, OutputType](JobEffectEvent):
         return cls(job=job)
 
 
-def check_output_json_serializable(obj: Any) -> None:
+def check_output_json_serialisable(obj: Any) -> None:
     """Raise TypeError if obj is not JSON-serializable (e.g. for JobOutputEvent.output)."""
 
     # yes I am aware this is expensive
@@ -615,7 +615,7 @@ class JobOutputEvent[OutputType](JobEffectEvent):
     pid: int = field(default_factory=os.getpid)
 
     def __post_init__(self) -> None:
-        check_output_json_serializable(self.output)
+        check_output_json_serialisable(self.output)
 
     def save(self, context: Context) -> Mapping[str, Any]:
         return {

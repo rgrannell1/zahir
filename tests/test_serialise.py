@@ -4,7 +4,7 @@ import pytest
 
 from zahir.base_types import Context
 from zahir.context import MemoryContext
-from zahir.events import JobOutputEvent, ZahirEvent, check_output_json_serializable
+from zahir.events import JobOutputEvent, ZahirEvent, check_output_json_serialisable
 from zahir.scope import LocalScope
 from zahir.serialise import Serialisable, SerialisedEvent, deserialise_event, serialise_event
 
@@ -42,9 +42,9 @@ def test_job_output_event_rejects_non_json_serializable_output():
 
 def test_check_output_json_serializable_accepts_dict_and_list():
     """check_output_json_serializable accepts dicts and lists."""
-    check_output_json_serializable({"a": 1, "b": [2, 3]})
-    check_output_json_serializable([])
-    check_output_json_serializable({})
+    check_output_json_serialisable({"a": 1, "b": [2, 3]})
+    check_output_json_serialisable([])
+    check_output_json_serialisable({})
 
 
 def test_serialise_event_with_valid_event(simple_context):

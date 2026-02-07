@@ -9,6 +9,7 @@
 - Functions should not start with _; do not make them private
 - I name exceptions `err` and indices `idx`, `jdx`, etc.
 - Functions should be short and single purpose
+- British English please
 
 ## Testing
 
