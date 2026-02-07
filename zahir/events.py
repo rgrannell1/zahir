@@ -600,8 +600,7 @@ def check_output_json_serialisable(obj: Any) -> None:
         json.dumps(obj)
     except TypeError as err:
         raise TypeError(
-            "JobOutputEvent output must be JSON-serializable (outputs are stored as JSON). "
-            f"Original error: {err}"
+            f"JobOutputEvent output must be JSON-serializable (outputs are stored as JSON). Original error: {err}"
         ) from err
 
 

@@ -10,6 +10,7 @@ from zahir.dependencies.job import JobDependency
 from zahir.dependencies.resources import ResourceLimit, ResourceType
 from zahir.dependencies.semaphore import Semaphore
 from zahir.dependencies.time import TimeDependency
+from zahir.dependencies.sqlite import SqliteDependency
 
 __all__ = [
     "ConcurrencyLimit",
@@ -19,4 +20,5 @@ __all__ = [
     "ResourceType",
     "Semaphore",
     "TimeDependency",
+    "SqliteDependency",
 ]
