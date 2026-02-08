@@ -13,7 +13,7 @@ import os
 from typing import TYPE_CHECKING, Any, TypeVar
 
 if TYPE_CHECKING:
-    from zahir.base_types import Context, JobInstance, SerialisedJobInstance
+    from zahir.base_types import Context, Dependency, JobInstance, SerialisedJobInstance
 
 OutputType = TypeVar("OutputType", bound=Mapping[str, Any])
 CustomEventOutputType = TypeVar("CustomEventOutputType", bound=Mapping[str, Any])
@@ -230,7 +230,7 @@ class JobWorkerWaitingEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, _context: Context, data: Mapping[str, Any]) -> JobWorkerWaitingEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobWorkerWaitingEvent:  # noqa: ARG003
         return cls(
             pid=data.get("pid", 0),
             workflow_id=data.get("workflow_id"),
@@ -250,7 +250,7 @@ class JobReadyEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, _context: Context, data: Mapping[str, Any]) -> JobReadyEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobReadyEvent:  # noqa: ARG003
         return cls(pid=data.get("pid", 0))
 
 
@@ -272,7 +272,7 @@ class JobAssignedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, _context: Context, data: Mapping[str, Any]) -> JobAssignedEvent:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> JobAssignedEvent:  # noqa: ARG003
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -573,9 +573,16 @@ class Await[ArgsType, OutputType](JobEffectEvent):
                 "is_list": False,
                 "pid": self.pid,
             }
+        if isinstance(self.job, list):
+            return {
+                "job": [j.save(context) for j in self.job],  # type: ignore[union-attr]
+                "is_list": True,
+                "pid": self.pid,
+            }
+        # Dependency case
         return {
-            "job": [j.save(context) for j in self.job],
-            "is_list": True,
+            "job": self.job.save(context),
+            "is_list": False,
             "pid": self.pid,
         }
 

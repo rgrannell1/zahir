@@ -10,7 +10,7 @@ from math import ceil
 import os
 import signal
 import traceback
-from typing import Any, cast
+from typing import cast
 
 from zahir.base_types import JobState, validate_output_type
 from zahir.events import Await, JobOutputEvent, JobWorkerWaitingEvent

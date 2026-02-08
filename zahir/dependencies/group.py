@@ -35,7 +35,7 @@ class DependencyGroup(Dependency):
         result: dict[str, Dependency | list[Dependency]] = {}
         for name, deps in self.dependencies.items():
             if isinstance(deps, list):
-                result[name] = [dep.request_extension(extra_seconds) for dep in deps]
+                result[name] = [dep.request_extension(extra_seconds) for dep in deps]  # type: ignore[union-attr]
             else:
                 result[name] = deps.request_extension(extra_seconds)
         return type(self)(result)

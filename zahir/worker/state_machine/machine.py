@@ -1,3 +1,4 @@
+import multiprocessing
 from multiprocessing.queues import Queue
 import os
 from typing import Any
