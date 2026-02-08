@@ -1,6 +1,5 @@
 """OpenTelemetry tracing support for Zahir workflows."""
 
-from collections.abc import Mapping
 from datetime import UTC, datetime
 import json
 import os
@@ -8,8 +7,7 @@ import pathlib
 import socket
 from typing import Any
 
-from zahir.base_types import Context, JobRegistry
-from zahir.utils.id_generator import generate_span_id, generate_trace_id
+from zahir.base_types import Context
 from zahir.events import (
     JobCompletedEvent,
     JobImpossibleEvent,
@@ -27,6 +25,7 @@ from zahir.events import (
     WorkflowStartedEvent,
     ZahirEvent,
 )
+from zahir.utils.id_generator import generate_span_id, generate_trace_id
 
 
 def _nanoseconds_since_epoch(timestamp: datetime | None) -> int:

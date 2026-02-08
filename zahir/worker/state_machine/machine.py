@@ -1,12 +1,11 @@
-import os
 from multiprocessing.queues import Queue
+import os
 from typing import Any
 
 from zahir.base_types import Context
 from zahir.constants import GREEN, RESET
 from zahir.events import (
     Await,
-    ZahirEvent,
 )
 from zahir.serialise import SerialisedEvent
 from zahir.utils.logging_config import configure_logging, get_logger

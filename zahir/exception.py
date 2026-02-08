@@ -98,5 +98,5 @@ def exception_from_text_blob(blob: str) -> Exception:
         raise TypeError(f"Unpickled object is not an exception: {type(exc)!r}")
 
     # Attach the formatted traceback string to the exception for display
-    setattr(exc, "__serialized_traceback__", payload["traceback"])
+    exc.__serialized_traceback__ = payload["traceback"]
     return exc

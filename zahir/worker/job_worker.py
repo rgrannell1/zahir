@@ -1,9 +1,8 @@
 import atexit
-import os
 from multiprocessing.queues import Queue
+import os
 
 from zahir.base_types import Context
-from zahir.constants import ZAHIR_LOG_OUTPUT_DIR_KEY, ZAHIR_START_JOB_TYPE_KEY
 from zahir.events import (
     JobWorkerWaitingEvent,
     ZahirInternalErrorEvent,
@@ -19,7 +18,13 @@ type OutputQueue = Queue[SerialisedEvent]
 type InputQueue = Queue[SerialisedEvent]
 
 
-def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: OutputQueue, workflow_id: str) -> None:
+def zahir_job_worker(
+    context: Context,
+    input_queue: InputQueue,
+    output_queue: OutputQueue,
+    workflow_id: str,
+    log_dir: str | None = None,
+) -> None:
     """Receive and execute jobs dispatched by the overseer.
 
     Jobs are received via the input_queue. When the worker is ready for more work,
@@ -29,10 +34,8 @@ def zahir_job_worker(context: Context, input_queue: InputQueue, output_queue: Ou
     # Configure logging for this worker process
     configure_logging()
 
-    log_output_dir = context.state.get(ZAHIR_LOG_OUTPUT_DIR_KEY)
-    start_job_type = context.state.get(ZAHIR_START_JOB_TYPE_KEY)
-    if log_output_dir:
-        setup_output_logging(log_output_dir=log_output_dir, start_job_type=start_job_type)
+    if log_dir:
+        setup_output_logging(log_dir=log_dir)
 
     context.job_registry.init(str(os.getpid()))
     atexit.register(context.job_registry.close)

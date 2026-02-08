@@ -13,12 +13,12 @@ def process_await[ArgsType, OutputType](await_event: Await[ArgsType, OutputType]
         # standard case, return the job
 
         return await_event
-    elif isinstance(data, Dependency):
+    if isinstance(data, Dependency):
         # Bind the dependencies to an Empty job.
 
         dependency_job = Empty({}, {"dependencies": data})
         return Await(dependency_job)
-    elif isinstance(data, list):
+    if isinstance(data, list):
         # can be a mix of jobs and dependencies.
 
         jobs: list[JobInstance] = []
@@ -38,8 +38,6 @@ def process_await[ArgsType, OutputType](await_event: Await[ArgsType, OutputType]
         if dependencies:
             dependency_job = Empty({}, {"dependencies": dependencies})
             return Await(jobs + [dependency_job])
-        else:
-            # No dependencies, just return the jobs
-            return Await(jobs)
-    else:
-        raise ValueError(f"Invalid awaitable: {data}")
+        # No dependencies, just return the jobs
+        return Await(jobs)
+    raise ValueError(f"Invalid awaitable: {data}")

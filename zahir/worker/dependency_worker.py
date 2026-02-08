@@ -1,20 +1,16 @@
 import atexit
+from multiprocessing.queues import Queue
 import os
 import time
-from multiprocessing.queues import Queue
 
 from zahir.base_types import Context, DependencyState, JobState
+from zahir.constants import DEPENDENCY_LOOP_STALL_SECONDS
 from zahir.events import (
     JobReadyEvent,
     WorkflowCompleteEvent,
     ZahirInternalErrorEvent,
 )
 from zahir.exception import ImpossibleDependencyError, exception_to_text_blob
-from zahir.constants import (
-    DEPENDENCY_LOOP_STALL_SECONDS,
-    ZAHIR_LOG_OUTPUT_DIR_KEY,
-    ZAHIR_START_JOB_TYPE_KEY,
-)
 from zahir.serialise import SerialisedEvent, serialise_event
 from zahir.utils.logging_config import configure_logging
 from zahir.utils.output_logging import setup_output_logging
@@ -22,15 +18,16 @@ from zahir.utils.output_logging import setup_output_logging
 type OutputQueue = Queue[SerialisedEvent]
 
 
-def setup_dependency_worker(context: Context) -> None:
+def setup_dependency_worker(
+    context: Context,
+    log_dir: str | None = None,
+) -> None:
     """Configure logging and output logging for the dependency worker."""
 
     configure_logging()
 
-    log_output_dir = context.state.get(ZAHIR_LOG_OUTPUT_DIR_KEY)
-    start_job_type = context.state.get(ZAHIR_START_JOB_TYPE_KEY)
-    if log_output_dir:
-        setup_output_logging(log_output_dir=log_output_dir, start_job_type=start_job_type)
+    if log_dir:
+        setup_output_logging(log_dir=log_dir)
 
 
 def _setup_job_registry(context: Context) -> None:
@@ -77,7 +74,7 @@ def job_dependencies_satisfied(
             context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.READY, recovery=False
         )
         return True
-    elif dependencies_state == DependencyState.IMPOSSIBLE:
+    if dependencies_state == DependencyState.IMPOSSIBLE:
         error = ImpossibleDependencyError(f"Job {job.job_id} has impossible dependencies.")
         job_registry.set_state(
             context,
@@ -168,9 +165,14 @@ def handle_exception(
     )
 
 
-def zahir_dependency_worker(context: Context, output_queue: OutputQueue, workflow_id: str) -> None:
+def zahir_dependency_worker(
+    context: Context,
+    output_queue: OutputQueue,
+    workflow_id: str,
+    log_dir: str | None = None,
+) -> None:
     """Analyse job dependencies and mark jobs as pending."""
-    setup_dependency_worker(context)
+    setup_dependency_worker(context, log_dir=log_dir)
 
     try:
         _setup_job_registry(context)

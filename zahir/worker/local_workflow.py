@@ -39,7 +39,7 @@ class LocalWorkflow[WorkflowOutputType]:
         @param context: The context containing scope, job registry, and event registry
         @param max_workers: Number of worker processes to use
         @param progress_monitor: Optional progress monitor for tracking workflow execution. Defaults to ZahirProgressMonitor if not provided.
-        @param log_output_dir: Directory to capture stdout/stderr from all processes. If None, logging is disabled.
+        @param log_output_dir: Directory to capture stdout/stderr from all processes. Defaults to "zahir_logs".
         @param otel_output_dir: Directory to write OpenTelemetry trace files. Defaults to "traces". Pass None explicitly to disable tracing.
         """
 
@@ -48,7 +48,7 @@ class LocalWorkflow[WorkflowOutputType]:
 
         self.context = context
         self.progress_monitor = progress_monitor
-        self.log_output_dir = log_output_dir
+        self.log_output_dir = log_output_dir if log_output_dir is not None else "zahir_logs"
         self.start_job_type = start_job_type
         self.otel_output_dir = otel_output_dir
 
@@ -63,12 +63,6 @@ class LocalWorkflow[WorkflowOutputType]:
             context = MemoryContext(scope=scope, job_registry=job_registry)
 
         self.context = context
-
-        # Store output logging configuration in context state
-        log_dir = "zahir_logs" if log_output_dir is None else log_output_dir
-
-        self.context.state["_zahir_log_output_dir"] = log_dir
-        self.context.state["_zahir_start_job_type"] = start_job_type
 
         self.max_workers = max_workers
 
@@ -91,7 +85,14 @@ class LocalWorkflow[WorkflowOutputType]:
         progress_monitor = self.progress_monitor or ZahirProgressMonitor() if show_progress else NoOpProgressMonitor()
 
         with progress_monitor as progress:
-            for event in zahir_worker_overseer(start, self.context, self.max_workers, self.otel_output_dir):
+            for event in zahir_worker_overseer(
+                start,
+                self.context,
+                self.max_workers,
+                self.otel_output_dir,
+                log_output_dir=self.log_output_dir,
+                start_job_type=self.start_job_type,
+            ):
                 progress.handle_event(event)
 
                 if events_filter is None:

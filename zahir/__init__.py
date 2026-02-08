@@ -6,8 +6,8 @@ from zahir.dependencies import (
     JobDependency,
     ResourceLimit,
     Semaphore,
-    TimeDependency,
     SqliteDependency,
+    TimeDependency,
 )
 from zahir.events import (
     Await,
@@ -95,9 +95,9 @@ __all__ = [
     "ResourceLimit",
     "SQLiteJobRegistry",
     "Scope",
-    "SqliteDependency",
     "Semaphore",
     "Sleep",
+    "SqliteDependency",
     "TimeDependency",
     "WorkflowCompleteEvent",
     "WorkflowOutputEvent",

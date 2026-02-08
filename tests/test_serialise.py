@@ -4,7 +4,7 @@ import pytest
 
 from zahir.base_types import Context
 from zahir.context import MemoryContext
-from zahir.events import JobOutputEvent, ZahirEvent, check_output_json_serialisable
+from zahir.events import JobOutputEvent, WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent, check_output_json_serialisable
 from zahir.scope import LocalScope
 from zahir.serialise import Serialisable, SerialisedEvent, deserialise_event, serialise_event
 
@@ -45,6 +45,37 @@ def test_check_output_json_serializable_accepts_dict_and_list():
     check_output_json_serialisable({"a": 1, "b": [2, 3]})
     check_output_json_serialisable([])
     check_output_json_serialisable({})
+
+
+def test_workflow_output_event_rejects_non_json_serialisable_output():
+    """WorkflowOutputEvent must be given JSON-serialisable output."""
+    with pytest.raises(TypeError) as exc_info:
+        WorkflowOutputEvent(output={"gen": (x for x in range(3))})
+    assert "WorkflowOutputEvent output must be JSON-serializable" in str(exc_info.value)
+
+
+def test_workflow_output_event_rejects_generator():
+    """WorkflowOutputEvent rejects a bare generator — the exact mistake that causes 'cannot pickle generator'."""
+    def make_gen():
+        yield 1
+
+    with pytest.raises(TypeError) as exc_info:
+        WorkflowOutputEvent(output={"items": make_gen()})
+    assert "WorkflowOutputEvent" in str(exc_info.value)
+    assert "JSON-serializable" in str(exc_info.value)
+
+
+def test_zahir_custom_event_rejects_non_json_serialisable_output():
+    """ZahirCustomEvent must be given JSON-serialisable output."""
+    with pytest.raises(TypeError) as exc_info:
+        ZahirCustomEvent(output={"bad": object()})
+    assert "ZahirCustomEvent output must be JSON-serializable" in str(exc_info.value)
+
+
+def test_zahir_custom_event_allows_none_output():
+    """ZahirCustomEvent allows None output (it's optional)."""
+    event = ZahirCustomEvent(output=None)
+    assert event.output is None
 
 
 def test_serialise_event_with_valid_event(simple_context):

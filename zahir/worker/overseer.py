@@ -3,8 +3,8 @@
 from collections.abc import Iterator
 from enum import StrEnum
 import multiprocessing
-import os
 from multiprocessing.queues import Queue
+import os
 
 from zahir.base_types import Context, JobInstance, JobState
 from zahir.events import (
@@ -19,9 +19,10 @@ from zahir.events import (
 from zahir.exception import exception_from_text_blob
 from zahir.serialise import SerialisedEvent, deserialise_event, serialise_event
 from zahir.utils.id_generator import generate_id
+from zahir.utils.opentelemetry import TraceContextManager
+from zahir.utils.output_logging import create_workflow_log_dir
 from zahir.worker.dependency_worker import zahir_dependency_worker
 from zahir.worker.job_worker import zahir_job_worker
-from zahir.utils.opentelemetry import TraceContextManager
 
 type OutputQueue = Queue[SerialisedEvent]
 type InputQueue = Queue[SerialisedEvent]
@@ -130,8 +131,14 @@ def dispatch_jobs_to_workers(
         jobs_dispatched += 1
 
 
-def start_zahir_overseer(context: Context, start: JobInstance | None, worker_count: int = 4):
-    """Start processes, create queues"""
+def start_zahir_overseer(
+    context: Context,
+    start: JobInstance | None,
+    worker_count: int = 4,
+    log_output_dir: str | None = None,
+    start_job_type: str | None = None,
+):
+    """Start processes, create queues."""
 
     workflow_id = generate_id()
     output_queue: OutputQueue = multiprocessing.Queue()
@@ -142,6 +149,11 @@ def start_zahir_overseer(context: Context, start: JobInstance | None, worker_cou
     context.job_registry.init(str(current_pid))
     context.job_registry.on_startup()
 
+    # Create a single shared log directory for the entire workflow run
+    workflow_log_dir: str | None = None
+    if log_output_dir:
+        workflow_log_dir = str(create_workflow_log_dir(log_output_dir, start_job_type))
+
     # Start with initial job if provided
     if start is not None:
         context.job_registry.add(context, start, output_queue, workflow_id)
@@ -150,7 +162,7 @@ def start_zahir_overseer(context: Context, start: JobInstance | None, worker_cou
     processes = []
     dep_proc = multiprocessing.Process(
         target=zahir_dependency_worker,
-        args=(context, output_queue, workflow_id),
+        args=(context, output_queue, workflow_id, workflow_log_dir),
     )
     dep_proc.start()
     processes.append(dep_proc)
@@ -164,7 +176,7 @@ def start_zahir_overseer(context: Context, start: JobInstance | None, worker_cou
 
         proc = multiprocessing.Process(
             target=zahir_job_worker,
-            args=(context, input_queue, output_queue, workflow_id),
+            args=(context, input_queue, output_queue, workflow_id, workflow_log_dir),
         )
 
         proc.start()
@@ -187,13 +199,18 @@ def start_zahir_overseer(context: Context, start: JobInstance | None, worker_cou
 
 
 def zahir_worker_overseer(
-    start: JobInstance | None, context, worker_count: int = 4, otel_output_dir: str | None = None
+    start: JobInstance | None,
+    context,
+    worker_count: int = 4,
+    otel_output_dir: str | None = None,
+    log_output_dir: str | None = None,
+    start_job_type: str | None = None,
 ) -> Iterator[ZahirEvent]:
     """Spawn a pool of zahir_worker processes, each polling for jobs. This layer
     is responsible for collecting events from workers and yielding them to the caller."""
 
     processes, process_queues, process_states, ready_worker_queue, output_queue, workflow_id = start_zahir_overseer(
-        context, start, worker_count
+        context, start, worker_count, log_output_dir=log_output_dir, start_job_type=start_job_type
     )
 
     # Initialize open telemetry if requested

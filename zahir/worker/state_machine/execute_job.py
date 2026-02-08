@@ -6,7 +6,6 @@ from typing import cast
 
 from zahir.base_types import JobState, validate_output_type
 from zahir.events import Await, JobOutputEvent, JobWorkerWaitingEvent
-from zahir.exception import JobPostcheckError
 from zahir.serialise import serialise_event
 from zahir.worker.read_job_events import read_job_events
 from zahir.worker.state_machine.states import (

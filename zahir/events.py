@@ -19,9 +19,9 @@ OutputType = TypeVar("OutputType", bound=Mapping[str, Any])
 CustomEventOutputType = TypeVar("CustomEventOutputType", bound=Mapping[str, Any])
 
 
-## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
-## Event Base-Classes
-## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Event Base-Classes
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 class ZahirEvent(ABC):
@@ -63,18 +63,14 @@ class ZahirEvent(ABC):
 class JobStateEvent(ZahirEvent):
     """Base class for events that represent job state transitions."""
 
-    pass
-
 
 class JobEffectEvent(ZahirEvent):
     """Events that form part of Zahir's conceptual effect system (at the job output level)"""
 
-    pass
 
-
-## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
-## General Zahir Events
-## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# General Zahir Events
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 @dataclass
@@ -234,7 +230,7 @@ class JobWorkerWaitingEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, _context: Context, data: Mapping[str, Any]) -> "JobWorkerWaitingEvent":
+    def load(cls, _context: Context, data: Mapping[str, Any]) -> JobWorkerWaitingEvent:
         return cls(
             pid=data.get("pid", 0),
             workflow_id=data.get("workflow_id"),
@@ -254,7 +250,7 @@ class JobReadyEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, _context: Context, data: Mapping[str, Any]) -> "JobReadyEvent":
+    def load(cls, _context: Context, data: Mapping[str, Any]) -> JobReadyEvent:
         return cls(pid=data.get("pid", 0))
 
 
@@ -276,7 +272,7 @@ class JobAssignedEvent(ZahirEvent):
         }
 
     @classmethod
-    def load(cls, _context: Context, data: Mapping[str, Any]) -> "JobAssignedEvent":
+    def load(cls, _context: Context, data: Mapping[str, Any]) -> JobAssignedEvent:
         return cls(
             workflow_id=data["workflow_id"],
             job_id=data["job_id"],
@@ -293,6 +289,10 @@ class ZahirCustomEvent[CustomEventOutputType](ZahirEvent):
     job_id: str | None = None
     output: CustomEventOutputType | None = None
     pid: int = field(default_factory=os.getpid)
+
+    def __post_init__(self) -> None:
+        if self.output is not None:
+            check_output_json_serialisable(self.output, "ZahirCustomEvent")
 
     def save(self, context: Context) -> Mapping[str, Any]:
         return {
@@ -312,9 +312,9 @@ class ZahirCustomEvent[CustomEventOutputType](ZahirEvent):
         )
 
 
-## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
-## State-Change Events
-## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# State-Change Events
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
 @dataclass
@@ -509,7 +509,6 @@ class JobIrrecoverableEvent(JobStateEvent):
 
     @classmethod
     def load(cls, context: Context, data: Mapping[str, Any]) -> JobIrrecoverableEvent:
-        from zahir.exception import exception_from_text_blob
 
         error_blob = data.get("error", "")
         return cls(
@@ -551,10 +550,10 @@ class JobPrecheckFailedEvent(JobStateEvent):
         )
 
 
-## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
-## Effect System
-## At least, the effects a job may cause
-## +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+# Effect System
+# At least, the effects a job may cause
+# +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 type Awaitable[ArgsType, OutputType] = "JobInstance | list[JobInstance] | Dependency"
 
@@ -592,7 +591,7 @@ class Await[ArgsType, OutputType](JobEffectEvent):
         return cls(job=job)
 
 
-def check_output_json_serialisable(obj: Any) -> None:
+def check_output_json_serialisable(obj: Any, event_type: str = "JobOutputEvent") -> None:
     """Raise TypeError if obj is not JSON-serializable (e.g. for JobOutputEvent.output)."""
 
     # yes I am aware this is expensive
@@ -600,7 +599,7 @@ def check_output_json_serialisable(obj: Any) -> None:
         json.dumps(obj)
     except TypeError as err:
         raise TypeError(
-            f"JobOutputEvent output must be JSON-serializable (outputs are stored as JSON). Original error: {err}"
+            f"{event_type} output must be JSON-serializable (outputs are stored as JSON). Original error: {err}"
         ) from err
 
 
@@ -650,6 +649,7 @@ class WorkflowOutputEvent[OutputType](JobEffectEvent):
         job_id: str | None = None,
         pid: int | None = None,
     ) -> None:
+        check_output_json_serialisable(output, "WorkflowOutputEvent")
         self.output = output
         self.workflow_id = workflow_id
         self.job_id = job_id

@@ -1,6 +1,7 @@
-import os
+from collections.abc import Mapping
+import pathlib
 import sqlite3
-from typing import Any, Mapping, Self
+from typing import Any, Self
 
 from zahir.base_types import Context, Dependency, DependencyState
 
@@ -43,7 +44,7 @@ class SqliteDependency(Dependency):
         if db_path == ":memory:":
             return
 
-        if not os.path.exists(db_path):
+        if not pathlib.Path(db_path).exists():
             raise FileNotFoundError(f"db_path {db_path} does not exist")
 
     def __init__(

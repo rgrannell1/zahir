@@ -32,8 +32,8 @@ from zahir.job_registry.sqlite.tables import (
     JOBS_IDEMPOTENCY_INDEX,
     JOBS_INDEX,
     JOBS_PRIORITY_INDEX,
-    JOBS_WORKFLOW_INDEX,
     JOBS_TABLE_SCHEMA,
+    JOBS_WORKFLOW_INDEX,
 )
 from zahir.job_registry.state_event import create_state_event
 from zahir.serialise import serialise_event
@@ -208,10 +208,9 @@ class SQLiteJobRegistry(JobRegistry):
                         )
                         conn.rollback()
                         return existing_job_id
-                    else:
-                        log.debug(
-                            f"Job with idempotency_hash {idempotency_hash} exists as {existing_job_id} but is in state {existing_state}, allowing new job"
-                        )
+                    log.debug(
+                        f"Job with idempotency_hash {idempotency_hash} exists as {existing_job_id} but is in state {existing_state}, allowing new job"
+                    )
 
             created_at = datetime.now(tz=UTC).isoformat()
             priority = job.args.priority

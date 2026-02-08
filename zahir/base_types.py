@@ -8,13 +8,12 @@ from enum import StrEnum
 import multiprocessing
 from multiprocessing.managers import DictProxy, SyncManager
 from multiprocessing.queues import Queue as MPQueue
-from zahir.exception import JobPrecheckError
-from zahir.exception import JobPostcheckError
-
-from typeguard import check_type
 from typing import TYPE_CHECKING, Any, Self, TypedDict, TypeVar, cast
 
+from typeguard import check_type
+
 from zahir.events import Await, ZahirEvent
+from zahir.exception import JobPostcheckError, JobPrecheckError
 from zahir.utils.id_generator import generate_job_id
 
 if TYPE_CHECKING:
@@ -576,7 +575,7 @@ def create_typeddict_precheck[ArgsType](
             check_type(args, args_type)
             return None
         except Exception as err:
-            exc = JobPrecheckError(f"TypedDict validation failed")
+            exc = JobPrecheckError("TypedDict validation failed")
             exc.__cause__ = err
             return exc
 
@@ -597,7 +596,7 @@ def validate_output_type(output: Any, output_type: type[Any] | None) -> Exceptio
         check_type(output, output_type)
         return None
     except Exception as err:
-        exc = JobPostcheckError(f"TypedDict output validation failed")
+        exc = JobPostcheckError("TypedDict output validation failed")
         exc.__cause__ = err
         return exc
 

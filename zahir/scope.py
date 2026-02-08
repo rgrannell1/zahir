@@ -1,3 +1,4 @@
+import importlib
 import inspect
 from types import ModuleType
 from typing import Self
@@ -212,3 +213,9 @@ class LocalScope(Scope):
                 dependencies.append(obj)
 
         return cls(dependencies=dependencies, specs=specs)
+
+    @classmethod
+    def from_module_name(cls, module_name: str) -> Self:
+        """Create a LocalScope from a module name (for use in spawn workers)."""
+        module = importlib.import_module(module_name)
+        return cls.from_module(module)
