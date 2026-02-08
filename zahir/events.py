@@ -509,7 +509,6 @@ class JobIrrecoverableEvent(JobStateEvent):
 
     @classmethod
     def load(cls, context: Context, data: Mapping[str, Any]) -> JobIrrecoverableEvent:
-
         error_blob = data.get("error", "")
         return cls(
             workflow_id=data["workflow_id"],

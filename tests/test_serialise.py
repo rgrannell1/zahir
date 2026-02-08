@@ -4,7 +4,13 @@ import pytest
 
 from zahir.base_types import Context
 from zahir.context import MemoryContext
-from zahir.events import JobOutputEvent, WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent, check_output_json_serialisable
+from zahir.events import (
+    JobOutputEvent,
+    WorkflowOutputEvent,
+    ZahirCustomEvent,
+    ZahirEvent,
+    check_output_json_serialisable,
+)
 from zahir.scope import LocalScope
 from zahir.serialise import Serialisable, SerialisedEvent, deserialise_event, serialise_event
 
@@ -56,6 +62,7 @@ def test_workflow_output_event_rejects_non_json_serialisable_output():
 
 def test_workflow_output_event_rejects_generator():
     """WorkflowOutputEvent rejects a bare generator — the exact mistake that causes 'cannot pickle generator'."""
+
     def make_gen():
         yield 1
 

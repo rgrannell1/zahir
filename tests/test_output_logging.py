@@ -89,9 +89,7 @@ def test_workflow_captures_job_stdout_and_stderr():
     """Prove that print() and stderr from a job spec end up in the log files."""
     context = make_context()
     with tempfile.TemporaryDirectory() as temp_dir:
-        workflow = LocalWorkflow(
-            context=context, log_output_dir=temp_dir, start_job_type="CaptureProof", max_workers=2
-        )
+        workflow = LocalWorkflow(context=context, log_output_dir=temp_dir, start_job_type="CaptureProof", max_workers=2)
         job = CaptureProofJob({}, {})
         list(workflow.run(job, show_progress=False, events_filter=None))
 
