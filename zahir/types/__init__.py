@@ -1,20 +1,24 @@
-"""Core type definitions used throughout Zahir.
+"""Zahir type definitions, split into focused modules.
 
-This module re-exports all types from the zahir.types package for
-backwards compatibility. New code should import from zahir.types
-directly.
+This package contains the core type hierarchy for Zahir:
+
+- dependency: Dependency ABC, DependencyState, DependencyData
+- job_state: JobState enum, state sets, coverage validation
+- registry: JobRegistry ABC, EventRegistry ABC, JobInformation, JobTimingInformation
+- scope: Scope ABC
+- transform: Transform type alias, TransformSpec dataclass
+- serialised: SerialisedTransformSpec, SerialisedJobData, SerialisedJobInstance
+- context: Context dataclass
+- job: JobSpec, JobInstance, JobArguments, type aliases, validation
 """
 
-# Re-export everything from the new split modules
 from zahir.types.context import Context
 from zahir.types.dependency import Dependency, DependencyData, DependencyState
 from zahir.types.job import (
-    ArgsType,
     JobArguments,
     JobEventSet,
     JobInstance,
     JobSpec,
-    OutputType,
     Precheck,
     Recover,
     Run,
@@ -31,7 +35,6 @@ from zahir.types.transform import Transform, TransformSpec
 __all__ = [
     "ACTIVE_JOB_STATES",
     "COMPLETED_JOB_STATES",
-    "ArgsType",
     "Context",
     "Dependency",
     "DependencyData",
@@ -45,7 +48,6 @@ __all__ = [
     "JobSpec",
     "JobState",
     "JobTimingInformation",
-    "OutputType",
     "Precheck",
     "Recover",
     "Run",

@@ -112,8 +112,8 @@ def setup_output_logging(
     stderr_log_path = log_path / "stderr.log"
 
     # Files must stay open for process lifetime — no context manager
-    stdout_file = stdout_log_path.open("a", encoding="utf-8", buffering=1)  # noqa: SIM115
-    stderr_file = stderr_log_path.open("a", encoding="utf-8", buffering=1)  # noqa: SIM115
+    stdout_file = stdout_log_path.open("a", encoding="utf-8", buffering=1)
+    stderr_file = stderr_log_path.open("a", encoding="utf-8", buffering=1)
 
     # Replace fd 1 and 2 at the OS level so even os.write(1, …) goes here
     os.dup2(stdout_file.fileno(), 1)

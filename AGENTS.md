@@ -24,3 +24,7 @@
 - Do not simply delete failing tests; explain why you are removing at the very least
 - Use `ZAHIR_LOG_LEVEL=DEBUG` to see more logs
 - You can clear tempfiles if you need to
+
+## Planning
+
+- We do not plan to add multi-machine support.

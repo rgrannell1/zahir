@@ -4,7 +4,6 @@ from multiprocessing.queues import Queue
 from types import GeneratorType
 from typing import Any, cast
 
-
 from zahir.base_types import JobInstance, JobRegistry
 from zahir.events import Await, JobOutputEvent, ZahirEvent
 from zahir.serialise import SerialisedEvent, serialise_event
