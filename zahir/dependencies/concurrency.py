@@ -58,6 +58,17 @@ class ConcurrencyLimit(Dependency):
 
         return DependencyResult(type="ConcurrencyLimit", state=DependencyState.SATISFIED, metadata={"limit": self.limit, "slots": self.slots})
 
+
+    def __enter__(self) -> "ConcurrencyLimit":
+        """When entering the context, we assume the slots have already been claimed via satisfied()."""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """On exit, release the slots."""
+        if self._semaphore:
+            for _ in range(self.slots):
+                self._semaphore.release()
+
     def request_extension(self, extra_seconds: float) -> Self:
         """Concurrency limits are not time-based; return self unchanged."""
         return self
