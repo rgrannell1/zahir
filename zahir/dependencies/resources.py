@@ -66,13 +66,26 @@ class ResourceLimit(Dependency):
 
         if self.timeout_at is not None:
             now = datetime.now(tz=UTC)
+
             if now >= self.timeout_at:
-                return DependencyResult(type="ResourceLimit", state=DependencyState.IMPOSSIBLE)
+                return DependencyResult(type="ResourceLimit", state=DependencyState.IMPOSSIBLE, metadata={
+                    "resource": self.resource,
+                    "max_percent": self.max_percent,
+                    "timeout_at": self.timeout_at.isoformat(),
+                })
 
         if self._get_usage() <= self.max_percent:
-            return DependencyResult(type="ResourceLimit", state=DependencyState.SATISFIED)
+            return DependencyResult(type="ResourceLimit", state=DependencyState.SATISFIED, metadata={
+                "resource": self.resource,
+                "max_percent": self.max_percent,
+                "timeout_at": self.timeout_at.isoformat() if self.timeout_at else None,
+            })
 
-        return DependencyResult(type="ResourceLimit", state=DependencyState.UNSATISFIED)
+        return DependencyResult(type="ResourceLimit", state=DependencyState.UNSATISFIED, metadata={
+            "resource": self.resource,
+            "max_percent": self.max_percent,
+            "timeout_at": self.timeout_at.isoformat() if self.timeout_at else None,
+        })
 
     def request_extension(self, extra_seconds: float) -> Self:
         """Extend the timeout deadline if one is set.

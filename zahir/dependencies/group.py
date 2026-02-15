@@ -15,20 +15,25 @@ class DependencyGroup(Dependency):
     def satisfied(self) -> DependencyResult:
         """Are all subdependencies satisfied?"""
 
+        results = []
         for dependency in self.dependencies.values():
             dep_list = dependency if isinstance(dependency, list) else [dependency]
 
+            # a little expensive, but we need to check all subdependencies now that we collect then for metrics
             for subdep in dep_list:
-                result = subdep.satisfied()  # type: ignore[union-attr]
-                state = result.state
+                result = subdep.satisfied()
+                results.append(result)
 
-                if state == DependencyState.UNSATISFIED:
-                    return DependencyResult(type="DependencyGroup", state=DependencyState.UNSATISFIED)
+        is_impossible = any(result.state == DependencyState.IMPOSSIBLE for result in results)
+        is_unsatisfied = any(result.state == DependencyState.UNSATISFIED for result in results)
 
-                if state == DependencyState.IMPOSSIBLE:
-                    return DependencyResult(type="DependencyGroup", state=DependencyState.IMPOSSIBLE)
+        if is_impossible:
+            return DependencyResult(type="DependencyGroup", state=DependencyState.IMPOSSIBLE, subdependencies=results)
 
-        return DependencyResult(type="DependencyGroup", state=DependencyState.SATISFIED)
+        if is_unsatisfied:
+            return DependencyResult(type="DependencyGroup", state=DependencyState.UNSATISFIED, subdependencies=results)
+
+        return DependencyResult(type="DependencyGroup", state=DependencyState.SATISFIED, subdependencies=results)
 
     def request_extension(self, extra_seconds: float) -> Self:
         """Ask each dependency for a time-extension and return

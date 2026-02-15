@@ -39,6 +39,12 @@ class DependencyResult:
     # a message describing the result
     message: str | None = None
 
+    # additional metadata about the dependency
+    metadata: Mapping[str, Any] | None = None
+
+    # the results of any subdependencies
+    subdependencies: list["DependencyResult"] | None = None
+
 
 class DependencyData(TypedDict, total=False):
     """Base structure for serialised dependency data.

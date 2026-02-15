@@ -53,16 +53,16 @@ class ConcurrencyLimit(Dependency):
                 for _ in range(acquired):
                     self._semaphore.release()
 
-                return DependencyResult(type="ConcurrencyLimit", state=DependencyState.UNSATISFIED)
+                return DependencyResult(type="ConcurrencyLimit", state=DependencyState.UNSATISFIED, metadata={"limit": self.limit, "slots": self.slots})
             acquired += 1
 
-        return DependencyResult(type="ConcurrencyLimit", state=DependencyState.SATISFIED)
+        return DependencyResult(type="ConcurrencyLimit", state=DependencyState.SATISFIED, metadata={"limit": self.limit, "slots": self.slots})
 
     def request_extension(self, extra_seconds: float) -> Self:
         """Concurrency limits are not time-based; return self unchanged."""
         return self
 
-    def save(self, context) -> Mapping[str, Any]:
+    def save(self, context: Context) -> Mapping[str, Any]:
         """Save the concurrency limit configuration and semaphore to context."""
         self.context = context
         self._ensure_semaphore()
@@ -75,7 +75,7 @@ class ConcurrencyLimit(Dependency):
         }
 
     @classmethod
-    def load(cls, context, data: Mapping[str, Any]) -> Self:
+    def load(cls, context: Context, data: Mapping[str, Any]) -> Self:
         """Load the concurrency limit configuration and retrieve semaphore from context."""
         semaphore_id = data.get("semaphore_id")
         instance = cls(limit=data["limit"], slots=data["slots"], semaphore_id=semaphore_id, context=context)

@@ -69,9 +69,16 @@ class SqliteDependency(Dependency):
             column_names = [description[0] for description in cursor.description] if cursor.description else []
             result = cursor.fetchone()
 
+            metadata = {
+                "db_path": self.db_path,
+                "query": self.query,
+                "params": self.params,
+                "timeout_seconds": self.timeout_seconds,
+            }
+
             # in either mode, missing results map to unsatisfied
             if result is None:
-                return DependencyResult(type="SqliteDependency", state=DependencyState.UNSATISFIED)
+                return DependencyResult(type="SqliteDependency", state=DependencyState.UNSATISFIED, metadata=metadata)
 
             # one row × one column named "status" → use value as state
             if len(result) == 1 and column_names == ["status"]:
@@ -79,17 +86,17 @@ class SqliteDependency(Dependency):
 
                 match status:
                     case "satisfied":
-                        return DependencyResult(type="SqliteDependency", state=DependencyState.SATISFIED)
+                        return DependencyResult(type="SqliteDependency", state=DependencyState.SATISFIED, metadata=metadata)
                     case "unsatisfied":
-                        return DependencyResult(type="SqliteDependency", state=DependencyState.UNSATISFIED)
+                        return DependencyResult(type="SqliteDependency", state=DependencyState.UNSATISFIED, metadata=metadata)
                     case "impossible":
-                        return DependencyResult(type="SqliteDependency", state=DependencyState.IMPOSSIBLE)
+                        return DependencyResult(type="SqliteDependency", state=DependencyState.IMPOSSIBLE, metadata=metadata)
                     case _:
                         # maybe impossible? but this is a programmer fuckup so probably not.
                         raise ValueError(f"Invalid status: {status}")
 
             state = DependencyState.SATISFIED if len(result) > 0 else DependencyState.UNSATISFIED
-            return DependencyResult(type="SqliteDependency", state=state)
+            return DependencyResult(type="SqliteDependency", state=state, metadata=metadata)
 
     def save(self, context: Context) -> dict[str, Any]:
         """Save the SQLite dependency to a dictionary."""
