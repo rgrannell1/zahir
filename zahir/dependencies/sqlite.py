@@ -71,7 +71,7 @@ class SqliteDependency(Dependency):
 
             # in either mode, missing results map to unsatisfied
             if result is None:
-                return DependencyResult(state=DependencyState.UNSATISFIED)
+                return DependencyResult(type="SqliteDependency", state=DependencyState.UNSATISFIED)
 
             # one row × one column named "status" → use value as state
             if len(result) == 1 and column_names == ["status"]:
@@ -79,17 +79,17 @@ class SqliteDependency(Dependency):
 
                 match status:
                     case "satisfied":
-                        return DependencyResult(state=DependencyState.SATISFIED)
+                        return DependencyResult(type="SqliteDependency", state=DependencyState.SATISFIED)
                     case "unsatisfied":
-                        return DependencyResult(state=DependencyState.UNSATISFIED)
+                        return DependencyResult(type="SqliteDependency", state=DependencyState.UNSATISFIED)
                     case "impossible":
-                        return DependencyResult(state=DependencyState.IMPOSSIBLE)
+                        return DependencyResult(type="SqliteDependency", state=DependencyState.IMPOSSIBLE)
                     case _:
                         # maybe impossible? but this is a programmer fuckup so probably not.
                         raise ValueError(f"Invalid status: {status}")
 
             state = DependencyState.SATISFIED if len(result) > 0 else DependencyState.UNSATISFIED
-            return DependencyResult(state=state)
+            return DependencyResult(type="SqliteDependency", state=state)
 
     def save(self, context: Context) -> dict[str, Any]:
         """Save the SQLite dependency to a dictionary."""

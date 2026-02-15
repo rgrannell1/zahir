@@ -30,7 +30,14 @@ class DependencyState(StrEnum):
 class DependencyResult:
     """Result of checking whether a dependency is satisfied."""
 
+    # the type of the dependency
+    type: str
+
+    # the actual state of the dependency
     state: DependencyState
+
+    # a message describing the result
+    message: str | None = None
 
 
 class DependencyData(TypedDict, total=False):

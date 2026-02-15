@@ -45,11 +45,12 @@ class JobDependency[OutputType](Dependency):
 
         state = self.job_registry.get_state(self.job_id)
         if state in self.impossible_states:
-            return DependencyResult(state=DependencyState.IMPOSSIBLE)
+            return DependencyResult(type="JobDependency", state=DependencyState.IMPOSSIBLE)
 
         if state in self.satisfied_states:
-            return DependencyResult(state=DependencyState.SATISFIED)
-        return DependencyResult(state=DependencyState.UNSATISFIED)
+            return DependencyResult(type="JobDependency", state=DependencyState.SATISFIED)
+
+        return DependencyResult(type="JobDependency", state=DependencyState.UNSATISFIED)
 
     def request_extension(self, extra_seconds: float) -> Self:
         return self

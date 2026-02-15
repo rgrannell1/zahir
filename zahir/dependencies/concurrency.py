@@ -52,23 +52,15 @@ class ConcurrencyLimit(Dependency):
                 # acquire failed; release what we've acquired so far
                 for _ in range(acquired):
                     self._semaphore.release()
-                return DependencyResult(state=DependencyState.UNSATISFIED)
+
+                return DependencyResult(type="ConcurrencyLimit", state=DependencyState.UNSATISFIED)
             acquired += 1
-        return DependencyResult(state=DependencyState.SATISFIED)
+
+        return DependencyResult(type="ConcurrencyLimit", state=DependencyState.SATISFIED)
 
     def request_extension(self, extra_seconds: float) -> Self:
-        """ConcurrencyLimit does not support extensions, return self unchanged."""
+        """Concurrency limits are not time-based; return self unchanged."""
         return self
-
-    def __enter__(self) -> "ConcurrencyLimit":
-        """When entering the context, we assume the slots have already been claimed via satisfied()."""
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """On exit, release the slots."""
-        if self._semaphore:
-            for _ in range(self.slots):
-                self._semaphore.release()
 
     def save(self, context) -> Mapping[str, Any]:
         """Save the concurrency limit configuration and semaphore to context."""

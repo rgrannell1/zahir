@@ -66,20 +66,20 @@ class TimeDependency(Dependency):
 
         if not self.before and not self.after:
             # trivially true.
-            return DependencyResult(state=DependencyState.SATISFIED)
+            return DependencyResult(type="TimeDependency", state=DependencyState.SATISFIED)
 
         now = datetime.now(tz=UTC)
 
         if self.before and now >= self.before:
             # time moves forward, this dependency can now never be met.
-            return DependencyResult(state=DependencyState.IMPOSSIBLE)
+            return DependencyResult(type="TimeDependency", state=DependencyState.IMPOSSIBLE)
 
         if self.after:
             if now >= self.after:
-                return DependencyResult(state=DependencyState.SATISFIED)
-            return DependencyResult(state=DependencyState.UNSATISFIED)
+                return DependencyResult(type="TimeDependency", state=DependencyState.SATISFIED)
+            return DependencyResult(type="TimeDependency", state=DependencyState.UNSATISFIED)
 
-        return DependencyResult(state=DependencyState.SATISFIED)
+        return DependencyResult(type="TimeDependency", state=DependencyState.SATISFIED)
 
     def request_extension(self, extra_seconds: float) -> Self:
         """Ask for a time-extension and return the resulting TimeDependency. This

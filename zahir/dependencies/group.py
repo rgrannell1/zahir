@@ -23,11 +23,12 @@ class DependencyGroup(Dependency):
                 state = result.state
 
                 if state == DependencyState.UNSATISFIED:
-                    return DependencyResult(state=DependencyState.UNSATISFIED)
-                if state == DependencyState.IMPOSSIBLE:
-                    return DependencyResult(state=DependencyState.IMPOSSIBLE)
+                    return DependencyResult(type="DependencyGroup", state=DependencyState.UNSATISFIED)
 
-        return DependencyResult(state=DependencyState.SATISFIED)
+                if state == DependencyState.IMPOSSIBLE:
+                    return DependencyResult(type="DependencyGroup", state=DependencyState.IMPOSSIBLE)
+
+        return DependencyResult(type="DependencyGroup", state=DependencyState.SATISFIED)
 
     def request_extension(self, extra_seconds: float) -> Self:
         """Ask each dependency for a time-extension and return
