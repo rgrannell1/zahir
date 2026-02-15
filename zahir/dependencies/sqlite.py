@@ -3,7 +3,7 @@ import pathlib
 import sqlite3
 from typing import Any, Self
 
-from zahir.base_types import Context, Dependency, DependencyState
+from zahir.base_types import Context, Dependency, DependencyResult, DependencyState
 
 # Match job registry: safe-ish in practice for concurrent access
 _DEFAULT_TIMEOUT_SECONDS = 5.0
@@ -60,7 +60,7 @@ class SqliteDependency(Dependency):
         self.params = params
         self.timeout_seconds = timeout_seconds
 
-    def satisfied(self) -> DependencyState:
+    def satisfied(self) -> DependencyResult:
         """Check whether the SQLite dependency is satisfied."""
 
         with _connect(self.db_path, self.timeout_seconds) as conn:
@@ -71,7 +71,7 @@ class SqliteDependency(Dependency):
 
             # in either mode, missing results map to unsatisfied
             if result is None:
-                return DependencyState.UNSATISFIED
+                return DependencyResult(state=DependencyState.UNSATISFIED)
 
             # one row × one column named "status" → use value as state
             if len(result) == 1 and column_names == ["status"]:
@@ -79,16 +79,17 @@ class SqliteDependency(Dependency):
 
                 match status:
                     case "satisfied":
-                        return DependencyState.SATISFIED
+                        return DependencyResult(state=DependencyState.SATISFIED)
                     case "unsatisfied":
-                        return DependencyState.UNSATISFIED
+                        return DependencyResult(state=DependencyState.UNSATISFIED)
                     case "impossible":
-                        return DependencyState.IMPOSSIBLE
+                        return DependencyResult(state=DependencyState.IMPOSSIBLE)
                     case _:
                         # maybe impossible? but this is a programmer fuckup so probably not.
                         raise ValueError(f"Invalid status: {status}")
 
-            return DependencyState.SATISFIED if len(result) > 0 else DependencyState.UNSATISFIED
+            state = DependencyState.SATISFIED if len(result) > 0 else DependencyState.UNSATISFIED
+            return DependencyResult(state=state)
 
     def save(self, context: Context) -> dict[str, Any]:
         """Save the SQLite dependency to a dictionary."""

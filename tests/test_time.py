@@ -15,7 +15,7 @@ def test_time_dependency_satisfied_after_time():
     """Test that dependency is satisfied when current time is after the 'after' time."""
     after_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
     dep = TimeDependency(before=None, after=after_time)
-    assert dep.satisfied() == DependencyState.SATISFIED
+    assert dep.satisfied().state == DependencyState.SATISFIED
 
 
 @freeze_time("2025-01-01 11:00:00", tz_offset=0)
@@ -23,7 +23,7 @@ def test_time_dependency_unsatisfied_before_time():
     """Test that dependency is unsatisfied when current time is before the 'after' time."""
     after_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
     dep = TimeDependency(before=None, after=after_time)
-    assert dep.satisfied() == DependencyState.UNSATISFIED
+    assert dep.satisfied().state == DependencyState.UNSATISFIED
 
 
 @freeze_time("2025-01-01 13:00:00", tz_offset=0)
@@ -31,7 +31,7 @@ def test_time_dependency_impossible_after_before_time():
     """Test that dependency is impossible when current time is after the 'before' time."""
     before_time = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
     dep = TimeDependency(before=before_time, after=None)
-    assert dep.satisfied() == DependencyState.IMPOSSIBLE
+    assert dep.satisfied().state == DependencyState.IMPOSSIBLE
 
 
 @freeze_time("2025-01-01 12:00:00", tz_offset=0)
@@ -40,7 +40,7 @@ def test_time_dependency_window_satisfied():
     after_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
     dep = TimeDependency(before=before_time, after=after_time)
-    assert dep.satisfied() == DependencyState.SATISFIED
+    assert dep.satisfied().state == DependencyState.SATISFIED
 
 
 @freeze_time("2025-01-01 09:00:00", tz_offset=0)
@@ -49,7 +49,7 @@ def test_time_dependency_window_too_early():
     after_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
     dep = TimeDependency(before=before_time, after=after_time)
-    assert dep.satisfied() == DependencyState.UNSATISFIED
+    assert dep.satisfied().state == DependencyState.UNSATISFIED
 
 
 @freeze_time("2025-01-01 15:00:00", tz_offset=0)
@@ -58,13 +58,13 @@ def test_time_dependency_window_too_late():
     after_time = datetime(2025, 1, 1, 10, 0, 0, tzinfo=UTC)
     before_time = datetime(2025, 1, 1, 14, 0, 0, tzinfo=UTC)
     dep = TimeDependency(before=before_time, after=after_time)
-    assert dep.satisfied() == DependencyState.IMPOSSIBLE
+    assert dep.satisfied().state == DependencyState.IMPOSSIBLE
 
 
 def test_time_dependency_no_constraints():
     """Test that dependency with no time constraints is always satisfied."""
     dep = TimeDependency(before=None, after=None)
-    assert dep.satisfied() == DependencyState.SATISFIED
+    assert dep.satisfied().state == DependencyState.SATISFIED
 
 
 def test_time_dependency_save_load_roundtrip():

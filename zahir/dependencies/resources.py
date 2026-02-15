@@ -4,7 +4,7 @@ from typing import Any, Literal, Self, TypedDict
 
 import psutil
 
-from zahir.base_types import Dependency, DependencyState
+from zahir.base_types import Dependency, DependencyResult, DependencyState
 
 type ResourceType = Literal["cpu"] | Literal["memory"]
 
@@ -61,18 +61,18 @@ class ResourceLimit(Dependency):
             return psutil.virtual_memory().percent
         raise ValueError(f"Unknown resource type: {self.resource}")
 
-    def satisfied(self) -> DependencyState:
+    def satisfied(self) -> DependencyResult:
         """Check whether the resource usage is below the threshold."""
 
         if self.timeout_at is not None:
             now = datetime.now(tz=UTC)
             if now >= self.timeout_at:
-                return DependencyState.IMPOSSIBLE
+                return DependencyResult(state=DependencyState.IMPOSSIBLE)
 
         if self._get_usage() <= self.max_percent:
-            return DependencyState.SATISFIED
+            return DependencyResult(state=DependencyState.SATISFIED)
 
-        return DependencyState.UNSATISFIED
+        return DependencyResult(state=DependencyState.UNSATISFIED)
 
     def request_extension(self, extra_seconds: float) -> Self:
         """Extend the timeout deadline if one is set.

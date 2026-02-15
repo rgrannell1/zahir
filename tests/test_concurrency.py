@@ -25,7 +25,7 @@ def test_concurrency_limit_claim():
     limit = ConcurrencyLimit(limit=3, slots=1, context=context)
 
     # Initially, should be satisfied (no slots claimed)
-    assert limit.satisfied() == DependencyState.SATISFIED
+    assert limit.satisfied().state == DependencyState.SATISFIED
 
 
 def test_concurrency_limit_free():
@@ -37,8 +37,8 @@ def test_concurrency_limit_free():
     limit = ConcurrencyLimit(limit=3, slots=1, context=context)
 
     # Multiple checks should work
-    assert limit.satisfied() == DependencyState.SATISFIED
-    assert limit.satisfied() == DependencyState.SATISFIED
+    assert limit.satisfied().state == DependencyState.SATISFIED
+    assert limit.satisfied().state == DependencyState.SATISFIED
 
 
 def test_concurrency_limit_free_minimum():
@@ -50,7 +50,7 @@ def test_concurrency_limit_free_minimum():
     limit = ConcurrencyLimit(limit=3, slots=1, context=context)
 
     # Initially satisfied
-    assert limit.satisfied() == DependencyState.SATISFIED
+    assert limit.satisfied().state == DependencyState.SATISFIED
 
 
 def test_concurrency_limit_satisfied():
@@ -62,7 +62,7 @@ def test_concurrency_limit_satisfied():
     limit = ConcurrencyLimit(limit=3, slots=1, context=context)
 
     # Initially should be satisfied - no slots claimed yet
-    assert limit.satisfied() == DependencyState.SATISFIED
+    assert limit.satisfied().state == DependencyState.SATISFIED
 
 
 def test_concurrency_limit_with_multiple_slots():
@@ -74,7 +74,7 @@ def test_concurrency_limit_with_multiple_slots():
     limit = ConcurrencyLimit(limit=5, slots=2, context=context)
 
     # Should be satisfied initially
-    assert limit.satisfied() == DependencyState.SATISFIED
+    assert limit.satisfied().state == DependencyState.SATISFIED
 
 
 def test_concurrency_limit_context_manager():
@@ -90,8 +90,8 @@ def test_concurrency_limit_context_manager():
     # In actual usage, __enter__ would be called after satisfied() claimed the slots
 
     # Simulate the real usage pattern: check satisfaction first
-    state = limit.satisfied()
-    assert state == DependencyState.SATISFIED
+    result = limit.satisfied()
+    assert result.state == DependencyState.SATISFIED
 
 
 def test_concurrency_limit_save():
@@ -140,7 +140,7 @@ def test_concurrency_limit_save_load_roundtrip():
     assert restored.slots == original.slots
 
     # Check behavior is the same
-    assert restored.satisfied() == DependencyState.SATISFIED
+    assert restored.satisfied().state == DependencyState.SATISFIED
 
 
 def test_concurrency_limit_enforced_with_30_parallel_jobs():

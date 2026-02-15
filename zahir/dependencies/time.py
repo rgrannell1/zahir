@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Self, TypedDict
 
-from zahir.base_types import Dependency, DependencyState
+from zahir.base_types import Dependency, DependencyResult, DependencyState
 
 
 class TimeDependencyData(TypedDict, total=False):
@@ -61,25 +61,25 @@ class TimeDependency(Dependency):
         after = datetime.now(tz=UTC) + timedelta(seconds=seconds)
         return cls(after=after)
 
-    def satisfied(self) -> DependencyState:
+    def satisfied(self) -> DependencyResult:
         """Check whether the time dependency is satisfied."""
 
         if not self.before and not self.after:
             # trivially true.
-            return DependencyState.SATISFIED
+            return DependencyResult(state=DependencyState.SATISFIED)
 
         now = datetime.now(tz=UTC)
 
         if self.before and now >= self.before:
             # time moves forward, this dependency can now never be met.
-            return DependencyState.IMPOSSIBLE
+            return DependencyResult(state=DependencyState.IMPOSSIBLE)
 
         if self.after:
             if now >= self.after:
-                return DependencyState.SATISFIED
-            return DependencyState.UNSATISFIED
+                return DependencyResult(state=DependencyState.SATISFIED)
+            return DependencyResult(state=DependencyState.UNSATISFIED)
 
-        return DependencyState.SATISFIED
+        return DependencyResult(state=DependencyState.SATISFIED)
 
     def request_extension(self, extra_seconds: float) -> Self:
         """Ask for a time-extension and return the resulting TimeDependency. This

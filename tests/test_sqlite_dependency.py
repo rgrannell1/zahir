@@ -31,7 +31,7 @@ def test_sqlite_dependency_status_column_satisfied():
             conn.execute("CREATE TABLE gate (status TEXT)")
             conn.execute("INSERT INTO gate (status) VALUES (?)", ("satisfied",))
         dep = SqliteDependency(db_path, "SELECT status FROM gate")
-        assert dep.satisfied() == DependencyState.SATISFIED
+        assert dep.satisfied().state == DependencyState.SATISFIED
     finally:
         pathlib.Path(db_path).unlink(missing_ok=True)
 
@@ -46,7 +46,7 @@ def test_sqlite_dependency_status_column_unsatisfied():
             conn.execute("CREATE TABLE gate (status TEXT)")
             conn.execute("INSERT INTO gate (status) VALUES (?)", ("unsatisfied",))
         dep = SqliteDependency(db_path, "SELECT status FROM gate")
-        assert dep.satisfied() == DependencyState.UNSATISFIED
+        assert dep.satisfied().state == DependencyState.UNSATISFIED
     finally:
         pathlib.Path(db_path).unlink(missing_ok=True)
 
@@ -61,7 +61,7 @@ def test_sqlite_dependency_status_column_impossible():
             conn.execute("CREATE TABLE gate (status TEXT)")
             conn.execute("INSERT INTO gate (status) VALUES (?)", ("impossible",))
         dep = SqliteDependency(db_path, "SELECT status FROM gate")
-        assert dep.satisfied() == DependencyState.IMPOSSIBLE
+        assert dep.satisfied().state == DependencyState.IMPOSSIBLE
     finally:
         pathlib.Path(db_path).unlink(missing_ok=True)
 
@@ -76,7 +76,7 @@ def test_sqlite_dependency_status_column_case_insensitive():
             conn.execute("CREATE TABLE gate (status TEXT)")
             conn.execute("INSERT INTO gate (status) VALUES (?)", ("  SATISFIED  ",))
         dep = SqliteDependency(db_path, "SELECT status FROM gate")
-        assert dep.satisfied() == DependencyState.SATISFIED
+        assert dep.satisfied().state == DependencyState.SATISFIED
     finally:
         pathlib.Path(db_path).unlink(missing_ok=True)
 
@@ -109,7 +109,7 @@ def test_sqlite_dependency_cardinality_zero_rows_unsatisfied():
         with sqlite3.connect(db_path) as conn:
             conn.execute("CREATE TABLE ready (id INTEGER)")
         dep = SqliteDependency(db_path, "SELECT id FROM ready")
-        assert dep.satisfied() == DependencyState.UNSATISFIED
+        assert dep.satisfied().state == DependencyState.UNSATISFIED
     finally:
         pathlib.Path(db_path).unlink(missing_ok=True)
 
@@ -124,7 +124,7 @@ def test_sqlite_dependency_cardinality_one_row_satisfied():
             conn.execute("CREATE TABLE ready (id INTEGER)")
             conn.execute("INSERT INTO ready (id) VALUES (1)")
         dep = SqliteDependency(db_path, "SELECT id FROM ready")
-        assert dep.satisfied() == DependencyState.SATISFIED
+        assert dep.satisfied().state == DependencyState.SATISFIED
     finally:
         pathlib.Path(db_path).unlink(missing_ok=True)
 
@@ -139,7 +139,7 @@ def test_sqlite_dependency_cardinality_multiple_rows_satisfied():
             conn.execute("CREATE TABLE ready (id INTEGER)")
             conn.execute("INSERT INTO ready (id) VALUES (1), (2)")
         dep = SqliteDependency(db_path, "SELECT id FROM ready")
-        assert dep.satisfied() == DependencyState.SATISFIED
+        assert dep.satisfied().state == DependencyState.SATISFIED
     finally:
         pathlib.Path(db_path).unlink(missing_ok=True)
 
@@ -154,7 +154,7 @@ def test_sqlite_dependency_cardinality_two_columns_not_status():
             conn.execute("CREATE TABLE flags (name TEXT, value INTEGER)")
             conn.execute("INSERT INTO flags (name, value) VALUES (?, ?)", ("ready", 1))
         dep = SqliteDependency(db_path, "SELECT name, value FROM flags")
-        assert dep.satisfied() == DependencyState.SATISFIED
+        assert dep.satisfied().state == DependencyState.SATISFIED
     finally:
         pathlib.Path(db_path).unlink(missing_ok=True)
 
@@ -204,7 +204,7 @@ def test_sqlite_dependency_load():
         assert loaded.query == "SELECT x FROM t"
         assert loaded.params is None
         assert loaded.timeout_seconds == 5.0
-        assert loaded.satisfied() == DependencyState.SATISFIED
+        assert loaded.satisfied().state == DependencyState.SATISFIED
     finally:
         pathlib.Path(db_path).unlink(missing_ok=True)
 
@@ -225,7 +225,7 @@ def test_sqlite_dependency_save_load_roundtrip():
         saved = dep.save(context)
         loaded = SqliteDependency.load(context, saved)
 
-        assert loaded.satisfied() == dep.satisfied() == DependencyState.SATISFIED
+        assert loaded.satisfied().state == dep.satisfied().state == DependencyState.SATISFIED
         assert loaded.db_path == dep.db_path
         assert loaded.query == dep.query
         assert loaded.params == dep.params
@@ -252,6 +252,6 @@ def test_sqlite_dependency_load_with_params_tuple():
         scope = LocalScope()
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(":memory:"))
         loaded = SqliteDependency.load(context, data)
-        assert loaded.satisfied() == DependencyState.SATISFIED
+        assert loaded.satisfied().state == DependencyState.SATISFIED
     finally:
         pathlib.Path(db_path).unlink(missing_ok=True)

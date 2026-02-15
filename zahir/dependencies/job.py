@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Any, Self, TypedDict, TypeVar, cast
 
-from zahir.base_types import Context, Dependency, DependencyState, JobRegistry, JobState
+from zahir.base_types import Context, Dependency, DependencyResult, DependencyState, JobRegistry, JobState
 
 OutputType = TypeVar("OutputType", bound=Mapping)
 
@@ -40,16 +40,16 @@ class JobDependency[OutputType](Dependency):
         self.job_id = job_id
         self.job_registry = job_registry
 
-    def satisfied(self) -> DependencyState:
+    def satisfied(self) -> DependencyResult:
         """Check whether the job dependency is satisfied."""
 
         state = self.job_registry.get_state(self.job_id)
         if state in self.impossible_states:
-            return DependencyState.IMPOSSIBLE
+            return DependencyResult(state=DependencyState.IMPOSSIBLE)
 
         if state in self.satisfied_states:
-            return DependencyState.SATISFIED
-        return DependencyState.UNSATISFIED
+            return DependencyResult(state=DependencyState.SATISFIED)
+        return DependencyResult(state=DependencyState.UNSATISFIED)
 
     def request_extension(self, extra_seconds: float) -> Self:
         return self

@@ -67,14 +67,14 @@ def job_dependencies_satisfied(
     Returns:
         True if the job became ready, False otherwise.
     """
-    dependencies_state = job.dependencies.satisfied()
+    dependencies_result = job.dependencies.satisfied()
 
-    if dependencies_state == DependencyState.SATISFIED:
+    if dependencies_result.state == DependencyState.SATISFIED:
         job_registry.set_state(
             context, job.job_id, job.spec.type, workflow_id, output_queue, JobState.READY, recovery=False
         )
         return True
-    if dependencies_state == DependencyState.IMPOSSIBLE:
+    if dependencies_result.state == DependencyState.IMPOSSIBLE:
         error = ImpossibleDependencyError(f"Job {job.job_id} has impossible dependencies.")
         job_registry.set_state(
             context,

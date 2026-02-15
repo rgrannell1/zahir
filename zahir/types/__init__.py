@@ -13,7 +13,7 @@ This package contains the core type hierarchy for Zahir:
 """
 
 from zahir.types.context import Context
-from zahir.types.dependency import Dependency, DependencyData, DependencyState
+from zahir.types.dependency import Dependency, DependencyData, DependencyResult, DependencyState
 from zahir.types.job import (
     JobArguments,
     JobEventSet,
@@ -38,6 +38,7 @@ __all__ = [
     "Context",
     "Dependency",
     "DependencyData",
+    "DependencyResult",
     "DependencyState",
     "EventRegistry",
     "JobArguments",

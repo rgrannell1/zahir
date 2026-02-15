@@ -12,7 +12,7 @@ def test_job_dependency_satisfied_when_completed():
     mock_registry.get_state.return_value = JobState.COMPLETED
 
     dep = JobDependency("job-123", mock_registry)
-    assert dep.satisfied() == DependencyState.SATISFIED
+    assert dep.satisfied().state == DependencyState.SATISFIED
     mock_registry.get_state.assert_called_with("job-123")
 
 
@@ -22,7 +22,7 @@ def test_job_dependency_unsatisfied_when_pending():
     mock_registry.get_state.return_value = JobState.PENDING
 
     dep = JobDependency("job-123", mock_registry)
-    assert dep.satisfied() == DependencyState.UNSATISFIED
+    assert dep.satisfied().state == DependencyState.UNSATISFIED
 
 
 def test_job_dependency_unsatisfied_when_running():
@@ -31,7 +31,7 @@ def test_job_dependency_unsatisfied_when_running():
     mock_registry.get_state.return_value = JobState.RUNNING
 
     dep = JobDependency("job-123", mock_registry)
-    assert dep.satisfied() == DependencyState.UNSATISFIED
+    assert dep.satisfied().state == DependencyState.UNSATISFIED
 
 
 def test_job_dependency_impossible_when_irrecoverable():
@@ -40,7 +40,7 @@ def test_job_dependency_impossible_when_irrecoverable():
     mock_registry.get_state.return_value = JobState.IRRECOVERABLE
 
     dep = JobDependency("job-123", mock_registry)
-    assert dep.satisfied() == DependencyState.IMPOSSIBLE
+    assert dep.satisfied().state == DependencyState.IMPOSSIBLE
 
 
 def test_job_dependency_impossible_when_impossible_state():
@@ -49,7 +49,7 @@ def test_job_dependency_impossible_when_impossible_state():
     mock_registry.get_state.return_value = JobState.IMPOSSIBLE
 
     dep = JobDependency("job-123", mock_registry)
-    assert dep.satisfied() == DependencyState.IMPOSSIBLE
+    assert dep.satisfied().state == DependencyState.IMPOSSIBLE
 
 
 def test_job_dependency_custom_satisfied_states():
@@ -63,7 +63,7 @@ def test_job_dependency_custom_satisfied_states():
         mock_registry,
         satisfied_states={JobState.COMPLETED, JobState.RECOVERED},
     )
-    assert dep.satisfied() == DependencyState.SATISFIED
+    assert dep.satisfied().state == DependencyState.SATISFIED
 
 
 def test_job_dependency_custom_impossible_states():
@@ -73,7 +73,7 @@ def test_job_dependency_custom_impossible_states():
 
     # Make TIMED_OUT an impossible state
     dep = JobDependency("job-123", mock_registry, impossible_states={JobState.TIMED_OUT})
-    assert dep.satisfied() == DependencyState.IMPOSSIBLE
+    assert dep.satisfied().state == DependencyState.IMPOSSIBLE
 
 
 def test_job_dependency_save():
@@ -206,16 +206,16 @@ def test_job_dependency_multiple_satisfied_states():
 
     # Test COMPLETED
     mock_registry.get_state.return_value = JobState.COMPLETED
-    assert dep.satisfied() == DependencyState.SATISFIED
+    assert dep.satisfied().state == DependencyState.SATISFIED
 
     # Test RECOVERED
     mock_registry.get_state.return_value = JobState.RECOVERED
-    assert dep.satisfied() == DependencyState.SATISFIED
+    assert dep.satisfied().state == DependencyState.SATISFIED
 
     # Test TIMED_OUT
     mock_registry.get_state.return_value = JobState.TIMED_OUT
-    assert dep.satisfied() == DependencyState.SATISFIED
+    assert dep.satisfied().state == DependencyState.SATISFIED
 
     # Test non-satisfied state
     mock_registry.get_state.return_value = JobState.PENDING
-    assert dep.satisfied() == DependencyState.UNSATISFIED
+    assert dep.satisfied().state == DependencyState.UNSATISFIED

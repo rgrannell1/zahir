@@ -22,46 +22,46 @@ def test_context():
 def test_semaphore_default_initial_state(test_context):
     """Test that semaphore defaults to SATISFIED state."""
     sem = Semaphore(context=test_context)
-    assert sem.satisfied() == DependencyState.SATISFIED
+    assert sem.satisfied().state == DependencyState.SATISFIED
 
 
 def test_semaphore_custom_initial_state_satisfied(test_context):
     """Test that semaphore can be initialized to SATISFIED state."""
     sem = Semaphore(context=test_context, initial_state=DependencyState.SATISFIED)
-    assert sem.satisfied() == DependencyState.SATISFIED
+    assert sem.satisfied().state == DependencyState.SATISFIED
 
 
 def test_semaphore_custom_initial_state_unsatisfied(test_context):
     """Test that semaphore can be initialized to UNSATISFIED state."""
     sem = Semaphore(context=test_context, initial_state=DependencyState.UNSATISFIED)
-    assert sem.satisfied() == DependencyState.UNSATISFIED
+    assert sem.satisfied().state == DependencyState.UNSATISFIED
 
 
 def test_semaphore_custom_initial_state_impossible(test_context):
     """Test that semaphore can be initialized to IMPOSSIBLE state."""
     sem = Semaphore(context=test_context, initial_state=DependencyState.IMPOSSIBLE)
-    assert sem.satisfied() == DependencyState.IMPOSSIBLE
+    assert sem.satisfied().state == DependencyState.IMPOSSIBLE
 
 
 def test_semaphore_open(test_context):
     """Test that open() sets the semaphore to SATISFIED."""
     sem = Semaphore(context=test_context, initial_state=DependencyState.UNSATISFIED)
     sem.open()
-    assert sem.satisfied() == DependencyState.SATISFIED
+    assert sem.satisfied().state == DependencyState.SATISFIED
 
 
 def test_semaphore_close(test_context):
     """Test that close() sets the semaphore to UNSATISFIED."""
     sem = Semaphore(context=test_context, initial_state=DependencyState.SATISFIED)
     sem.close()
-    assert sem.satisfied() == DependencyState.UNSATISFIED
+    assert sem.satisfied().state == DependencyState.UNSATISFIED
 
 
 def test_semaphore_abort(test_context):
     """Test that abort() sets the semaphore to IMPOSSIBLE."""
     sem = Semaphore(context=test_context, initial_state=DependencyState.SATISFIED)
     sem.abort()
-    assert sem.satisfied() == DependencyState.IMPOSSIBLE
+    assert sem.satisfied().state == DependencyState.IMPOSSIBLE
 
 
 def test_semaphore_state_transitions(test_context):
@@ -69,23 +69,23 @@ def test_semaphore_state_transitions(test_context):
     sem = Semaphore(context=test_context)
 
     # Start SATISFIED
-    assert sem.satisfied() == DependencyState.SATISFIED
+    assert sem.satisfied().state == DependencyState.SATISFIED
 
     # Close to UNSATISFIED
     sem.close()
-    assert sem.satisfied() == DependencyState.UNSATISFIED
+    assert sem.satisfied().state == DependencyState.UNSATISFIED
 
     # Reopen to SATISFIED
     sem.open()
-    assert sem.satisfied() == DependencyState.SATISFIED
+    assert sem.satisfied().state == DependencyState.SATISFIED
 
     # Abort to IMPOSSIBLE
     sem.abort()
-    assert sem.satisfied() == DependencyState.IMPOSSIBLE
+    assert sem.satisfied().state == DependencyState.IMPOSSIBLE
 
     # Can still transition from IMPOSSIBLE
     sem.open()
-    assert sem.satisfied() == DependencyState.SATISFIED
+    assert sem.satisfied().state == DependencyState.SATISFIED
 
 
 def test_semaphore_multiple_close(test_context):
@@ -94,7 +94,7 @@ def test_semaphore_multiple_close(test_context):
     sem.close()
     sem.close()
     sem.close()
-    assert sem.satisfied() == DependencyState.UNSATISFIED
+    assert sem.satisfied().state == DependencyState.UNSATISFIED
 
 
 def test_semaphore_multiple_open(test_context):
@@ -103,7 +103,7 @@ def test_semaphore_multiple_open(test_context):
     sem.open()
     sem.open()
     sem.open()
-    assert sem.satisfied() == DependencyState.SATISFIED
+    assert sem.satisfied().state == DependencyState.SATISFIED
 
 
 def test_semaphore_multiple_abort(test_context):
@@ -112,7 +112,7 @@ def test_semaphore_multiple_abort(test_context):
     sem.abort()
     sem.abort()
     sem.abort()
-    assert sem.satisfied() == DependencyState.IMPOSSIBLE
+    assert sem.satisfied().state == DependencyState.IMPOSSIBLE
 
 
 def test_semaphore_request_extension(test_context):
@@ -123,7 +123,7 @@ def test_semaphore_request_extension(test_context):
     # Should return self
     assert result is sem
     # State should be unchanged
-    assert sem.satisfied() == DependencyState.SATISFIED
+    assert sem.satisfied().state == DependencyState.SATISFIED
 
 
 def test_semaphore_save_satisfied(test_context):
@@ -159,7 +159,7 @@ def test_semaphore_load_satisfied(test_context):
 
     sem = Semaphore.load(test_context, data)
 
-    assert sem.satisfied() == DependencyState.SATISFIED
+    assert sem.satisfied().state == DependencyState.SATISFIED
 
 
 def test_semaphore_load_unsatisfied(test_context):
@@ -168,7 +168,7 @@ def test_semaphore_load_unsatisfied(test_context):
 
     sem = Semaphore.load(test_context, data)
 
-    assert sem.satisfied() == DependencyState.UNSATISFIED
+    assert sem.satisfied().state == DependencyState.UNSATISFIED
 
 
 def test_semaphore_load_impossible(test_context):
@@ -177,7 +177,7 @@ def test_semaphore_load_impossible(test_context):
 
     sem = Semaphore.load(test_context, data)
 
-    assert sem.satisfied() == DependencyState.IMPOSSIBLE
+    assert sem.satisfied().state == DependencyState.IMPOSSIBLE
 
 
 def test_semaphore_save_load_roundtrip(test_context):
@@ -193,7 +193,7 @@ def test_semaphore_save_load_roundtrip(test_context):
         saved = original.save(test_context)
         loaded = Semaphore.load(test_context, saved)
 
-        assert loaded.satisfied() == initial_state
+        assert loaded.satisfied().state == initial_state
 
 
 def test_semaphore_save_after_state_change(test_context):

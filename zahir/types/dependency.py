@@ -1,7 +1,7 @@
 """Dependency base types.
 
-Contains the abstract Dependency class, DependencyState enum, and
-DependencyData TypedDict. These are the foundation that all concrete
+Contains the abstract Dependency class, DependencyState enum, DependencyResult,
+and DependencyData TypedDict. These are the foundation that all concrete
 dependency implementations build on.
 
 This module has no internal Zahir imports, breaking the circular
@@ -10,6 +10,7 @@ dependency chain.
 
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Self, TypedDict
 
@@ -25,6 +26,13 @@ class DependencyState(StrEnum):
     IMPOSSIBLE = "impossible"
 
 
+@dataclass(frozen=True)
+class DependencyResult:
+    """Result of checking whether a dependency is satisfied."""
+
+    state: DependencyState
+
+
 class DependencyData(TypedDict, total=False):
     """Base structure for serialised dependency data.
 
@@ -38,7 +46,7 @@ class Dependency(ABC):
     """A dependency, on which a job can depend"""
 
     @abstractmethod
-    def satisfied(self) -> DependencyState:
+    def satisfied(self) -> DependencyResult:
         """Is the dependency satisfied?"""
 
         raise NotImplementedError

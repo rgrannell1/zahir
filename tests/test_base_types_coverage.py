@@ -13,6 +13,7 @@ from zahir.base_types import (
     Context,
     Dependency,
     DependencyData,
+    DependencyResult,
     DependencyState,
     JobInformation,
     JobState,
@@ -27,8 +28,8 @@ from zahir.scope import LocalScope
 class MockDependency(Dependency):
     """Mock dependency for testing abstract methods."""
 
-    def satisfied(self) -> DependencyState:
-        return DependencyState.SATISFIED
+    def satisfied(self) -> DependencyResult:
+        return DependencyResult(state=DependencyState.SATISFIED)
 
     def request_extension(self, extra_seconds: float) -> "MockDependency":
         return self

@@ -116,17 +116,17 @@ def test_time_dependency_extension_prevents_impossible():
     dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.BEFORE)
 
     # Currently satisfied (after 11:00, before 12:30)
-    assert dep.satisfied() == DependencyState.SATISFIED
+    assert dep.satisfied().state == DependencyState.SATISFIED
 
     # Fast forward 45 minutes
     with freeze_time("2025-01-01 12:45:00", tz_offset=0):
         # Without extension, would be impossible
-        assert dep.satisfied() == DependencyState.IMPOSSIBLE
+        assert dep.satisfied().state == DependencyState.IMPOSSIBLE
 
         # But with extension applied earlier, still satisfied
         extended = dep.request_extension(3600)  # Extend by 1 hour
         assert extended.before == datetime(2025, 1, 1, 13, 30, 0, tzinfo=UTC)
-        assert extended.satisfied() == DependencyState.SATISFIED
+        assert extended.satisfied().state == DependencyState.SATISFIED
 
 
 def test_time_dependency_extension_multiple_times():
@@ -262,16 +262,16 @@ def test_extension_use_case_retry_with_backoff():
     dep = TimeDependency(before=before_time, after=after_time, allow_extensions=ExtensionMode.BEFORE)
 
     # Currently at 12:00, dependency is satisfied
-    assert dep.satisfied() == DependencyState.SATISFIED
+    assert dep.satisfied().state == DependencyState.SATISFIED
 
     # Simulate retry after 2.5 hours (job took longer than expected)
     with freeze_time("2025-01-01 14:30:00", tz_offset=0):
         # Without extension, dependency would be impossible
-        assert dep.satisfied() == DependencyState.IMPOSSIBLE
+        assert dep.satisfied().state == DependencyState.IMPOSSIBLE
 
         # But we can request an extension for retry (e.g., 2 hours backoff)
         extended = dep.request_extension(7200)
 
         # Now the dependency should be satisfied with the new window
         assert extended.before == datetime(2025, 1, 1, 16, 0, 0, tzinfo=UTC)
-        assert extended.satisfied() == DependencyState.SATISFIED
+        assert extended.satisfied().state == DependencyState.SATISFIED

@@ -28,7 +28,7 @@ def process_worker(process_id: int, semaphore_id: str, shared_state: dict[str, A
 
     # Check current state
     current_state = semaphore.satisfied()
-    results[f"process_{process_id}_initial"] = current_state.value
+    results[f"process_{process_id}_initial"] = current_state.state.value
 
     # Try to modify state
     if process_id == 0:
@@ -44,7 +44,7 @@ def process_worker(process_id: int, semaphore_id: str, shared_state: dict[str, A
     # Check state again
     time.sleep(0.1)
     final_state = semaphore.satisfied()
-    results[f"process_{process_id}_final"] = final_state.value
+    results[f"process_{process_id}_final"] = final_state.state.value
 
 
 def test_semaphore_multiprocess_with_context():

@@ -18,7 +18,7 @@ def test_dependency_group_all_satisfied():
     dep2 = TimeDependency(before=None, after=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC))
 
     group = DependencyGroup({"dep1": dep1, "dep2": dep2})
-    assert group.satisfied() == DependencyState.SATISFIED
+    assert group.satisfied().state == DependencyState.SATISFIED
 
 
 @freeze_time("2025-01-01 12:00:00", tz_offset=0)
@@ -29,7 +29,7 @@ def test_dependency_group_one_unsatisfied():
     dep2 = TimeDependency(before=None, after=datetime(2025, 1, 1, 13, 0, 0, tzinfo=UTC))
 
     group = DependencyGroup({"dep1": dep1, "dep2": dep2})
-    assert group.satisfied() == DependencyState.UNSATISFIED
+    assert group.satisfied().state == DependencyState.UNSATISFIED
 
 
 @freeze_time("2025-01-01 12:00:00", tz_offset=0)
@@ -40,7 +40,7 @@ def test_dependency_group_one_impossible():
     dep2 = TimeDependency(before=datetime(2025, 1, 1, 11, 0, 0, tzinfo=UTC), after=None)
 
     group = DependencyGroup({"dep1": dep1, "dep2": dep2})
-    assert group.satisfied() == DependencyState.IMPOSSIBLE
+    assert group.satisfied().state == DependencyState.IMPOSSIBLE
 
 
 @freeze_time("2025-01-01 12:00:00", tz_offset=0)
@@ -52,7 +52,7 @@ def test_dependency_group_with_list():
 
     # Mix single and list dependencies
     group = DependencyGroup({"single": dep1, "multi": [dep2, dep3]})
-    assert group.satisfied() == DependencyState.SATISFIED
+    assert group.satisfied().state == DependencyState.SATISFIED
 
 
 @freeze_time("2025-01-01 12:00:00", tz_offset=0)
@@ -64,13 +64,13 @@ def test_dependency_group_with_list_one_unsatisfied():
     dep3 = TimeDependency(before=None, after=datetime(2025, 1, 1, 13, 0, 0, tzinfo=UTC))
 
     group = DependencyGroup({"single": dep1, "multi": [dep2, dep3]})
-    assert group.satisfied() == DependencyState.UNSATISFIED
+    assert group.satisfied().state == DependencyState.UNSATISFIED
 
 
 def test_dependency_group_empty():
     """Test that empty group is satisfied."""
     group = DependencyGroup({})
-    assert group.satisfied() == DependencyState.SATISFIED
+    assert group.satisfied().state == DependencyState.SATISFIED
 
 
 def test_dependency_group_save():

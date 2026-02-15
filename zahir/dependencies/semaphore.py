@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from typing import Any, Self
 import uuid
 
-from zahir.base_types import Context, Dependency, DependencyState
+from zahir.base_types import Context, Dependency, DependencyResult, DependencyState
 
 
 class Semaphore(Dependency):
@@ -23,14 +23,14 @@ class Semaphore(Dependency):
         """Get the key for storing this semaphore's state in context.state."""
         return f"_semaphore_{self.semaphore_id}"
 
-    def satisfied(self) -> DependencyState:
+    def satisfied(self) -> DependencyResult:
         """Return the current state of the semaphore."""
         state_key = self._get_state_key()
         if state_key in self.context.state:
             state_value = self.context.state[state_key]
-            return DependencyState(state_value)
+            return DependencyResult(state=DependencyState(state_value))
 
-        return self.initial_state
+        return DependencyResult(state=self.initial_state)
 
     def open(self) -> None:
         """Set the semaphore to satisfied."""
@@ -58,12 +58,12 @@ class Semaphore(Dependency):
     def save(self, context: Context) -> dict[str, Any]:
         """Save the semaphore to a dictionary."""
         # Get the current state from context.state
-        current_state = self.satisfied()
+        result = self.satisfied()
 
         return {
             "type": "Semaphore",
             "semaphore_id": self.semaphore_id,
-            "state": current_state.value,
+            "state": result.state.value,
         }
 
     @classmethod

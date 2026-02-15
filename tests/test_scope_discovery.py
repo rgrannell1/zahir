@@ -28,8 +28,10 @@ def SampleJob2(context: Context, input, dependencies):
 class SampleDependency1(Dependency):
     """A test dependency."""
 
-    def satisfied(self) -> DependencyState:
-        return DependencyState.SATISFIED
+    def satisfied(self):
+        from zahir.base_types import DependencyResult, DependencyState
+
+        return DependencyResult(state=DependencyState.SATISFIED)
 
     def request_extension(self, extra_seconds: float):
         return self
@@ -45,8 +47,10 @@ class SampleDependency1(Dependency):
 class SampleDependency2(Dependency):
     """Another test dependency."""
 
-    def satisfied(self) -> DependencyState:
-        return DependencyState.UNSATISFIED
+    def satisfied(self):
+        from zahir.base_types import DependencyResult, DependencyState
+
+        return DependencyResult(state=DependencyState.UNSATISFIED)
 
     def request_extension(self, extra_seconds: float):
         return self

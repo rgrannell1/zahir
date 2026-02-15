@@ -7,7 +7,7 @@ directly.
 
 # Re-export everything from the new split modules
 from zahir.types.context import Context
-from zahir.types.dependency import Dependency, DependencyData, DependencyState
+from zahir.types.dependency import Dependency, DependencyData, DependencyResult, DependencyState
 from zahir.types.job import (
     ArgsType,
     JobArguments,
@@ -35,6 +35,7 @@ __all__ = [
     "Context",
     "Dependency",
     "DependencyData",
+    "DependencyResult",
     "DependencyState",
     "EventRegistry",
     "JobArguments",

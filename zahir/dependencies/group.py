@@ -1,7 +1,7 @@
 from collections.abc import Mapping
 from typing import Self
 
-from zahir.base_types import Dependency, DependencyState
+from zahir.base_types import Dependency, DependencyResult, DependencyState
 
 
 class DependencyGroup(Dependency):
@@ -12,21 +12,22 @@ class DependencyGroup(Dependency):
     def __init__(self, dependencies: Mapping[str, Dependency | list[Dependency]]) -> None:
         self.dependencies = dict(dependencies)
 
-    def satisfied(self) -> DependencyState:
+    def satisfied(self) -> DependencyResult:
         """Are all subdependencies satisfied?"""
 
         for dependency in self.dependencies.values():
             dep_list = dependency if isinstance(dependency, list) else [dependency]
 
             for subdep in dep_list:
-                state = subdep.satisfied()  # type: ignore[union-attr]
+                result = subdep.satisfied()  # type: ignore[union-attr]
+                state = result.state
 
                 if state == DependencyState.UNSATISFIED:
-                    return DependencyState.UNSATISFIED
+                    return DependencyResult(state=DependencyState.UNSATISFIED)
                 if state == DependencyState.IMPOSSIBLE:
-                    return DependencyState.IMPOSSIBLE
+                    return DependencyResult(state=DependencyState.IMPOSSIBLE)
 
-        return DependencyState.SATISFIED
+        return DependencyResult(state=DependencyState.SATISFIED)
 
     def request_extension(self, extra_seconds: float) -> Self:
         """Ask each dependency for a time-extension and return

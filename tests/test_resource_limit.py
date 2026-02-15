@@ -24,25 +24,25 @@ class TestResourceLimitBasic:
     def test_cpu_satisfied_at_high_threshold(self):
         """CPU limit should be satisfied when threshold is high (90%)."""
         limit = ResourceLimit.cpu(max_percent=90.0)
-        assert limit.satisfied() == DependencyState.SATISFIED
+        assert limit.satisfied().state == DependencyState.SATISFIED
 
     @skip_unless_local
     def test_memory_satisfied_at_high_threshold(self):
         """Memory limit should be satisfied when threshold is high (90%)."""
         limit = ResourceLimit.memory(max_percent=90.0)
-        assert limit.satisfied() == DependencyState.SATISFIED
+        assert limit.satisfied().state == DependencyState.SATISFIED
 
     @skip_unless_local
     def test_cpu_unsatisfied_at_zero_threshold(self):
         """CPU limit should be unsatisfied when threshold is 0%."""
         limit = ResourceLimit.cpu(max_percent=0.0)
-        assert limit.satisfied() == DependencyState.UNSATISFIED
+        assert limit.satisfied().state == DependencyState.UNSATISFIED
 
     @skip_unless_local
     def test_memory_unsatisfied_at_zero_threshold(self):
         """Memory limit should be unsatisfied when threshold is 0%."""
         limit = ResourceLimit.memory(max_percent=0.0)
-        assert limit.satisfied() == DependencyState.UNSATISFIED
+        assert limit.satisfied().state == DependencyState.UNSATISFIED
 
 
 class TestResourceLimitTimeout:
@@ -54,13 +54,13 @@ class TestResourceLimitTimeout:
         limit = ResourceLimit.cpu(max_percent=0.0, timeout=0.1)
 
         # Before timeout - should be unsatisfied (not impossible)
-        assert limit.satisfied() == DependencyState.UNSATISFIED
+        assert limit.satisfied().state == DependencyState.UNSATISFIED
 
         # Wait for timeout
         time.sleep(0.15)
 
         # After timeout - should be impossible
-        assert limit.satisfied() == DependencyState.IMPOSSIBLE
+        assert limit.satisfied().state == DependencyState.IMPOSSIBLE
 
     @skip_unless_local
     def test_no_timeout_never_impossible(self):
@@ -68,7 +68,7 @@ class TestResourceLimitTimeout:
         limit = ResourceLimit.cpu(max_percent=0.0)
         assert limit.timeout_at is None
         # Even with impossible threshold, state is UNSATISFIED not IMPOSSIBLE
-        assert limit.satisfied() == DependencyState.UNSATISFIED
+        assert limit.satisfied().state == DependencyState.UNSATISFIED
 
 
 class TestResourceLimitExtension:

@@ -2,7 +2,7 @@ from collections.abc import Mapping
 from typing import Any, Self
 import uuid
 
-from zahir.base_types import Context, Dependency, DependencyState
+from zahir.base_types import Context, Dependency, DependencyResult, DependencyState
 
 
 class ConcurrencyLimit(Dependency):
@@ -36,7 +36,7 @@ class ConcurrencyLimit(Dependency):
 
         self._semaphore = self.context.state[state_key]
 
-    def satisfied(self) -> DependencyState:
+    def satisfied(self) -> DependencyResult:
         """Check if concurrency limit is satisfied. Non-blocking acquire."""
 
         self._ensure_semaphore()
@@ -52,9 +52,9 @@ class ConcurrencyLimit(Dependency):
                 # acquire failed; release what we've acquired so far
                 for _ in range(acquired):
                     self._semaphore.release()
-                return DependencyState.UNSATISFIED
+                return DependencyResult(state=DependencyState.UNSATISFIED)
             acquired += 1
-        return DependencyState.SATISFIED
+        return DependencyResult(state=DependencyState.SATISFIED)
 
     def request_extension(self, extra_seconds: float) -> Self:
         """ConcurrencyLimit does not support extensions, return self unchanged."""
