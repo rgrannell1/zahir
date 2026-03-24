@@ -281,6 +281,26 @@ class JobSpec[ArgsType, OutputType]:
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
 
+def _validate_optional_timeout(field: str, value: object) -> None:
+    """Reject mistaken structures (e.g. dict) before the state machine compares timeouts."""
+
+    if value is None:
+        return
+    if isinstance(value, bool):
+        msg = (
+            f"JobArguments.{field} must be numeric seconds or None, not bool (got {value!r}). "
+            "Pass an explicit int/float number of seconds."
+        )
+        raise TypeError(msg)
+    if not isinstance(value, (int, float)):
+        msg = (
+            f"JobArguments.{field} must be a number of seconds (int/float) or None, "
+            f"got {type(value).__name__}: {value!r}. "
+            "Common mistake: passing a dict or merged options object as job_timeout= or recover_timeout=."
+        )
+        raise TypeError(msg)
+
+
 @dataclass
 class JobArguments[ArgsType]:
     """The things provided along with a JobSpec to form a job instance"""
@@ -312,6 +332,10 @@ class JobArguments[ArgsType]:
 
     # Compute a hash for idempotence checking, based on deps + inputs
     once_by: "Callable[[str, Mapping[str, Any], Mapping[str, Any]], str] | None" = None
+
+    def __post_init__(self) -> None:
+        _validate_optional_timeout("job_timeout", self.job_timeout)
+        _validate_optional_timeout("recover_timeout", self.recover_timeout)
 
 
 # ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++

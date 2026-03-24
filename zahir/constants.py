@@ -1,7 +1,7 @@
 """Constants used throughout the Zahir codebase."""
 
 # Timing constants
-DEPENDENCY_LOOP_STALL_SECONDS = 1.0
+DEPENDENCY_LOOP_STALL_SECONDS = 0.1
 WAIT_TIMEOUT_SECONDS = 0.5
 
 # Context state keys

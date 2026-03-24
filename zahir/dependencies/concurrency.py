@@ -53,11 +53,18 @@ class ConcurrencyLimit(Dependency):
                 for _ in range(acquired):
                     self._semaphore.release()
 
-                return DependencyResult(type="ConcurrencyLimit", state=DependencyState.UNSATISFIED, metadata={"limit": self.limit, "slots": self.slots})
+                return DependencyResult(
+                    type="ConcurrencyLimit",
+                    state=DependencyState.UNSATISFIED,
+                    metadata={"limit": self.limit, "slots": self.slots},
+                )
             acquired += 1
 
-        return DependencyResult(type="ConcurrencyLimit", state=DependencyState.SATISFIED, metadata={"limit": self.limit, "slots": self.slots})
-
+        return DependencyResult(
+            type="ConcurrencyLimit",
+            state=DependencyState.SATISFIED,
+            metadata={"limit": self.limit, "slots": self.slots},
+        )
 
     def __enter__(self) -> "ConcurrencyLimit":
         """When entering the context, we assume the slots have already been claimed via satisfied()."""

@@ -64,6 +64,10 @@ JOBS_WORKFLOW_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_jobs_workflow_id ON jobs(workflow_id);
 """
 
+JOBS_WORKFLOW_STATE_INDEX = """
+CREATE INDEX IF NOT EXISTS idx_jobs_workflow_state ON jobs(workflow_id, state);
+"""
+
 JOBS_IDEMPOTENCY_INDEX = """
 CREATE INDEX IF NOT EXISTS idx_jobs_idempotency_hash ON jobs(idempotency_hash);
 """

@@ -16,3 +16,7 @@ coverage.xml
 zahir_logs/*
 integration_tests/traces/*
 traces/*
+scripts/*
+zahir/scope.py
+jobs-weird.db
+investigation.md

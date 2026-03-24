@@ -34,6 +34,7 @@ from zahir.job_registry.sqlite.tables import (
     JOBS_PRIORITY_INDEX,
     JOBS_TABLE_SCHEMA,
     JOBS_WORKFLOW_INDEX,
+    JOBS_WORKFLOW_STATE_INDEX,
 )
 from zahir.job_registry.state_event import create_state_event
 from zahir.serialise import serialise_event
@@ -91,6 +92,7 @@ class SQLiteJobRegistry(JobRegistry):
                 JOBS_PRIORITY_INDEX,
                 JOBS_IDEMPOTENCY_INDEX,
                 JOBS_WORKFLOW_INDEX,
+                JOBS_WORKFLOW_STATE_INDEX,
             ]:
                 conn.execute(schema)
 
@@ -125,9 +127,10 @@ class SQLiteJobRegistry(JobRegistry):
         """Delete all job claims and reset RUNNING and PAUSED jobs to READY.
 
         Used at startup to clear any stale claims from crashed processes.
-        RUNNING and PAUSED jobs are reset to READY since they need to be restarted.
-        Other active jobs (PENDING, READY, etc.) are left alone to allow workflows
-        to continue processing.
+        RUNNING jobs were mid-execution when the process crashed. PAUSED jobs
+        are generator-based parents that cannot be serialised and must be
+        restarted. Before resetting PAUSED parents to READY we delete their
+        non-completed children, since the parent will re-yield them on restart.
         """
 
         log.debug("Clearing all job claims and resetting RUNNING/PAUSED jobs to READY")
@@ -137,8 +140,21 @@ class SQLiteJobRegistry(JobRegistry):
             # Clear all claims (from crashed processes)
             conn.execute("delete from claimed_jobs;")
 
-            # Reset RUNNING and PAUSED jobs to READY since they need to be restarted
-            # RUNNING jobs were from crashed processes, PAUSED jobs must be restarted
+            # Delete non-completed children of PAUSED parents. The parent
+            # generator will re-yield them when it restarts, so leaving them
+            # would create duplicates.
+            conn.execute(
+                """
+                delete from jobs
+                where state not in (?, ?)
+                  and json_extract(serialised_job, '$.parent_id') in (
+                    select job_id from jobs where state = ?
+                  )
+                """,
+                (JobState.COMPLETED.value, JobState.RECOVERED.value, JobState.PAUSED.value),
+            )
+
+            # Reset RUNNING and PAUSED jobs to READY
             conn.execute(
                 "update jobs set state = ? where state in (?, ?)",
                 (JobState.READY.value, JobState.RUNNING.value, JobState.PAUSED.value),
@@ -491,51 +507,55 @@ class SQLiteJobRegistry(JobRegistry):
         return [row[0] for row in rows]
 
     def jobs(
-        self, context: Context, state: JobState | None = None, workflow_id: str | None = None
+        self,
+        context: Context,
+        state: JobState | None = None,
+        workflow_id: str | None = None,
+        limit: int | None = None,
     ) -> Iterator[JobInformation]:
         """Retrieve all jobs, optionally filtered by state and workflow.
 
         @param context: The context to use for loading job classes.
         @param state: Optional state to filter jobs by.
         @param workflow_id: Optional workflow ID to filter jobs by.
+        @param limit: Optional maximum number of jobs to yield.
         @return: A list of job information
         """
 
-        log.debug(f"Retrieving jobs from registry with state filter: {state}, workflow_id: {workflow_id}")
+        log.debug(f"Retrieving jobs from registry with state filter: {state}, workflow_id: {workflow_id}, limit: {limit}")
+
+        conditions: list[str] = []
+        params: list[str | int] = []
+
+        if workflow_id is not None:
+            conditions.append("job.workflow_id = ?")
+            params.append(workflow_id)
+
+        if state is not None:
+            conditions.append("job.state = ?")
+            params.append(state.value)
+
+        where_clause = f"where {' and '.join(conditions)}" if conditions else ""
+        limit_clause = f"limit {limit}" if limit is not None else ""
+
+        query = f"""
+            select
+              job.job_id,
+              job.serialised_job,
+              job.state,
+              out.output,
+              job.started_at,
+              job.completed_at,
+              job.workflow_id
+            from jobs as job
+            left join job_outputs as out on out.job_id = job.job_id
+            {where_clause}
+            order by job.priority desc, job.created_at asc
+            {limit_clause}
+        """  # noqa: S608
 
         with self.conn as conn:
-            if workflow_id is not None:
-                job_list = conn.execute(
-                    """
-              select
-                job.job_id,
-                job.serialised_job,
-                job.state,
-                out.output,
-                job.started_at,
-                job.completed_at,
-                job.workflow_id
-              from jobs as job
-              left join job_outputs as out on out.job_id = job.job_id
-              where job.workflow_id = ?
-              order by job.priority desc, job.created_at asc
-              """,
-                    (workflow_id,),
-                ).fetchall()
-            else:
-                job_list = conn.execute("""
-              select
-                job.job_id,
-                job.serialised_job,
-                job.state,
-                out.output,
-                job.started_at,
-                job.completed_at,
-                job.workflow_id
-              from jobs as job
-              left join job_outputs as out on out.job_id = job.job_id
-              order by job.priority desc, job.created_at asc
-              """).fetchall()
+            job_list = conn.execute(query, params).fetchall()
 
         for (
             job_id,
@@ -554,9 +574,6 @@ class SQLiteJobRegistry(JobRegistry):
             output = json.loads(serialised_output) if serialised_output is not None else None
             parsed_started_at = datetime.fromisoformat(started_at) if started_at is not None else None
             parsed_completed_at = datetime.fromisoformat(completed_at) if completed_at is not None else None
-
-            if state is not None and job_state != state:
-                continue
 
             yield JobInformation(
                 job_id=job_id,

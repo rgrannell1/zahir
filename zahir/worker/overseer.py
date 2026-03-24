@@ -5,10 +5,13 @@ from enum import StrEnum
 import multiprocessing
 from multiprocessing.queues import Queue
 import os
+import pathlib
+import time
 
 from zahir.base_types import Context, JobInstance, JobState
 from zahir.events import (
     JobAssignedEvent,
+    JobCompletedEvent,
     JobReadyEvent,
     JobWorkerWaitingEvent,
     WorkflowCompleteEvent,
@@ -17,9 +20,11 @@ from zahir.events import (
     ZahirInternalErrorEvent,
 )
 from zahir.exception import exception_from_text_blob
+from zahir.otel import TraceContextManager
+from zahir.otel.metrics import MetricsCollector
+from zahir.otel.metrics_exporter import FileMetricsExporter
 from zahir.serialise import SerialisedEvent, deserialise_event, serialise_event
 from zahir.utils.id_generator import generate_id
-from zahir.utils.opentelemetry import TraceContextManager
 from zahir.utils.output_logging import create_workflow_log_dir
 from zahir.worker.dependency_worker import zahir_dependency_worker
 from zahir.worker.job_worker import zahir_job_worker
@@ -56,6 +61,7 @@ def dispatch_jobs_to_workers(
     ready_worker_queue: list[int],
     workflow_id: str,
     output_queue: OutputQueue,
+    metrics: MetricsCollector | None = None,
 ) -> None:
     """Dispatch jobs to workers fairly using round-robin.
 
@@ -66,26 +72,33 @@ def dispatch_jobs_to_workers(
     we limit dispatch per call. This allows other workers time to signal READY and get jobs too.
     """
 
+    dispatch_start = time.monotonic()
     job_registry = context.job_registry
 
-    # Fetch all READY jobs from all active workflows (prioritize current workflow)
-    # This allows us to "backfill" older workflows while processing the current one
+    # Only fetch as many READY jobs as we have workers to send them to.
+    max_jobs_to_dispatch = len(ready_worker_queue) if ready_worker_queue else 0
+    if max_jobs_to_dispatch == 0:
+        if metrics is not None:
+            metrics.histogram("zahir.overseer.dispatch_duration_ms", 0.0)
+            metrics.histogram("zahir.overseer.jobs_dispatched", 0)
+        return
+
+    remaining = max_jobs_to_dispatch
     ready_jobs: list[tuple[JobInstance, str]] = []  # (job, workflow_id)
 
-    # First, get jobs from current workflow...
-    for job_info in job_registry.jobs(context, state=JobState.READY, workflow_id=workflow_id):
+    # Current workflow first, then backfill from older active workflows.
+    for job_info in job_registry.jobs(context, state=JobState.READY, workflow_id=workflow_id, limit=remaining):
         ready_jobs.append((job_info.job, job_info.workflow_id or workflow_id))
 
-    # Then, get jobs from other active workflows...
-    active_workflow_ids = job_registry.get_active_workflow_ids()
-    for wf_id in active_workflow_ids:
-        if wf_id != workflow_id:
-            for job_info in job_registry.jobs(context, state=JobState.READY, workflow_id=wf_id):
+    remaining = max_jobs_to_dispatch - len(ready_jobs)
+    if remaining > 0:
+        active_workflow_ids = job_registry.get_active_workflow_ids()
+        for wf_id in active_workflow_ids:
+            if wf_id == workflow_id or remaining <= 0:
+                continue
+            for job_info in job_registry.jobs(context, state=JobState.READY, workflow_id=wf_id, limit=remaining):
                 ready_jobs.append((job_info.job, job_info.workflow_id or wf_id))
-
-    # Limit dispatch to prevent one worker from claiming all jobs in a large batch
-    # do not overdispatch jobs; give each worker a fair chance
-    max_jobs_to_dispatch = len(ready_worker_queue) if ready_worker_queue else 0
+            remaining = max_jobs_to_dispatch - len(ready_jobs)
     jobs_dispatched = 0
 
     # Dispatch jobs to ready workers (round-robin via queue)
@@ -130,6 +143,11 @@ def dispatch_jobs_to_workers(
         )
         jobs_dispatched += 1
 
+    if metrics is not None:
+        dispatch_elapsed_ms = (time.monotonic() - dispatch_start) * 1000
+        metrics.histogram("zahir.overseer.dispatch_duration_ms", dispatch_elapsed_ms)
+        metrics.histogram("zahir.overseer.jobs_dispatched", jobs_dispatched)
+
 
 def start_zahir_overseer(
     context: Context,
@@ -137,6 +155,7 @@ def start_zahir_overseer(
     worker_count: int = 4,
     log_output_dir: str | None = None,
     start_job_type: str | None = None,
+    otel_output_dir: str | None = None,
 ):
     """Start processes, create queues."""
 
@@ -162,7 +181,7 @@ def start_zahir_overseer(
     processes = []
     dep_proc = multiprocessing.Process(
         target=zahir_dependency_worker,
-        args=(context, output_queue, workflow_id, workflow_log_dir),
+        args=(context, output_queue, workflow_id, workflow_log_dir, otel_output_dir),
     )
     dep_proc.start()
     processes.append(dep_proc)
@@ -171,7 +190,7 @@ def start_zahir_overseer(
     process_queues: dict[int, InputQueue] = {}
 
     # Start each worker process
-    for _ in range(worker_count - 1):
+    for idx in range(worker_count - 1):
         input_queue: InputQueue = multiprocessing.Queue()
 
         proc = multiprocessing.Process(
@@ -210,13 +229,24 @@ def zahir_worker_overseer(
     is responsible for collecting events from workers and yielding them to the caller."""
 
     processes, process_queues, process_states, ready_worker_queue, output_queue, workflow_id = start_zahir_overseer(
-        context, start, worker_count, log_output_dir=log_output_dir, start_job_type=start_job_type
+        context, start, worker_count, log_output_dir=log_output_dir, start_job_type=start_job_type,
+        otel_output_dir=otel_output_dir,
     )
 
     # Initialize open telemetry if requested
     trace_manager = None
+    overseer_metrics: MetricsCollector | None = None
+    metrics_exporter: FileMetricsExporter | None = None
     if otel_output_dir is not None:
         trace_manager = TraceContextManager(otel_output_dir, context)
+        overseer_metrics = MetricsCollector()
+        metrics_dir = pathlib.Path(otel_output_dir)
+        metrics_dir.mkdir(parents=True, exist_ok=True)
+        metrics_exporter = FileMetricsExporter(metrics_dir / f"metrics-overseer-{os.getpid()}.jsonl")
+
+    jobs_completed_total = 0
+    completion_timestamps: list[float] = []
+    RATE_WINDOW_SECONDS = 10.0
 
     exc: Exception | None = None
     try:
@@ -245,7 +275,8 @@ def zahir_worker_overseer(
                 # Dispatch any ready jobs to the workers
 
                 dispatch_jobs_to_workers(
-                    context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue
+                    context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue,
+                    metrics=overseer_metrics,
                 )
 
                 # Don't yield internal worker events
@@ -255,7 +286,8 @@ def zahir_worker_overseer(
                 # Dependency worker detected jobs are ready. Dispatch to workers
                 # Don't yield internal coordination events
                 dispatch_jobs_to_workers(
-                    context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue
+                    context, process_queues, process_states, ready_worker_queue, workflow_id, output_queue,
+                    metrics=overseer_metrics,
                 )
                 continue
 
@@ -264,15 +296,45 @@ def zahir_worker_overseer(
                 yield event
                 break
 
+            # Track job completions for jobs/second gauge.
+            if isinstance(event, JobCompletedEvent):
+                jobs_completed_total += 1
+                now = time.monotonic()
+                completion_timestamps.append(now)
+
+                # Record inter-completion interval as a histogram.
+                if overseer_metrics and len(completion_timestamps) >= 2:
+                    interval_ms = (completion_timestamps[-1] - completion_timestamps[-2]) * 1000
+                    overseer_metrics.histogram("zahir.overseer.completion_interval_ms", interval_ms)
+
+                # Windowed rate: completions in the last N seconds.
+                cutoff = now - RATE_WINDOW_SECONDS
+                completion_timestamps = [ts for ts in completion_timestamps if ts > cutoff]
+                if overseer_metrics:
+                    windowed_rate = len(completion_timestamps) / RATE_WINDOW_SECONDS
+                    overseer_metrics.gauge("zahir.overseer.jobs_per_second", windowed_rate)
+                    overseer_metrics.gauge("zahir.overseer.jobs_completed_total", jobs_completed_total)
+
+            # Periodic flush (every event is fine — the overseer isn't hot).
+            if overseer_metrics and metrics_exporter:
+                overseer_metrics.flush(metrics_exporter)
+
             yield event
 
     except KeyboardInterrupt:
         pass
     finally:
+        if overseer_metrics and metrics_exporter:
+            overseer_metrics.flush(metrics_exporter)
+        if metrics_exporter:
+            metrics_exporter.close()
         if trace_manager:
             trace_manager.close()
         shutdown(processes)
         context.job_registry.close()
 
     if exc is not None:
+        tb = getattr(exc, "__serialized_traceback__", None)
+        if isinstance(tb, str) and tb.strip():
+            exc.add_note("Traceback from worker process:\n" + tb.rstrip())
         raise exc

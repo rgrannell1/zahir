@@ -4,7 +4,7 @@ from multiprocessing.queues import Queue
 from types import GeneratorType
 from typing import Any, cast
 
-from zahir.base_types import JobInstance, JobRegistry
+from zahir.base_types import Dependency, JobInstance, JobRegistry
 from zahir.events import Await, JobOutputEvent, ZahirEvent
 from zahir.serialise import SerialisedEvent, serialise_event
 
@@ -149,6 +149,15 @@ def read_job_events(
 
         if isinstance(item, Await):
             return item
+
+        if isinstance(item, Dependency):
+            dep_type = type(item).__name__
+            raise TypeError(
+                f"Job '{job_id}' yielded a Dependency ({dep_type}) directly. "
+                f"Dependencies cannot be yielded from jobs. "
+                f"Use 'yield Await({dep_type}(...))' to await a dependency, "
+                f"or pass dependencies via JobInstance args instead."
+            )
 
         if isinstance(item, JobInstance):
             # new subjob - registry.add() emits a JobEvent for us

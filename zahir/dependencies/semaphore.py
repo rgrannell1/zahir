@@ -28,9 +28,13 @@ class Semaphore(Dependency):
         state_key = self._get_state_key()
         if state_key in self.context.state:
             state_value = self.context.state[state_key]
-            return DependencyResult(type="Semaphore", state=DependencyState(state_value), metadata={"semaphore_id": self.semaphore_id})
+            return DependencyResult(
+                type="Semaphore", state=DependencyState(state_value), metadata={"semaphore_id": self.semaphore_id}
+            )
 
-        return DependencyResult(type="Semaphore", state=self.initial_state, metadata={"semaphore_id": self.semaphore_id})
+        return DependencyResult(
+            type="Semaphore", state=self.initial_state, metadata={"semaphore_id": self.semaphore_id}
+        )
 
     def open(self) -> None:
         """Set the semaphore to satisfied."""

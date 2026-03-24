@@ -10,6 +10,7 @@ import time
 
 from zahir.base_types import Context
 from zahir.context import MemoryContext
+from zahir.dependencies.time import TimeDependency
 from zahir.events import Await, JobEvent, JobOutputEvent, ZahirCustomEvent
 from zahir.job_registry import SQLiteJobRegistry
 from zahir.jobs.decorator import spec
@@ -547,3 +548,43 @@ def test_read_job_events_clears_required_jobs():
 
     # required_jobs should be cleared
     assert len(worker_state.frame.required_jobs) == 0
+
+
+@spec()
+def JobYieldingDependencyDirectly(context: Context, input, dependencies):
+    """A job that incorrectly yields a Dependency directly instead of wrapping it in Await."""
+    yield TimeDependency(after="2020-01-01T00:00:00Z")
+
+
+def test_read_job_events_raises_on_bare_dependency():
+    """Yielding a Dependency directly (not wrapped in Await) should raise TypeError."""
+
+    with tempfile.NamedTemporaryFile(delete=False) as tmp:
+        tmp_file = tmp.name
+
+    job_registry = SQLiteJobRegistry(tmp_file)
+    job_registry.init("test-worker-dep")
+
+    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+    output_queue = multiprocessing.Queue()
+    workflow_id = "test-workflow-dep"
+
+    worker_state = ZahirWorkerState(context, None, output_queue, workflow_id)
+
+    job = JobYieldingDependencyDirectly({"test": "data"}, {})
+    job_id = context.job_registry.add(context, job, output_queue, workflow_id)
+
+    job_generator = JobYieldingDependencyDirectly.run(context, job.input, job.dependencies)
+    frame = ZahirStackFrame(job=job, job_generator=job_generator, recovery=False)
+    worker_state.frame = frame
+
+    import pytest
+
+    with pytest.raises(TypeError, match="yielded a Dependency.*TimeDependency.*directly"):
+        read_job_events(
+            job_registry=context.job_registry,
+            output_queue=output_queue,
+            state=worker_state,
+            workflow_id=workflow_id,
+            job_id=job_id,
+        )

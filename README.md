@@ -336,30 +336,56 @@ The workflow engine itself doesn't care much about workflow states; it will cont
 
 ## Development
 
+### Code Quality
+
 ```
 rs format
-```
-
-```
 rs lint
-```
-
-```
 rs check && rs check:mypy
-```
-
-```
 rs test
 ```
 
-1. Start tracing stack: `docker compose up -d`
-2. Run workflow: `python integration_tests/main.py` (traces written to `traces/`)
-3. Send traces: `python bs/send-traces.py`
-4. View in Jaeger: http://localhost:16686
+### Observability
+
+Zahir writes OpenTelemetry traces and metrics to JSONL files under `traces/` (when `otel_output_dir` is set, which defaults to `"traces"` in `LocalWorkflow`). These can be forwarded to Jaeger (traces) and Grafana (metrics) for visualisation.
+
+**Start the stack:**
 
 ```
-Zahir → Trace Files → OTLP Collector → Jaeger UI
+docker compose up -d
 ```
+
+This starts four services:
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| Jaeger | http://localhost:16686 | Trace visualisation |
+| Grafana | http://localhost:3000 | Metrics dashboards (login: admin/admin) |
+| Prometheus | http://localhost:9090 | Metrics storage |
+| OTEL Collector | localhost:4318 | Receives OTLP JSON, forwards to Jaeger + Prometheus |
+
+**Run a workflow and send data:**
+
+```bash
+rs test:integration
+rs send-traces
+rs send-metrics
+```
+
+**Emitted metrics:**
+
+| Metric | Type | Source |
+|--------|------|--------|
+| `zahir.dep_worker.loop_duration_ms` | Histogram | Dependency worker |
+| `zahir.dep_worker.pending_jobs_checked` | Histogram | Dependency worker |
+| `zahir.dep_worker.jobs_made_ready` | Counter | Dependency worker |
+| `zahir.dep_worker.active_workflows` | Gauge | Dependency worker |
+| `zahir.dep_worker.loops` | Counter | Dependency worker |
+| `zahir.dep_worker.get_state_calls` | Histogram | Dependency worker |
+| `zahir.overseer.dispatch_duration_ms` | Histogram | Overseer |
+| `zahir.overseer.jobs_dispatched` | Counter | Overseer |
+| `zahir.overseer.jobs_completed_total` | Gauge | Overseer |
+| `zahir.overseer.jobs_per_second` | Gauge | Overseer |
 
 ## File-Structure
 

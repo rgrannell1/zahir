@@ -86,11 +86,17 @@ class SqliteDependency(Dependency):
 
                 match status:
                     case "satisfied":
-                        return DependencyResult(type="SqliteDependency", state=DependencyState.SATISFIED, metadata=metadata)
+                        return DependencyResult(
+                            type="SqliteDependency", state=DependencyState.SATISFIED, metadata=metadata
+                        )
                     case "unsatisfied":
-                        return DependencyResult(type="SqliteDependency", state=DependencyState.UNSATISFIED, metadata=metadata)
+                        return DependencyResult(
+                            type="SqliteDependency", state=DependencyState.UNSATISFIED, metadata=metadata
+                        )
                     case "impossible":
-                        return DependencyResult(type="SqliteDependency", state=DependencyState.IMPOSSIBLE, metadata=metadata)
+                        return DependencyResult(
+                            type="SqliteDependency", state=DependencyState.IMPOSSIBLE, metadata=metadata
+                        )
                     case _:
                         # maybe impossible? but this is a programmer fuckup so probably not.
                         raise ValueError(f"Invalid status: {status}")

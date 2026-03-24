@@ -1,0 +1,251 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "links": [],
+  "panels": [
+    {
+      "title": "Jobs per Second",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10, "pointSize": 5 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "zahir_zahir_overseer_jobs_per_second",
+          "legendFormat": "jobs/s",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "title": "Jobs Completed (Total)",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      },
+      "targets": [
+        {
+          "expr": "zahir_zahir_overseer_jobs_completed_total",
+          "legendFormat": "completed",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "title": "Dispatch Count",
+      "type": "stat",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "fieldConfig": {
+        "defaults": { "unit": "short" }
+      },
+      "targets": [
+        {
+          "expr": "zahir_zahir_overseer_dispatch_duration_ms_count",
+          "legendFormat": "dispatch rounds",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "title": "Dispatch Duration (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "increase(zahir_zahir_overseer_dispatch_duration_ms_sum[5m]) / clamp_min(increase(zahir_zahir_overseer_dispatch_duration_ms_count[5m]), 1)",
+          "legendFormat": "avg dispatch ms",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        },
+        {
+          "expr": "histogram_quantile(0.99, increase(zahir_zahir_overseer_dispatch_duration_ms_bucket[5m]))",
+          "legendFormat": "p99 dispatch ms",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        },
+        {
+          "expr": "histogram_quantile(0.50, increase(zahir_zahir_overseer_dispatch_duration_ms_bucket[5m]))",
+          "legendFormat": "p50 dispatch ms",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "title": "Jobs Dispatched per Round",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "increase(zahir_zahir_overseer_jobs_dispatched_sum[5m]) / clamp_min(increase(zahir_zahir_overseer_jobs_dispatched_count[5m]), 1)",
+          "legendFormat": "avg jobs/round",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        },
+        {
+          "expr": "histogram_quantile(0.99, increase(zahir_zahir_overseer_jobs_dispatched_bucket[5m]))",
+          "legendFormat": "p99 jobs/round",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "title": "Completion Interval (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "increase(zahir_zahir_overseer_completion_interval_ms_sum[5m]) / clamp_min(increase(zahir_zahir_overseer_completion_interval_ms_count[5m]), 1)",
+          "legendFormat": "avg interval",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        },
+        {
+          "expr": "histogram_quantile(0.50, increase(zahir_zahir_overseer_completion_interval_ms_bucket[5m]))",
+          "legendFormat": "p50 interval",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        },
+        {
+          "expr": "histogram_quantile(0.99, increase(zahir_zahir_overseer_completion_interval_ms_bucket[5m]))",
+          "legendFormat": "p99 interval",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "title": "Active Workflows",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 20 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "zahir_zahir_dep_worker_active_workflows",
+          "legendFormat": "active workflows",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "title": "Dep Worker Loop Duration (ms)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "increase(zahir_zahir_dep_worker_loop_duration_ms_milliseconds_sum[5m]) / clamp_min(increase(zahir_zahir_dep_worker_loop_duration_ms_milliseconds_count[5m]), 1)",
+          "legendFormat": "avg loop ms",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        },
+        {
+          "expr": "histogram_quantile(0.99, increase(zahir_zahir_dep_worker_loop_duration_ms_milliseconds_bucket[5m]))",
+          "legendFormat": "p99 loop ms",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        },
+        {
+          "expr": "histogram_quantile(0.50, increase(zahir_zahir_dep_worker_loop_duration_ms_milliseconds_bucket[5m]))",
+          "legendFormat": "p50 loop ms",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "title": "Jobs Made Ready (this iteration)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 50 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "zahir_zahir_dep_worker_jobs_made_ready",
+          "legendFormat": "ready this loop",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "title": "Pending Jobs Checked per Loop",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 32 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "increase(zahir_zahir_dep_worker_pending_jobs_checked_sum[5m]) / clamp_min(increase(zahir_zahir_dep_worker_pending_jobs_checked_count[5m]), 1)",
+          "legendFormat": "avg pending checked",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    },
+    {
+      "title": "get_state() Calls per Loop",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 32 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "drawStyle": "line", "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "targets": [
+        {
+          "expr": "increase(zahir_zahir_dep_worker_get_state_calls_sum[5m]) / clamp_min(increase(zahir_zahir_dep_worker_get_state_calls_count[5m]), 1)",
+          "legendFormat": "avg get_state calls",
+          "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" }
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["zahir"],
+  "templating": {
+    "list": [
+      {
+        "name": "DS_PROMETHEUS",
+        "type": "datasource",
+        "query": "prometheus",
+        "current": { "text": "Prometheus", "value": "Prometheus" }
+      }
+    ]
+  },
+  "time": { "from": "now-30m", "to": "now" },
+  "title": "Zahir Workflow Metrics",
+  "uid": "zahir-metrics"
+}

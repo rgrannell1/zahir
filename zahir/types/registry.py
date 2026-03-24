@@ -200,13 +200,18 @@ class JobRegistry(ABC):
 
     @abstractmethod
     def jobs(
-        self, context: "Context", state: JobState | None = None, workflow_id: str | None = None
+        self,
+        context: "Context",
+        state: JobState | None = None,
+        workflow_id: str | None = None,
+        limit: int | None = None,
     ) -> Iterator[JobInformation]:
         """Get an iterator of all jobs with their information.
 
         @param context: The context containing scope and registries for deserialisation
         @param state: Optional state to filter jobs by
         @param workflow_id: Optional workflow ID to filter jobs by
+        @param limit: Optional maximum number of jobs to yield
         @return: An iterator of JobInformation objects
         """
 

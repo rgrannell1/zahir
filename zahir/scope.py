@@ -1,5 +1,7 @@
 import importlib
 import inspect
+from pathlib import Path
+import sys
 from types import ModuleType
 from typing import Self
 
@@ -9,6 +11,7 @@ from zahir.dependencies.group import DependencyGroup
 from zahir.dependencies.job import JobDependency
 from zahir.dependencies.resources import ResourceLimit
 from zahir.dependencies.semaphore import Semaphore
+from zahir.dependencies.sqlite import SqliteDependency
 from zahir.dependencies.time import TimeDependency
 from zahir.exception import DependencyNotInScopeError, JobNotInScopeError, TransformNotInScopeError
 from zahir.jobs import Empty, Sleep
@@ -41,6 +44,43 @@ def _find_caller_module() -> ModuleType | None:
     return None
 
 
+def _collect_scope_members(module: ModuleType) -> tuple[list[JobSpec], list[type[Dependency]]]:
+    """Find JobSpec instances and concrete Dependency subclasses defined in a module."""
+
+    specs: list[JobSpec] = []
+    dependencies: list[type[Dependency]] = []
+
+    for _, obj in inspect.getmembers(module):
+        if isinstance(obj, JobSpec):
+            specs.append(obj)
+
+        if not inspect.isclass(obj):
+            continue
+
+        if issubclass(obj, Dependency) and obj is not Dependency:
+            dependencies.append(obj)
+
+    return specs, dependencies
+
+
+def _py_path_to_module_name(path: Path, root: Path) -> str:
+    """Turn *path* under *root* into a dotted name for import with *root* on ``sys.path``."""
+
+    rel = path.relative_to(root)
+    if rel.name == "__init__.py":
+        parts = rel.parent.parts
+    else:
+        parts = rel.with_suffix("").parts
+    return ".".join(parts)
+
+
+def _scan_import_sort_key(path: Path, root: Path) -> tuple[int, str]:
+    """Import parents before children (e.g. ``pkg`` before ``pkg.jobs``)."""
+
+    name = _py_path_to_module_name(path, root)
+    return (name.count("."), name)
+
+
 # Register built in job specs
 INTERNAL_JOB_SPECS = {"Sleep": Sleep, "Empty": Empty}
 
@@ -51,6 +91,7 @@ INTERNAL_DEPENDENCIES: dict[str, type[Dependency]] = {
     "JobDependency": JobDependency,
     "ResourceLimit": ResourceLimit,
     "Semaphore": Semaphore,
+    "SqliteDependency": SqliteDependency,
     "TimeDependency": TimeDependency,
 }
 
@@ -83,12 +124,28 @@ class LocalScope(Scope):
             for name, transform in transforms.items():
                 self.add_transform(name, transform)
 
+    def _validate_job_spec(self, spec: "JobSpec") -> None:
+        """Validate that the given object is a JobSpec, not a Dependency class or other wrong type."""
+        if isinstance(spec, type) and issubclass(spec, Dependency):
+            raise TypeError(
+                f"'{spec.__name__}' is a Dependency class, not a JobSpec. "
+                f"Pass it via dependencies=[{spec.__name__}] instead of specs=[{spec.__name__}]."
+            )
+        if not hasattr(spec, "type"):
+            type_name = spec.__name__ if isinstance(spec, type) else type(spec).__name__
+            raise TypeError(
+                f"Expected a JobSpec instance (with a 'type' attribute), got {type_name}. "
+                f"Did you pass a class instead of an instance, or use the wrong parameter?"
+            )
+
     def add_job_spec(self, spec: "JobSpec") -> Self:
+        self._validate_job_spec(spec)
         self.specs[spec.type] = spec
         return self
 
     def add_job_specs(self, specs: list["JobSpec"]) -> Self:
         for spec in specs:
+            self._validate_job_spec(spec)
             self.specs[spec.type] = spec
         return self
 
@@ -97,7 +154,7 @@ class LocalScope(Scope):
 
         @param job_spec: The job spec to add.
         """
-
+        self._validate_job_spec(job_spec)
         self.specs[job_spec.type] = job_spec
         return self
 
@@ -108,6 +165,7 @@ class LocalScope(Scope):
         """
 
         for job_spec in job_specs:
+            self._validate_job_spec(job_spec)
             self.specs[job_spec.type] = job_spec
         return self
 
@@ -122,12 +180,31 @@ class LocalScope(Scope):
 
         return self.specs[type_name]
 
+    def _validate_dependency_class(self, dependency_class: type[Dependency]) -> None:
+        """Validate that the given object is a Dependency class, not a JobSpec or other wrong type."""
+        if not isinstance(dependency_class, type):
+            type_name = type(dependency_class).__name__
+            if hasattr(dependency_class, "type") and hasattr(dependency_class, "run"):
+                raise TypeError(
+                    f"'{type_name}' looks like a JobSpec instance, not a Dependency class. "
+                    f"Pass it via specs=[...] instead of dependencies=[...]."
+                )
+            raise TypeError(
+                f"Expected a Dependency class, got an instance of {type_name}. "
+                f"Pass the class itself (e.g. MyDependency) not an instance."
+            )
+        if not issubclass(dependency_class, Dependency):
+            raise TypeError(
+                f"'{dependency_class.__name__}' is not a Dependency subclass. "
+                f"Did you mean to pass it via specs=[...] instead?"
+            )
+
     def add_dependency_class(self, dependency_class: type[Dependency]) -> Self:
         """Add a dependency class to the scope.
 
         @param dependency_class: The dependency class to add.
         """
-
+        self._validate_dependency_class(dependency_class)
         self.dependencies[dependency_class.__name__] = dependency_class
         return self
 
@@ -138,6 +215,7 @@ class LocalScope(Scope):
         """
 
         for dependency_class in dependency_classes:
+            self._validate_dependency_class(dependency_class)
             self.dependencies[dependency_class.__name__] = dependency_class
         return self
 
@@ -173,6 +251,59 @@ class LocalScope(Scope):
         self.transforms[type_name] = transform
         return self
 
+    def scan(self, directory: str | Path) -> Self:
+        """Import every ``*.py`` file under *directory* and register discovered specs and dependencies.
+
+        *directory* is prepended to ``sys.path`` temporarily so dotted module names are resolved
+        relative to it (e.g. ``jobs/foo.py`` → ``import jobs.foo``). Use the folder that should be
+        the top-level import root (often your package or ``src`` tree).
+
+        The same rules as :meth:`from_module` apply: ``JobSpec`` instances (e.g. from ``@spec()``)
+        and concrete ``Dependency`` subclasses are registered; the base ``Dependency`` class is
+        skipped. Later registrations override earlier ones if job or dependency names collide.
+
+        @param directory: Filesystem path to the tree to scan.
+        @return: ``self`` for chaining.
+        """
+
+        root = Path(directory).expanduser().resolve()
+        if not root.exists():
+            raise FileNotFoundError(f"scan: path does not exist: {root}")
+        if not root.is_dir():
+            raise NotADirectoryError(f"scan: not a directory: {root}")
+
+        path_token = str(root)
+        inserted = path_token not in sys.path
+        if inserted:
+            sys.path.insert(0, path_token)
+
+        try:
+            py_files = sorted(
+                (p for p in root.rglob("*.py") if "__pycache__" not in p.parts),
+                key=lambda p: _scan_import_sort_key(p, root),
+            )
+            for path in py_files:
+                mod_name = _py_path_to_module_name(path, root)
+                if not mod_name:
+                    continue
+                try:
+                    module = importlib.import_module(mod_name)
+                except Exception as err:
+                    raise ImportError(f"scan: failed to import {mod_name!r} ({path})") from err
+                specs, dependencies = _collect_scope_members(module)
+                if specs:
+                    self.add_job_specs(specs)
+                if dependencies:
+                    self.add_dependency_classes(dependencies)
+        finally:
+            if inserted:
+                try:
+                    sys.path.remove(path_token)
+                except ValueError:
+                    pass
+
+        return self
+
     @classmethod
     def from_module(cls, module: ModuleType | None = None) -> Self:
         """Create a LocalScope by discovering all Job and Dependency classes in a module.
@@ -199,19 +330,7 @@ class LocalScope(Scope):
             if module is None:
                 raise RuntimeError("Cannot determine calling module")
 
-        specs: list[JobSpec] = []
-        dependencies: list[type[Dependency]] = []
-
-        for _, obj in inspect.getmembers(module):
-            if isinstance(obj, JobSpec):
-                specs.append(obj)
-
-            if not inspect.isclass(obj):
-                continue
-
-            if issubclass(obj, Dependency) and obj is not Dependency:
-                dependencies.append(obj)
-
+        specs, dependencies = _collect_scope_members(module)
         return cls(dependencies=dependencies, specs=specs)
 
     @classmethod
