@@ -8,6 +8,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from datetime import datetime
 import json
 import os
 from typing import TYPE_CHECKING, Any, TypeVar
@@ -79,6 +80,8 @@ class WorkflowStartedEvent(ZahirEvent):
 
     workflow_id: str
     pid: int = field(default_factory=os.getpid)
+    # Enriched in the overseer after deserialization; not serialized to workers.
+    workflow_inputs: dict[str, Any] = field(default_factory=dict, compare=False)
 
     def save(self, context: Context) -> Mapping[str, Any]:
         return {
@@ -355,6 +358,11 @@ class JobStartedEvent(JobStateEvent):
     job_id: str
     job_type: str
     pid: int = field(default_factory=os.getpid)
+    # Enriched in the overseer after deserialization; not serialized to workers.
+    parent_job_id: str | None = field(default=None, compare=False)
+    dispatch_delay_ms: float | None = field(default=None, compare=False)
+    dispatched_at: datetime | None = field(default=None, compare=False)
+    job_inputs: dict[str, Any] | None = field(default=None, compare=False)
 
     def save(self, context: Context) -> Mapping[str, Any]:
         return {

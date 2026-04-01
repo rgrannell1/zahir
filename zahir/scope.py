@@ -1,4 +1,5 @@
 import importlib
+import importlib.util
 import inspect
 from pathlib import Path
 import sys
@@ -79,6 +80,17 @@ def _scan_import_sort_key(path: Path, root: Path) -> tuple[int, str]:
 
     name = _py_path_to_module_name(path, root)
     return (name.count("."), name)
+
+
+def load_module_from_file(module_name: str, path: Path) -> ModuleType:
+    """Load a module directly from file path."""
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"scan: failed to build import spec for {module_name!r} ({path})")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 # Register built in job specs
@@ -284,12 +296,17 @@ class LocalScope(Scope):
             )
             for path in py_files:
                 mod_name = _py_path_to_module_name(path, root)
-                if not mod_name:
-                    continue
                 try:
-                    module = importlib.import_module(mod_name)
+                    if not mod_name and path == root / "__init__.py":
+                        root_module_name = f"_zahir_scan_root_{abs(hash(str(path)))}"
+                        module = load_module_from_file(root_module_name, path)
+                    elif not mod_name:
+                        continue
+                    else:
+                        module = importlib.import_module(mod_name)
                 except Exception as err:
-                    raise ImportError(f"scan: failed to import {mod_name!r} ({path})") from err
+                    failed_name = mod_name if mod_name else path.name
+                    raise ImportError(f"scan: failed to import {failed_name!r} ({path})") from err
                 specs, dependencies = _collect_scope_members(module)
                 if specs:
                     self.add_job_specs(specs)

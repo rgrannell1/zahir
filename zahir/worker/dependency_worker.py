@@ -1,8 +1,8 @@
 import atexit
+from datetime import UTC, datetime
 import logging
 from multiprocessing.queues import Queue
 import os
-import pathlib
 import time
 
 from zahir.base_types import Context, DependencyState, JobInstance, JobState
@@ -13,8 +13,8 @@ from zahir.events import (
     ZahirInternalErrorEvent,
 )
 from zahir.exception import ImpossibleDependencyError, exception_to_text_blob
-from zahir.otel.metrics import MetricsCollector
-from zahir.otel.metrics_exporter import FileMetricsExporter
+from zahir.monitoring.emitter import MonitoringEmitter
+from zahir.monitoring.events import DepWorkerLoopStats
 from zahir.serialise import SerialisedEvent, serialise_event
 from zahir.types.dependency import DependencyResult
 from zahir.utils.logging_config import configure_logging
@@ -242,62 +242,15 @@ def _any_existing_ready(
     return any(has_ready_jobs(context, job_registry, workflow) for workflow in workflows)
 
 
-def _create_dep_worker_instruments(metrics: MetricsCollector) -> dict[str, object]:
-    """Create all metric instruments for the dependency worker loop.
-
-    Returns a dict of instrument name to instrument so the main loop
-    can reference them without burning 6+ local variables.
-    """
-    return {
-        "loop_duration": metrics.get_histogram(
-            "zahir.dep_worker.loop_duration_ms",
-            description="Time per dependency-check loop iteration",
-            unit="ms",
-        ),
-        "pending_checked": metrics.get_histogram(
-            "zahir.dep_worker.pending_jobs_checked",
-            description="Pending jobs examined per loop iteration",
-            unit="{jobs}",
-            bounds=[0, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500],
-        ),
-        "jobs_made_ready": metrics.get_gauge(
-            "zahir.dep_worker.jobs_made_ready",
-            description="Jobs transitioned PENDING to READY this iteration",
-            unit="{jobs}",
-        ),
-        "active_workflows": metrics.get_gauge(
-            "zahir.dep_worker.active_workflows",
-            description="Number of active workflows",
-            unit="{workflows}",
-        ),
-        "get_state_calls": metrics.get_histogram(
-            "zahir.dep_worker.get_state_calls",
-            description="get_state() calls per loop iteration",
-            unit="{calls}",
-            bounds=[0, 1, 5, 10, 25, 50, 100, 250, 500, 1000, 5000],
-        ),
-    }
-
-
 def zahir_dependency_worker(
     context: Context,
     output_queue: OutputQueue,
     workflow_id: str,
     log_dir: str | None = None,
-    otel_output_dir: str | None = None,
+    monitoring_emitter: MonitoringEmitter | None = None,
 ) -> None:
     """Analyse job dependencies and mark jobs as pending."""
     setup_dependency_worker(context, log_dir=log_dir)
-
-    # Set up metrics collection (written alongside traces).
-    metrics = MetricsCollector()
-    metrics_exporter: FileMetricsExporter | None = None
-    if otel_output_dir is not None:
-        metrics_dir = pathlib.Path(otel_output_dir)
-        metrics_dir.mkdir(parents=True, exist_ok=True)
-        metrics_exporter = FileMetricsExporter(metrics_dir / f"metrics-dep-worker-{os.getpid()}.jsonl")
-
-    instruments = _create_dep_worker_instruments(metrics)
 
     try:
         _setup_job_registry(context)
@@ -317,21 +270,13 @@ def zahir_dependency_worker(
                         ),
                     )
                 )
-                # Final flush before exit.
-                if metrics_exporter:
-                    metrics.flush(metrics_exporter)
                 return
 
             active_workflow_ids = job_registry.get_active_workflow_ids()
-            instruments["active_workflows"].set(len(active_workflow_ids) + 1)
 
-            # Count pending jobs and ready transitions this iteration.
             pending_count, ready_count, state_calls = has_active_workflows_instrumented(
                 context, output_queue, job_registry, workflow_id, active_workflow_ids,
             )
-            instruments["pending_checked"].record(pending_count)
-            instruments["jobs_made_ready"].set(ready_count)
-            instruments["get_state_calls"].record(state_calls)
 
             any_ready = ready_count > 0 or _any_existing_ready(context, job_registry, workflow_id, active_workflow_ids)
 
@@ -339,16 +284,18 @@ def zahir_dependency_worker(
                 output_queue.put(serialise_event(context, JobReadyEvent()))
 
             loop_elapsed_ms = (time.monotonic() - loop_start) * 1000
-            instruments["loop_duration"].record(loop_elapsed_ms)
 
-            # Flush metrics every loop so the file is always up-to-date.
-            if metrics_exporter:
-                metrics.flush(metrics_exporter)
+            if monitoring_emitter is not None:
+                monitoring_emitter.emit(DepWorkerLoopStats(
+                    timestamp=datetime.now(UTC),
+                    loop_duration_ms=loop_elapsed_ms,
+                    pending_jobs_checked=pending_count,
+                    jobs_made_ready=ready_count,
+                    active_workflows=len(active_workflow_ids) + 1,
+                    get_state_calls=state_calls,
+                ))
 
             time.sleep(DEPENDENCY_LOOP_STALL_SECONDS)
 
     except Exception as err:
         handle_exception(context, output_queue, workflow_id, err)
-    finally:
-        if metrics_exporter:
-            metrics_exporter.close()

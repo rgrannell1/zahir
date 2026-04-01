@@ -102,3 +102,15 @@ def test_scan_import_error_wraps(tmp_path: Path) -> None:
 
     with pytest.raises(ImportError, match="scan: failed to import 'broken'"):
         LocalScope().scan(root)
+
+
+def test_scan_discovers_root_init_module(tmp_path: Path) -> None:
+    root = tmp_path / "root"
+    root.mkdir()
+    (root / "__init__.py").write_text(_JOB_AND_DEP_PY)
+
+    scope = LocalScope()
+    scope.scan(root)
+
+    assert "ScannedJob" in scope.specs
+    assert "ScannedDep" in scope.dependencies

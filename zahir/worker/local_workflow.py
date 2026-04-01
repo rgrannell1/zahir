@@ -5,6 +5,7 @@ from zahir.base_types import Context, JobInstance
 from zahir.context.memory import MemoryContext
 from zahir.events import WorkflowOutputEvent, ZahirCustomEvent, ZahirEvent
 from zahir.job_registry.sqlite import SQLiteJobRegistry
+from zahir.monitoring.emitter import MonitoringEmitter
 from zahir.scope import LocalScope, _find_caller_module
 from zahir.worker.overseer import zahir_worker_overseer
 from zahir.worker.progress import NoOpProgressMonitor, ProgressMonitor, ZahirProgressMonitor
@@ -23,7 +24,7 @@ class LocalWorkflow[WorkflowOutputType]:
     progress_monitor: ProgressMonitor | None
     log_output_dir: str | None
     start_job_type: str | None
-    otel_output_dir: str | None
+    monitoring_emitter: MonitoringEmitter | None
 
     def __init__(
         self,
@@ -32,7 +33,7 @@ class LocalWorkflow[WorkflowOutputType]:
         progress_monitor: ProgressMonitor | None = None,
         log_output_dir: str | None = None,
         start_job_type: str | None = None,
-        otel_output_dir: str | None = "traces",
+        monitoring_emitter: MonitoringEmitter | None = None,
     ) -> None:
         """Initialize a workflow execution engine
 
@@ -40,7 +41,7 @@ class LocalWorkflow[WorkflowOutputType]:
         @param max_workers: Number of worker processes to use
         @param progress_monitor: Optional progress monitor for tracking workflow execution. Defaults to ZahirProgressMonitor if not provided.
         @param log_output_dir: Directory to capture stdout/stderr from all processes. Defaults to "zahir_logs".
-        @param otel_output_dir: Directory to write OpenTelemetry trace files. Defaults to "traces". Pass None explicitly to disable tracing.
+        @param monitoring_emitter: Optional MonitoringEmitter to receive runtime events. See zahir.monitoring for built-in emitters and event types.
         """
 
         if max_workers < 2:
@@ -50,7 +51,7 @@ class LocalWorkflow[WorkflowOutputType]:
         self.progress_monitor = progress_monitor
         self.log_output_dir = log_output_dir if log_output_dir is not None else "zahir_logs"
         self.start_job_type = start_job_type
-        self.otel_output_dir = otel_output_dir
+        self.monitoring_emitter = monitoring_emitter
 
         if not context:
             # Find which module called this one, and construct a scope based on the
@@ -89,7 +90,7 @@ class LocalWorkflow[WorkflowOutputType]:
                 start,
                 self.context,
                 self.max_workers,
-                self.otel_output_dir,
+                self.monitoring_emitter,
                 log_output_dir=self.log_output_dir,
                 start_job_type=self.start_job_type,
             ):
