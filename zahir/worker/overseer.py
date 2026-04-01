@@ -1,6 +1,6 @@
 """The overseer dispatches jobs to workers via input queues. Workers emit when ready, and the overseer pushes jobs to ready workers fairly."""
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from enum import StrEnum
 import multiprocessing
@@ -89,21 +89,22 @@ def _fetch_ready_jobs(
 ) -> list[tuple[JobInstance, str]]:
     """Collect up to max_count READY jobs, current workflow first."""
     job_registry = context.job_registry
-    ready_jobs: list[tuple[JobInstance, str]] = []
+    result: list[tuple[JobInstance, str]] = []
 
     for job_info in job_registry.jobs(context, state=JobState.READY, workflow_id=workflow_id, limit=max_count):
-        ready_jobs.append((job_info.job, job_info.workflow_id or workflow_id))
+        result.append((job_info.job, job_info.workflow_id or workflow_id))
 
-    remaining = max_count - len(ready_jobs)
-    if remaining > 0:
+    if len(result) < max_count:
         for wf_id in job_registry.get_active_workflow_ids():
-            if wf_id == workflow_id or remaining <= 0:
+            if wf_id == workflow_id:
                 continue
-            for job_info in job_registry.jobs(context, state=JobState.READY, workflow_id=wf_id, limit=remaining):
-                ready_jobs.append((job_info.job, job_info.workflow_id or wf_id))
-            remaining = max_count - len(ready_jobs)
+            needed = max_count - len(result)
+            for job_info in job_registry.jobs(context, state=JobState.READY, workflow_id=wf_id, limit=needed):
+                result.append((job_info.job, job_info.workflow_id or wf_id))
+            if len(result) >= max_count:
+                break
 
-    return ready_jobs
+    return result
 
 
 def dispatch_jobs_to_workers(
@@ -214,6 +215,33 @@ def start_zahir_overseer(
     return processes, process_queues, process_states, ready_worker_queue, output_queue, workflow_id
 
 
+def _extract_error(event: ZahirInternalErrorEvent) -> Exception:
+    return (
+        exception_from_text_blob(event.error)
+        if event.error
+        else RuntimeError("Unknown internal error in worker")
+    )
+
+
+def _handle_coordination_event(
+    event: ZahirEvent,
+    process_states: dict[int, WorkerState],
+    ready_worker_queue: list[int],
+    dispatch: "Callable[[], None]",
+) -> bool:
+    """Handle internal worker coordination events. Returns True if the event was consumed."""
+    if isinstance(event, JobWorkerWaitingEvent):
+        process_states[event.pid] = WorkerState.READY
+        if event.pid not in ready_worker_queue:
+            ready_worker_queue.append(event.pid)
+        dispatch()
+        return True
+    if isinstance(event, JobReadyEvent):
+        dispatch()
+        return True
+    return False
+
+
 def zahir_worker_overseer(
     start: JobInstance | None,
     context,
@@ -231,7 +259,7 @@ def zahir_worker_overseer(
 
     throughput = _ThroughputTracker()
 
-    def _dispatch():
+    def _dispatch() -> None:
         dispatch_jobs_to_workers(
             context, process_queues, process_states, ready_worker_queue,
             workflow_id, output_queue, emitter=monitoring_emitter,
@@ -246,32 +274,18 @@ def zahir_worker_overseer(
                 enrich_and_emit(event, context, monitoring_emitter)
 
             if isinstance(event, ZahirInternalErrorEvent):
-                exc = (
-                    exception_from_text_blob(event.error)
-                    if event.error
-                    else RuntimeError("Unknown internal error in worker")
-                )
+                exc = _extract_error(event)
                 break
 
-            elif isinstance(event, JobWorkerWaitingEvent):
-                process_states[event.pid] = WorkerState.READY
-                if event.pid not in ready_worker_queue:
-                    ready_worker_queue.append(event.pid)
-                _dispatch()
-                continue
-
-            elif isinstance(event, JobReadyEvent):
-                _dispatch()
-                continue
-
-            elif isinstance(event, WorkflowCompleteEvent):
+            if isinstance(event, WorkflowCompleteEvent):
                 yield event
                 break
 
-            if isinstance(event, JobCompletedEvent):
-                stats = throughput.record()
-                if monitoring_emitter is not None:
-                    monitoring_emitter.emit(stats)
+            if _handle_coordination_event(event, process_states, ready_worker_queue, _dispatch):
+                continue
+
+            if isinstance(event, JobCompletedEvent) and monitoring_emitter is not None:
+                monitoring_emitter.emit(throughput.record())
 
             yield event
 
