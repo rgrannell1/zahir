@@ -522,7 +522,9 @@ class SQLiteJobRegistry(JobRegistry):
         @return: A list of job information
         """
 
-        log.debug(f"Retrieving jobs from registry with state filter: {state}, workflow_id: {workflow_id}, limit: {limit}")
+        log.debug(
+            f"Retrieving jobs from registry with state filter: {state}, workflow_id: {workflow_id}, limit: {limit}"
+        )
 
         conditions: list[str] = []
         params: list[str | int] = []

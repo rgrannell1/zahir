@@ -263,22 +263,33 @@ class LocalScope(Scope):
         self.transforms[type_name] = transform
         return self
 
-    def scan(self, directory: str | Path) -> Self:
-        """Import every ``*.py`` file under *directory* and register discovered specs and dependencies.
+    def scan(self, source: str | Path | ModuleType) -> Self:
+        """Register all ``JobSpec`` instances and concrete ``Dependency`` subclasses from *source*.
 
-        *directory* is prepended to ``sys.path`` temporarily so dotted module names are resolved
-        relative to it (e.g. ``jobs/foo.py`` → ``import jobs.foo``). Use the folder that should be
-        the top-level import root (often your package or ``src`` tree).
+        *source* may be:
 
-        The same rules as :meth:`from_module` apply: ``JobSpec`` instances (e.g. from ``@spec()``)
-        and concrete ``Dependency`` subclasses are registered; the base ``Dependency`` class is
-        skipped. Later registrations override earlier ones if job or dependency names collide.
+        - A **module object** — scanned directly (fastest; use ``sys.modules[__name__]`` to scan
+          the calling module).
+        - A **directory path** — every ``*.py`` file under it is imported and scanned.  The path
+          is prepended to ``sys.path`` temporarily so dotted module names resolve correctly.
 
-        @param directory: Filesystem path to the tree to scan.
+        ``JobSpec`` instances (e.g. from ``@spec()``) and concrete ``Dependency`` subclasses are
+        registered; the base ``Dependency`` class is skipped.  Later registrations override earlier
+        ones on name collision.
+
+        @param source: Module object or filesystem path to scan.
         @return: ``self`` for chaining.
         """
 
-        root = Path(directory).expanduser().resolve()
+        if isinstance(source, ModuleType):
+            specs, dependencies = _collect_scope_members(source)
+            if specs:
+                self.add_job_specs(specs)
+            if dependencies:
+                self.add_dependency_classes(dependencies)
+            return self
+
+        root = Path(source).expanduser().resolve()
         if not root.exists():
             raise FileNotFoundError(f"scan: path does not exist: {root}")
         if not root.is_dir():
@@ -321,37 +332,3 @@ class LocalScope(Scope):
 
         return self
 
-    @classmethod
-    def from_module(cls, module: ModuleType | None = None) -> Self:
-        """Create a LocalScope by discovering all Job and Dependency classes in a module.
-
-        This method will automatically find and register all classes that inherit from
-        Job or Dependency in the given module. If no module is provided, it will
-        discover from the calling module.
-
-        @param module: The Python module to search for Job and Dependency classes.
-                      If None, discovers from the calling module.
-        @return: A new LocalScope instance with discovered classes registered
-
-        Examples:
-            # Discover from a specific module
-            import my_workflows
-            scope = LocalScope.from_module(my_workflows)
-
-            # Discover from current module
-            scope = LocalScope.from_module()
-        """
-
-        if module is None:
-            module = _find_caller_module()
-            if module is None:
-                raise RuntimeError("Cannot determine calling module")
-
-        specs, dependencies = _collect_scope_members(module)
-        return cls(dependencies=dependencies, specs=specs)
-
-    @classmethod
-    def from_module_name(cls, module_name: str) -> Self:
-        """Create a LocalScope from a module name (for use in spawn workers)."""
-        module = importlib.import_module(module_name)
-        return cls.from_module(module)

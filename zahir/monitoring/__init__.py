@@ -16,9 +16,11 @@ Usage::
     from zahir.monitoring import MonitoringEmitter, MeasurementEvent
     from zahir.events import ZahirEvent
 
+
     class MyEmitter:
         def emit(self, event: ZahirEvent | MeasurementEvent) -> None:
             print(event)
+
 
     workflow = LocalWorkflow(monitoring_emitter=MyEmitter())
 """
@@ -33,9 +35,10 @@ from zahir.monitoring.events import (
 
 __all__ = [
     "MonitoringEmitter",
-    "MeasurementEvent",
+    "MonitoringEvent",
     "NullEmitter",
     "DepWorkerLoopStats",
+    "MeasurementEvent",
     "OverseerDispatchStats",
     "OverseerThroughputStats",
 ]

@@ -195,7 +195,10 @@ def has_active_workflows_instrumented(
 
     for workflow in workflows:
         pending, ready, state_calls = has_active_jobs_instrumented(
-            context, output_queue, job_registry, workflow,
+            context,
+            output_queue,
+            job_registry,
+            workflow,
         )
         total_pending += pending
         total_ready += ready
@@ -275,7 +278,11 @@ def zahir_dependency_worker(
             active_workflow_ids = job_registry.get_active_workflow_ids()
 
             pending_count, ready_count, state_calls = has_active_workflows_instrumented(
-                context, output_queue, job_registry, workflow_id, active_workflow_ids,
+                context,
+                output_queue,
+                job_registry,
+                workflow_id,
+                active_workflow_ids,
             )
 
             any_ready = ready_count > 0 or _any_existing_ready(context, job_registry, workflow_id, active_workflow_ids)
@@ -286,14 +293,16 @@ def zahir_dependency_worker(
             loop_elapsed_ms = (time.monotonic() - loop_start) * 1000
 
             if monitoring_emitter is not None:
-                monitoring_emitter.emit(DepWorkerLoopStats(
-                    timestamp=datetime.now(UTC),
-                    loop_duration_ms=loop_elapsed_ms,
-                    pending_jobs_checked=pending_count,
-                    jobs_made_ready=ready_count,
-                    active_workflows=len(active_workflow_ids) + 1,
-                    get_state_calls=state_calls,
-                ))
+                monitoring_emitter.emit(
+                    DepWorkerLoopStats(
+                        timestamp=datetime.now(UTC),
+                        loop_duration_ms=loop_elapsed_ms,
+                        pending_jobs_checked=pending_count,
+                        jobs_made_ready=ready_count,
+                        active_workflows=len(active_workflow_ids) + 1,
+                        get_state_calls=state_calls,
+                    )
+                )
 
             time.sleep(DEPENDENCY_LOOP_STALL_SECONDS)
 

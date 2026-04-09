@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Self, TypedDict
+from typing import TYPE_CHECKING, Any, Callable, Self, TypedDict
 
 if TYPE_CHECKING:
     from zahir.types.context import Context

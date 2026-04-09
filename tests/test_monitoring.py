@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import io
+import json
 
 import pytest
 
@@ -181,10 +183,9 @@ class TestOverseerThroughputStats:
         assert event.completion_interval_ms == 50.0
 
     def test_interval_optional(self):
-        event = OverseerThroughputStats(
-            timestamp=datetime.now(UTC), jobs_per_second=1.0, jobs_completed_total=1
-        )
+        event = OverseerThroughputStats(timestamp=datetime.now(UTC), jobs_per_second=1.0, jobs_completed_total=1)
         assert event.completion_interval_ms is None
+
 
 
 # ── Emitter collects all expected event types ─────────────────────────────────
@@ -212,7 +213,14 @@ class TestEmitterReceivesExpectedEvents:
             JobPausedEvent(workflow_id="w", job_id="j", job_type="t", pid=1),
         ]
         measurement_events = [
-            DepWorkerLoopStats(timestamp=ts, loop_duration_ms=1.0, pending_jobs_checked=0, jobs_made_ready=0, active_workflows=1, get_state_calls=0),
+            DepWorkerLoopStats(
+                timestamp=ts,
+                loop_duration_ms=1.0,
+                pending_jobs_checked=0,
+                jobs_made_ready=0,
+                active_workflows=1,
+                get_state_calls=0,
+            ),
             OverseerDispatchStats(timestamp=ts, dispatch_duration_ms=0.1, jobs_dispatched=1),
             OverseerThroughputStats(timestamp=ts, jobs_per_second=1.0, jobs_completed_total=1),
         ]

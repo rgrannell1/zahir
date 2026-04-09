@@ -33,6 +33,7 @@ def enrich_and_emit(event: ZahirEvent, context: Context, emitter: MonitoringEmit
 def _enrich(event: ZahirEvent, context: Context) -> None:
     if isinstance(event, WorkflowStartedEvent):
         event.workflow_inputs = _collect_workflow_inputs(context, event.workflow_id)
+
     elif isinstance(event, JobStartedEvent):
         now = datetime.now(UTC)
         event.parent_job_id = _get_parent_job_id(context, event.job_id)
@@ -82,9 +83,7 @@ def _get_parent_job_id(context: Context, job_id: str) -> str | None:
     return None
 
 
-def _get_dispatch_timing(
-    context: Context, job_id: str, now: datetime
-) -> tuple[float | None, datetime | None]:
+def _get_dispatch_timing(context: Context, job_id: str, now: datetime) -> tuple[float | None, datetime | None]:
     try:
         timing = context.job_registry.get_job_timing(job_id)
         if timing and timing.started_at:

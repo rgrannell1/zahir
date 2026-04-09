@@ -10,7 +10,7 @@ from zahir.jobs.decorator import spec
 from zahir.scope import LocalScope
 
 
-_JOB_AND_DEP_PY = '''
+_JOB_AND_DEP_PY = """
 from zahir.base_types import Context, Dependency, DependencyResult, DependencyState
 from zahir.events import JobOutputEvent
 from zahir.jobs.decorator import spec
@@ -33,7 +33,7 @@ class ScannedDep(Dependency):
     @classmethod
     def load(cls, context, data):
         return cls()
-'''
+"""
 
 
 def test_scan_flat_module(tmp_path: Path) -> None:

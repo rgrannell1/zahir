@@ -126,9 +126,13 @@ def dispatch_jobs_to_workers(
 
     if max_to_dispatch == 0:
         if emitter is not None:
-            emitter.emit(OverseerDispatchStats(
-                timestamp=datetime.now(UTC), dispatch_duration_ms=0.0, jobs_dispatched=0,
-            ))
+            emitter.emit(
+                OverseerDispatchStats(
+                    timestamp=datetime.now(UTC),
+                    dispatch_duration_ms=0.0,
+                    jobs_dispatched=0,
+                )
+            )
         return
 
     ready_jobs = _fetch_ready_jobs(context, workflow_id, max_to_dispatch)
@@ -144,22 +148,35 @@ def dispatch_jobs_to_workers(
 
         process_states[worker_pid] = WorkerState.BUSY
         context.job_registry.set_state(
-            context, job.job_id, job.spec.type, job_workflow_id,
-            output_queue, JobState.RUNNING, recovery=False, pid=worker_pid,
+            context,
+            job.job_id,
+            job.spec.type,
+            job_workflow_id,
+            output_queue,
+            JobState.RUNNING,
+            recovery=False,
+            pid=worker_pid,
         )
         process_queues[worker_pid].put(
-            serialise_event(context, JobAssignedEvent(
-                workflow_id=job_workflow_id, job_id=job.job_id, job_type=job.spec.type,
-            ))
+            serialise_event(
+                context,
+                JobAssignedEvent(
+                    workflow_id=job_workflow_id,
+                    job_id=job.job_id,
+                    job_type=job.spec.type,
+                ),
+            )
         )
         jobs_dispatched += 1
 
     if emitter is not None:
-        emitter.emit(OverseerDispatchStats(
-            timestamp=datetime.now(UTC),
-            dispatch_duration_ms=(time.monotonic() - dispatch_start) * 1000,
-            jobs_dispatched=jobs_dispatched,
-        ))
+        emitter.emit(
+            OverseerDispatchStats(
+                timestamp=datetime.now(UTC),
+                dispatch_duration_ms=(time.monotonic() - dispatch_start) * 1000,
+                jobs_dispatched=jobs_dispatched,
+            )
+        )
 
 
 def start_zahir_overseer(
@@ -207,20 +224,14 @@ def start_zahir_overseer(
             raise RuntimeError("Failed to start worker process")
         process_queues[proc.pid] = input_queue
 
-    process_states: dict[int, WorkerState] = {
-        pid: WorkerState.READY for pid in process_queues
-    }
+    process_states: dict[int, WorkerState] = {pid: WorkerState.READY for pid in process_queues}
     ready_worker_queue: list[int] = list(process_queues.keys())
 
     return processes, process_queues, process_states, ready_worker_queue, output_queue, workflow_id
 
 
 def _extract_error(event: ZahirInternalErrorEvent) -> Exception:
-    return (
-        exception_from_text_blob(event.error)
-        if event.error
-        else RuntimeError("Unknown internal error in worker")
-    )
+    return exception_from_text_blob(event.error) if event.error else RuntimeError("Unknown internal error in worker")
 
 
 def _handle_coordination_event(
@@ -252,8 +263,11 @@ def zahir_worker_overseer(
 ) -> Iterator[ZahirEvent]:
     """Spawn a pool of worker processes, collect their events, and yield them to the caller."""
     processes, process_queues, process_states, ready_worker_queue, output_queue, workflow_id = start_zahir_overseer(
-        context, start, worker_count,
-        log_output_dir=log_output_dir, start_job_type=start_job_type,
+        context,
+        start,
+        worker_count,
+        log_output_dir=log_output_dir,
+        start_job_type=start_job_type,
         monitoring_emitter=monitoring_emitter,
     )
 
@@ -261,8 +275,13 @@ def zahir_worker_overseer(
 
     def _dispatch() -> None:
         dispatch_jobs_to_workers(
-            context, process_queues, process_states, ready_worker_queue,
-            workflow_id, output_queue, emitter=monitoring_emitter,
+            context,
+            process_queues,
+            process_states,
+            ready_worker_queue,
+            workflow_id,
+            output_queue,
+            emitter=monitoring_emitter,
         )
 
     exc: Exception | None = None
