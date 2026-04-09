@@ -224,7 +224,7 @@ def start_zahir_overseer(
             raise RuntimeError("Failed to start worker process")
         process_queues[proc.pid] = input_queue
 
-    process_states: dict[int, WorkerState] = {pid: WorkerState.READY for pid in process_queues}
+    process_states: dict[int, WorkerState] = dict.fromkeys(process_queues, WorkerState.READY)
     ready_worker_queue: list[int] = list(process_queues.keys())
 
     return processes, process_queues, process_states, ready_worker_queue, output_queue, workflow_id

@@ -43,7 +43,7 @@ def test_handle_recovery_job_exception_returns_enqueue_state_change():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
@@ -79,7 +79,7 @@ def test_handle_recovery_job_exception_sets_irrecoverable_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
@@ -114,7 +114,7 @@ def test_handle_recovery_job_exception_records_error():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
@@ -152,7 +152,7 @@ def test_handle_recovery_job_exception_clears_frame():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
@@ -187,7 +187,7 @@ def test_handle_recovery_job_exception_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-5"
@@ -219,7 +219,7 @@ def test_handle_recovery_job_exception_includes_job_type_in_message():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
@@ -251,7 +251,7 @@ def test_handle_recovery_job_exception_transitions_to_enqueue():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
 
-    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
@@ -285,7 +285,7 @@ def test_handle_recovery_job_exception_with_different_exception_types():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
 
-    context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"

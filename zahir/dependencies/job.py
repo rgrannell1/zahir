@@ -1,7 +1,16 @@
 from collections.abc import Mapping
 from typing import Any, Self, TypedDict, TypeVar, cast
 
-from zahir.base_types import Context, Dependency, DependencyResult, DependencyState, JobRegistry, JobState
+from zahir.base_types import (
+    Context,
+    Dependency,
+    DependencyResult,
+    DependencyState,
+    JobRegistry,
+    JobState,
+    restore_message_override,
+    serialise_message_override,
+)
 
 OutputType = TypeVar("OutputType", bound=Mapping)
 
@@ -16,6 +25,12 @@ class JobDependencyData(TypedDict, total=False):
 
 class JobDependency[OutputType](Dependency):
     """A dependency on another job's completion."""
+
+    DEFAULT_MESSAGE: dict[DependencyState, str] = {
+        DependencyState.SATISFIED: "Job {job_id} completed ({state}).",
+        DependencyState.UNSATISFIED: "Job {job_id} not yet complete ({state}).",
+        DependencyState.IMPOSSIBLE: "Job {job_id} could not complete ({state}).",
+    }
 
     job_id: str
     job_registry: JobRegistry
@@ -44,24 +59,32 @@ class JobDependency[OutputType](Dependency):
         """Check whether the job dependency is satisfied."""
 
         state = self.job_registry.get_state(self.job_id)
+        metadata = {"job_id": self.job_id, "state": state.value}
+
         if state in self.impossible_states:
+            dep_state = DependencyState.IMPOSSIBLE
             return DependencyResult(
                 type="JobDependency",
-                state=DependencyState.IMPOSSIBLE,
-                metadata={"job_id": self.job_id, "state": state.value},
+                state=dep_state,
+                message=self.render_message(dep_state, metadata),
+                metadata=metadata,
             )
 
         if state in self.satisfied_states:
+            dep_state = DependencyState.SATISFIED
             return DependencyResult(
                 type="JobDependency",
-                state=DependencyState.SATISFIED,
-                metadata={"job_id": self.job_id, "state": state.value},
+                state=dep_state,
+                message=self.render_message(dep_state, metadata),
+                metadata=metadata,
             )
 
+        dep_state = DependencyState.UNSATISFIED
         return DependencyResult(
             type="JobDependency",
-            state=DependencyState.UNSATISFIED,
-            metadata={"job_id": self.job_id, "state": state.value},
+            state=dep_state,
+            message=self.render_message(dep_state, metadata),
+            metadata=metadata,
         )
 
     def request_extension(self, extra_seconds: float) -> Self:
@@ -70,12 +93,16 @@ class JobDependency[OutputType](Dependency):
     def save(self, context) -> dict[str, Any]:
         """Save the job dependency to a dictionary."""
 
-        return {
+        result: dict[str, Any] = {
             "type": "JobDependency",
             "job_id": self.job_id,
             "satisfied_states": [state.value for state in self.satisfied_states],
             "impossible_states": [state.value for state in self.impossible_states],
         }
+        override_data = serialise_message_override(self)
+        if override_data:
+            result["message_override"] = override_data
+        return result
 
     @classmethod
     def load(cls, context: Context, data: Mapping[str, Any]) -> "JobDependency":
@@ -84,12 +111,14 @@ class JobDependency[OutputType](Dependency):
         job_id = data["job_id"]
         satisfied_states = {JobState(state) for state in data.get("satisfied_states", [])}
         impossible_states = {JobState(state) for state in data.get("impossible_states", [])}
-        return cls(
+        instance = cls(
             job_id=job_id,
             job_registry=context.job_registry,
             satisfied_states=satisfied_states if satisfied_states else None,
             impossible_states=impossible_states if impossible_states else None,
         )
+        restore_message_override(instance, data)
+        return instance
 
     def output(self, context: Context, recovery: bool = False) -> OutputType | None:
         """Get the output of the job, if available, from the registry"""

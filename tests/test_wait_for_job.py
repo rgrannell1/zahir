@@ -38,7 +38,7 @@ def test_wait_for_job_receives_assignment():
     job_registry.init("test-worker-1")
 
     # Register the job spec
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     input_queue = multiprocessing.Queue()
@@ -78,7 +78,7 @@ def test_wait_for_job_checks_runnable_stack():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     input_queue = multiprocessing.Queue()
@@ -114,7 +114,7 @@ def test_wait_for_job_times_out_and_rechecks():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     input_queue = multiprocessing.Queue()
@@ -161,7 +161,7 @@ def test_wait_for_job_handles_missing_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     input_queue = multiprocessing.Queue()
@@ -200,7 +200,7 @@ def test_wait_for_job_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=job_registry)
 
     input_queue = multiprocessing.Queue()

@@ -43,7 +43,7 @@ def test_many_jobs_distribute_across_workers():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]),
+        scope=LocalScope().scan(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
 

@@ -48,7 +48,7 @@ def test_failed_prechecks():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 
@@ -72,7 +72,7 @@ def test_awaited_prechecks():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context, max_workers=2)
 
@@ -119,7 +119,7 @@ def test_typeddict_precheck_valid_input():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 
@@ -138,7 +138,7 @@ def test_typeddict_precheck_missing_required_key():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 
@@ -157,7 +157,7 @@ def test_typeddict_precheck_wrong_type():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 
@@ -175,7 +175,7 @@ def test_typeddict_precheck_optional_fields():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 
@@ -199,7 +199,7 @@ def test_typeddict_precheck_no_args_type():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 
@@ -264,7 +264,7 @@ def test_typeddict_postcheck_valid_output():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 
@@ -283,7 +283,7 @@ def test_typeddict_postcheck_missing_required_key():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 
@@ -302,7 +302,7 @@ def test_typeddict_postcheck_wrong_type():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 
@@ -320,7 +320,7 @@ def test_typeddict_postcheck_optional_fields():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 
@@ -344,7 +344,7 @@ def test_typeddict_postcheck_no_output_type():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 

@@ -4,7 +4,14 @@ from typing import Any, Literal, Self, TypedDict
 
 import psutil
 
-from zahir.base_types import Dependency, DependencyResult, DependencyState
+from zahir.base_types import (
+    Dependency,
+    DependencyResult,
+    DependencyState,
+    propagate_message_override,
+    restore_message_override,
+    serialise_message_override,
+)
 
 type ResourceType = Literal["cpu"] | Literal["memory"]
 
@@ -23,6 +30,12 @@ class ResourceLimit(Dependency):
     Useful to block until system-resources recover (I have OOMed myself too
     often.)
     """
+
+    DEFAULT_MESSAGE: dict[DependencyState, str] = {
+        DependencyState.SATISFIED: "{resource} usage is within {max_percent}% limit.",
+        DependencyState.UNSATISFIED: "{resource} usage exceeds {max_percent}% limit.",
+        DependencyState.IMPOSSIBLE: "{resource} limit timed out.",
+    }
 
     def __init__(
         self,
@@ -52,7 +65,7 @@ class ResourceLimit(Dependency):
     def memory(cls, max_percent: float, timeout: float | None = None) -> "ResourceLimit":
         return cls("memory", max_percent, timeout=timeout)
 
-    def _get_usage(self) -> float:
+    def get_usage(self) -> float:
         """Get the current resource usage as a percentage."""
 
         if self.resource == "cpu":
@@ -68,35 +81,40 @@ class ResourceLimit(Dependency):
             now = datetime.now(tz=UTC)
 
             if now >= self.timeout_at:
-                return DependencyResult(
-                    type="ResourceLimit",
-                    state=DependencyState.IMPOSSIBLE,
-                    metadata={
-                        "resource": self.resource,
-                        "max_percent": self.max_percent,
-                        "timeout_at": self.timeout_at.isoformat(),
-                    },
-                )
-
-        if self._get_usage() <= self.max_percent:
-            return DependencyResult(
-                type="ResourceLimit",
-                state=DependencyState.SATISFIED,
-                metadata={
+                metadata: dict[str, Any] = {
                     "resource": self.resource,
                     "max_percent": self.max_percent,
-                    "timeout_at": self.timeout_at.isoformat() if self.timeout_at else None,
-                },
+                    "timeout_at": self.timeout_at.isoformat(),
+                }
+                state = DependencyState.IMPOSSIBLE
+                return DependencyResult(
+                    type="ResourceLimit",
+                    state=state,
+                    message=self.render_message(state, metadata),
+                    metadata=metadata,
+                )
+
+        metadata = {
+            "resource": self.resource,
+            "max_percent": self.max_percent,
+            "timeout_at": self.timeout_at.isoformat() if self.timeout_at else None,
+        }
+
+        if self.get_usage() <= self.max_percent:
+            state = DependencyState.SATISFIED
+            return DependencyResult(
+                type="ResourceLimit",
+                state=state,
+                message=self.render_message(state, metadata),
+                metadata=metadata,
             )
 
+        state = DependencyState.UNSATISFIED
         return DependencyResult(
             type="ResourceLimit",
-            state=DependencyState.UNSATISFIED,
-            metadata={
-                "resource": self.resource,
-                "max_percent": self.max_percent,
-                "timeout_at": self.timeout_at.isoformat() if self.timeout_at else None,
-            },
+            state=state,
+            message=self.render_message(state, metadata),
+            metadata=metadata,
         )
 
     def request_extension(self, extra_seconds: float) -> Self:
@@ -110,18 +128,23 @@ class ResourceLimit(Dependency):
 
         new_timeout_at = self.timeout_at + timedelta(seconds=extra_seconds)
 
-        result = type(self)(resource=self.resource, max_percent=self.max_percent)
-        result.timeout_at = new_timeout_at
-        return result
+        extended = type(self)(resource=self.resource, max_percent=self.max_percent)
+        extended.timeout_at = new_timeout_at
+        propagate_message_override(self, extended)
+        return extended
 
     def save(self, context) -> Mapping[str, Any]:
         """Serialize the resource limit to a dictionary."""
-        return {
+        result: dict[str, Any] = {
             "type": "ResourceLimit",
             "resource": self.resource,
             "max_percent": self.max_percent,
             "timeout_at": self.timeout_at.isoformat() if self.timeout_at else None,
         }
+        override_data = serialise_message_override(self)
+        if override_data:
+            result["message_override"] = override_data
+        return result
 
     @classmethod
     def load(cls, context, data: Mapping[str, Any]) -> "ResourceLimit":
@@ -134,4 +157,5 @@ class ResourceLimit(Dependency):
         if timeout_at_str:
             instance.timeout_at = datetime.fromisoformat(timeout_at_str)
 
+        restore_message_override(instance, data)
         return instance

@@ -42,7 +42,7 @@ def test_handle_job_complete_no_output_sets_completed_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
 
-    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-1"
@@ -75,7 +75,7 @@ def test_handle_job_complete_no_output_transitions_to_enqueue():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
 
-    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-2"
@@ -108,7 +108,7 @@ def test_handle_job_complete_no_output_clears_frame():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
 
-    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-3"
@@ -143,7 +143,7 @@ def test_handle_job_complete_no_output_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
 
-    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-4"
@@ -175,7 +175,7 @@ def test_handle_job_complete_no_output_workflow_id_used():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
 
-    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "specific-workflow-id-789"
@@ -208,7 +208,7 @@ def test_handle_job_complete_no_output_multiple_calls():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
 
-    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-6"
@@ -257,7 +257,7 @@ def test_handle_job_complete_no_output_recovery_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
 
-    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-7"
@@ -291,7 +291,7 @@ def test_handle_job_complete_no_output_clears_frame_completely():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
 
-    context = MemoryContext(scope=LocalScope.from_module(__name__), job_registry=job_registry)
+    context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
     input_queue = multiprocessing.Queue()
     output_queue = multiprocessing.Queue()
     workflow_id = "test-workflow-8"

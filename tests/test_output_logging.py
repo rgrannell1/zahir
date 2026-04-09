@@ -16,7 +16,7 @@ from zahir.worker import LocalWorkflow
 def make_context() -> MemoryContext:
     """Create a MemoryContext with a file-based SQLite registry (required for cross-process workflows)."""
     tmp = tempfile.NamedTemporaryFile(delete=False)  # noqa: SIM115
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
     job_registry = SQLiteJobRegistry(tmp.name)
     return MemoryContext(scope=scope, job_registry=job_registry)
 

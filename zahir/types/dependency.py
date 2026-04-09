@@ -12,7 +12,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import TYPE_CHECKING, Any, Callable, Self, TypedDict
+from typing import TYPE_CHECKING, Any, Self, TypedDict
 
 if TYPE_CHECKING:
     from zahir.types.context import Context
@@ -58,6 +58,35 @@ class DependencyData(TypedDict, total=False):
 class Dependency(ABC):
     """A dependency, on which a job can depend"""
 
+    DEFAULT_MESSAGE: dict[DependencyState, str] = {}
+
+    def message(self, templates: "dict[DependencyState, str]") -> Self:
+        self.message_override = templates
+        return self
+
+    def render_message(
+        self,
+        state: DependencyState,
+        metadata: "Mapping[str, Any] | None",
+    ) -> "str | None":
+        """Render a message for the given state and metadata.
+
+        Checks the instance override first, then falls back to ``DEFAULT_MESSAGE``
+        for that state. Returns ``None`` if neither has a template for the state.
+        """
+        override: dict[DependencyState, str] | None = getattr(self, "message_override", None)
+        template = override.get(state) if override else None
+
+        if template is None:
+            template = self.DEFAULT_MESSAGE.get(state)
+
+        if template is None:
+            return None
+        try:
+            return template.format(**(metadata or {}))
+        except (KeyError, ValueError):
+            return template
+
     @abstractmethod
     def satisfied(self) -> DependencyResult:
         """Is the dependency satisfied?"""
@@ -89,3 +118,25 @@ class Dependency(ABC):
     @abstractmethod
     def load(cls, context: "Context", data: Mapping[str, Any]) -> Self:
         raise NotImplementedError
+
+
+def serialise_message_override(dependency: Dependency) -> dict[str, str]:
+    """Return the dependency's message override as a serialisable dict, or empty dict."""
+    override: dict[DependencyState, str] | None = getattr(dependency, "message_override", None)
+    if not override:
+        return {}
+    return {state.value: template for state, template in override.items()}
+
+
+def restore_message_override(dependency: Dependency, data: Mapping[str, Any]) -> None:
+    """Restore a message override onto a dependency from serialised data."""
+    override_data = data.get("message_override")
+    if isinstance(override_data, dict):
+        dependency.message_override = {DependencyState(k): v for k, v in override_data.items()}
+
+
+def propagate_message_override(source: Dependency, target: Dependency) -> None:
+    """Copy the message override from one dependency instance to another."""
+    override: dict[DependencyState, str] | None = getattr(source, "message_override", None)
+    if override:
+        target.message_override = override

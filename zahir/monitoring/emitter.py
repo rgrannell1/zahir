@@ -27,11 +27,11 @@ class MonitoringEmitter(Protocol):
     block for long.
     """
 
-    def emit(self, event: "ZahirEvent | MeasurementEvent") -> None: ...
+    def emit(self, event: ZahirEvent | MeasurementEvent) -> None: ...
 
 
 class NullEmitter:
     """A no-op emitter; all events are silently discarded."""
 
-    def emit(self, event: "ZahirEvent | MeasurementEvent") -> None:
+    def emit(self, event: ZahirEvent | MeasurementEvent) -> None:
         pass

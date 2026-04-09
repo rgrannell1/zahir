@@ -1,11 +1,24 @@
 from collections.abc import Mapping
-from typing import Self
+from typing import Any, Self
 
-from zahir.base_types import Dependency, DependencyResult, DependencyState
+from zahir.base_types import (
+    Dependency,
+    DependencyResult,
+    DependencyState,
+    propagate_message_override,
+    restore_message_override,
+    serialise_message_override,
+)
 
 
 class DependencyGroup(Dependency):
     """Await all subdependencies."""
+
+    DEFAULT_MESSAGE: dict[DependencyState, str] = {
+        DependencyState.SATISFIED: "All dependencies satisfied.",
+        DependencyState.UNSATISFIED: "One or more dependencies not yet satisfied.",
+        DependencyState.IMPOSSIBLE: "One or more dependencies are impossible.",
+    }
 
     dependencies: Mapping[str, Dependency | list[Dependency]]
 
@@ -21,19 +34,37 @@ class DependencyGroup(Dependency):
 
             # a little expensive, but we need to check all subdependencies now that we collect then for metrics
             for subdep in dep_list:
-                result = subdep.satisfied()
+                result = subdep.satisfied()  # type: ignore[union-attr]
                 results.append(result)
 
         is_impossible = any(result.state == DependencyState.IMPOSSIBLE for result in results)
         is_unsatisfied = any(result.state == DependencyState.UNSATISFIED for result in results)
 
         if is_impossible:
-            return DependencyResult(type="DependencyGroup", state=DependencyState.IMPOSSIBLE, subdependencies=results)
+            state = DependencyState.IMPOSSIBLE
+            return DependencyResult(
+                type="DependencyGroup",
+                state=state,
+                message=self.render_message(state, None),
+                subdependencies=results,
+            )
 
         if is_unsatisfied:
-            return DependencyResult(type="DependencyGroup", state=DependencyState.UNSATISFIED, subdependencies=results)
+            state = DependencyState.UNSATISFIED
+            return DependencyResult(
+                type="DependencyGroup",
+                state=state,
+                message=self.render_message(state, None),
+                subdependencies=results,
+            )
 
-        return DependencyResult(type="DependencyGroup", state=DependencyState.SATISFIED, subdependencies=results)
+        state = DependencyState.SATISFIED
+        return DependencyResult(
+            type="DependencyGroup",
+            state=state,
+            message=self.render_message(state, None),
+            subdependencies=results,
+        )
 
     def request_extension(self, extra_seconds: float) -> Self:
         """Ask each dependency for a time-extension and return
@@ -45,9 +76,11 @@ class DependencyGroup(Dependency):
                 result[name] = [dep.request_extension(extra_seconds) for dep in deps]  # type: ignore[union-attr]
             else:
                 result[name] = deps.request_extension(extra_seconds)
-        return type(self)(result)
+        extended = type(self)(result)
+        propagate_message_override(self, extended)
+        return extended
 
-    def save(self, context) -> Mapping:
+    def save(self, context) -> Mapping[str, Any]:
         """Save all subdependencies to a dictionary."""
 
         dependencies = {}
@@ -57,7 +90,11 @@ class DependencyGroup(Dependency):
             else:
                 dependencies[name] = [deps.save(context)]
 
-        return {"type": "DependencyGroup", "dependencies": dependencies}
+        result: dict[str, Any] = {"type": "DependencyGroup", "dependencies": dependencies}
+        override_data = serialise_message_override(self)
+        if override_data:
+            result["message_override"] = override_data
+        return result
 
     @classmethod
     def load(cls, context, data: Mapping) -> "DependencyGroup":
@@ -79,7 +116,9 @@ class DependencyGroup(Dependency):
                 dep_class = context.scope.get_dependency_class(deps["type"])
                 dependencies[name] = dep_class.load(context, deps)
 
-        return cls(dependencies)
+        instance = cls(dependencies)
+        restore_message_override(instance, data)
+        return instance
 
     def get(self, name: str) -> Dependency | list[Dependency]:
         """Get a subdependency by name.

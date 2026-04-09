@@ -145,7 +145,7 @@ def test_localworkflow_respects_provided_context():
     def CustomJob(context: Context, input, dependencies):
         yield JobOutputEvent({"custom": "result"})
 
-    custom_scope = LocalScope.from_module(sys.modules[__name__])
+    custom_scope = LocalScope().scan(sys.modules[__name__])
     custom_context = MemoryContext(scope=custom_scope, job_registry=SQLiteJobRegistry(":memory:"))
 
     workflow = LocalWorkflow(custom_context)

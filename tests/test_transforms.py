@@ -503,7 +503,7 @@ class TestLocalWorkflowWithTransforms:
         tmp_file = "/tmp/zahir_transform_simple.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
         workflow = LocalWorkflow(context)
 
@@ -520,7 +520,7 @@ class TestLocalWorkflowWithTransforms:
         tmp_file = "/tmp/zahir_transform_manual.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Apply retry transform manually
@@ -541,7 +541,7 @@ class TestLocalWorkflowWithTransforms:
         tmp_file = "/tmp/zahir_transform_apply.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Use with_transform and apply_transforms
@@ -566,7 +566,7 @@ class TestLocalWorkflowWithTransforms:
         tmp_file = "/tmp/zahir_transform_completes.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         transformed_spec = SimpleSuccessJob.with_transform("retry", {"max_retries": 1})
@@ -589,7 +589,7 @@ class TestLocalWorkflowWithTransforms:
         tmp_file = "/tmp/zahir_transform_retry_succeed.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # This job will fail twice then succeed on third attempt
@@ -620,7 +620,7 @@ class TestLocalWorkflowWithTransforms:
         tmp_file = "/tmp/zahir_transform_retry_exhausted.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # This job will fail 5 times, but we only allow 2 retries (3 total attempts)
@@ -669,7 +669,7 @@ class TestRetryTransformEdgeCases:
         tmp_file = "/tmp/zahir_retry_no_output.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Job that completes but has no output
@@ -690,7 +690,7 @@ class TestRetryTransformEdgeCases:
         tmp_file = "/tmp/zahir_retry_exception_types.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Test with RuntimeError
@@ -711,7 +711,7 @@ class TestRetryTransformEdgeCases:
         tmp_file = "/tmp/zahir_retry_keyerror.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         transformed_spec = JobWithDifferentException.with_transform("retry", {"max_retries": 2, "backoff_factor": 0.01})
@@ -731,7 +731,7 @@ class TestRetryTransformEdgeCases:
         tmp_file = "/tmp/zahir_retry_zero.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Zero retries means only one attempt
@@ -752,7 +752,7 @@ class TestRetryTransformEdgeCases:
         tmp_file = "/tmp/zahir_retry_backoff.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Use a larger backoff factor
@@ -849,7 +849,7 @@ class TestRetryTransformWorkflows:
         tmp_file = "/tmp/zahir_retry_nested.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Retry a job that spawns nested jobs
@@ -873,7 +873,7 @@ class TestRetryTransformWorkflows:
         tmp_file = "/tmp/zahir_retry_deps.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Retry a job that has dependencies
@@ -894,7 +894,7 @@ class TestRetryTransformWorkflows:
         tmp_file = "/tmp/zahir_retry_multi.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Create multiple transformed jobs
@@ -921,7 +921,7 @@ class TestRetryTransformWorkflows:
         tmp_file = "/tmp/zahir_retry_chained.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Job that fails internally but calls another job
@@ -953,7 +953,7 @@ class TestRetryTransformWorkflows:
         tmp_file = "/tmp/zahir_retry_backoff_timing.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Use a job that tracks timing
@@ -982,7 +982,7 @@ class TestRetryTransformWorkflows:
         tmp_file = "/tmp/zahir_retry_output_structure.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         transformed_spec = SimpleSuccessJob.with_transform("retry", {"max_retries": 1, "backoff_factor": 0.01})
@@ -1012,7 +1012,7 @@ class TestRetryTransformWorkflows:
         tmp_file = "/tmp/zahir_retry_zero_backoff.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         transformed_spec = CountingJob.with_transform("retry", {"max_retries": 2, "backoff_factor": 0.0})
@@ -1038,7 +1038,7 @@ class TestRetryTransformWorkflows:
         tmp_file = "/tmp/zahir_retry_serialize.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         # Create transformed job
@@ -1082,7 +1082,7 @@ class TestRetryTransformWorkflows:
         tmp_file = "/tmp/zahir_retry_await.db"
         pathlib.Path(tmp_file).unlink(missing_ok=True)
 
-        scope = LocalScope.from_module(sys.modules[__name__])
+        scope = LocalScope().scan(sys.modules[__name__])
         context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
         workflow = LocalWorkflow(context)

@@ -54,7 +54,7 @@ def test_handle_await_pauses_current_job():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-1")
     try:
-        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-1"
@@ -93,7 +93,7 @@ def test_handle_await_adds_awaited_job_to_registry():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-2")
     try:
-        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-2"
@@ -133,7 +133,7 @@ def test_handle_await_pushes_frame_to_stack():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-3")
     try:
-        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-3"
@@ -175,7 +175,7 @@ def test_handle_await_clears_current_frame():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-4")
     try:
-        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-4"
@@ -216,7 +216,7 @@ def test_handle_await_transitions_to_enqueue():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-5")
     try:
-        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-5"
@@ -256,7 +256,7 @@ def test_handle_await_sets_required_jobs():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-6")
     try:
-        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-6"
@@ -299,7 +299,7 @@ def test_handle_await_multiple_jobs():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-7")
     try:
-        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-7"
@@ -341,7 +341,7 @@ def test_handle_await_multiple_jobs_sets_await_many():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-8")
     try:
-        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-8"
@@ -384,7 +384,7 @@ def test_handle_await_preserves_state():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-9")
     try:
-        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-9"
@@ -422,7 +422,7 @@ def test_handle_await_workflow_id_used():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-10")
     try:
-        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "specific-workflow-id-abc"
@@ -460,7 +460,7 @@ def test_handle_await_uses_actual_job_id_for_idempotent_jobs():
     job_registry = SQLiteJobRegistry(tmp_file)
     job_registry.init("test-worker-idempotent-await")
     try:
-        context = MemoryContext(scope=LocalScope.from_module(sys.modules[__name__]), job_registry=job_registry)
+        context = MemoryContext(scope=LocalScope().scan(sys.modules[__name__]), job_registry=job_registry)
         input_queue = multiprocessing.Queue()
         output_queue = multiprocessing.Queue()
         workflow_id = "test-workflow-idempotent-await"

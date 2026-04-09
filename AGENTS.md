@@ -1,15 +1,35 @@
-# Instructions for Zahir
 
-Read ~/Agents/AGENTS.md
+# Róisín's Agents
+
+- Do not say I'm absolutely right, totally correct, etc.
+- Never use single-letter variables
+- No private functions. Functions should not start with _; do not make them private.
+- I name exceptions `err` and indices `idx`, `jdx`, etc.
+- Functions must be short and single purpose.
+- Use British English
+
+## Python
+
+- Set up `uv`, `ruff`
+- I only use `plotnine` for visualisations
+- In Jupyter, define functions. No top level code where possible.
+
+## Builds
+
+- On typescript projects, prefer the esbuild cli in a `bs` folder
+- `rs` is my main build system
+- To add a build script, put an executable zsh file with a shebang in bs/<name>.zsh
+- I like having `run`, `dev:watch`, `build`, `lint`, `check`, `test` commands defined
+- If I ask you to create a `bs` build system, create a `run.sh` and `test.sh` file if appropriate
+
+Instructions for Zahir Specifically
 
 ## General
 
-- Read README.md for context
-- Be aware of /home/rg/Code/rs's readme
-- When debugging or investigating, track thoughts and observations in a markdown file
-- Extend opentelemetry where helpful
+- Do not write documentation
+- Do not write comments or comment strings
 - /home/rg/Code/mirror/commands is the most advanced example of usage, and I'll often refer to it during debugging. The database is `/home/rg/Code/mirror/mirror_jobs.db`
-- Sqlite is the CLI command, not sqlite3
+- `Sqlite` is the CLI command, not `sqlite3`
 
 ## Testing
 
@@ -17,15 +37,8 @@ Read ~/Agents/AGENTS.md
 - ALWAYS use `uv run python3` to run python files
 - Lint with `rs lint`
 - Type check with `rs check && rs check:mypy`
-- If I paste in a fragment of a broken test, try to print out a `uv run pytest ` command so I can recheck it quickly myself
-- Try to write tests that actually prove things
-- Let me know if you significantly change a tests purpose
-- Do not simply delete failing tests; explain why you are removing at the very least
-- Use `ZAHIR_LOG_LEVEL=DEBUG` to see more logs
 - You can clear tempfiles if you need to
-- We have opentelemetry traces and log files. clear these as needed.
+- Use `ZAHIR_LOG_LEVEL=DEBUG` to see more logs
+- Each test should have a short, clear explanation of what it proves as a documentation string
+- Do not simply delete failing tests; explain why you are removing at the very least
 
-## Planning
-
-- We do not plan to add multi-machine support.
-- I like time-series and histograms; i dislike counters. We have multiple processes; it's good not to just average their behaviour

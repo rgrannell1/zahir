@@ -79,7 +79,7 @@ SampleDependency2.__module__ = "test_workflows"
 def test_from_module_discovers_jobs():
     """Test that from_module discovers all Job specs in a module."""
 
-    scope = LocalScope.from_module(test_module)
+    scope = LocalScope().scan(test_module)
 
     # Should have discovered both jobs (as specs since they're @spec decorated)
     assert "SampleJob1" in scope.specs
@@ -91,7 +91,7 @@ def test_from_module_discovers_jobs():
 def test_from_module_discovers_dependencies():
     """Test that from_module discovers all Dependency classes in a module."""
 
-    scope = LocalScope.from_module(test_module)
+    scope = LocalScope().scan(test_module)
 
     # Should have discovered both dependencies
     assert "SampleDependency1" in scope.dependencies
@@ -103,7 +103,7 @@ def test_from_module_discovers_dependencies():
 def test_from_module_discovers_both():
     """Test that from_module discovers both jobs and dependencies."""
 
-    scope = LocalScope.from_module(test_module)
+    scope = LocalScope().scan(test_module)
 
     # Should have found 2 specs (plus built-ins Sleep, Empty) and 2 dependencies (plus built-ins)
     assert "SampleJob1" in scope.specs
@@ -119,7 +119,7 @@ def test_from_module_skips_base_classes():
     test_module.Dependency = Dependency
     Dependency.__module__ = "test_workflows"
 
-    scope = LocalScope.from_module(test_module)
+    scope = LocalScope().scan(test_module)
 
     # Should not have registered the base class itself
     assert "Dependency" not in scope.dependencies
@@ -145,7 +145,7 @@ def test_from_module_includes_imported_classes():
     # Import the external job into our test module
     test_module.ExternalJob = ExternalJob
 
-    scope = LocalScope.from_module(test_module)
+    scope = LocalScope().scan(test_module)
 
     # Should have discovered the imported job spec
     assert "ExternalJob" in scope.specs
@@ -159,7 +159,7 @@ def test_from_module_empty_module():
 
     empty_module = ModuleType("empty_module")
 
-    scope = LocalScope.from_module(empty_module)
+    scope = LocalScope().scan(empty_module)
 
     # Scope should have pre-loaded built-in specs and dependencies, but no module-specific ones
     assert "SampleJob1" not in scope.specs
@@ -172,7 +172,7 @@ def test_from_module_empty_module():
 def test_from_module_get_job_class():
     """Test that discovered specs can be retrieved."""
 
-    scope = LocalScope.from_module(test_module)
+    scope = LocalScope().scan(test_module)
 
     job_spec = scope.get_job_spec("SampleJob1")
     assert job_spec == SampleJob1
@@ -181,19 +181,16 @@ def test_from_module_get_job_class():
 def test_from_module_get_dependency_class():
     """Test that discovered dependencies can be retrieved."""
 
-    scope = LocalScope.from_module(test_module)
+    scope = LocalScope().scan(test_module)
 
     dep_class = scope.get_dependency_class("SampleDependency1")
     assert dep_class == SampleDependency1
 
 
 def test_from_module_defaults_to_current_module():
-    """Test that from_module without arguments discovers from the calling module."""
+    """Test that scanning the current module produces a valid LocalScope."""
 
-    # When called without arguments, it should discover from the current module
-    scope = LocalScope.from_module()
+    import sys
+    scope = LocalScope().scan(sys.modules[__name__])
 
-    # Should have discovered jobs defined in this test file
-    # (none are defined at module level, so this should be empty)
-    # But we can verify the method works by checking it doesn't crash
     assert isinstance(scope, LocalScope)

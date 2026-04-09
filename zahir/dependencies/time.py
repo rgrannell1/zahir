@@ -3,7 +3,14 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Any, Self, TypedDict
 
-from zahir.base_types import Dependency, DependencyResult, DependencyState
+from zahir.base_types import (
+    Dependency,
+    DependencyResult,
+    DependencyState,
+    propagate_message_override,
+    restore_message_override,
+    serialise_message_override,
+)
 
 
 class TimeDependencyData(TypedDict, total=False):
@@ -31,6 +38,12 @@ class TimeDependency(Dependency):
 
     Once `before` is passed, the dependency is now considered impossible.
     """
+
+    DEFAULT_MESSAGE: dict[DependencyState, str] = {
+        DependencyState.SATISFIED: "Time window satisfied (after={after}, before={before}).",
+        DependencyState.UNSATISFIED: "Not yet time (after={after}, before={before}).",
+        DependencyState.IMPOSSIBLE: "Time window has passed (before={before}).",
+    }
 
     # What date must this job run before?
     before: datetime | None
@@ -71,20 +84,50 @@ class TimeDependency(Dependency):
 
         if not self.before and not self.after:
             # trivially true.
-            return DependencyResult(type="TimeDependency", state=DependencyState.SATISFIED, metadata=metadata)
+            state = DependencyState.SATISFIED
+            return DependencyResult(
+                type="TimeDependency",
+                state=state,
+                message=self.render_message(state, metadata),
+                metadata=metadata,
+            )
 
         now = datetime.now(tz=UTC)
 
         if self.before and now >= self.before:
             # time moves forward, this dependency can now never be met.
-            return DependencyResult(type="TimeDependency", state=DependencyState.IMPOSSIBLE, metadata=metadata)
+            state = DependencyState.IMPOSSIBLE
+            return DependencyResult(
+                type="TimeDependency",
+                state=state,
+                message=self.render_message(state, metadata),
+                metadata=metadata,
+            )
 
         if self.after:
             if now >= self.after:
-                return DependencyResult(type="TimeDependency", state=DependencyState.SATISFIED, metadata=metadata)
-            return DependencyResult(type="TimeDependency", state=DependencyState.UNSATISFIED, metadata=metadata)
+                state = DependencyState.SATISFIED
+                return DependencyResult(
+                    type="TimeDependency",
+                    state=state,
+                    message=self.render_message(state, metadata),
+                    metadata=metadata,
+                )
+            state = DependencyState.UNSATISFIED
+            return DependencyResult(
+                type="TimeDependency",
+                state=state,
+                message=self.render_message(state, metadata),
+                metadata=metadata,
+            )
 
-        return DependencyResult(type="TimeDependency", state=DependencyState.SATISFIED, metadata=metadata)
+        state = DependencyState.SATISFIED
+        return DependencyResult(
+            type="TimeDependency",
+            state=state,
+            message=self.render_message(state, metadata),
+            metadata=metadata,
+        )
 
     def request_extension(self, extra_seconds: float) -> Self:
         """Ask for a time-extension and return the resulting TimeDependency. This
@@ -109,18 +152,26 @@ class TimeDependency(Dependency):
 
             new_after = self.after + timedelta(seconds=extra_seconds)
 
-        return type(self)(before=new_before, after=new_after, allow_extensions=self.allow_extensions)
+        extended = type(self)(before=new_before, after=new_after, allow_extensions=self.allow_extensions)
+        propagate_message_override(self, extended)
+        return extended
 
     def save(self, context) -> Mapping[str, Any]:
-        return {
+        result: dict[str, Any] = {
             "type": "TimeDependency",
             "before": self.before.isoformat() if self.before else None,
             "after": self.after.isoformat() if self.after else None,
         }
+        override_data = serialise_message_override(self)
+        if override_data:
+            result["message_override"] = override_data
+        return result
 
     @classmethod
     def load(cls, context, data: Mapping[str, Any]) -> "TimeDependency":
         before = datetime.fromisoformat(data["before"]) if data["before"] else None
         after = datetime.fromisoformat(data["after"]) if data["after"] else None
 
-        return cls(before=before, after=after)
+        instance = cls(before=before, after=after)
+        restore_message_override(instance, data)
+        return instance

@@ -3,7 +3,14 @@ import pathlib
 import sqlite3
 from typing import Any, Self
 
-from zahir.base_types import Context, Dependency, DependencyResult, DependencyState
+from zahir.base_types import (
+    Context,
+    Dependency,
+    DependencyResult,
+    DependencyState,
+    restore_message_override,
+    serialise_message_override,
+)
 
 # Match job registry: safe-ish in practice for concurrent access
 _DEFAULT_TIMEOUT_SECONDS = 5.0
@@ -34,6 +41,12 @@ class SqliteDependency(Dependency):
     - otherwise use the cardinality of the result-set to determine the state; zero means unsatisfied,
         more means satisfied. Impossible cannot be represented in this mode apart from SQL erroring.
     """
+
+    DEFAULT_MESSAGE: dict[DependencyState, str] = {
+        DependencyState.SATISFIED: "SQLite query satisfied for {db_path}.",
+        DependencyState.UNSATISFIED: "SQLite query not satisfied for {db_path}.",
+        DependencyState.IMPOSSIBLE: "SQLite query impossible for {db_path}.",
+    }
 
     def _validate_db_path(self, db_path: str) -> None:
         """Check as early as possible that the database path is valid."""
@@ -78,7 +91,13 @@ class SqliteDependency(Dependency):
 
             # in either mode, missing results map to unsatisfied
             if result is None:
-                return DependencyResult(type="SqliteDependency", state=DependencyState.UNSATISFIED, metadata=metadata)
+                state = DependencyState.UNSATISFIED
+                return DependencyResult(
+                    type="SqliteDependency",
+                    state=state,
+                    message=self.render_message(state, metadata),
+                    metadata=metadata,
+                )
 
             # one row × one column named "status" → use value as state
             if len(result) == 1 and column_names == ["status"]:
@@ -86,45 +105,68 @@ class SqliteDependency(Dependency):
 
                 match status:
                     case "satisfied":
+                        state = DependencyState.SATISFIED
                         return DependencyResult(
-                            type="SqliteDependency", state=DependencyState.SATISFIED, metadata=metadata
+                            type="SqliteDependency",
+                            state=state,
+                            message=self.render_message(state, metadata),
+                            metadata=metadata,
                         )
                     case "unsatisfied":
+                        state = DependencyState.UNSATISFIED
                         return DependencyResult(
-                            type="SqliteDependency", state=DependencyState.UNSATISFIED, metadata=metadata
+                            type="SqliteDependency",
+                            state=state,
+                            message=self.render_message(state, metadata),
+                            metadata=metadata,
                         )
                     case "impossible":
+                        state = DependencyState.IMPOSSIBLE
                         return DependencyResult(
-                            type="SqliteDependency", state=DependencyState.IMPOSSIBLE, metadata=metadata
+                            type="SqliteDependency",
+                            state=state,
+                            message=self.render_message(state, metadata),
+                            metadata=metadata,
                         )
                     case _:
                         # maybe impossible? but this is a programmer fuckup so probably not.
                         raise ValueError(f"Invalid status: {status}")
 
             state = DependencyState.SATISFIED if len(result) > 0 else DependencyState.UNSATISFIED
-            return DependencyResult(type="SqliteDependency", state=state, metadata=metadata)
+            return DependencyResult(
+                type="SqliteDependency",
+                state=state,
+                message=self.render_message(state, metadata),
+                metadata=metadata,
+            )
 
     def save(self, context: Context) -> dict[str, Any]:
         """Save the SQLite dependency to a dictionary."""
 
-        return {
+        result: dict[str, Any] = {
             "type": "SqliteDependency",
             "db_path": self.db_path,
             "query": self.query,
             "params": self.params,
             "timeout_seconds": self.timeout_seconds,
         }
+        override_data = serialise_message_override(self)
+        if override_data:
+            result["message_override"] = override_data
+        return result
 
     @classmethod
     def load(cls, context: Context, data: Mapping[str, Any]) -> "SqliteDependency":
         """Load the SQLite dependency from a dictionary."""
 
-        return cls(
+        instance = cls(
             db_path=data["db_path"],
             query=data["query"],
             params=data["params"],
             timeout_seconds=data["timeout_seconds"],
         )
+        restore_message_override(instance, data)
+        return instance
 
     def request_extension(self, extra_seconds: float) -> Self:
         """Beyond messing with parameters we cannot do much; just return self & allow overrides."""

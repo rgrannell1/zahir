@@ -7,7 +7,15 @@ directly.
 
 # Re-export everything from the new split modules
 from zahir.types.context import Context
-from zahir.types.dependency import Dependency, DependencyData, DependencyResult, DependencyState
+from zahir.types.dependency import (
+    Dependency,
+    DependencyData,
+    DependencyResult,
+    DependencyState,
+    propagate_message_override,
+    restore_message_override,
+    serialise_message_override,
+)
 from zahir.types.job import (
     ArgsType,
     JobArguments,
@@ -59,5 +67,8 @@ __all__ = [
     "check_job_states_coverage",
     "create_typeddict_precheck",
     "default_recover",
+    "propagate_message_override",
+    "restore_message_override",
+    "serialise_message_override",
     "validate_output_type",
 ]

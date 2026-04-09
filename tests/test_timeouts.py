@@ -45,7 +45,7 @@ def test_timeout():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
+        scope=LocalScope().scan(sys.modules[__name__]), job_registry=SQLiteJobRegistry(tmp_file)
     )
     workflow = LocalWorkflow(context)
 
@@ -93,7 +93,7 @@ def test_recovery_timeout():
         tmp_file = tmp.name
 
     context = MemoryContext(
-        scope=LocalScope.from_module(sys.modules[__name__]),
+        scope=LocalScope().scan(sys.modules[__name__]),
         job_registry=SQLiteJobRegistry(tmp_file),
     )
     workflow = LocalWorkflow(context)

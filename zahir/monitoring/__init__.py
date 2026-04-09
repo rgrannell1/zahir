@@ -34,11 +34,11 @@ from zahir.monitoring.events import (
 )
 
 __all__ = [
+    "DepWorkerLoopStats",
+    "MeasurementEvent",
     "MonitoringEmitter",
     "MonitoringEvent",
     "NullEmitter",
-    "DepWorkerLoopStats",
-    "MeasurementEvent",
     "OverseerDispatchStats",
     "OverseerThroughputStats",
 ]

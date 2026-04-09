@@ -59,7 +59,7 @@ class LocalWorkflow[WorkflowOutputType]:
             caller_module = _find_caller_module()
 
             # Make an in-memory job-registry
-            scope = LocalScope.from_module(caller_module)
+            scope = LocalScope().scan(caller_module)
             job_registry = SQLiteJobRegistry(":memory:")
             context = MemoryContext(scope=scope, job_registry=job_registry)
 

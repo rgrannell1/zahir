@@ -61,7 +61,7 @@ def test_nested_async_workflow():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
     workflow = LocalWorkflow(context)
@@ -91,7 +91,7 @@ def test_impossible_async_workflow():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
     context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
 
     workflow = LocalWorkflow(context)
@@ -134,7 +134,7 @@ def test_await_many_workflow():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
 
     context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context, max_workers=2)
@@ -183,7 +183,7 @@ def test_await_empty_workflow():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
 
     context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context)
@@ -234,7 +234,7 @@ def test_await_many_failing_workflow():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
 
     context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context, max_workers=2)
@@ -282,7 +282,7 @@ def test_await_final_yield():
     pathlib.Path(tmp_file).unlink() if pathlib.Path(tmp_file).exists() else None
     pathlib.Path(tmp_file).touch(exist_ok=True)
 
-    scope = LocalScope.from_module(sys.modules[__name__])
+    scope = LocalScope().scan(sys.modules[__name__])
 
     context = MemoryContext(scope=scope, job_registry=SQLiteJobRegistry(tmp_file))
     workflow = LocalWorkflow(context)

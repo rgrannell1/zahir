@@ -71,7 +71,7 @@ def test_semaphore_multiprocess_with_context():
     semaphore_id = semaphore.semaphore_id
 
     # Initialize the state in shared context
-    state_key = semaphore._get_state_key()
+    state_key = semaphore.get_state_key()
     shared_state[state_key] = DependencyState.SATISFIED.value
 
     # Create and start 5 processes
