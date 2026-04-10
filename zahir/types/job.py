@@ -240,7 +240,7 @@ class JobSpec[ArgsType, OutputType]:
 
     def __call__(
         self,
-        args: ArgsType,
+        args: ArgsType | None = None,
         dependencies: "Mapping[str, Dependency] | DependencyGroup | None" = None,
         job_timeout: float | None = None,
         recover_timeout: float | None = None,
@@ -251,6 +251,9 @@ class JobSpec[ArgsType, OutputType]:
     ) -> "JobInstance[ArgsType, OutputType]":
         if job_id is None:
             job_id = generate_job_id(self.type)
+
+        if args is None:
+            args = cast(ArgsType, {})
 
         from zahir.dependencies.group import DependencyGroup
 

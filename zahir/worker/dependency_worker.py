@@ -64,7 +64,8 @@ def workflow_completed(
 def create_impossible_error(job: JobInstance, dependencies_result: DependencyResult) -> ImpossibleDependencyError:
     """Create an ImpossibleDependencyError from a DependencyResult."""
 
-    return ImpossibleDependencyError(f"Job {job.job_id} has impossible dependencies.")
+    detail = dependencies_result.message or "impossible dependencies"
+    return ImpossibleDependencyError(f"Job {job.job_id}: {detail}")
 
 
 def job_dependencies_satisfied(

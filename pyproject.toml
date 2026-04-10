@@ -37,6 +37,9 @@ packages = ["zahir"]
 [tool.hatch.build.targets.wheel.force-include]
 "zahir/py.typed" = "zahir/py.typed"
 
+[tool.hatch.build.targets.editable]
+mode = "compat"
+
 [dependency-groups]
 dev = [
     "ruff>=0.14.10",

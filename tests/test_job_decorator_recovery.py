@@ -156,6 +156,19 @@ def test_job_without_recovery_uses_default():
         assert str(err) == "test"
 
 
+def test_spec_job_callable_without_args_or_dependencies():
+    """Prove that a @spec job can be called with no arguments at all."""
+
+    @spec()
+    def NoArgsJob(context: Context, input, dependencies):
+        yield JobOutputEvent({"result": "ok"})
+
+    instance = NoArgsJob()
+
+    assert instance.input == {}
+    assert instance.args.dependencies.dependencies == {}
+
+
 def test_recovery_can_yield_multiple_events():
     """Test that recovery function can yield multiple events."""
 
