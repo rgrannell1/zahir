@@ -13,6 +13,7 @@ dev = [
     "orbis",
     "pytest",
     "tertius",
+    "time-machine",
 ]
 
 [tool.pytest.ini_options]
