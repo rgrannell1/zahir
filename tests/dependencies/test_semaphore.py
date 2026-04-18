@@ -1,0 +1,1 @@
+from dependencies.semaphore import semaphore_dependency

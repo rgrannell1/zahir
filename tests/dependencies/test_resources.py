@@ -1,0 +1,1 @@
+from dependencies.resources import resource_dependency
