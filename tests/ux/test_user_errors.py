@@ -5,12 +5,12 @@ from evaluate import evaluate
 from exceptions import JobError
 
 
-def crashing_job():
+def crashing_job(ctx):
     raise ValueError("something went wrong")
     yield
 
 
-def job_awaiting_crash():
+def job_awaiting_crash(ctx):
     try:
         yield EAwait(fn_name="crashing_job")
     except JobError as err:

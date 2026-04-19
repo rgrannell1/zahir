@@ -3,7 +3,7 @@ from tertius import EEmit
 from evaluate import evaluate
 
 
-def emitting_job():
+def emitting_job(ctx):
     yield EEmit({"status": "done"})
 
 

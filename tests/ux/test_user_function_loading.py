@@ -5,7 +5,7 @@ from tertius import EEmit
 from evaluate import evaluate
 
 
-def module_level_job():
+def module_level_job(ctx):
     yield EEmit("ok")
 
 

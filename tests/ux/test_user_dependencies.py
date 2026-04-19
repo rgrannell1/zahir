@@ -11,12 +11,12 @@ PAST = datetime(2000, 1, 1, tzinfo=UTC)
 FUTURE = datetime(2100, 1, 1, tzinfo=UTC)
 
 
-def job_with_impossible_time_dep():
+def job_with_impossible_time_dep(ctx):
     result = yield from time_dependency(before=PAST)
     yield EEmit({"impossible": isinstance(result, EImpossible)})
 
 
-def job_with_satisfied_time_dep():
+def job_with_satisfied_time_dep(ctx):
     result = yield from time_dependency(before=FUTURE, after=PAST)
     yield EEmit({"satisfied": isinstance(result, ESatisfied)})
 

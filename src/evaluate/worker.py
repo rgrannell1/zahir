@@ -42,8 +42,10 @@ def evaluate_job(
             pending_throw = exc
 
 
-def worker(overseer_pid_bytes: bytes, scope: Scope) -> Generator[Any, Any, None]:
+def worker(overseer_pid_bytes: bytes, scope: Scope, context: type) -> Generator[Any, Any, None]:
     overseer = Pid.from_bytes(overseer_pid_bytes)
+    ctx = context()
+    ctx._scope = scope
 
     while True:
         job = yield from mcall(overseer, GET_JOB)
@@ -59,7 +61,8 @@ def worker(overseer_pid_bytes: bytes, scope: Scope) -> Generator[Any, Any, None]
         timed_out = False
         job_error: JobError | None = None
         try:
-            result = yield from evaluate_job(scope[fn_name](*args), overseer, acquired, deadline)
+            fn_def = ctx._scope[fn_name]
+            result = yield from evaluate_job(fn_def(ctx, *args), overseer, acquired, deadline)
         except JobTimeout:
             timed_out = True
         except JobError as exc:

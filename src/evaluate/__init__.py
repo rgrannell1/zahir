@@ -9,16 +9,21 @@ from evaluate.overseer import run_overseer
 from evaluate.worker import worker
 
 
+class JobContext:
+    pass
+
+
 def _root(
     fn_name: str,
     args: tuple,
     scope: Scope,
     n_workers: int,
+    context: type,
 ) -> Generator[Any, Any, None]:
     overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(fn_name, args))
 
     for _ in range(n_workers):
-        yield ESpawn(fn_name="worker", args=(bytes(overseer), scope))
+        yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, context))
 
     while True:
         done = yield from mcall(overseer, "is_done")
@@ -32,6 +37,7 @@ def evaluate(
     args: tuple,
     scope: Scope,
     n_workers: int = 4,
+    context: type = JobContext,
 ) -> Generator[Any, None, None]:
     full_scope: Scope = {
         "run_overseer": run_overseer,
@@ -39,4 +45,4 @@ def evaluate(
         **scope
     }
 
-    yield from run(_root, fn_name, args, scope, n_workers, scope=full_scope)
+    yield from run(_root, fn_name, args, scope, n_workers, context, scope=full_scope)
