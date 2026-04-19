@@ -1,6 +1,7 @@
 import pathlib
 import sqlite3
 from collections.abc import Generator
+from contextlib import closing
 from typing import Any
 
 from tertius import ESleep
@@ -43,7 +44,7 @@ def _query(
     params: tuple[Any, ...],
     timeout_seconds: float,
 ) -> tuple[list[str], tuple[Any, ...] | None]:
-    with _connect(db_path, timeout_seconds) as conn:
+    with closing(_connect(db_path, timeout_seconds)) as conn:
         cursor = conn.cursor()
         cursor.execute(query, params)
         column_names = (

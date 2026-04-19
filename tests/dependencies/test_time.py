@@ -3,6 +3,8 @@ from datetime import UTC, datetime, timedelta
 import time_machine
 
 from dependencies.time import time_dependency
+import pytest
+
 from effects import EImpossible, ESatisfied
 from tertius import ESleep
 
@@ -74,3 +76,28 @@ def test_impossible_includes_timestamps():
 
     assert isinstance(effect, EImpossible)
     assert PAST.isoformat() in effect.reason
+
+
+# return values
+
+
+@time_machine.travel(NOW, tick=False)
+def test_impossible_returns_event_as_generator_value():
+    """Proves the generator returns the EImpossible event as its StopIteration value."""
+
+    gen = time_dependency(before=PAST)
+    event = next(gen)
+    with pytest.raises(StopIteration) as exc:
+        next(gen)
+    assert exc.value.value is event
+
+
+@time_machine.travel(NOW, tick=False)
+def test_satisfied_returns_event_as_generator_value():
+    """Proves the generator returns the ESatisfied event as its StopIteration value."""
+
+    gen = time_dependency(before=FUTURE)
+    event = next(gen)
+    with pytest.raises(StopIteration) as exc:
+        next(gen)
+    assert exc.value.value is event

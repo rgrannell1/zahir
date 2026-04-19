@@ -7,3 +7,4 @@ dist/
 *.egg-info/
 examples/warandpeace.txt
 plan.md
+.coverage

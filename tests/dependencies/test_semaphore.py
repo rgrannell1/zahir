@@ -1,5 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
+import pytest
 import time_machine
 
 from dependencies.semaphore import semaphore_dependency
@@ -102,3 +103,46 @@ def test_no_timeout_polls_indefinitely():
     for _ in range(10):
         next(gen)  # ESignal
         gen.send("unsatisfied")  # ESleep
+
+
+# return values
+
+
+@time_machine.travel(NOW, tick=False)
+def test_satisfied_returns_event_as_generator_value():
+    """Proves the generator returns the ESatisfied event as its StopIteration value."""
+
+    gen = semaphore_dependency("db")
+    next(gen)
+    event = gen.send("satisfied")
+    with pytest.raises(StopIteration) as exc:
+        next(gen)
+    assert exc.value.value is event
+
+
+@time_machine.travel(NOW, tick=False)
+def test_impossible_state_returns_event_as_generator_value():
+    """Proves the generator returns the EImpossible event as its StopIteration value when signal is impossible."""
+
+    gen = semaphore_dependency("db")
+    next(gen)
+    event = gen.send("impossible")
+    with pytest.raises(StopIteration) as exc:
+        next(gen)
+    assert exc.value.value is event
+
+
+def test_impossible_timeout_returns_event_as_generator_value():
+    """Proves the generator returns the EImpossible event as its StopIteration value on timeout."""
+
+    with time_machine.travel(NOW, tick=False):
+        gen = semaphore_dependency("db", timeout_ms=1000)
+        next(gen)
+        gen.send("unsatisfied")
+
+    with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
+        event = next(gen)
+
+    with pytest.raises(StopIteration) as exc:
+        next(gen)
+    assert exc.value.value is event

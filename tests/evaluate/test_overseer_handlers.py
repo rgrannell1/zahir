@@ -91,6 +91,41 @@ def test_job_done_decrements_pending():
     assert state.pending == 2
 
 
+def test_job_done_stores_error_as_root_error():
+    """Proves _job_done records the error when one is provided."""
+
+    error = ValueError("boom")
+    state = _job_done(_state(pending=1), error=error)
+    assert state.root_error is error
+
+
+def test_job_done_does_not_overwrite_existing_root_error():
+    """Proves _job_done keeps the first error and ignores subsequent ones."""
+
+    first = ValueError("first")
+    second = ValueError("second")
+    state = _job_done(_state(pending=2, root_error=first), error=second)
+    assert state.root_error is first
+
+
+# _get_error
+
+
+def test_get_error_returns_none_when_no_error():
+    """Proves _get_error returns None when the overseer has no stored error."""
+
+    _, error = _get_error(_state())
+    assert error is None
+
+
+def test_get_error_returns_stored_root_error():
+    """Proves _get_error returns the stored root_error."""
+
+    exc = ValueError("crash")
+    _, error = _get_error(_state(root_error=exc))
+    assert error is exc
+
+
 # _acquire
 
 

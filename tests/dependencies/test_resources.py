@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
+import pytest
 import time_machine
 
 from dependencies.resources import resource_dependency
@@ -109,3 +110,34 @@ def test_high_then_low_usage_yields_satisfied():
             gen = resource_dependency("cpu", max_percent=50.0)
             assert isinstance(next(gen), ESleep)
             assert isinstance(next(gen), ESatisfied)
+
+
+# return values
+
+
+@time_machine.travel(NOW, tick=False)
+def test_satisfied_returns_event_as_generator_value():
+    """Proves the generator returns the ESatisfied event as its StopIteration value."""
+
+    with patch("dependencies.resources._get_usage", _low_usage):
+        gen = resource_dependency("cpu", max_percent=50.0)
+        event = next(gen)
+    with pytest.raises(StopIteration) as exc:
+        next(gen)
+    assert exc.value.value is event
+
+
+def test_impossible_returns_event_as_generator_value():
+    """Proves the generator returns the EImpossible event as its StopIteration value."""
+
+    with patch("dependencies.resources._get_usage", _high_usage):
+        with time_machine.travel(NOW, tick=False):
+            gen = resource_dependency("cpu", max_percent=50.0, timeout=1.0)
+            next(gen)
+
+        with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
+            event = next(gen)
+
+    with pytest.raises(StopIteration) as exc:
+        next(gen)
+    assert exc.value.value is event
