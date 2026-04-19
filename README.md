@@ -5,7 +5,7 @@
 
 > Perhaps I shall conclude by wearing away the Zahir simply through thinking of it again and again.
 
-Zahir is (re)built on the slgebraic effects multiprocessing runtime [tertius](https://github.com/rgrannell1/tertius), which itself is based on the algebraic effect library [orbis](https://github.com/rgrannell1/tertius).
+Zahir is (re)built on the algebraic effects multiprocessing runtime [tertius](https://github.com/rgrannell1/tertius), which itself is based on the algebraic effect library [orbis](https://github.com/rgrannell1/tertius).
 
 It is the simplest workflow engine I could build. It is not a DAG workflow engine or a traditional state-machine workflow engine. It is a dynamically expanding effect-driven state-machine where state transitions are defined at runtime by running jobs. It does not statically define a workflow; the workflow unfolds from the starting step's execution. It looks like normal code, it just happens to run on different processes automatically.
 
