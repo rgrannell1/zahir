@@ -72,6 +72,7 @@ def test_satisfied_metadata_includes_query_and_path():
     gen = sqlite_dependency(db, "SELECT status FROM state", ())
     effect = next(gen)
 
+    assert isinstance(effect, ESatisfied)
     assert effect.metadata["db_path"] == db
     assert effect.metadata["query"] == "SELECT status FROM state"
 

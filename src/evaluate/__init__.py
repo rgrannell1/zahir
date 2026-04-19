@@ -4,13 +4,15 @@ from typing import Any
 from tertius import ESleep, ESpawn, Pid, Scope, mcall, run
 
 from constants import COMPLETION_POLL_MS, GET_ERROR
+from scope_proxy import ScopeProxy
 
 from evaluate.overseer import run_overseer
 from evaluate.worker import worker
 
 
 class JobContext:
-    pass
+    _scope: Scope
+    scope: ScopeProxy
 
 
 def _root(

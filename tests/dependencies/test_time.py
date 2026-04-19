@@ -72,4 +72,5 @@ def test_impossible_includes_timestamps():
     gen = time_dependency(before=PAST, after=None)
     effect = next(gen)
 
+    assert isinstance(effect, EImpossible)
     assert PAST.isoformat() in effect.reason

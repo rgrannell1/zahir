@@ -89,6 +89,7 @@ def test_timeout_reason_includes_name_and_duration():
     with time_machine.travel(NOW + timedelta(seconds=10), tick=False):
         effect = next(gen)
 
+    assert isinstance(effect, EImpossible)
     assert "my-semaphore" in effect.reason
     assert "5000" in effect.reason
 

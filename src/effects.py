@@ -5,9 +5,9 @@ from orbis import Effect, Event
 
 
 @dataclass
-class ESatisfied[MetadataT](Event):
+class ESatisfied(Event):
     tag: ClassVar[str] = "satisfied"
-    metadata: MetadataT = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass

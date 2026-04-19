@@ -9,7 +9,7 @@ from effects import EImpossible, ESatisfied
 def time_dependency(
     before: datetime | None = None,
     after: datetime | None = None,
-) -> Generator[ESleep | ESatisfied | EImpossible, None, None]:
+) -> Generator[ESleep | ESatisfied | EImpossible, None, ESatisfied | EImpossible]:
     now = datetime.now(tz=UTC)
 
     if before is not None and now >= before:

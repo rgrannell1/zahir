@@ -18,7 +18,7 @@ from scope_proxy import ScopeProxy
 
 
 def evaluate_job(
-    job_gen: Generator,
+    job_gen: Generator[Any, Any, Any],
     overseer: Pid,
     acquired: list[str],
     deadline: datetime | None,
@@ -90,6 +90,7 @@ def worker(
 
         timed_out = False
         job_error: JobError | None = None
+        result: Any = None
         try:
             # try run the job
             if fn_name not in ctx._scope:

@@ -63,6 +63,7 @@ def test_satisfied_metadata_includes_resource_and_limit():
         gen = resource_dependency("cpu", max_percent=75.0)
         effect = next(gen)
 
+    assert isinstance(effect, ESatisfied)
     assert effect.metadata["resource"] == "cpu"
     assert effect.metadata["max_percent"] == 75.0
 
@@ -93,6 +94,7 @@ def test_timeout_reason_includes_resource_and_duration():
         with time_machine.travel(NOW + timedelta(seconds=60), tick=False):
             effect = next(gen)
 
+    assert isinstance(effect, EImpossible)
     assert "memory" in effect.reason
     assert "30" in effect.reason
 

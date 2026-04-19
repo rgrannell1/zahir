@@ -10,7 +10,7 @@ from effects import EImpossible, ESatisfied, ESignal
 def semaphore_dependency(
     name: str,
     timeout_ms: int | None = None,
-) -> Generator[ESignal | ESleep | ESatisfied | EImpossible, str | None, None]:
+) -> Generator[ESignal | ESleep | ESatisfied | EImpossible, str | None, ESatisfied | EImpossible]:
     timeout_at = (
         datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms)
         if timeout_ms is not None
@@ -25,7 +25,7 @@ def semaphore_dependency(
             yield event
             return event
 
-        state: str = yield ESignal(name=name)
+        state = yield ESignal(name=name)
 
         if state == SATISFIED:
             event = ESatisfied(metadata={"name": name})

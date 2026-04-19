@@ -84,7 +84,7 @@ def sqlite_dependency(
     query: str,
     params: tuple[Any, ...] | None = None,
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
-) -> Generator[ESatisfied | EImpossible | ESleep, None, None]:
+) -> Generator[ESatisfied | EImpossible | ESleep, None, ESatisfied | EImpossible | None]:
     _validate_db_path(db_path)
 
     metadata = {

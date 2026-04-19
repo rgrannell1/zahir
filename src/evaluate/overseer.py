@@ -9,7 +9,7 @@ from zahir_types import JobSpec, OverseerState
 
 
 class Overseer(GenServer[OverseerState]):
-    def init(self, initial_fn: str, initial_args: tuple) -> OverseerState:
+    def init(self, initial_fn: str, initial_args: tuple) -> OverseerState:  # type: ignore[override]
         job = JobSpec(fn_name=initial_fn, args=initial_args, reply_to=None)
         return OverseerState(
             queue=deque([job]),
