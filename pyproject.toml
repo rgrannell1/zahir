@@ -31,4 +31,4 @@ select = ["E402"]
 
 [tool.uv.sources]
 orbis = { path = "../orbis" }
-tertius = { path = "../uqbar" }
+tertius = { path = "../tertius" }
