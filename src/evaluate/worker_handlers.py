@@ -119,6 +119,35 @@ def _handle_set_semaphore(
     yield from mcast(overseer, (SET_SEMAPHORE, effect.name, effect.state))
 
 
+def _handle_job_complete(
+    overseer: Pid, effect: EJobComplete
+) -> Generator[Any, Any, None]:
+    """Route the result to the caller and inform the overseer the job is done."""
+
+    if effect.reply_to is not None:
+        yield ESend(Pid.from_bytes(effect.reply_to), (effect.nonce, effect.result))
+    yield from mcast(overseer, JOB_DONE)
+
+
+def _handle_job_fail(overseer: Pid, effect: EJobFail) -> Generator[Any, Any, None]:
+    """Route the failure to the caller and inform the overseer the job is done."""
+
+    if effect.reply_to is not None:
+        yield ESend(Pid.from_bytes(effect.reply_to), (effect.nonce, effect.error))
+        yield from mcast(overseer, JOB_DONE)
+    else:
+        yield from mcast(overseer, (JOB_DONE, effect.error))
+
+
+def make_coordination_handlers(overseer: Pid) -> dict[str, Any]:
+    """Coordination handlers for the worker process — intercept job lifecycle effects."""
+
+    return {
+        EJobComplete.tag: partial(_handle_job_complete, overseer),
+        EJobFail.tag: partial(_handle_job_fail, overseer),
+    }
+
+
 def make_handlers(overseer: Pid, acquired: list[str]) -> dict[type, Any]:
     """Create worker handlers"""
 

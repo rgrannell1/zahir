@@ -2,17 +2,18 @@ from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from tertius import ESend, ESleep, Pid, Scope, mcall, mcast
+from orbis import handle
+from tertius import ESleep, Pid, Scope, mcall, mcast
 
 from constants import (
     BLOCKED_EFFECTS,
     GET_JOB,
-    JOB_DONE,
     RELEASE,
     THROWABLE,
     WORKER_POLL_MS,
 )
-from evaluate.worker_handlers import make_handlers
+from effects import EJobComplete, EJobFail
+from evaluate.worker_handlers import make_coordination_handlers, make_handlers
 from exceptions import InvalidEffect, JobError, JobTimeout
 from scope_proxy import ScopeProxy
 
@@ -60,15 +61,8 @@ def evaluate_job(
             pending_throw = exc
 
 
-def worker(
-    overseer_pid_bytes: bytes, scope: Scope, context: type
-) -> Generator[Any, Any, None]:
-    """zahir worker main loop"""
-
-    overseer = Pid.from_bytes(overseer_pid_bytes)
-    ctx = context()
-    ctx._scope = scope
-    ctx.scope = ScopeProxy(scope)
+def _worker_body(overseer: Pid, ctx: Any) -> Generator[Any, Any, None]:
+    """Worker main loop — yields coordination effects for job lifecycle."""
 
     while True:
         # ask for a job
@@ -110,28 +104,25 @@ def worker(
         for name in acquired:
             yield from mcast(overseer, (RELEASE, name))
 
-        # we timed out
         if timed_out:
-            error = JobTimeout()
-            if reply_to is not None:
-                # send the timeout error to the overseer waiting for it, and inform the overseer we're done
-                yield ESend(Pid.from_bytes(reply_to), (nonce, error))
-                yield from mcast(overseer, JOB_DONE)
-            else:
-                # if there's no reply_to, we can't send the error back to the waiting overseer, but we should still inform the overseer that we're done with this job so it can clean up any state associated with it.
-                yield from mcast(overseer, (JOB_DONE, error))
-            continue
+            # send the timeout error to the caller
+            yield EJobFail(error=JobTimeout(), reply_to=reply_to, nonce=nonce)
+        elif job_error is not None:
+            # send the job error to the caller
+            yield EJobFail(error=job_error, reply_to=reply_to, nonce=nonce)
+        else:
+            # send the result to the overseer waiting for it, and inform the overseer we're done
+            yield EJobComplete(result=result, reply_to=reply_to, nonce=nonce)
 
-        if job_error is not None:
-            if reply_to is not None:
-                yield ESend(Pid.from_bytes(reply_to), (nonce, job_error))
-                yield from mcast(overseer, JOB_DONE)
-            else:
-                yield from mcast(overseer, (JOB_DONE, job_error))
-            continue
 
-        # send the result to the overseer waiting for it, and inform the overseer we're done
-        if reply_to is not None:
-            yield ESend(Pid.from_bytes(reply_to), (nonce, result))
+def worker(
+    overseer_pid_bytes: bytes, scope: Scope, context: type
+) -> Generator[Any, Any, None]:
+    """zahir worker main loop"""
 
-        yield from mcast(overseer, JOB_DONE)
+    overseer = Pid.from_bytes(overseer_pid_bytes)
+    ctx = context()
+    ctx._scope = scope
+    ctx.scope = ScopeProxy(scope)
+
+    yield from handle(_worker_body(overseer, ctx), **make_coordination_handlers(overseer))
