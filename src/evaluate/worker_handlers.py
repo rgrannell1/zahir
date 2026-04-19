@@ -9,9 +9,6 @@ from effects import EAcquire, EAwait, EAwaitAll, EImpossible, ESatisfied, ESetSe
 from exceptions import JobError, JobTimeout
 
 
-_TIMEOUT_SENTINEL = "__timeout__"
-
-
 def _handle_event(effect: ESatisfied | EImpossible) -> Generator[Any, Any, ESatisfied | EImpossible]:
     """Simply re-emit the event to unblock waiting workers."""
 
@@ -22,9 +19,8 @@ def _handle_event(effect: ESatisfied | EImpossible) -> Generator[Any, Any, ESati
 def _unwrap_reply(fn_name: str, timeout_ms: int | None, nonce: Any, body: Any) -> Any:
     """Unwrap the reply from a job, raising appropriate exceptions for timeouts or errors."""
 
-    # This is not ideal.
-    if body == _TIMEOUT_SENTINEL:
-        raise JobTimeout(f"{fn_name} timed out after {timeout_ms}ms")
+    if isinstance(body, JobTimeout):
+        raise body
 
     if isinstance(body, JobError):
         raise body

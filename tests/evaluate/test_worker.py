@@ -9,7 +9,6 @@ from tertius.types import Envelope
 
 from effects import EAcquire, EImpossible, ESatisfied, ESignal
 from evaluate.worker import evaluate_job
-from evaluate.worker_handlers import _TIMEOUT_SENTINEL
 from exceptions import JobError, JobTimeout
 
 

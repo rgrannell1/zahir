@@ -1,3 +1,7 @@
+from tertius import EReceive
+
+from exceptions import InvalidEffect, JobError, JobTimeout
+
 DEPENDENCY_DELAY_MS = 5_000
 WORKER_POLL_MS = 100
 COMPLETION_POLL_MS = 200
@@ -20,3 +24,9 @@ ACQUIRE = "acquire"
 RELEASE = "release"
 SIGNAL = "signal"
 SET_SEMAPHORE = "set_semaphore"
+
+# Exceptions that evaluate_job throws back into the running job rather than propagating outward
+THROWABLE = (JobTimeout, JobError, InvalidEffect)
+
+# Tertius effects that must not be yielded directly by a zahir job — they block the worker process indefinitely
+BLOCKED_EFFECTS = (EReceive,)

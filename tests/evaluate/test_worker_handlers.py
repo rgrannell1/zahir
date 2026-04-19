@@ -13,7 +13,6 @@ from evaluate.worker_handlers import (
     _handle_event,
     _handle_set_semaphore,
     _handle_signal,
-    _TIMEOUT_SENTINEL,
     make_handlers,
 )
 from exceptions import JobTimeout
@@ -102,14 +101,14 @@ def test_handle_await_returns_envelope_body():
         assert exc.value.value == "result"
 
 
-def test_handle_await_raises_job_timeout_on_sentinel():
-    """Proves _handle_await raises JobTimeout when the timeout sentinel is received."""
+def test_handle_await_raises_job_timeout_on_timeout():
+    """Proves _handle_await raises JobTimeout when a JobTimeout is received as the body."""
 
     with patch("evaluate.worker_handlers.mcast", _mock_mcast()):
         gen = _handle_await(OVERSEER, EAwait(fn_name="child", timeout_ms=1000))
         next(gen)
         gen.send(ME)
-        envelope = Envelope(sender=OVERSEER, body=(None, _TIMEOUT_SENTINEL))
+        envelope = Envelope(sender=OVERSEER, body=(None, JobTimeout()))
         with pytest.raises(JobTimeout):
             gen.send(envelope)
 

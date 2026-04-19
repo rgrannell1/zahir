@@ -23,12 +23,16 @@ class ScopeProxy:
         except KeyError:
             raise AttributeError(f"no job named {name!r} in scope")
 
+        # the function signature, minus context
         params = list(inspect.signature(fn).parameters.values())[1:]  # strip ctx
 
+        # build a wrapper that returns an EAwait with the correct fn_name and args, and a timeout_ms keyword argument
         @functools.wraps(fn)
         def dispatch(*args: Any, timeout_ms: int | None = None, **kwargs: Any) -> EAwait:
+
             bound = inspect.Signature(params).bind(*args, **kwargs)
             bound.apply_defaults()
+
             return EAwait(fn_name=name, args=bound.args, timeout_ms=timeout_ms)
 
         dispatch.__signature__ = inspect.Signature(  # type: ignore[attr-defined]
