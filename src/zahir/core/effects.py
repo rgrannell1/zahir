@@ -42,14 +42,14 @@ class EAwait(ZahirJobEffect[Any]):
 
 
 @dataclass
-class ESignal(ZahirJobEffect[str]):
+class EGetSemaphore(ZahirJobEffect[str]):
     """Probe the current state of a named semaphore.
 
     Returns 'satisfied', 'unsatisfied', or 'impossible'.
     State is managed by the runner's GenServer and can be set externally.
     """
 
-    tag: ClassVar[str] = "signal"
+    tag: ClassVar[str] = "get_semaphore"
     name: str
 
 

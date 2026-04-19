@@ -4,7 +4,7 @@ import pytest
 import time_machine
 
 from zahir.core.dependencies.semaphore import semaphore_dependency
-from zahir.core.effects import EImpossible, ESatisfied, ESignal
+from zahir.core.effects import EImpossible, ESatisfied, EGetSemaphore
 from tertius import ESleep
 from tests.shared import NOW
 
@@ -15,11 +15,11 @@ def _step(gen, send_value=None):
 
 @time_machine.travel(NOW, tick=False)
 def test_first_yield_is_esignal():
-    """Proves semaphore_dependency first probes the semaphore via ESignal."""
+    """Proves semaphore_dependency first probes the semaphore via EGetSemaphore."""
 
     gen = semaphore_dependency("db")
     effect = next(gen)
-    assert isinstance(effect, ESignal)
+    assert isinstance(effect, EGetSemaphore)
     assert effect.name == "db"
 
 
@@ -55,10 +55,10 @@ def test_unsatisfied_then_satisfied_yields_esatisfied():
     """Proves the dependency re-probes after sleep and satisfies on next signal."""
 
     gen = semaphore_dependency("db")
-    next(gen)  # ESignal
+    next(gen)  # EGetSemaphore
     gen.send("unsatisfied")  # ESleep
-    signal = next(gen)  # next ESignal
-    assert isinstance(signal, ESignal)
+    signal = next(gen)  # next EGetSemaphore
+    assert isinstance(signal, EGetSemaphore)
     assert isinstance(gen.send("satisfied"), ESatisfied)
 
 
@@ -67,7 +67,7 @@ def test_timeout_yields_impossible():
 
     with time_machine.travel(NOW, tick=False):
         gen = semaphore_dependency("db", timeout_ms=1000)
-        next(gen)  # ESignal
+        next(gen)  # EGetSemaphore
         gen.send("unsatisfied")  # ESleep — loops back to timeout check
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
@@ -99,7 +99,7 @@ def test_no_timeout_polls_indefinitely():
 
     gen = semaphore_dependency("db")
     for _ in range(10):
-        next(gen)  # ESignal
+        next(gen)  # EGetSemaphore
         gen.send("unsatisfied")  # ESleep
 
 

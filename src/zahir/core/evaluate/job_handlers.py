@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from dataclasses import dataclass, field
 from functools import partial, reduce
 from typing import Any
@@ -14,7 +14,7 @@ from zahir.core.effects import (
     EImpossible,
     ESatisfied,
     ESetSemaphore,
-    ESignal,
+    EGetSemaphore,
 )
 from zahir.core.exceptions import JobError, JobTimeout
 
@@ -26,7 +26,7 @@ class JobHandlerContext:
     # side-channel shared with _worker_body, which reads it after job completion
     # to yield ERelease effects. this coupling is a known limitation to be addressed.
     acquired: list[str] = field(default_factory=list)
-    handler_wrappers: tuple = ()
+    handler_wrappers: Sequence = field(default_factory=list)
 
 
 def _handle_event(
@@ -111,7 +111,7 @@ def _handle_acquire(
 
 
 def _handle_signal(
-    context: JobHandlerContext, effect: ESignal
+    context: JobHandlerContext, effect: EGetSemaphore
 ) -> Generator[Any, Any, str]:
     """Get the current state of a named semaphore."""
 
@@ -135,7 +135,7 @@ def make_job_handlers(context: JobHandlerContext) -> dict[str, Any]:
         EAwait.tag: partial(_handle_await, context),
         EAwaitAll.tag: partial(_handle_await_all, context),
         EAcquire.tag: partial(_handle_acquire, context),
-        ESignal.tag: partial(_handle_signal, context),
+        EGetSemaphore.tag: partial(_handle_signal, context),
         ESetSemaphore.tag: partial(_handle_set_semaphore, context),
     }
     return {

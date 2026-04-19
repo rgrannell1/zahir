@@ -14,7 +14,7 @@ from zahir.core.effects import (
     EImpossible,
     ESatisfied,
     ESetSemaphore,
-    ESignal,
+    EGetSemaphore,
 )
 from zahir.core.evaluate.job_handlers import (
     JobHandlerContext,
@@ -139,7 +139,7 @@ def test_handle_signal_returns_semaphore_state():
     """Proves _handle_signal returns the state string from the overseer."""
 
     with patch("zahir.core.evaluate.job_handlers.mcall", mock_mcall("satisfied")):
-        gen = _handle_signal(CTX, ESignal(name="db"))
+        gen = _handle_signal(CTX, EGetSemaphore(name="db"))
         with pytest.raises(StopIteration) as exc:
             next(gen)
         assert exc.value.value == "satisfied"
@@ -270,7 +270,7 @@ def test_make_handlers_contains_all_effect_types():
         EAwait.tag,
         EAwaitAll.tag,
         EAcquire.tag,
-        ESignal.tag,
+        EGetSemaphore.tag,
         ESetSemaphore.tag,
     }
 

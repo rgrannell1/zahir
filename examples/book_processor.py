@@ -52,11 +52,6 @@ def book_processor(ctx: JobContext, file_path: str) -> Generator[Any, Any, None]
     uppercased: list[str] = yield ctx.scope.uppercase_words(sorted(longest_words))
     yield EEmit({"longest_words": uppercased})
 
-
-# ---------------------------------------------------------------------------
-# Run the thing
-# ---------------------------------------------------------------------------
-
 _SCOPE = {
     "book_processor": book_processor,
     "chapter_processor": chapter_processor,
@@ -64,7 +59,7 @@ _SCOPE = {
 }
 
 class BookContext(JobContext):
-    handler_wrappers = (make_telemetry(),)
+    handler_wrappers = [make_telemetry()]
 
 
 if __name__ == "__main__":

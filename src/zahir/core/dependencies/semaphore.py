@@ -4,13 +4,13 @@ from datetime import UTC, datetime, timedelta
 from tertius import ESleep
 
 from zahir.core.constants import DEPENDENCY_DELAY_MS, IMPOSSIBLE, SATISFIED, UNSATISFIED
-from zahir.core.effects import EImpossible, ESatisfied, ESignal
+from zahir.core.effects import EImpossible, ESatisfied, EGetSemaphore
 
 
 def semaphore_dependency(
     name: str,
     timeout_ms: int | None = None,
-) -> Generator[ESignal | ESleep | ESatisfied | EImpossible, str | None, ESatisfied | EImpossible]:
+) -> Generator[EGetSemaphore | ESleep | ESatisfied | EImpossible, str | None, ESatisfied | EImpossible]:
     timeout_at = (
         datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms)
         if timeout_ms is not None
@@ -25,7 +25,7 @@ def semaphore_dependency(
             yield event
             return event
 
-        state = yield ESignal(name=name)
+        state = yield EGetSemaphore(name=name)
 
         if state == SATISFIED:
             event = ESatisfied(metadata={"name": name})
