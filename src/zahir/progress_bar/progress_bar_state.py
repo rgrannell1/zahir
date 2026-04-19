@@ -5,9 +5,14 @@ from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
 
 @dataclass
 class JobStats:
+    total: int = 0      # jobs enqueued (incremented at start, before we know the outcome)
     started: int = 0
     completed: int = 0
     failed: int = 0
+
+    @property
+    def processed(self) -> int:
+        return self.completed + self.failed
 
 
 class ProgressBarState:
@@ -31,4 +36,5 @@ class ProgressBarState:
             case ZahirSpanEnd(error=_):
                 stats.failed += 1
             case ZahirTelemetryEvent(event="start"):
+                stats.total += 1
                 stats.started += 1

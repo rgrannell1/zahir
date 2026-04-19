@@ -73,3 +73,21 @@ def test_event_without_fn_name_is_ignored():
     event = ZahirTelemetryEvent(span_id="s", tag="t", event="start", timestamp=0.0, attributes={})
     state.update(event)
     assert state.jobs == {}
+
+
+def test_start_increments_total():
+
+    state = ProgressBarState()
+    state.update(_start("job_a"))
+    state.update(_start("job_a"))
+
+    assert state.jobs["job_a"].total == 2
+
+
+def test_processed_is_completed_plus_failed():
+
+    state = ProgressBarState()
+    state.update(_end("job_a"))
+    state.update(_end("job_a", error="boom"))
+
+    assert state.jobs["job_a"].processed == 2

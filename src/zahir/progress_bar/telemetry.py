@@ -1,3 +1,4 @@
+import os
 import time
 import uuid
 
@@ -9,7 +10,8 @@ from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
 
 def _default_attrs(effect):
     """Extract well-known fields from any effect that carries them."""
-    attrs = {}
+    attrs = {"pid": os.getpid()}
+
     if hasattr(effect, "fn_name"):
         attrs["fn_name"] = effect.fn_name
 
@@ -31,12 +33,13 @@ def _before_attrs(dispatch, effect):
 
 
 def _after_attrs(dispatch, effect, result):
-    """Get attributes for the end event from the after dispatch, if provided."""
-    if not dispatch:
-        return {}
-
-    handler = dispatch.get(type(effect))
-    return handler(effect, result) if handler else {}
+    """Get attributes for the end event, merging defaults with any user-provided handler."""
+    attrs = _default_attrs(effect)
+    if dispatch:
+        handler = dispatch.get(type(effect))
+        if handler:
+            attrs |= handler(effect, result)
+    return attrs
 
 
 def _span_start(span_id, effect, attrs, timestamp):

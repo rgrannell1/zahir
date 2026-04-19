@@ -1,11 +1,13 @@
 
-
 import pathlib
 from collections.abc import Generator
 from typing import Any
+
 from tertius import EEmit
+
 from zahir.core.evaluate import JobContext, evaluate
-from zahir.progress_bar.telemetry import print_telemetry
+from zahir.progress_bar.progress_bar import with_progress
+from zahir.progress_bar.telemetry import make_telemetry
 
 
 FILE_PATH = pathlib.Path(__file__).parent / "warandpeace.txt"
@@ -62,11 +64,11 @@ _SCOPE = {
 }
 
 class BookContext(JobContext):
-    handler_wrappers = (print_telemetry,)
+    handler_wrappers = (make_telemetry(),)
 
 
 if __name__ == "__main__":
-    for event in evaluate(
-        "book_processor", (str(FILE_PATH),), scope=_SCOPE, n_workers=4, context=BookContext
+    for _ in with_progress(
+        evaluate("book_processor", (str(FILE_PATH),), scope=_SCOPE, n_workers=4, context=BookContext)
     ):
-        print(event)
+        pass
