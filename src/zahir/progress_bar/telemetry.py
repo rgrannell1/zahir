@@ -7,13 +7,27 @@ from zahir.core.telemetry import wrap
 from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
 
 
-def _before_attrs(dispatch, effect):
-    """Get attributes for the start event from the before dispatch, if provided."""
-    if not dispatch:
-        return {}
+def _default_attrs(effect):
+    """Extract well-known fields from any effect that carries them."""
+    attrs = {}
+    if hasattr(effect, "fn_name"):
+        attrs["fn_name"] = effect.fn_name
 
-    handler = dispatch.get(type(effect))
-    return handler(effect) if handler else {}
+    if hasattr(effect, "effects"):
+        attrs["fn_names"] = [eff.fn_name for eff in effect.effects]
+        attrs["count"] = len(effect.effects)
+
+    return attrs
+
+
+def _before_attrs(dispatch, effect):
+    """Get attributes for the start event, merging defaults with any user-provided handler."""
+    attrs = _default_attrs(effect)
+    if dispatch:
+        handler = dispatch.get(type(effect))
+        if handler:
+            attrs |= handler(effect)
+    return attrs
 
 
 def _after_attrs(dispatch, effect, result):
