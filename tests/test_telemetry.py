@@ -156,3 +156,64 @@ def test_wrap_stacks_correctly_via_reduce():
     _drive(wrapped(EAwait(fn_name="job")))
 
     assert order == ["second_setup", "first_setup", "first_teardown", "second_teardown"]
+
+
+# exception handling
+
+
+def _make_raising_handler(exc):
+    """Handler stub that raises the given exception."""
+    def handler(effect):
+        raise exc
+        yield
+    return handler
+
+
+def test_wrap_reraises_handler_exception():
+    """Proves wrap re-raises exceptions from the handler after teardown."""
+
+    def fn(effect):
+        yield
+
+    wrapped = wrap(fn)(_make_raising_handler(ValueError("boom")))
+    with pytest.raises(ValueError, match="boom"):
+        _drive(wrapped(EAwait(fn_name="job")))
+
+
+def test_wrap_throws_exception_into_fn_teardown():
+    """Proves wrap throws the handler exception into fn's seam so teardown can observe it."""
+
+    errors = []
+
+    def fn(effect):
+        try:
+            yield                  # seam — throw lands here on handler exception
+        except Exception as exc:
+            errors.append(str(exc))
+
+    wrapped = wrap(fn)(_make_raising_handler(ValueError("boom")))
+    with pytest.raises(ValueError):
+        _drive(wrapped(EAwait(fn_name="job")))
+
+    assert errors == ["boom"]
+
+
+def test_wrap_propagates_teardown_yields_on_exception():
+    """Proves teardown yields from fn are propagated even when the handler raised."""
+
+    effects_seen = []
+
+    def fn(effect):
+        try:
+            yield                  # seam — throw lands here
+        except Exception:
+            yield EEmit("error_event")
+
+    gen = wrap(fn)(_make_raising_handler(ValueError("boom")))(EAwait(fn_name="job"))
+    with pytest.raises(ValueError):
+        value = next(gen)
+        while True:
+            effects_seen.append(value)
+            value = gen.send(None)
+
+    assert EEmit("error_event") in effects_seen

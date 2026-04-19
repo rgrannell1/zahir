@@ -4,7 +4,8 @@ import pathlib
 from collections.abc import Generator
 from typing import Any
 from tertius import EEmit
-from evaluate import JobContext, evaluate
+from zahir.core.evaluate import JobContext, evaluate
+from zahir.progress_bar.telemetry import print_telemetry
 
 
 FILE_PATH = pathlib.Path(__file__).parent / "warandpeace.txt"
@@ -60,8 +61,12 @@ _SCOPE = {
     "uppercase_words": uppercase_words,
 }
 
+class BookContext(JobContext):
+    handler_wrappers = (print_telemetry,)
+
+
 if __name__ == "__main__":
     for event in evaluate(
-        "book_processor", (str(FILE_PATH),), scope=_SCOPE, n_workers=4
+        "book_processor", (str(FILE_PATH),), scope=_SCOPE, n_workers=4, context=BookContext
     ):
         print(event)
