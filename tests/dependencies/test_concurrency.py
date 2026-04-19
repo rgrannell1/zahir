@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 import time_machine
@@ -6,9 +6,7 @@ import time_machine
 from dependencies.concurrency import concurrency_dependency
 from effects import EAcquire, EImpossible, ESatisfied
 from tertius import ESleep
-
-
-NOW = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+from tests.shared import NOW
 
 
 # concurrency_dependency — first yield

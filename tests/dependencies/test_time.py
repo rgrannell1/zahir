@@ -1,17 +1,10 @@
-from datetime import UTC, datetime, timedelta
-
+import pytest
 import time_machine
 
 from dependencies.time import time_dependency
-import pytest
-
 from effects import EImpossible, ESatisfied
 from tertius import ESleep
-
-
-NOW = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
-PAST = NOW - timedelta(hours=1)
-FUTURE = NOW + timedelta(hours=1)
+from tests.shared import FUTURE, NOW, PAST
 
 
 @time_machine.travel(NOW, tick=False)

@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
@@ -7,9 +7,7 @@ import time_machine
 from dependencies.resources import resource_dependency
 from effects import EImpossible, ESatisfied
 from tertius import ESleep
-
-
-NOW = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+from tests.shared import NOW
 
 
 def _low_usage(_resource):

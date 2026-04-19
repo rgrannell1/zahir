@@ -1,35 +1,16 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 from unittest.mock import patch
 
 import pytest
 import time_machine
 
-from tertius import ESleep, Pid
-from tertius.types import Envelope
+from tertius import ESleep
 
-from effects import EAcquire, EImpossible, ESatisfied, ESignal
+from effects import EAcquire, EImpossible, ESatisfied
 from evaluate.worker import evaluate_job
 from exceptions import JobError, JobTimeout
-
-
-OVERSEER = Pid(id=1)
-NOW = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
-
-
-def _mock_mcall(return_value):
-    def _gen(pid, body):
-        return return_value
-        yield
-
-    return _gen
-
-
-def _mock_mcast():
-    def _gen(pid, body):
-        return None
-        yield
-
-    return _gen
+from tests.evaluate.mocks import OVERSEER, mock_mcall
+from tests.shared import NOW
 
 
 def _drive(gen):
@@ -151,7 +132,7 @@ def test_evaluate_job_tracks_acquired_slots():
 
     acquired = []
 
-    with patch("evaluate.worker_handlers.mcall", _mock_mcall(True)):
+    with patch("evaluate.worker_handlers.mcall", mock_mcall(True)):
 
         def job():
             yield EAcquire(name="workers", limit=4)
@@ -166,7 +147,7 @@ def test_evaluate_job_does_not_track_denied_slots():
 
     acquired = []
 
-    with patch("evaluate.worker_handlers.mcall", _mock_mcall(False)):
+    with patch("evaluate.worker_handlers.mcall", mock_mcall(False)):
 
         def job():
             yield EAcquire(name="workers", limit=4)

@@ -1,5 +1,6 @@
 
-Read `/home/rg/zahir/README.md` for context
+We use `../orbius` as an algebraic effects library
+We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
 
 **Communication**
 - No sychophantic language please
@@ -31,3 +32,12 @@ Read `/home/rg/zahir/README.md` for context
 - Set up `uv`, `ruff`
 - Always use `uv run python`, never `python` or `python3`
 - Use `sqlite` CLI command, not `sqlite3`
+
+---
+
+**Design**
+
+- We can only emit telemetry using EEmit( <inner_data> )
+- We can only observe the system by looking at effects (zahir's or tertius's)
+- What does not have an effect / event, cannot be observed
+- Telemetry can only be added by decorating a handler. The handlers logic must be identical to before, including erroring, with the sole exception that more EEmit's are allowed

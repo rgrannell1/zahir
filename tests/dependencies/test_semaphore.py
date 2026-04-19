@@ -1,4 +1,4 @@
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 import pytest
 import time_machine
@@ -6,9 +6,7 @@ import time_machine
 from dependencies.semaphore import semaphore_dependency
 from effects import EImpossible, ESatisfied, ESignal
 from tertius import ESleep
-
-
-NOW = datetime(2025, 1, 1, 12, 0, 0, tzinfo=UTC)
+from tests.shared import NOW
 
 
 def _step(gen, send_value=None):
