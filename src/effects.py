@@ -4,20 +4,31 @@ from typing import Any, ClassVar
 from orbis import Effect, Event
 
 
+class ZahirJobEffect[ReturnT](Effect[ReturnT]):
+    """Base class for effects intended to be yielded by job generators."""
+
+
+class ZahirCoordinationEffect[ReturnT](Effect[ReturnT]):
+    """Base class for effects yielded by the runtime layer, never by jobs directly."""
+
+
 @dataclass
-class ESatisfied(Event):
+class ESatisfied(ZahirJobEffect[None]):
+    # Jobs yield this to signal a dependency is satisfied. The handler re-emits it
+    # as its return value, so the yielding job also receives it back — dual role.
     tag: ClassVar[str] = "satisfied"
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
-class EImpossible(Event):
+class EImpossible(ZahirJobEffect[None]):
+    # Jobs yield this to signal a dependency can never be satisfied. Same dual role as ESatisfied.
     tag: ClassVar[str] = "impossible"
     reason: str
 
 
 @dataclass
-class EAwait(Effect[Any]):
+class EAwait(ZahirJobEffect[Any]):
     """Dispatch a child job and block until it completes, returning its result."""
 
     tag: ClassVar[str] = "await"
@@ -27,7 +38,7 @@ class EAwait(Effect[Any]):
 
 
 @dataclass
-class ESignal(Effect[str]):
+class ESignal(ZahirJobEffect[str]):
     """Probe the current state of a named semaphore.
 
     Returns 'satisfied', 'unsatisfied', or 'impossible'.
@@ -39,7 +50,7 @@ class ESignal(Effect[str]):
 
 
 @dataclass
-class EAcquire(Effect[bool]):
+class EAcquire(ZahirJobEffect[bool]):
     """Try to acquire a named concurrency slot from the runner's pool.
 
     Returns True if a slot was available and acquired, False if the pool is full.
@@ -52,7 +63,7 @@ class EAcquire(Effect[bool]):
 
 
 @dataclass
-class ESetSemaphore(Event):
+class ESetSemaphore(ZahirJobEffect[None]):
     """Set the state of a named semaphore in the runner's GenServer."""
 
     tag: ClassVar[str] = "set_semaphore"
@@ -61,7 +72,7 @@ class ESetSemaphore(Event):
 
 
 @dataclass
-class EAwaitAll(Effect[list[Any]]):
+class EAwaitAll(ZahirJobEffect[list[Any]]):
     """Dispatch multiple child jobs concurrently and return results in input order."""
 
     tag: ClassVar[str] = "await_all"
@@ -69,7 +80,7 @@ class EAwaitAll(Effect[list[Any]]):
 
 
 @dataclass
-class EJobComplete(Effect[None]):
+class EJobComplete(ZahirCoordinationEffect[None]):
     """Internal: report successful job completion and route the result to the caller."""
 
     tag: ClassVar[str] = "job_complete"
@@ -79,7 +90,7 @@ class EJobComplete(Effect[None]):
 
 
 @dataclass
-class EJobFail(Effect[None]):
+class EJobFail(ZahirCoordinationEffect[None]):
     """Internal: report job failure (timeout or error) and route the exception to the caller."""
 
     tag: ClassVar[str] = "job_fail"

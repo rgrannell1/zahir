@@ -1,5 +1,6 @@
 from tertius import EReceive
 
+from effects import ZahirCoordinationEffect
 from exceptions import InvalidEffect, JobError, JobTimeout
 
 DEPENDENCY_DELAY_MS = 5_000
@@ -28,5 +29,6 @@ SET_SEMAPHORE = "set_semaphore"
 # Exceptions that evaluate_job throws back into the running job rather than propagating outward
 THROWABLE = (JobTimeout, JobError, InvalidEffect)
 
-# Tertius effects that must not be yielded directly by a zahir job — they block the worker process indefinitely
-BLOCKED_EFFECTS = (EReceive,)
+# Effects that must not be yielded directly by a zahir job — EReceive blocks the worker indefinitely;
+# ZahirCoordinationEffect are runtime-internal and would bypass the coordination handler layer
+BLOCKED_EFFECTS = (EReceive, ZahirCoordinationEffect)
