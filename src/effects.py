@@ -95,6 +95,14 @@ class EEnqueue(ZahirCoordinationEffect[None]):
 
 
 @dataclass
+class ERelease(ZahirCoordinationEffect[None]):
+    """Internal: release a named concurrency slot back to the overseer."""
+
+    tag: ClassVar[str] = "release"
+    name: str
+
+
+@dataclass
 class EGetJob(ZahirCoordinationEffect[Any]):
     """Internal: request the next available job from the queue, blocking until one is available."""
 

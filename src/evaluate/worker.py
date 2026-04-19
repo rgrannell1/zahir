@@ -3,14 +3,13 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from orbis import handle
-from tertius import Pid, Scope, mcall, mcast
+from tertius import Pid, Scope
 
 from constants import (
     BLOCKED_EFFECTS,
-    RELEASE,
     THROWABLE,
 )
-from effects import EGetJob, EJobComplete, EJobFail
+from effects import EGetJob, EJobComplete, EJobFail, ERelease
 from evaluate.worker_handlers import make_coordination_handlers, make_handlers
 from exceptions import InvalidEffect, JobError, JobTimeout
 from scope_proxy import ScopeProxy
@@ -93,9 +92,9 @@ def _worker_body(overseer: Pid, ctx: Any) -> Generator[Any, Any, None]:
         except Exception as exc:
             job_error = JobError(exc)
 
-        # release any semaphores we acquired during the job
+        # release any concurrency slots acquired during the job
         for name in acquired:
-            yield from mcast(overseer, (RELEASE, name))
+            yield ERelease(name=name)
 
         if timed_out:
             # send the timeout error to the caller

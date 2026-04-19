@@ -4,7 +4,7 @@ from typing import Any
 
 from tertius import EReceive, ESelf, ESend, ESleep, Pid, mcall, mcast
 
-from constants import ACQUIRE, ENQUEUE, GET_JOB, JOB_DONE, SET_SEMAPHORE, SIGNAL, WORKER_POLL_MS
+from constants import ACQUIRE, ENQUEUE, GET_JOB, JOB_DONE, RELEASE, SET_SEMAPHORE, SIGNAL, WORKER_POLL_MS
 from effects import (
     EAcquire,
     EAwait,
@@ -14,6 +14,7 @@ from effects import (
     EImpossible,
     EJobComplete,
     EJobFail,
+    ERelease,
     ESatisfied,
     ESetSemaphore,
     ESignal,
@@ -111,6 +112,12 @@ def _handle_set_semaphore(
     yield from mcast(overseer, (SET_SEMAPHORE, effect.name, effect.state))
 
 
+def _handle_release(overseer: Pid, effect: ERelease) -> Generator[Any, Any, None]:
+    """Release a named concurrency slot back to the overseer."""
+
+    yield from mcast(overseer, (RELEASE, effect.name))
+
+
 def _handle_enqueue(overseer: Pid, effect: EEnqueue) -> Generator[Any, Any, None]:
     """Enqueue a child job with the overseer, routing the reply back to this worker."""
 
@@ -157,6 +164,7 @@ def make_coordination_handlers(overseer: Pid) -> dict[str, Any]:
         EGetJob.tag: partial(_handle_get_job, overseer),
         EJobComplete.tag: partial(_handle_job_complete, overseer),
         EJobFail.tag: partial(_handle_job_fail, overseer),
+        ERelease.tag: partial(_handle_release, overseer),
     }
 
 
