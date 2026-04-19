@@ -17,8 +17,7 @@ from typing import Any
 
 from tertius import EEmit
 
-from effects import EAwait
-from evaluate import evaluate
+from evaluate import JobContext, evaluate
 
 
 FILE_PATH = pathlib.Path(__file__).parent / "warandpeace.txt"
@@ -45,29 +44,29 @@ def _longest_word(lines: list[str]) -> str:
 # ---------------------------------------------------------------------------
 
 
-def chapter_processor(lines: list[str]) -> Generator[Any, Any, str]:
+def chapter_processor(ctx: JobContext, lines: list[str]) -> Generator[Any, Any, str]:
     """Return the longest word in this chunk of lines."""
     return _longest_word(lines)
     yield
 
 
-def uppercase_words(words: list[str]) -> Generator[Any, Any, list[str]]:
+def uppercase_words(ctx: JobContext, words: list[str]) -> Generator[Any, Any, list[str]]:
     """Return the uppercased words."""
     return [word.upper() for word in words]
     yield
 
 
-def book_processor(file_path: str) -> Generator[Any, Any, None]:
+def book_processor(ctx: JobContext, file_path: str) -> Generator[Any, Any, None]:
     """Fan out to chapter processors, collect longest words, uppercase, emit."""
     chunks = _chunks(pathlib.Path(file_path), CHUNK_SIZE)
 
     longest_words: set[str] = set()
     for chunk in chunks:
-        longest: str = yield EAwait("chapter_processor", (chunk,))
+        longest: str = yield ctx.scope.chapter_processor(chunk)
         if longest:
             longest_words.add(longest)
 
-    uppercased: list[str] = yield EAwait("uppercase_words", (sorted(longest_words),))
+    uppercased: list[str] = yield ctx.scope.uppercase_words(sorted(longest_words))
     yield EEmit({"longest_words": uppercased})
 
 

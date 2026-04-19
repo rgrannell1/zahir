@@ -1,18 +1,17 @@
 from tertius import EEmit
 
-from effects import EAwait
-from evaluate import evaluate
+from evaluate import JobContext, evaluate
 from exceptions import JobError
 
 
-def crashing_job(ctx):
+def crashing_job(ctx: JobContext):
     raise ValueError("something went wrong")
     yield
 
 
-def job_awaiting_crash(ctx):
+def job_awaiting_crash(ctx: JobContext):
     try:
-        yield EAwait(fn_name="crashing_job")
+        yield ctx.scope.crashing_job()
     except JobError as err:
         yield EEmit({"error": str(err.cause)})
 

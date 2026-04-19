@@ -6,6 +6,7 @@ from tertius import ESend, ESleep, Pid, Scope, mcall, mcast
 
 from constants import GET_JOB, JOB_DONE, RELEASE, WORKER_POLL_MS
 
+from scope_proxy import ScopeProxy
 from evaluate.worker_handlers import _TIMEOUT_SENTINEL, make_handlers
 from exceptions import JobError, JobTimeout
 
@@ -46,6 +47,7 @@ def worker(overseer_pid_bytes: bytes, scope: Scope, context: type) -> Generator[
     overseer = Pid.from_bytes(overseer_pid_bytes)
     ctx = context()
     ctx._scope = scope
+    ctx.scope = ScopeProxy(scope)
 
     while True:
         job = yield from mcall(overseer, GET_JOB)

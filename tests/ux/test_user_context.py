@@ -16,6 +16,7 @@ def job_with_default_context(ctx: JobContext):
     yield EEmit({"has_scope": hasattr(ctx, "_scope")})
 
 
+
 def test_custom_context_is_passed_as_first_arg():
     """Proves a custom context instance is created per worker and passed as the first job argument."""
 
