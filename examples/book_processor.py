@@ -1,18 +1,9 @@
-"""Book processor — find the longest word in each chapter of War and Peace.
 
-Mirrors the zahir BookProcessor example:
-  - book_processor fans out to one chapter_processor per chunk
-  - chapter_processors return their longest word to the parent
-  - book_processor collects, deduplicates, then awaits uppercase_words
-  - final result is emitted as a stream event
-"""
 
 import pathlib
 from collections.abc import Generator
 from typing import Any
-
 from tertius import EEmit
-
 from evaluate import JobContext, evaluate
 
 
