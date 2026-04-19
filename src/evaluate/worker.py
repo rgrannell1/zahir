@@ -7,7 +7,9 @@ from tertius import ESend, ESleep, Pid, Scope, mcall, mcast
 from constants import GET_JOB, JOB_DONE, RELEASE, WORKER_POLL_MS
 
 from evaluate.worker_handlers import _TIMEOUT_SENTINEL, make_handlers
-from exceptions import JobTimeout
+from exceptions import JobError, JobTimeout
+
+_THROWABLE = (JobTimeout, JobError)
 
 
 def evaluate_job(
@@ -36,7 +38,7 @@ def evaluate_job(
                 handler_value = yield from handlers[type(effect)](effect)
             else:
                 handler_value = yield effect
-        except JobTimeout as exc:
+        except _THROWABLE as exc:
             pending_throw = exc
 
 
@@ -55,10 +57,15 @@ def worker(overseer_pid_bytes: bytes, scope: Scope) -> Generator[Any, Any, None]
         acquired: list[str] = []
 
         timed_out = False
+        job_error: JobError | None = None
         try:
             result = yield from evaluate_job(scope[fn_name](*args), overseer, acquired, deadline)
         except JobTimeout:
             timed_out = True
+        except JobError as exc:
+            job_error = exc
+        except Exception as exc:
+            job_error = JobError(exc)
 
         for name in acquired:
             yield from mcast(overseer, (RELEASE, name))
@@ -66,6 +73,12 @@ def worker(overseer_pid_bytes: bytes, scope: Scope) -> Generator[Any, Any, None]
         if timed_out:
             if reply_to is not None:
                 yield ESend(Pid.from_bytes(reply_to), _TIMEOUT_SENTINEL)
+            yield from mcast(overseer, JOB_DONE)
+            continue
+
+        if job_error is not None:
+            if reply_to is not None:
+                yield ESend(Pid.from_bytes(reply_to), job_error)
             yield from mcast(overseer, JOB_DONE)
             continue
 

@@ -61,14 +61,19 @@ def _status_result(
     status: str,
     db_path: str,
     metadata: dict[str, Any],
-) -> Generator[ESatisfied | EImpossible | ESleep, None, None]:
+) -> Generator[ESatisfied | EImpossible | ESleep, None, ESatisfied | EImpossible | None]:
     match status:
         case "satisfied":
-            yield ESatisfied(metadata=metadata)
+            event = ESatisfied(metadata=metadata)
+            yield event
+            return event
         case "impossible":
-            yield EImpossible(reason=f"status=impossible for query against {db_path}")
+            event = EImpossible(reason=f"status=impossible for query against {db_path}")
+            yield event
+            return event
         case "unsatisfied":
             yield ESleep(ms=DEPENDENCY_DELAY_MS)
+            return None
 
 
 def sqlite_dependency(
@@ -98,8 +103,8 @@ def sqlite_dependency(
             if status == "unsatisfied":
                 yield ESleep(ms=DEPENDENCY_DELAY_MS)
                 continue
-            yield from _status_result(status, db_path, metadata)
-            return
+            return (yield from _status_result(status, db_path, metadata))
 
-        yield ESatisfied(metadata=metadata)
-        return
+        event = ESatisfied(metadata=metadata)
+        yield event
+        return event

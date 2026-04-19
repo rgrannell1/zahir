@@ -19,17 +19,20 @@ def semaphore_dependency(
 
     while True:
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
-            yield EImpossible(reason=f"semaphore '{name}' not satisfied within {timeout_ms}ms")
-            return
+            event = EImpossible(reason=f"semaphore '{name}' not satisfied within {timeout_ms}ms")
+            yield event
+            return event
 
         state: str = yield ESignal(name=name)
 
         match state:
             case "satisfied":
-                yield ESatisfied(metadata={"name": name})
-                return
+                event = ESatisfied(metadata={"name": name})
+                yield event
+                return event
             case "impossible":
-                yield EImpossible(reason=f"semaphore '{name}' aborted")
-                return
+                event = EImpossible(reason=f"semaphore '{name}' aborted")
+                yield event
+                return event
             case "unsatisfied":
                 yield ESleep(ms=DEPENDENCY_DELAY_MS)

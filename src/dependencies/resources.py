@@ -43,11 +43,13 @@ def resource_dependency(
         now = datetime.now(tz=UTC)
 
         if timeout_at is not None and now >= timeout_at:
-            yield EImpossible(reason=f"{resource} limit timed out after {timeout}s")
-            return
+            event = EImpossible(reason=f"{resource} limit timed out after {timeout}s")
+            yield event
+            return event
 
         if _get_usage(resource) <= max_percent:
-            yield ESatisfied(metadata=_metadata(resource, max_percent, timeout_at))
-            return
+            event = ESatisfied(metadata=_metadata(resource, max_percent, timeout_at))
+            yield event
+            return event
 
         yield ESleep(ms=DEPENDENCY_DELAY_MS)

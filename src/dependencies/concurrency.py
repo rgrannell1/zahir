@@ -20,13 +20,15 @@ def concurrency_dependency(
 
     while True:
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
-            yield EImpossible(reason=f"concurrency slot '{name}' not available within {timeout_ms}ms")
-            return
+            event = EImpossible(reason=f"concurrency slot '{name}' not available within {timeout_ms}ms")
+            yield event
+            return event
 
         acquired: bool = yield EAcquire(name=name, limit=limit)
 
         if acquired:
-            yield ESatisfied(metadata={"name": name, "limit": limit})
-            return
+            event = ESatisfied(metadata={"name": name, "limit": limit})
+            yield event
+            return event
 
         yield ESleep(ms=DEPENDENCY_DELAY_MS)

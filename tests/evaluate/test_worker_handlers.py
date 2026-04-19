@@ -39,22 +39,22 @@ def _mock_mcast():
 
 # _handle_event
 
-def test_handle_event_returns_none_for_satisfied():
-    """Proves _handle_event yields nothing and returns None for ESatisfied."""
+def test_handle_event_returns_effect_for_satisfied():
+    """Proves _handle_event returns the ESatisfied effect for job introspection."""
 
     gen = _handle_event(ESatisfied())
     with pytest.raises(StopIteration) as exc:
         next(gen)
-    assert exc.value.value is None
+    assert exc.value.value == ESatisfied()
 
 
-def test_handle_event_returns_none_for_impossible():
-    """Proves _handle_event yields nothing and returns None for EImpossible."""
+def test_handle_event_returns_effect_for_impossible():
+    """Proves _handle_event returns the EImpossible effect for job introspection."""
 
     gen = _handle_event(EImpossible(reason="blocked"))
     with pytest.raises(StopIteration) as exc:
         next(gen)
-    assert exc.value.value is None
+    assert exc.value.value == EImpossible(reason="blocked")
 
 
 # _handle_await

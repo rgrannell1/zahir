@@ -10,7 +10,7 @@ from tertius.types import Envelope
 from effects import EAcquire, EImpossible, ESatisfied, ESignal
 from evaluate.worker import evaluate_job
 from evaluate.worker_handlers import _TIMEOUT_SENTINEL
-from exceptions import JobTimeout
+from exceptions import JobError, JobTimeout
 
 
 OVERSEER = Pid(id=1)
@@ -70,7 +70,7 @@ def test_evaluate_job_passes_through_unknown_effects():
 # evaluate_job — handled effects
 
 def test_evaluate_job_intercepts_esatisfied():
-    """Proves ESatisfied is intercepted and None is sent back to the job."""
+    """Proves ESatisfied is intercepted and the effect itself is returned to the job."""
 
     received = []
 
@@ -79,11 +79,11 @@ def test_evaluate_job_intercepts_esatisfied():
         received.append(val)
 
     _drive(evaluate_job(job(), OVERSEER, [], None))
-    assert received == [None]
+    assert received == [ESatisfied()]
 
 
 def test_evaluate_job_intercepts_eimpossible():
-    """Proves EImpossible is intercepted and None is sent back to the job."""
+    """Proves EImpossible is intercepted and the effect itself is returned to the job."""
 
     received = []
 
@@ -92,7 +92,7 @@ def test_evaluate_job_intercepts_eimpossible():
         received.append(val)
 
     _drive(evaluate_job(job(), OVERSEER, [], None))
-    assert received == [None]
+    assert received == [EImpossible(reason="blocked")]
 
 
 # evaluate_job — deadline
@@ -167,3 +167,16 @@ def test_evaluate_job_does_not_track_denied_slots():
         _drive(evaluate_job(job(), OVERSEER, acquired, None))
 
     assert acquired == []
+
+
+# evaluate_job — unhandled exceptions
+
+def test_evaluate_job_propagates_unhandled_exception():
+    """Proves evaluate_job lets non-JobTimeout exceptions propagate to the caller."""
+
+    def job():
+        raise ValueError("unexpected")
+        yield
+
+    with pytest.raises(ValueError, match="unexpected"):
+        _drive(evaluate_job(job(), OVERSEER, [], None))

@@ -6,14 +6,14 @@ from tertius import EReceive, ESelf, Pid, mcall, mcast
 
 from constants import ACQUIRE, ENQUEUE, RELEASE, SET_SEMAPHORE, SIGNAL
 from effects import EAcquire, EAwait, EImpossible, ESatisfied, ESetSemaphore, ESignal
-from exceptions import JobTimeout
+from exceptions import JobError, JobTimeout
 
 
 _TIMEOUT_SENTINEL = "__timeout__"
 
 
-def _handle_event(_effect: ESatisfied | EImpossible) -> Generator[Any, Any, None]:
-    return None
+def _handle_event(effect: ESatisfied | EImpossible) -> Generator[Any, Any, ESatisfied | EImpossible]:
+    return effect
     yield
 
 
@@ -23,6 +23,8 @@ def _handle_await(overseer: Pid, effect: EAwait) -> Generator[Any, Any, Any]:
     envelope = yield EReceive()
     if envelope.body == _TIMEOUT_SENTINEL:
         raise JobTimeout(f"{effect.fn_name} timed out after {effect.timeout_ms}ms")
+    if isinstance(envelope.body, JobError):
+        raise envelope.body
     return envelope.body
 
 
