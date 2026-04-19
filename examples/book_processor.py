@@ -20,11 +20,6 @@ FILE_PATH = pathlib.Path(__file__).parent / "warandpeace.txt"
 CHUNK_SIZE = 200  # lines per chapter
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-
 def _chunks(file_path: pathlib.Path, size: int) -> list[list[str]]:
     lines = file_path.read_text().splitlines()
     return [lines[i : i + size] for i in range(0, len(lines), size)]
@@ -34,11 +29,7 @@ def _longest_word(lines: list[str]) -> str:
     words = " ".join(lines).split()
     return max(words, key=len) if words else ""
 
-
-# ---------------------------------------------------------------------------
-# Jobs
-# ---------------------------------------------------------------------------
-
+# The jobs
 
 def chapter_processor(ctx: JobContext, lines: list[str]) -> Generator[Any, Any, str]:
     """Return the longest word in this chunk of lines."""
@@ -69,7 +60,7 @@ def book_processor(ctx: JobContext, file_path: str) -> Generator[Any, Any, None]
 
 
 # ---------------------------------------------------------------------------
-# Run
+# Run the thing
 # ---------------------------------------------------------------------------
 
 _SCOPE = {
