@@ -84,6 +84,17 @@ class EAwaitAll(ZahirJobEffect[list[Any]]):
 
 
 @dataclass
+class EEnqueue(ZahirCoordinationEffect[None]):
+    """Internal: enqueue a child job and route its reply back to this worker."""
+
+    tag: ClassVar[str] = "enqueue"
+    fn_name: str
+    args: tuple[Any, ...]
+    timeout_ms: int | None
+    nonce: int | None  # None for EAwait; integer index for EAwaitAll
+
+
+@dataclass
 class EGetJob(ZahirCoordinationEffect[Any]):
     """Internal: request the next available job from the queue, blocking until one is available."""
 

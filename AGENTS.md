@@ -6,16 +6,16 @@ We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
 - No sychophantic language please
 - Use British English
 - Do not remove my docstrings
+- Do not delete comments, it's annoying. I use them to make it obvious what a block of code is intended to do
 
 **Coding style**
 
-- Do not delete comments, it's annoying. I use them to make it obvious what a block of code is intended to do
 - Never use single-letter variables
 - I name exceptions `err` and indices `idx`, `jdx`, etc.
 - Functions must be short and single purpose.
 - No mid file imports
 - Avoid deeply nested lines
-- use the constants file for constants. document with a plain english line comment what the thing represents. group constants in a block.
+- use the constants file for constants. document with a plain english line comment what the thing represents. group constants in a block of related terms.
 - Avoid deeply nested lines
 - Do not write large functions. Split into subfunctions
 - Do not write inner functions; use partial application instead
@@ -37,12 +37,11 @@ We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
 
 ---
 
-**Design**
+**Effects & Telemetry**
 
 - We can only emit telemetry using EEmit( <inner_data> )
 - We can only observe the system by looking at effects (zahir's or tertius's)
 - What does not have an effect / event, cannot be observed
 - Telemetry can only be added by decorating a handler. The handlers logic must be identical to before, including erroring, with the sole exception that more EEmit's are allowed
-
 - We may yield zahir effect internally that have handlers yielding their own zahir / tertius effects
 - Not all effects are sent by jobs themselves; most are not. We have subclasses denoting thie behaviour

@@ -2,14 +2,15 @@ from unittest.mock import patch
 
 import pytest
 
-from tertius import EReceive, ESelf
+from tertius import EReceive
 from tertius.types import Envelope
 
-from constants import ACQUIRE, ENQUEUE, SET_SEMAPHORE, SIGNAL
+from constants import ACQUIRE, SET_SEMAPHORE, SIGNAL
 from effects import (
     EAcquire,
     EAwait,
     EAwaitAll,
+    EEnqueue,
     EImpossible,
     ESatisfied,
     ESetSemaphore,
@@ -25,7 +26,7 @@ from evaluate.worker_handlers import (
     make_handlers,
 )
 from exceptions import JobError, JobTimeout
-from tests.evaluate.mocks import ME, OVERSEER, mock_mcall, mock_mcast
+from tests.evaluate.mocks import OVERSEER, mock_mcall
 
 
 # _handle_event
@@ -52,61 +53,53 @@ def test_handle_event_returns_effect_for_impossible():
 # _handle_await
 
 
-def test_handle_await_first_yields_eself():
-    """Proves _handle_await first requests its own Pid via ESelf."""
+def test_handle_await_first_yields_eenqueue():
+    """Proves _handle_await first yields EEnqueue to dispatch the child job."""
 
-    with patch("evaluate.worker_handlers.mcast", mock_mcast()):
-        gen = _handle_await(OVERSEER, EAwait(fn_name="child"))
-        assert isinstance(next(gen), ESelf)
+    gen = _handle_await(EAwait(fn_name="child"))
+    assert isinstance(next(gen), EEnqueue)
 
 
-def test_handle_await_enqueues_job_after_self():
-    """Proves _handle_await mcasts an enqueue message with fn_name and args."""
+def test_handle_await_eenqueue_carries_correct_fields():
+    """Proves _handle_await yields EEnqueue with the correct fn_name, args, timeout_ms, and nonce."""
 
-    sent = []
+    gen = _handle_await(EAwait(fn_name="child", args=(1,), timeout_ms=500))
+    enqueue = next(gen)
+    assert enqueue.fn_name == "child"
+    assert enqueue.args == (1,)
+    assert enqueue.timeout_ms == 500
+    assert enqueue.nonce is None
 
-    def _capturing_mcast(pid, body):
-        sent.append((pid, body))
-        return None
-        yield
 
-    with patch("evaluate.worker_handlers.mcast", _capturing_mcast):
-        gen = _handle_await(
-            OVERSEER, EAwait(fn_name="child", args=(1,), timeout_ms=500)
-        )
-        next(gen)  # ESelf
-        effect = gen.send(ME)  # mcast → ESend, then EReceive
-        assert isinstance(effect, EReceive)
+def test_handle_await_yields_ereceive_after_enqueue():
+    """Proves _handle_await yields EReceive after EEnqueue to wait for the reply."""
 
-    assert sent[0][0] == OVERSEER
-    assert sent[0][1][0] == ENQUEUE
-    assert sent[0][1][1] == "child"
-    assert sent[0][1][4] == 500
+    gen = _handle_await(EAwait(fn_name="child"))
+    next(gen)                        # EEnqueue
+    assert isinstance(gen.send(None), EReceive)
 
 
 def test_handle_await_returns_envelope_body():
     """Proves _handle_await returns the body of the received envelope."""
 
-    with patch("evaluate.worker_handlers.mcast", mock_mcast()):
-        gen = _handle_await(OVERSEER, EAwait(fn_name="child"))
-        next(gen)
-        gen.send(ME)
-        envelope = Envelope(sender=OVERSEER, body=(None, "result"))
-        with pytest.raises(StopIteration) as exc:
-            gen.send(envelope)
-        assert exc.value.value == "result"
+    gen = _handle_await(EAwait(fn_name="child"))
+    next(gen)                        # EEnqueue
+    gen.send(None)                   # EReceive
+    envelope = Envelope(sender=OVERSEER, body=(None, "result"))
+    with pytest.raises(StopIteration) as exc:
+        gen.send(envelope)
+    assert exc.value.value == "result"
 
 
 def test_handle_await_raises_job_timeout_on_timeout():
     """Proves _handle_await raises JobTimeout when a JobTimeout is received as the body."""
 
-    with patch("evaluate.worker_handlers.mcast", mock_mcast()):
-        gen = _handle_await(OVERSEER, EAwait(fn_name="child", timeout_ms=1000))
-        next(gen)
-        gen.send(ME)
-        envelope = Envelope(sender=OVERSEER, body=(None, JobTimeout()))
-        with pytest.raises(JobTimeout):
-            gen.send(envelope)
+    gen = _handle_await(EAwait(fn_name="child", timeout_ms=1000))
+    next(gen)                        # EEnqueue
+    gen.send(None)                   # EReceive
+    envelope = Envelope(sender=OVERSEER, body=(None, JobTimeout()))
+    with pytest.raises(JobTimeout):
+        gen.send(envelope)
 
 
 # _handle_acquire
@@ -177,17 +170,20 @@ def test_handle_set_semaphore_mcasts_correct_message():
 
 def _drive_await_all(effects, envelopes):
     """Drive _handle_await_all to completion, feeding in envelopes in sequence."""
-    with patch("evaluate.worker_handlers.mcast", mock_mcast()):
-        gen = _handle_await_all(OVERSEER, EAwaitAll(effects=effects))
-        next(gen)        # ESelf
-        gen.send(ME)     # triggers mcast calls, lands on first EReceive
-        for i, env in enumerate(envelopes):
-            if i < len(envelopes) - 1:
+    gen = _handle_await_all(EAwaitAll(effects=effects))
+    # next() starts the generator and yields the first EEnqueue;
+    # each subsequent send(None) consumes the remaining EEnqueues then lands on the first EReceive
+    next(gen)
+    for _ in effects:
+        gen.send(None)
+    # now feed envelopes into EReceive yields
+    for idx, env in enumerate(envelopes):
+        if idx < len(envelopes) - 1:
+            gen.send(env)
+        else:
+            with pytest.raises(StopIteration) as exc:
                 gen.send(env)
-            else:
-                with pytest.raises(StopIteration) as exc:
-                    gen.send(env)
-                return exc.value.value
+            return exc.value.value
     return None
 
 
@@ -203,39 +199,34 @@ def test_handle_await_all_returns_results_in_input_order():
     assert result == ["result_a", "result_b"]
 
 
+def _drive_await_all_to_receive(effects):
+    """Drive _handle_await_all past all EEnqueue yields, returning the generator at first EReceive."""
+    gen = _handle_await_all(EAwaitAll(effects=effects))
+    next(gen)
+    for _ in effects:
+        gen.send(None)
+    return gen
+
+
 def test_handle_await_all_raises_job_error_when_child_fails():
     """Proves _handle_await_all raises JobError when a child job returns an error."""
 
     effects = [EAwait(fn_name="a"), EAwait(fn_name="b")]
     error = JobError(ValueError("boom"))
-    envelopes = [
-        Envelope(sender=OVERSEER, body=(0, error)),
-        Envelope(sender=OVERSEER, body=(1, "ok")),
-    ]
-    with patch("evaluate.worker_handlers.mcast", mock_mcast()):
-        gen = _handle_await_all(OVERSEER, EAwaitAll(effects=effects))
-        next(gen)
-        gen.send(ME)
-        gen.send(envelopes[0])
-        with pytest.raises(JobError):
-            gen.send(envelopes[1])
+    gen = _drive_await_all_to_receive(effects)
+    gen.send(Envelope(sender=OVERSEER, body=(0, error)))
+    with pytest.raises(JobError):
+        gen.send(Envelope(sender=OVERSEER, body=(1, "ok")))
 
 
 def test_handle_await_all_raises_job_timeout_when_child_times_out():
     """Proves _handle_await_all raises JobTimeout when a child job times out."""
 
     effects = [EAwait(fn_name="a"), EAwait(fn_name="b")]
-    envelopes = [
-        Envelope(sender=OVERSEER, body=(0, JobTimeout())),
-        Envelope(sender=OVERSEER, body=(1, "ok")),
-    ]
-    with patch("evaluate.worker_handlers.mcast", mock_mcast()):
-        gen = _handle_await_all(OVERSEER, EAwaitAll(effects=effects))
-        next(gen)
-        gen.send(ME)
-        gen.send(envelopes[0])
-        with pytest.raises(JobTimeout):
-            gen.send(envelopes[1])
+    gen = _drive_await_all_to_receive(effects)
+    gen.send(Envelope(sender=OVERSEER, body=(0, JobTimeout())))
+    with pytest.raises(JobTimeout):
+        gen.send(Envelope(sender=OVERSEER, body=(1, "ok")))
 
 
 def test_handle_await_all_drains_all_replies_before_raising():
@@ -243,14 +234,11 @@ def test_handle_await_all_drains_all_replies_before_raising():
 
     effects = [EAwait(fn_name="a"), EAwait(fn_name="b"), EAwait(fn_name="c")]
     error = JobError(ValueError("first"))
-    with patch("evaluate.worker_handlers.mcast", mock_mcast()):
-        gen = _handle_await_all(OVERSEER, EAwaitAll(effects=effects))
-        next(gen)
-        gen.send(ME)
-        gen.send(Envelope(sender=OVERSEER, body=(0, error)))
-        gen.send(Envelope(sender=OVERSEER, body=(1, "ok")))
-        with pytest.raises(JobError):
-            gen.send(Envelope(sender=OVERSEER, body=(2, "ok")))
+    gen = _drive_await_all_to_receive(effects)
+    gen.send(Envelope(sender=OVERSEER, body=(0, error)))
+    gen.send(Envelope(sender=OVERSEER, body=(1, "ok")))
+    with pytest.raises(JobError):
+        gen.send(Envelope(sender=OVERSEER, body=(2, "ok")))
 
 
 def test_handle_await_all_raises_first_error_when_multiple_fail():
@@ -259,13 +247,10 @@ def test_handle_await_all_raises_first_error_when_multiple_fail():
     effects = [EAwait(fn_name="a"), EAwait(fn_name="b")]
     first_error = JobError(ValueError("first"))
     second_error = JobError(ValueError("second"))
-    with patch("evaluate.worker_handlers.mcast", mock_mcast()):
-        gen = _handle_await_all(OVERSEER, EAwaitAll(effects=effects))
-        next(gen)
-        gen.send(ME)
-        gen.send(Envelope(sender=OVERSEER, body=(0, first_error)))
-        with pytest.raises(JobError) as exc:
-            gen.send(Envelope(sender=OVERSEER, body=(1, second_error)))
+    gen = _drive_await_all_to_receive(effects)
+    gen.send(Envelope(sender=OVERSEER, body=(0, first_error)))
+    with pytest.raises(JobError) as exc:
+        gen.send(Envelope(sender=OVERSEER, body=(1, second_error)))
     assert exc.value is first_error
 
 

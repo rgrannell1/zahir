@@ -4,11 +4,12 @@ from typing import Any
 
 from tertius import EReceive, ESelf, ESend, ESleep, Pid, mcall, mcast
 
-from constants import ACQUIRE, ENQUEUE, GET_JOB, JOB_DONE, RELEASE, SET_SEMAPHORE, SIGNAL, WORKER_POLL_MS
+from constants import ACQUIRE, ENQUEUE, GET_JOB, JOB_DONE, SET_SEMAPHORE, SIGNAL, WORKER_POLL_MS
 from effects import (
     EAcquire,
     EAwait,
     EAwaitAll,
+    EEnqueue,
     EGetJob,
     EImpossible,
     EJobComplete,
@@ -41,35 +42,25 @@ def _unwrap_reply(body: Any) -> Any:
     return body
 
 
-def _handle_await(overseer: Pid, effect: EAwait) -> Generator[Any, Any, Any]:
+def _handle_await(effect: EAwait) -> Generator[Any, Any, Any]:
     """Enqueue the awaited job and wait for the reply, unwrapping it and raising appropriate exceptions on failure."""
 
-    me: Pid = yield ESelf()
-    # enqueue the job with the overseer, using our own pid as the reply_to so we get the response back when it's done
-    yield from mcast(
-        overseer,
-        (ENQUEUE, effect.fn_name, effect.args, bytes(me), effect.timeout_ms, None),
-    )
+    # enqueue the job, routing the reply back to this worker
+    yield EEnqueue(fn_name=effect.fn_name, args=effect.args, timeout_ms=effect.timeout_ms, nonce=None)
 
     # wait for the reply and unwrap it, raising exceptions as needed
     envelope = yield EReceive()
-    nonce, body = envelope.body
+    _nonce, body = envelope.body
 
     return _unwrap_reply(body)
 
 
-def _handle_await_all(
-    overseer: Pid, effect: EAwaitAll
-) -> Generator[Any, Any, list[Any]]:
+def _handle_await_all(effect: EAwaitAll) -> Generator[Any, Any, list[Any]]:
     """Enqueue multiple awaited jobs and wait for their replies, unwrapping them and raising appropriate exceptions on failure."""
 
-    me: Pid = yield ESelf()
-
-    # enqueue each
+    # enqueue each job, using the index as a nonce to correlate replies
     for idx, eff in enumerate(effect.effects):
-        yield from mcast(
-            overseer, (ENQUEUE, eff.fn_name, eff.args, bytes(me), eff.timeout_ms, idx)
-        )
+        yield EEnqueue(fn_name=eff.fn_name, args=eff.args, timeout_ms=eff.timeout_ms, nonce=idx)
 
     # populate a blank list for the results
     results: list[Any] = [None] * len(effect.effects)
@@ -120,6 +111,13 @@ def _handle_set_semaphore(
     yield from mcast(overseer, (SET_SEMAPHORE, effect.name, effect.state))
 
 
+def _handle_enqueue(overseer: Pid, effect: EEnqueue) -> Generator[Any, Any, None]:
+    """Enqueue a child job with the overseer, routing the reply back to this worker."""
+
+    me: Pid = yield ESelf()
+    yield from mcast(overseer, (ENQUEUE, effect.fn_name, effect.args, bytes(me), effect.timeout_ms, effect.nonce))
+
+
 def _handle_get_job(overseer: Pid, effect: EGetJob) -> Generator[Any, Any, Any]:
     """Poll the overseer for a job, sleeping between attempts until one is available."""
 
@@ -155,6 +153,7 @@ def make_coordination_handlers(overseer: Pid) -> dict[str, Any]:
     """Coordination handlers for the worker process — intercept job lifecycle effects."""
 
     return {
+        EEnqueue.tag: partial(_handle_enqueue, overseer),
         EGetJob.tag: partial(_handle_get_job, overseer),
         EJobComplete.tag: partial(_handle_job_complete, overseer),
         EJobFail.tag: partial(_handle_job_fail, overseer),
@@ -167,8 +166,8 @@ def make_handlers(overseer: Pid, acquired: list[str]) -> dict[type, Any]:
     return {
         ESatisfied: _handle_event,
         EImpossible: _handle_event,
-        EAwait: partial(_handle_await, overseer),
-        EAwaitAll: partial(_handle_await_all, overseer),
+        EAwait: _handle_await,
+        EAwaitAll: _handle_await_all,
         EAcquire: partial(_handle_acquire, overseer, acquired),
         ESignal: partial(_handle_signal, overseer),
         ESetSemaphore: partial(_handle_set_semaphore, overseer),
