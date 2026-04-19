@@ -6,7 +6,7 @@ import psutil
 
 from tertius import ESleep
 
-from constants import DEPENDENCY_DELAY_MS
+from constants import CPU_SAMPLE_INTERVAL_S, DEPENDENCY_DELAY_MS
 from effects import EImpossible, ESatisfied
 
 type ResourceType = Literal["cpu"] | Literal["memory"]
@@ -15,7 +15,7 @@ type ResourceType = Literal["cpu"] | Literal["memory"]
 def _get_usage(resource: ResourceType) -> float:
     match resource:
         case "cpu":
-            return psutil.cpu_percent(interval=0.1)
+            return psutil.cpu_percent(interval=CPU_SAMPLE_INTERVAL_S)
         case "memory":
             return psutil.virtual_memory().percent
 

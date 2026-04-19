@@ -1,5 +1,7 @@
 from tertius import EEmit
 
+import pytest
+
 from evaluate import JobContext, evaluate
 from exceptions import JobError
 
@@ -16,10 +18,13 @@ def job_awaiting_crash(ctx: JobContext):
         yield EEmit({"error": str(err.cause)})
 
 
-def test_crashing_job_does_not_hang():
-    """Proves a job that raises an unhandled exception does not hang the workflow."""
+def test_crashing_root_job_raises_job_error():
+    """Proves a root job that raises propagates JobError to the evaluate caller."""
 
-    list(evaluate("crashing_job", (), {"crashing_job": crashing_job}, n_workers=1))
+    with pytest.raises(JobError) as exc_info:
+        list(evaluate("crashing_job", (), {"crashing_job": crashing_job}, n_workers=1))
+
+    assert str(exc_info.value.cause) == "something went wrong"
 
 
 def test_crashing_job_sends_job_error_to_awaiter():

@@ -1,6 +1,6 @@
 from collections import deque
 
-from evaluate.overseer import _acquire, _enqueue, _get_job, _is_done, _job_done, _release, _set_semaphore, _signal
+from evaluate.overseer_handlers import _acquire, _enqueue, _get_error, _get_job, _is_done, _job_done, _release, _set_semaphore, _signal
 from zahir_types import JobSpec, OverseerState
 
 
@@ -133,11 +133,12 @@ def test_signal_returns_stored_state():
     assert result == "satisfied"
 
 
-def test_signal_defaults_to_satisfied_for_unknown_name():
-    """Proves _signal returns satisfied when the semaphore has not been set."""
+def test_signal_raises_for_unknown_name():
+    """Proves _signal raises KeyError when the semaphore has not been set."""
 
-    _, result = _signal(_state(), "unknown")
-    assert result == "satisfied"
+    import pytest
+    with pytest.raises(KeyError, match="has not been set"):
+        _signal(_state(), "unknown")
 
 
 # _set_semaphore

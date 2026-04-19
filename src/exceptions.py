@@ -11,3 +11,7 @@ class JobError(ZahirException):
         self.cause = cause
         super().__init__(str(cause))
 
+
+class InvalidEffect(ZahirException):
+    pass
+

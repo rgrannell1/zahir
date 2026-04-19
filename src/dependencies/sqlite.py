@@ -5,7 +5,7 @@ from typing import Any
 
 from tertius import ESleep
 
-from constants import DEPENDENCY_DELAY_MS
+from constants import DEPENDENCY_DELAY_MS, IMPOSSIBLE, SATISFIED, UNSATISFIED
 from effects import EImpossible, ESatisfied
 
 _DEFAULT_TIMEOUT_SECONDS = 5.0
@@ -52,7 +52,7 @@ def _query(
 
 def _parse_status(raw: str) -> str:
     status = raw.lower().strip()
-    if status not in {"satisfied", "unsatisfied", "impossible"}:
+    if status not in {SATISFIED, UNSATISFIED, IMPOSSIBLE}:
         raise ValueError(f"invalid status value: {status!r}")
     return status
 
@@ -62,18 +62,17 @@ def _status_result(
     db_path: str,
     metadata: dict[str, Any],
 ) -> Generator[ESatisfied | EImpossible | ESleep, None, ESatisfied | EImpossible | None]:
-    match status:
-        case "satisfied":
-            event = ESatisfied(metadata=metadata)
-            yield event
-            return event
-        case "impossible":
-            event = EImpossible(reason=f"status=impossible for query against {db_path}")
-            yield event
-            return event
-        case "unsatisfied":
-            yield ESleep(ms=DEPENDENCY_DELAY_MS)
-            return None
+    if status == SATISFIED:
+        event = ESatisfied(metadata=metadata)
+        yield event
+        return event
+    elif status == IMPOSSIBLE:
+        event = EImpossible(reason=f"status=impossible for query against {db_path}")
+        yield event
+        return event
+    elif status == UNSATISFIED:
+        yield ESleep(ms=DEPENDENCY_DELAY_MS)
+        return None
 
 
 def sqlite_dependency(
@@ -100,7 +99,7 @@ def sqlite_dependency(
 
         if len(row) == 1 and column_names == ["status"]:
             status = _parse_status(row[0])
-            if status == "unsatisfied":
+            if status == UNSATISFIED:
                 yield ESleep(ms=DEPENDENCY_DELAY_MS)
                 continue
             return (yield from _status_result(status, db_path, metadata))

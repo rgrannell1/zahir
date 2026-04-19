@@ -59,11 +59,12 @@ def test_handle_call_acquire_grants_slot():
     assert result is True
 
 
-def test_handle_call_signal_returns_default():
-    """Proves handle_call dispatches signal and returns satisfied for unknown semaphores."""
+def test_handle_call_signal_raises_for_unknown_semaphore():
+    """Proves handle_call dispatches signal and raises for unknown semaphores."""
 
-    _, result = overseer.handle_call(_init(), (SIGNAL, "db"))
-    assert result == "satisfied"
+    import pytest
+    with pytest.raises(KeyError, match="has not been set"):
+        overseer.handle_call(_init(), (SIGNAL, "db"))
 
 
 def test_handle_call_is_done_false_initially():

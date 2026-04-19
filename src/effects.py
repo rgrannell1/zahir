@@ -57,7 +57,7 @@ class ESetSemaphore(Event):
 
     tag: ClassVar[str] = "set_semaphore"
     name: str
-    state: str  # 'satisfied' | 'unsatisfied' | 'impossible'
+    state: str  # SATISFIED | UNSATISFIED | IMPOSSIBLE from constants
 
 
 @dataclass

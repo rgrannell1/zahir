@@ -2,15 +2,15 @@ from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from tertius import ESend, ESleep, Pid, Scope, mcall, mcast
+from tertius import EReceive, ESend, ESleep, Pid, Scope, mcall, mcast
 
 from constants import GET_JOB, JOB_DONE, RELEASE, WORKER_POLL_MS
-
-from scope_proxy import ScopeProxy
 from evaluate.worker_handlers import _TIMEOUT_SENTINEL, make_handlers
-from exceptions import JobError, JobTimeout
+from exceptions import InvalidEffect, JobError, JobTimeout
+from scope_proxy import ScopeProxy
 
-_THROWABLE = (JobTimeout, JobError)
+_THROWABLE = (JobTimeout, JobError, InvalidEffect)
+_BLOCKED_EFFECTS = (EReceive,)
 
 
 def evaluate_job(
@@ -25,11 +25,14 @@ def evaluate_job(
 
     while True:
         try:
+            # Throw if pending back into the job
             effect = job_gen.throw(pending_throw) if pending_throw else job_gen.send(handler_value)
             pending_throw = None
         except StopIteration as exc:
+            # Job is done, return the value
             return exc.value
 
+        # Check for timeout before processing the effect
         if deadline and datetime.now(UTC) >= deadline:
             pending_throw = JobTimeout()
             continue
@@ -37,6 +40,10 @@ def evaluate_job(
         try:
             if type(effect) in handlers:
                 handler_value = yield from handlers[type(effect)](effect)
+            elif not hasattr(effect, 'tag'):
+                raise InvalidEffect(f"job yielded non-Effect value: {effect!r}")
+            elif isinstance(effect, _BLOCKED_EFFECTS):
+                raise InvalidEffect(f"{type(effect).__name__} cannot be yielded directly in a job")
             else:
                 handler_value = yield effect
         except _THROWABLE as exc:
@@ -63,8 +70,9 @@ def worker(overseer_pid_bytes: bytes, scope: Scope, context: type) -> Generator[
         timed_out = False
         job_error: JobError | None = None
         try:
-            fn_def = ctx._scope[fn_name]
-            result = yield from evaluate_job(fn_def(ctx, *args), overseer, acquired, deadline)
+            if fn_name not in ctx._scope:
+                raise KeyError(f"job {fn_name!r} not found in scope")
+            result = yield from evaluate_job(ctx._scope[fn_name](ctx, *args), overseer, acquired, deadline)
         except JobTimeout:
             timed_out = True
         except JobError as exc:
@@ -78,13 +86,17 @@ def worker(overseer_pid_bytes: bytes, scope: Scope, context: type) -> Generator[
         if timed_out:
             if reply_to is not None:
                 yield ESend(Pid.from_bytes(reply_to), (nonce, _TIMEOUT_SENTINEL))
-            yield from mcast(overseer, JOB_DONE)
+                yield from mcast(overseer, JOB_DONE)
+            else:
+                yield from mcast(overseer, (JOB_DONE, JobTimeout()))
             continue
 
         if job_error is not None:
             if reply_to is not None:
                 yield ESend(Pid.from_bytes(reply_to), (nonce, job_error))
-            yield from mcast(overseer, JOB_DONE)
+                yield from mcast(overseer, JOB_DONE)
+            else:
+                yield from mcast(overseer, (JOB_DONE, job_error))
             continue
 
         if reply_to is not None:

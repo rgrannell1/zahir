@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 from tertius import ESleep
 
-from constants import DEPENDENCY_DELAY_MS
+from constants import DEPENDENCY_DELAY_MS, IMPOSSIBLE, SATISFIED, UNSATISFIED
 from effects import EImpossible, ESatisfied, ESignal
 
 
@@ -25,14 +25,13 @@ def semaphore_dependency(
 
         state: str = yield ESignal(name=name)
 
-        match state:
-            case "satisfied":
-                event = ESatisfied(metadata={"name": name})
-                yield event
-                return event
-            case "impossible":
-                event = EImpossible(reason=f"semaphore '{name}' aborted")
-                yield event
-                return event
-            case "unsatisfied":
-                yield ESleep(ms=DEPENDENCY_DELAY_MS)
+        if state == SATISFIED:
+            event = ESatisfied(metadata={"name": name})
+            yield event
+            return event
+        elif state == IMPOSSIBLE:
+            event = EImpossible(reason=f"semaphore '{name}' aborted")
+            yield event
+            return event
+        elif state == UNSATISFIED:
+            yield ESleep(ms=DEPENDENCY_DELAY_MS)
