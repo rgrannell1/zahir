@@ -9,19 +9,19 @@ from constants import (
     BLOCKED_EFFECTS,
     THROWABLE,
 )
-from effects import EGetJob, EJobComplete, EJobFail, ERelease
-from evaluate.worker_handlers import make_coordination_handlers, make_handlers
+from effects import EGetJob, EJobComplete, EJobFail, ERelease, ZahirCoordinationEffect
+from evaluate.coordination_handlers import CoordinationHandlerContext, make_coordination_handlers
+from evaluate.job_handlers import JobHandlerContext, make_job_handlers
 from exceptions import InvalidEffect, JobError, JobTimeout
 from scope_proxy import ScopeProxy
 
 
 def evaluate_job(
     job_gen: Generator[Any, Any, Any],
-    overseer: Pid,
-    acquired: list[str],
+    context: JobHandlerContext,
     deadline: datetime | None,
 ) -> Generator[Any, Any, Any]:
-    handlers = make_handlers(overseer, acquired)
+    handlers = make_job_handlers(context)
     handler_value: Any = None
     pending_throw: Exception | None = None
 
@@ -44,10 +44,14 @@ def evaluate_job(
             continue
 
         try:
-            if type(effect) in handlers:
-                handler_value = yield from handlers[type(effect)](effect)
-            elif not hasattr(effect, "tag"):
+            if not hasattr(effect, "tag"):
                 raise InvalidEffect(f"job yielded non-Effect value: {effect!r}")
+            elif effect.tag in handlers:
+                handler_value = yield from handlers[effect.tag](effect)
+            elif isinstance(effect, ZahirCoordinationEffect):
+                raise InvalidEffect(
+                    f"{type(effect).__name__} cannot be yielded directly in a job"
+                )
             elif isinstance(effect, BLOCKED_EFFECTS):
                 raise InvalidEffect(
                     f"{type(effect).__name__} cannot be yielded directly in a job"
@@ -58,7 +62,9 @@ def evaluate_job(
             pending_throw = exc
 
 
-def _worker_body(overseer: Pid, ctx: Any) -> Generator[Any, Any, None]:
+def _worker_body(
+    overseer: Pid, coordination_context: CoordinationHandlerContext, ctx: Any
+) -> Generator[Any, Any, None]:
     """Worker main loop — yields coordination effects for job lifecycle."""
 
     while True:
@@ -72,7 +78,7 @@ def _worker_body(overseer: Pid, ctx: Any) -> Generator[Any, Any, None]:
             if timeout_ms
             else None
         )
-        acquired: list[str] = []
+        job_context = JobHandlerContext(overseer=overseer)
 
         timed_out = False
         job_error: JobError | None = None
@@ -83,7 +89,7 @@ def _worker_body(overseer: Pid, ctx: Any) -> Generator[Any, Any, None]:
                 raise KeyError(f"job {fn_name!r} not found in scope")
 
             result = yield from evaluate_job(
-                ctx._scope[fn_name](ctx, *args), overseer, acquired, deadline
+                ctx._scope[fn_name](ctx, *args), job_context, deadline
             )
         except JobTimeout:
             timed_out = True
@@ -93,7 +99,7 @@ def _worker_body(overseer: Pid, ctx: Any) -> Generator[Any, Any, None]:
             job_error = JobError(exc)
 
         # release any concurrency slots acquired during the job
-        for name in acquired:
+        for name in job_context.acquired:
             yield ERelease(name=name)
 
         if timed_out:
@@ -117,4 +123,8 @@ def worker(
     ctx._scope = scope
     ctx.scope = ScopeProxy(scope)
 
-    yield from handle(_worker_body(overseer, ctx), **make_coordination_handlers(overseer))
+    coordination_context = CoordinationHandlerContext(overseer=overseer)
+    yield from handle(
+        _worker_body(overseer, coordination_context, ctx),
+        **make_coordination_handlers(coordination_context),
+    )

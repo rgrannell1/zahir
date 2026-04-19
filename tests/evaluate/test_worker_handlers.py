@@ -16,17 +16,20 @@ from effects import (
     ESetSemaphore,
     ESignal,
 )
-from evaluate.worker_handlers import (
+from evaluate.job_handlers import (
+    JobHandlerContext,
     _handle_acquire,
     _handle_await,
     _handle_await_all,
     _handle_event,
     _handle_set_semaphore,
     _handle_signal,
-    make_handlers,
+    make_job_handlers,
 )
 from exceptions import JobError, JobTimeout
 from tests.evaluate.mocks import OVERSEER, mock_mcall
+
+CTX = JobHandlerContext(overseer=OVERSEER)
 
 
 # _handle_event
@@ -35,7 +38,7 @@ from tests.evaluate.mocks import OVERSEER, mock_mcall
 def test_handle_event_returns_effect_for_satisfied():
     """Proves _handle_event returns the ESatisfied effect for job introspection."""
 
-    gen = _handle_event(ESatisfied())
+    gen = _handle_event(CTX, ESatisfied())
     with pytest.raises(StopIteration) as exc:
         next(gen)
     assert exc.value.value == ESatisfied()
@@ -44,7 +47,7 @@ def test_handle_event_returns_effect_for_satisfied():
 def test_handle_event_returns_effect_for_impossible():
     """Proves _handle_event returns the EImpossible effect for job introspection."""
 
-    gen = _handle_event(EImpossible(reason="blocked"))
+    gen = _handle_event(CTX, EImpossible(reason="blocked"))
     with pytest.raises(StopIteration) as exc:
         next(gen)
     assert exc.value.value == EImpossible(reason="blocked")
@@ -56,14 +59,14 @@ def test_handle_event_returns_effect_for_impossible():
 def test_handle_await_first_yields_eenqueue():
     """Proves _handle_await first yields EEnqueue to dispatch the child job."""
 
-    gen = _handle_await(EAwait(fn_name="child"))
+    gen = _handle_await(CTX, EAwait(fn_name="child"))
     assert isinstance(next(gen), EEnqueue)
 
 
 def test_handle_await_eenqueue_carries_correct_fields():
     """Proves _handle_await yields EEnqueue with the correct fn_name, args, timeout_ms, and nonce."""
 
-    gen = _handle_await(EAwait(fn_name="child", args=(1,), timeout_ms=500))
+    gen = _handle_await(CTX, EAwait(fn_name="child", args=(1,), timeout_ms=500))
     enqueue = next(gen)
     assert enqueue.fn_name == "child"
     assert enqueue.args == (1,)
@@ -74,7 +77,7 @@ def test_handle_await_eenqueue_carries_correct_fields():
 def test_handle_await_yields_ereceive_after_enqueue():
     """Proves _handle_await yields EReceive after EEnqueue to wait for the reply."""
 
-    gen = _handle_await(EAwait(fn_name="child"))
+    gen = _handle_await(CTX, EAwait(fn_name="child"))
     next(gen)                        # EEnqueue
     assert isinstance(gen.send(None), EReceive)
 
@@ -82,7 +85,7 @@ def test_handle_await_yields_ereceive_after_enqueue():
 def test_handle_await_returns_envelope_body():
     """Proves _handle_await returns the body of the received envelope."""
 
-    gen = _handle_await(EAwait(fn_name="child"))
+    gen = _handle_await(CTX, EAwait(fn_name="child"))
     next(gen)                        # EEnqueue
     gen.send(None)                   # EReceive
     envelope = Envelope(sender=OVERSEER, body=(None, "result"))
@@ -94,7 +97,7 @@ def test_handle_await_returns_envelope_body():
 def test_handle_await_raises_job_timeout_on_timeout():
     """Proves _handle_await raises JobTimeout when a JobTimeout is received as the body."""
 
-    gen = _handle_await(EAwait(fn_name="child", timeout_ms=1000))
+    gen = _handle_await(CTX, EAwait(fn_name="child", timeout_ms=1000))
     next(gen)                        # EEnqueue
     gen.send(None)                   # EReceive
     envelope = Envelope(sender=OVERSEER, body=(None, JobTimeout()))
@@ -109,8 +112,8 @@ def test_handle_acquire_returns_true_and_tracks_name():
     """Proves _handle_acquire appends the name to acquired when slot is granted."""
 
     acquired = []
-    with patch("evaluate.worker_handlers.mcall", mock_mcall(True)):
-        gen = _handle_acquire(OVERSEER, acquired, EAcquire(name="workers", limit=4))
+    with patch("evaluate.job_handlers.mcall", mock_mcall(True)):
+        gen = _handle_acquire(JobHandlerContext(overseer=OVERSEER, acquired=acquired), EAcquire(name="workers", limit=4))
         with pytest.raises(StopIteration) as exc:
             next(gen)
         assert exc.value.value is True
@@ -121,8 +124,8 @@ def test_handle_acquire_returns_false_and_does_not_track():
     """Proves _handle_acquire does not append to acquired when slot is denied."""
 
     acquired = []
-    with patch("evaluate.worker_handlers.mcall", mock_mcall(False)):
-        gen = _handle_acquire(OVERSEER, acquired, EAcquire(name="workers", limit=4))
+    with patch("evaluate.job_handlers.mcall", mock_mcall(False)):
+        gen = _handle_acquire(JobHandlerContext(overseer=OVERSEER, acquired=acquired), EAcquire(name="workers", limit=4))
         with pytest.raises(StopIteration) as exc:
             next(gen)
         assert exc.value.value is False
@@ -135,8 +138,8 @@ def test_handle_acquire_returns_false_and_does_not_track():
 def test_handle_signal_returns_semaphore_state():
     """Proves _handle_signal returns the state string from the overseer."""
 
-    with patch("evaluate.worker_handlers.mcall", mock_mcall("satisfied")):
-        gen = _handle_signal(OVERSEER, ESignal(name="db"))
+    with patch("evaluate.job_handlers.mcall", mock_mcall("satisfied")):
+        gen = _handle_signal(CTX, ESignal(name="db"))
         with pytest.raises(StopIteration) as exc:
             next(gen)
         assert exc.value.value == "satisfied"
@@ -155,9 +158,9 @@ def test_handle_set_semaphore_mcasts_correct_message():
         return None
         yield
 
-    with patch("evaluate.worker_handlers.mcast", _capturing):
+    with patch("evaluate.job_handlers.mcast", _capturing):
         gen = _handle_set_semaphore(
-            OVERSEER, ESetSemaphore(name="db", state="impossible")
+            CTX, ESetSemaphore(name="db", state="impossible")
         )
         with pytest.raises(StopIteration):
             next(gen)
@@ -170,7 +173,7 @@ def test_handle_set_semaphore_mcasts_correct_message():
 
 def _drive_await_all(effects, envelopes):
     """Drive _handle_await_all to completion, feeding in envelopes in sequence."""
-    gen = _handle_await_all(EAwaitAll(effects=effects))
+    gen = _handle_await_all(CTX, EAwaitAll(effects=effects))
     # next() starts the generator and yields the first EEnqueue;
     # each subsequent send(None) consumes the remaining EEnqueues then lands on the first EReceive
     next(gen)
@@ -201,7 +204,7 @@ def test_handle_await_all_returns_results_in_input_order():
 
 def _drive_await_all_to_receive(effects):
     """Drive _handle_await_all past all EEnqueue yields, returning the generator at first EReceive."""
-    gen = _handle_await_all(EAwaitAll(effects=effects))
+    gen = _handle_await_all(CTX, EAwaitAll(effects=effects))
     next(gen)
     for _ in effects:
         gen.send(None)
@@ -260,20 +263,20 @@ def test_handle_await_all_raises_first_error_when_multiple_fail():
 def test_make_handlers_contains_all_effect_types():
     """Proves make_handlers returns entries for all handled effect types."""
 
-    handlers = make_handlers(OVERSEER, [])
+    handlers = make_job_handlers(JobHandlerContext(overseer=OVERSEER))
     assert set(handlers.keys()) == {
-        ESatisfied,
-        EImpossible,
-        EAwait,
-        EAwaitAll,
-        EAcquire,
-        ESignal,
-        ESetSemaphore,
+        ESatisfied.tag,
+        EImpossible.tag,
+        EAwait.tag,
+        EAwaitAll.tag,
+        EAcquire.tag,
+        ESignal.tag,
+        ESetSemaphore.tag,
     }
 
 
 def test_make_handlers_returns_callables():
     """Proves every handler value in make_handlers is callable."""
 
-    handlers = make_handlers(OVERSEER, [])
+    handlers = make_job_handlers(JobHandlerContext(overseer=OVERSEER))
     assert all(callable(h) for h in handlers.values())
