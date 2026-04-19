@@ -3,16 +3,14 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from orbis import handle
-from tertius import ESleep, Pid, Scope, mcall, mcast
+from tertius import Pid, Scope, mcall, mcast
 
 from constants import (
     BLOCKED_EFFECTS,
-    GET_JOB,
     RELEASE,
     THROWABLE,
-    WORKER_POLL_MS,
 )
-from effects import EJobComplete, EJobFail
+from effects import EGetJob, EJobComplete, EJobFail
 from evaluate.worker_handlers import make_coordination_handlers, make_handlers
 from exceptions import InvalidEffect, JobError, JobTimeout
 from scope_proxy import ScopeProxy
@@ -65,13 +63,8 @@ def _worker_body(overseer: Pid, ctx: Any) -> Generator[Any, Any, None]:
     """Worker main loop — yields coordination effects for job lifecycle."""
 
     while True:
-        # ask for a job
-        job = yield from mcall(overseer, GET_JOB)
-
-        if job is None:
-            # sleep for a bit
-            yield ESleep(ms=WORKER_POLL_MS)
-            continue
+        # ask for a job, blocking until one is available
+        job = yield EGetJob()
 
         # job acquired
         fn_name, args, reply_to, timeout_ms, nonce = job

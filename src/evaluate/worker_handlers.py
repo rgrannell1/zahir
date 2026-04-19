@@ -2,13 +2,14 @@ from collections.abc import Generator
 from functools import partial
 from typing import Any
 
-from tertius import EReceive, ESelf, ESend, Pid, mcall, mcast
+from tertius import EReceive, ESelf, ESend, ESleep, Pid, mcall, mcast
 
-from constants import ACQUIRE, ENQUEUE, JOB_DONE, RELEASE, SET_SEMAPHORE, SIGNAL
+from constants import ACQUIRE, ENQUEUE, GET_JOB, JOB_DONE, RELEASE, SET_SEMAPHORE, SIGNAL, WORKER_POLL_MS
 from effects import (
     EAcquire,
     EAwait,
     EAwaitAll,
+    EGetJob,
     EImpossible,
     EJobComplete,
     EJobFail,
@@ -119,6 +120,17 @@ def _handle_set_semaphore(
     yield from mcast(overseer, (SET_SEMAPHORE, effect.name, effect.state))
 
 
+def _handle_get_job(overseer: Pid, effect: EGetJob) -> Generator[Any, Any, Any]:
+    """Poll the overseer for a job, sleeping between attempts until one is available."""
+
+    while True:
+        job = yield from mcall(overseer, GET_JOB)
+        if job is not None:
+            return job
+        # no job available yet — sleep before retrying
+        yield ESleep(ms=WORKER_POLL_MS)
+
+
 def _handle_job_complete(
     overseer: Pid, effect: EJobComplete
 ) -> Generator[Any, Any, None]:
@@ -143,6 +155,7 @@ def make_coordination_handlers(overseer: Pid) -> dict[str, Any]:
     """Coordination handlers for the worker process — intercept job lifecycle effects."""
 
     return {
+        EGetJob.tag: partial(_handle_get_job, overseer),
         EJobComplete.tag: partial(_handle_job_complete, overseer),
         EJobFail.tag: partial(_handle_job_fail, overseer),
     }

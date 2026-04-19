@@ -4,16 +4,20 @@ from typing import Any, ClassVar
 from orbis import Effect, Event
 
 
-class ZahirJobEffect[ReturnT](Effect[ReturnT]):
+class ZahirJobEffect[ReturnT](Effect[ReturnT], abstract=True):
     """Base class for effects intended to be yielded by job generators."""
 
 
-class ZahirCoordinationEffect[ReturnT](Effect[ReturnT]):
+class ZahirJobEvent(ZahirJobEffect[None], Event, abstract=True):
+    """Base class for fire-and-forget effects yielded by job generators."""
+
+
+class ZahirCoordinationEffect[ReturnT](Effect[ReturnT], abstract=True):
     """Base class for effects yielded by the runtime layer, never by jobs directly."""
 
 
 @dataclass
-class ESatisfied(ZahirJobEffect[None]):
+class ESatisfied(ZahirJobEvent):
     # Jobs yield this to signal a dependency is satisfied. The handler re-emits it
     # as its return value, so the yielding job also receives it back — dual role.
     tag: ClassVar[str] = "satisfied"
@@ -21,7 +25,7 @@ class ESatisfied(ZahirJobEffect[None]):
 
 
 @dataclass
-class EImpossible(ZahirJobEffect[None]):
+class EImpossible(ZahirJobEvent):
     # Jobs yield this to signal a dependency can never be satisfied. Same dual role as ESatisfied.
     tag: ClassVar[str] = "impossible"
     reason: str
@@ -63,7 +67,7 @@ class EAcquire(ZahirJobEffect[bool]):
 
 
 @dataclass
-class ESetSemaphore(ZahirJobEffect[None]):
+class ESetSemaphore(ZahirJobEvent):
     """Set the state of a named semaphore in the runner's GenServer."""
 
     tag: ClassVar[str] = "set_semaphore"
@@ -77,6 +81,13 @@ class EAwaitAll(ZahirJobEffect[list[Any]]):
 
     tag: ClassVar[str] = "await_all"
     effects: list[EAwait]
+
+
+@dataclass
+class EGetJob(ZahirCoordinationEffect[Any]):
+    """Internal: request the next available job from the queue, blocking until one is available."""
+
+    tag: ClassVar[str] = "get_job"
 
 
 @dataclass
