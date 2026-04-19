@@ -1,6 +1,6 @@
 import pytest
 
-from exceptions import JobError, JobTimeout, ZahirException
+from zahir.core.exceptions import JobError, JobTimeout, ZahirException
 
 
 def test_zahir_exception_is_exception():

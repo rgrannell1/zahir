@@ -4,9 +4,9 @@ import pytest
 
 from tertius import ESend, ESelf, ESleep, Pid
 
-from constants import ENQUEUE, GET_JOB, JOB_DONE, RELEASE
-from effects import EEnqueue, EGetJob, EJobComplete, EJobFail, ERelease
-from evaluate.coordination_handlers import (
+from zahir.core.constants import ENQUEUE, GET_JOB, JOB_DONE, RELEASE
+from zahir.core.effects import EEnqueue, EGetJob, EJobComplete, EJobFail, ERelease
+from zahir.core.evaluate.coordination_handlers import (
     CoordinationHandlerContext,
     _handle_enqueue,
     _handle_get_job,
@@ -15,7 +15,7 @@ from evaluate.coordination_handlers import (
     _handle_release,
     make_coordination_handlers,
 )
-from exceptions import JobError, JobTimeout
+from zahir.core.exceptions import JobError, JobTimeout
 from tests.evaluate.mocks import ME, OVERSEER, mock_mcall, mock_mcast
 
 CTX = CoordinationHandlerContext(overseer=OVERSEER)
@@ -42,7 +42,7 @@ def _drive(gen):
 def test_handle_enqueue_first_yields_eself():
     """Proves _handle_enqueue first yields ESelf to obtain the worker's own pid."""
 
-    with patch("evaluate.coordination_handlers.mcast", mock_mcast()):
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
         gen = _handle_enqueue(CTX, EEnqueue(fn_name="child", args=(), timeout_ms=None, nonce=None))
         assert isinstance(next(gen), ESelf)
 
@@ -57,7 +57,7 @@ def test_handle_enqueue_sends_correct_message_to_overseer():
         return None
         yield
 
-    with patch("evaluate.coordination_handlers.mcast", _capturing):
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         gen = _handle_enqueue(CTX, EEnqueue(fn_name="child", args=(1,), timeout_ms=500, nonce=3))
         next(gen)                  # ESelf
         with pytest.raises(StopIteration):
@@ -79,7 +79,7 @@ def test_handle_get_job_returns_job_when_available():
     """Proves _handle_get_job returns the job immediately when the overseer has one."""
 
     job = ("fn", (), None, None, None)
-    with patch("evaluate.coordination_handlers.mcall", mock_mcall(job)):
+    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(job)):
         gen = _handle_get_job(CTX, EGetJob())
         with pytest.raises(StopIteration) as exc:
             next(gen)
@@ -96,7 +96,7 @@ def test_handle_get_job_sleeps_then_retries_when_none():
         return next(responses)
         yield
 
-    with patch("evaluate.coordination_handlers.mcall", _mcall_sequence):
+    with patch("zahir.core.evaluate.coordination_handlers.mcall", _mcall_sequence):
         gen = _handle_get_job(CTX, EGetJob())
         effect = next(gen)
         assert isinstance(effect, ESleep)
@@ -108,7 +108,7 @@ def test_handle_get_job_sleeps_then_retries_when_none():
 def test_handle_job_complete_sends_result_to_reply_to():
     """Proves _handle_job_complete yields ESend with the result when reply_to is set."""
 
-    with patch("evaluate.coordination_handlers.mcast", mock_mcast()):
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
         gen = _handle_job_complete(CTX, EJobComplete(result="done", reply_to=REPLY_TO, nonce=7))
         effect = next(gen)
         assert isinstance(effect, ESend)
@@ -118,7 +118,7 @@ def test_handle_job_complete_sends_result_to_reply_to():
 def test_handle_job_complete_skips_esend_when_no_reply_to():
     """Proves _handle_job_complete does not yield ESend when reply_to is None."""
 
-    with patch("evaluate.coordination_handlers.mcast", mock_mcast()):
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
         effects = _drive(_handle_job_complete(CTX, EJobComplete(result="done", reply_to=None, nonce=None)))
         assert not any(isinstance(eff, ESend) for eff in effects)
 
@@ -133,7 +133,7 @@ def test_handle_job_complete_mcasts_job_done():
         return None
         yield
 
-    with patch("evaluate.coordination_handlers.mcast", _capturing):
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         effects = _drive(_handle_job_complete(CTX, EJobComplete(result="done", reply_to=None, nonce=None)))
 
     assert any(pid == OVERSEER and body == JOB_DONE for pid, body in sent)
@@ -146,7 +146,7 @@ def test_handle_job_fail_sends_error_to_reply_to():
     """Proves _handle_job_fail yields ESend with the error when reply_to is set."""
 
     err = JobError(ValueError("boom"))
-    with patch("evaluate.coordination_handlers.mcast", mock_mcast()):
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
         gen = _handle_job_fail(CTX, EJobFail(error=err, reply_to=REPLY_TO, nonce=5))
         effect = next(gen)
         assert isinstance(effect, ESend)
@@ -164,7 +164,7 @@ def test_handle_job_fail_mcasts_job_done_with_reply_to():
         yield
 
     err = JobTimeout()
-    with patch("evaluate.coordination_handlers.mcast", _capturing):
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         effects = _drive(_handle_job_fail(CTX, EJobFail(error=err, reply_to=REPLY_TO, nonce=0)))
 
     assert any(pid == OVERSEER and body == JOB_DONE for pid, body in sent)
@@ -181,7 +181,7 @@ def test_handle_job_fail_mcasts_job_done_with_error_when_no_reply_to():
         yield
 
     err = JobError(ValueError("boom"))
-    with patch("evaluate.coordination_handlers.mcast", _capturing):
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         _drive(_handle_job_fail(CTX, EJobFail(error=err, reply_to=None, nonce=None)))
 
     assert any(pid == OVERSEER and body == (JOB_DONE, err) for pid, body in sent)
@@ -190,7 +190,7 @@ def test_handle_job_fail_mcasts_job_done_with_error_when_no_reply_to():
 def test_handle_job_fail_skips_esend_when_no_reply_to():
     """Proves _handle_job_fail does not yield ESend when reply_to is None."""
 
-    with patch("evaluate.coordination_handlers.mcast", mock_mcast()):
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
         effects = _drive(_handle_job_fail(CTX, EJobFail(error=JobTimeout(), reply_to=None, nonce=None)))
         assert not any(isinstance(eff, ESend) for eff in effects)
 
@@ -208,7 +208,7 @@ def test_handle_release_mcasts_release_with_name():
         return None
         yield
 
-    with patch("evaluate.coordination_handlers.mcast", _capturing):
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         gen = _handle_release(CTX, ERelease(name="workers"))
         with pytest.raises(StopIteration):
             next(gen)

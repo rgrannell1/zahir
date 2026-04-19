@@ -1,6 +1,6 @@
 from tertius import EEmit
 
-from evaluate import evaluate, JobContext
+from zahir.core.evaluate import evaluate, JobContext
 
 
 class CustomContext(JobContext):

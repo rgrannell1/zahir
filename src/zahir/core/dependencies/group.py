@@ -1,7 +1,7 @@
 from collections.abc import Generator
 from typing import Any
 
-from effects import EImpossible, ESatisfied
+from zahir.core.effects import EImpossible, ESatisfied
 
 
 type Dependency = Generator[Any, Any, None]

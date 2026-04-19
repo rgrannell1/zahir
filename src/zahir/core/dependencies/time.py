@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 
 from tertius import ESleep
 
-from effects import EImpossible, ESatisfied
+from zahir.core.effects import EImpossible, ESatisfied
 
 
 def time_dependency(

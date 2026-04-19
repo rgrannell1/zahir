@@ -4,8 +4,8 @@ import pathlib
 
 import pytest
 
-from dependencies.sqlite import _status_result, sqlite_dependency
-from effects import EImpossible, ESatisfied
+from zahir.core.dependencies.sqlite import _status_result, sqlite_dependency
+from zahir.core.effects import EImpossible, ESatisfied
 from tertius import ESleep
 
 

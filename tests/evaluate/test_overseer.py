@@ -1,6 +1,6 @@
 from collections import deque
 
-from constants import (
+from zahir.core.constants import (
     ACQUIRE,
     ENQUEUE,
     GET_JOB,
@@ -10,8 +10,8 @@ from constants import (
     SET_SEMAPHORE,
     SIGNAL,
 )
-from evaluate.overseer import Overseer
-from zahir_types import OverseerState
+from zahir.core.evaluate.overseer import Overseer
+from zahir.core.zahir_types import OverseerState
 
 
 overseer = Overseer()

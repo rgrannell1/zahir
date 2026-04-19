@@ -1,8 +1,8 @@
 import pytest
 import time_machine
 
-from dependencies.time import time_dependency
-from effects import EImpossible, ESatisfied
+from zahir.core.dependencies.time import time_dependency
+from zahir.core.effects import EImpossible, ESatisfied
 from tertius import ESleep
 from tests.shared import FUTURE, NOW, PAST
 

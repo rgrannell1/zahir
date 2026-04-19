@@ -3,8 +3,8 @@ from datetime import timedelta
 import pytest
 import time_machine
 
-from dependencies.semaphore import semaphore_dependency
-from effects import EImpossible, ESatisfied, ESignal
+from zahir.core.dependencies.semaphore import semaphore_dependency
+from zahir.core.effects import EImpossible, ESatisfied, ESignal
 from tertius import ESleep
 from tests.shared import NOW
 

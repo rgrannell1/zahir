@@ -3,16 +3,17 @@ from typing import Any
 
 from tertius import ESleep, ESpawn, Pid, Scope, mcall, run
 
-from constants import COMPLETION_POLL_MS, GET_ERROR, IS_DONE
-from scope_proxy import ScopeProxy
+from zahir.core.constants import COMPLETION_POLL_MS, GET_ERROR, IS_DONE
+from zahir.core.scope_proxy import ScopeProxy
 
-from evaluate.overseer import run_overseer
-from evaluate.worker import worker
+from zahir.core.evaluate.overseer import run_overseer
+from zahir.core.evaluate.worker import worker
 
 
 class JobContext:
     _scope: Scope
     scope: ScopeProxy
+    handler_wrappers: tuple = ()
 
 
 def _root(

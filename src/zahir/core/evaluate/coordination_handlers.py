@@ -5,8 +5,8 @@ from typing import Any
 
 from tertius import ESend, ESelf, ESleep, Pid, mcall, mcast
 
-from constants import ENQUEUE, GET_JOB, JOB_DONE, RELEASE, WORKER_POLL_MS
-from effects import (
+from zahir.core.constants import ENQUEUE, GET_JOB, JOB_DONE, RELEASE, WORKER_POLL_MS
+from zahir.core.effects import (
     EEnqueue,
     EGetJob,
     EJobComplete,

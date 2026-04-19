@@ -2,8 +2,8 @@ from tertius import EEmit
 
 import pytest
 
-from evaluate import JobContext, evaluate
-from exceptions import JobError
+from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.exceptions import JobError
 
 
 def crashing_job(ctx: JobContext):

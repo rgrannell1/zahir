@@ -6,8 +6,8 @@ import psutil
 
 from tertius import ESleep
 
-from constants import CPU_SAMPLE_INTERVAL_S, DEPENDENCY_DELAY_MS
-from effects import EImpossible, ESatisfied
+from zahir.core.constants import CPU_SAMPLE_INTERVAL_S, DEPENDENCY_DELAY_MS
+from zahir.core.effects import EImpossible, ESatisfied
 
 type ResourceType = Literal["cpu", "memory"]
 

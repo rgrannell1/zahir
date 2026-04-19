@@ -1,6 +1,6 @@
 from tertius import EReceive
 
-from exceptions import InvalidEffect, JobError, JobTimeout
+from zahir.core.exceptions import InvalidEffect, JobError, JobTimeout
 
 DEPENDENCY_DELAY_MS = 5_000
 WORKER_POLL_MS = 100

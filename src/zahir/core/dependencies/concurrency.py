@@ -3,8 +3,8 @@ from datetime import UTC, datetime, timedelta
 
 from tertius import ESleep
 
-from constants import DEPENDENCY_DELAY_MS
-from effects import EAcquire, EImpossible, ESatisfied
+from zahir.core.constants import DEPENDENCY_DELAY_MS
+from zahir.core.effects import EAcquire, EImpossible, ESatisfied
 
 
 def concurrency_dependency(

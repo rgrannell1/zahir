@@ -6,10 +6,10 @@ import time_machine
 
 from tertius import ESleep
 
-from effects import EAcquire, EImpossible, ESatisfied
-from evaluate.job_handlers import JobHandlerContext
-from evaluate.worker import evaluate_job
-from exceptions import JobError, JobTimeout
+from zahir.core.effects import EAcquire, EImpossible, ESatisfied
+from zahir.core.evaluate.job_handlers import JobHandlerContext
+from zahir.core.evaluate.worker import evaluate_job
+from zahir.core.exceptions import JobError, JobTimeout
 from tests.evaluate.mocks import OVERSEER, mock_mcall
 from tests.shared import NOW
 
@@ -134,7 +134,7 @@ def test_evaluate_job_tracks_acquired_slots():
     acquired = []
     ctx = JobHandlerContext(overseer=OVERSEER, acquired=acquired)
 
-    with patch("evaluate.job_handlers.mcall", mock_mcall(True)):
+    with patch("zahir.core.evaluate.job_handlers.mcall", mock_mcall(True)):
 
         def job():
             yield EAcquire(name="workers", limit=4)
@@ -150,7 +150,7 @@ def test_evaluate_job_does_not_track_denied_slots():
     acquired = []
     ctx = JobHandlerContext(overseer=OVERSEER, acquired=acquired)
 
-    with patch("evaluate.job_handlers.mcall", mock_mcall(False)):
+    with patch("zahir.core.evaluate.job_handlers.mcall", mock_mcall(False)):
 
         def job():
             yield EAcquire(name="workers", limit=4)

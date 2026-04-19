@@ -1,5 +1,5 @@
-from effects import EImpossible, ESatisfied
-from dependencies.group import group_dependency
+from zahir.core.effects import EImpossible, ESatisfied
+from zahir.core.dependencies.group import group_dependency
 from tertius import ESleep
 
 

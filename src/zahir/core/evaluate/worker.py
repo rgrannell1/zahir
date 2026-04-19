@@ -5,15 +5,15 @@ from typing import Any
 from orbis import handle
 from tertius import Pid, Scope
 
-from constants import (
+from zahir.core.constants import (
     BLOCKED_EFFECTS,
     THROWABLE,
 )
-from effects import EGetJob, EJobComplete, EJobFail, ERelease, ZahirCoordinationEffect
-from evaluate.coordination_handlers import CoordinationHandlerContext, make_coordination_handlers
-from evaluate.job_handlers import JobHandlerContext, make_job_handlers
-from exceptions import InvalidEffect, JobError, JobTimeout
-from scope_proxy import ScopeProxy
+from zahir.core.effects import EGetJob, EJobComplete, EJobFail, ERelease, ZahirCoordinationEffect
+from zahir.core.evaluate.coordination_handlers import CoordinationHandlerContext, make_coordination_handlers
+from zahir.core.evaluate.job_handlers import JobHandlerContext, make_job_handlers
+from zahir.core.exceptions import InvalidEffect, JobError, JobTimeout
+from zahir.core.scope_proxy import ScopeProxy
 
 
 def evaluate_job(
@@ -78,7 +78,7 @@ def _worker_body(
             if timeout_ms
             else None
         )
-        job_context = JobHandlerContext(overseer=overseer)
+        job_context = JobHandlerContext(overseer=overseer, handler_wrappers=ctx.handler_wrappers)
 
         timed_out = False
         job_error: JobError | None = None

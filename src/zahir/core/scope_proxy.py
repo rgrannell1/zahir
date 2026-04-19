@@ -3,7 +3,7 @@ import inspect
 from collections.abc import Callable
 from typing import Any
 
-from effects import EAwait
+from zahir.core.effects import EAwait
 
 
 class ScopeProxy:

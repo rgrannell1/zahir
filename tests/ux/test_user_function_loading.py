@@ -2,7 +2,7 @@ import pytest
 
 from tertius import EEmit
 
-from evaluate import evaluate
+from zahir.core.evaluate import evaluate
 
 
 def module_level_job(ctx):

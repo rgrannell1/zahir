@@ -6,8 +6,8 @@ from typing import Any
 
 from tertius import ESleep
 
-from constants import DEPENDENCY_DELAY_MS, IMPOSSIBLE, SATISFIED, UNSATISFIED
-from effects import EImpossible, ESatisfied
+from zahir.core.constants import DEPENDENCY_DELAY_MS, IMPOSSIBLE, SATISFIED, UNSATISFIED
+from zahir.core.effects import EImpossible, ESatisfied
 
 _DEFAULT_TIMEOUT_SECONDS = 5.0
 _BUSY_TIMEOUT_MS = 5000

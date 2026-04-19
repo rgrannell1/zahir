@@ -1,6 +1,6 @@
 from typing import Any
 
-from constants import (
+from zahir.core.constants import (
     ACQUIRE,
     ENQUEUE,
     GET_ERROR,
@@ -11,7 +11,7 @@ from constants import (
     SET_SEMAPHORE,
     SIGNAL,
 )
-from zahir_types import JobSpec, OverseerState
+from zahir.core.zahir_types import JobSpec, OverseerState
 
 
 def _get_job(state: OverseerState) -> tuple[OverseerState, Any]:

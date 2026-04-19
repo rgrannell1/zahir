@@ -2,9 +2,9 @@ from datetime import UTC, datetime
 
 from tertius import EEmit
 
-from dependencies.time import time_dependency
-from effects import EImpossible, ESatisfied
-from evaluate import evaluate
+from zahir.core.dependencies.time import time_dependency
+from zahir.core.effects import EImpossible, ESatisfied
+from zahir.core.evaluate import evaluate
 
 
 PAST = datetime(2000, 1, 1, tzinfo=UTC)

@@ -5,8 +5,8 @@ import pytest
 from tertius import EReceive
 from tertius.types import Envelope
 
-from constants import ACQUIRE, SET_SEMAPHORE, SIGNAL
-from effects import (
+from zahir.core.constants import ACQUIRE, SET_SEMAPHORE, SIGNAL
+from zahir.core.effects import (
     EAcquire,
     EAwait,
     EAwaitAll,
@@ -16,7 +16,7 @@ from effects import (
     ESetSemaphore,
     ESignal,
 )
-from evaluate.job_handlers import (
+from zahir.core.evaluate.job_handlers import (
     JobHandlerContext,
     _handle_acquire,
     _handle_await,
@@ -26,7 +26,7 @@ from evaluate.job_handlers import (
     _handle_signal,
     make_job_handlers,
 )
-from exceptions import JobError, JobTimeout
+from zahir.core.exceptions import JobError, JobTimeout
 from tests.evaluate.mocks import OVERSEER, mock_mcall
 
 CTX = JobHandlerContext(overseer=OVERSEER)
@@ -112,7 +112,7 @@ def test_handle_acquire_returns_true_and_tracks_name():
     """Proves _handle_acquire appends the name to acquired when slot is granted."""
 
     acquired = []
-    with patch("evaluate.job_handlers.mcall", mock_mcall(True)):
+    with patch("zahir.core.evaluate.job_handlers.mcall", mock_mcall(True)):
         gen = _handle_acquire(JobHandlerContext(overseer=OVERSEER, acquired=acquired), EAcquire(name="workers", limit=4))
         with pytest.raises(StopIteration) as exc:
             next(gen)
@@ -124,7 +124,7 @@ def test_handle_acquire_returns_false_and_does_not_track():
     """Proves _handle_acquire does not append to acquired when slot is denied."""
 
     acquired = []
-    with patch("evaluate.job_handlers.mcall", mock_mcall(False)):
+    with patch("zahir.core.evaluate.job_handlers.mcall", mock_mcall(False)):
         gen = _handle_acquire(JobHandlerContext(overseer=OVERSEER, acquired=acquired), EAcquire(name="workers", limit=4))
         with pytest.raises(StopIteration) as exc:
             next(gen)
@@ -138,7 +138,7 @@ def test_handle_acquire_returns_false_and_does_not_track():
 def test_handle_signal_returns_semaphore_state():
     """Proves _handle_signal returns the state string from the overseer."""
 
-    with patch("evaluate.job_handlers.mcall", mock_mcall("satisfied")):
+    with patch("zahir.core.evaluate.job_handlers.mcall", mock_mcall("satisfied")):
         gen = _handle_signal(CTX, ESignal(name="db"))
         with pytest.raises(StopIteration) as exc:
             next(gen)
@@ -158,7 +158,7 @@ def test_handle_set_semaphore_mcasts_correct_message():
         return None
         yield
 
-    with patch("evaluate.job_handlers.mcast", _capturing):
+    with patch("zahir.core.evaluate.job_handlers.mcast", _capturing):
         gen = _handle_set_semaphore(
             CTX, ESetSemaphore(name="db", state="impossible")
         )

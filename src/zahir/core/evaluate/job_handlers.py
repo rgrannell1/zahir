@@ -1,12 +1,12 @@
 from collections.abc import Generator
 from dataclasses import dataclass, field
-from functools import partial
+from functools import partial, reduce
 from typing import Any
 
 from tertius import EReceive, Pid, mcall, mcast
 
-from constants import ACQUIRE, SET_SEMAPHORE, SIGNAL
-from effects import (
+from zahir.core.constants import ACQUIRE, SET_SEMAPHORE, SIGNAL
+from zahir.core.effects import (
     EAcquire,
     EAwait,
     EAwaitAll,
@@ -16,7 +16,7 @@ from effects import (
     ESetSemaphore,
     ESignal,
 )
-from exceptions import JobError, JobTimeout
+from zahir.core.exceptions import JobError, JobTimeout
 
 
 @dataclass
@@ -26,6 +26,7 @@ class JobHandlerContext:
     # side-channel shared with _worker_body, which reads it after job completion
     # to yield ERelease effects. this coupling is a known limitation to be addressed.
     acquired: list[str] = field(default_factory=list)
+    handler_wrappers: tuple = ()
 
 
 def _handle_event(
@@ -126,9 +127,9 @@ def _handle_set_semaphore(
 
 
 def make_job_handlers(context: JobHandlerContext) -> dict[str, Any]:
-    """Create job-effect handlers keyed by effect tag."""
+    """Create job-effect handlers keyed by effect tag, with any user-supplied wrappers applied."""
 
-    return {
+    handlers = {
         ESatisfied.tag: partial(_handle_event, context),
         EImpossible.tag: partial(_handle_event, context),
         EAwait.tag: partial(_handle_await, context),
@@ -136,4 +137,8 @@ def make_job_handlers(context: JobHandlerContext) -> dict[str, Any]:
         EAcquire.tag: partial(_handle_acquire, context),
         ESignal.tag: partial(_handle_signal, context),
         ESetSemaphore.tag: partial(_handle_set_semaphore, context),
+    }
+    return {
+        tag: reduce(lambda h, w: w(h), context.handler_wrappers, h)
+        for tag, h in handlers.items()
     }

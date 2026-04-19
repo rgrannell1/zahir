@@ -4,8 +4,8 @@ from typing import Any
 
 from tertius import GenServer
 
-from evaluate.overseer_handlers import CALL_HANDLERS, CAST_HANDLERS, _dispatch
-from zahir_types import JobSpec, OverseerState
+from zahir.core.evaluate.overseer_handlers import CALL_HANDLERS, CAST_HANDLERS, _dispatch
+from zahir.core.zahir_types import JobSpec, OverseerState
 
 
 class Overseer(GenServer[OverseerState]):

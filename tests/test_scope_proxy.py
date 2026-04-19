@@ -1,7 +1,7 @@
 from tertius import EEmit
 
-from evaluate import evaluate, JobContext
-from scope_proxy import ScopeProxy
+from zahir.core.evaluate import evaluate, JobContext
+from zahir.core.scope_proxy import ScopeProxy
 
 
 def child_job(ctx: JobContext, value: int):
@@ -17,7 +17,7 @@ def parent_job(ctx: JobContext):
 def test_scope_proxy_returns_eawait_with_correct_args():
     """Proves ScopeProxy.__getattr__ returns an EAwait with fn_name and args set."""
 
-    from effects import EAwait
+    from zahir.core.effects import EAwait
 
     scope = {"child_job": child_job}
     proxy = ScopeProxy(scope)

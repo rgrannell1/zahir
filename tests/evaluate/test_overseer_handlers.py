@@ -1,6 +1,6 @@
 from collections import deque
 
-from evaluate.overseer_handlers import (
+from zahir.core.evaluate.overseer_handlers import (
     _acquire,
     _enqueue,
     _get_error,
@@ -11,7 +11,7 @@ from evaluate.overseer_handlers import (
     _set_semaphore,
     _signal,
 )
-from zahir_types import JobSpec, OverseerState
+from zahir.core.zahir_types import JobSpec, OverseerState
 
 
 def _state(**kwargs) -> OverseerState:

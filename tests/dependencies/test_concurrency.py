@@ -3,8 +3,8 @@ from datetime import timedelta
 import pytest
 import time_machine
 
-from dependencies.concurrency import concurrency_dependency
-from effects import EAcquire, EImpossible, ESatisfied
+from zahir.core.dependencies.concurrency import concurrency_dependency
+from zahir.core.effects import EAcquire, EImpossible, ESatisfied
 from tertius import ESleep
 from tests.shared import NOW
 

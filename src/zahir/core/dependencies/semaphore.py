@@ -3,8 +3,8 @@ from datetime import UTC, datetime, timedelta
 
 from tertius import ESleep
 
-from constants import DEPENDENCY_DELAY_MS, IMPOSSIBLE, SATISFIED, UNSATISFIED
-from effects import EImpossible, ESatisfied, ESignal
+from zahir.core.constants import DEPENDENCY_DELAY_MS, IMPOSSIBLE, SATISFIED, UNSATISFIED
+from zahir.core.effects import EImpossible, ESatisfied, ESignal
 
 
 def semaphore_dependency(

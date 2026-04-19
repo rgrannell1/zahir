@@ -1,6 +1,6 @@
 from tertius import EEmit
 
-from evaluate import evaluate
+from zahir.core.evaluate import evaluate
 
 
 def emitting_job(ctx):

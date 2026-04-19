@@ -1,8 +1,8 @@
 from tertius import EEmit, ESleep
 
-from effects import EAwaitAll
-from evaluate import JobContext, evaluate
-from exceptions import JobError
+from zahir.core.effects import EAwaitAll
+from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.exceptions import JobError
 
 
 def double(ctx: JobContext, value: int):
