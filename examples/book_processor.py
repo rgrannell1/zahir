@@ -46,7 +46,9 @@ def chapter_processor(ctx: JobContext, lines: list[str]) -> Generator[Any, Any, 
     yield
 
 
-def uppercase_words(ctx: JobContext, words: list[str]) -> Generator[Any, Any, list[str]]:
+def uppercase_words(
+    ctx: JobContext, words: list[str]
+) -> Generator[Any, Any, list[str]]:
     """Return the uppercased words."""
     return [word.upper() for word in words]
     yield
@@ -77,5 +79,7 @@ _SCOPE = {
 }
 
 if __name__ == "__main__":
-    for event in evaluate("book_processor", (str(FILE_PATH),), scope=_SCOPE, n_workers=4):
+    for event in evaluate(
+        "book_processor", (str(FILE_PATH),), scope=_SCOPE, n_workers=4
+    ):
         print(event)

@@ -6,7 +6,15 @@ from tertius import EReceive, ESelf, Pid
 from tertius.types import Envelope
 
 from constants import ACQUIRE, ENQUEUE, RELEASE, SIGNAL, SET_SEMAPHORE
-from effects import EAcquire, EAwait, EAwaitAll, EImpossible, ESatisfied, ESetSemaphore, ESignal
+from effects import (
+    EAcquire,
+    EAwait,
+    EAwaitAll,
+    EImpossible,
+    ESatisfied,
+    ESetSemaphore,
+    ESignal,
+)
 from evaluate.worker_handlers import (
     _handle_acquire,
     _handle_await,
@@ -26,6 +34,7 @@ def _mock_mcall(return_value):
     def _gen(pid, body):
         return return_value
         yield
+
     return _gen
 
 
@@ -33,10 +42,12 @@ def _mock_mcast():
     def _gen(pid, body):
         return None
         yield
+
     return _gen
 
 
 # _handle_event
+
 
 def test_handle_event_returns_effect_for_satisfied():
     """Proves _handle_event returns the ESatisfied effect for job introspection."""
@@ -58,6 +69,7 @@ def test_handle_event_returns_effect_for_impossible():
 
 # _handle_await
 
+
 def test_handle_await_first_yields_eself():
     """Proves _handle_await first requests its own Pid via ESelf."""
 
@@ -77,9 +89,11 @@ def test_handle_await_enqueues_job_after_self():
         yield
 
     with patch("evaluate.worker_handlers.mcast", _capturing_mcast):
-        gen = _handle_await(OVERSEER, EAwait(fn_name="child", args=(1,), timeout_ms=500))
-        next(gen)                    # ESelf
-        effect = gen.send(ME)        # mcast → ESend, then EReceive
+        gen = _handle_await(
+            OVERSEER, EAwait(fn_name="child", args=(1,), timeout_ms=500)
+        )
+        next(gen)  # ESelf
+        effect = gen.send(ME)  # mcast → ESend, then EReceive
         assert isinstance(effect, EReceive)
 
     assert sent[0][0] == OVERSEER
@@ -115,6 +129,7 @@ def test_handle_await_raises_job_timeout_on_timeout():
 
 # _handle_acquire
 
+
 def test_handle_acquire_returns_true_and_tracks_name():
     """Proves _handle_acquire appends the name to acquired when slot is granted."""
 
@@ -141,6 +156,7 @@ def test_handle_acquire_returns_false_and_does_not_track():
 
 # _handle_signal
 
+
 def test_handle_signal_returns_semaphore_state():
     """Proves _handle_signal returns the state string from the overseer."""
 
@@ -153,6 +169,7 @@ def test_handle_signal_returns_semaphore_state():
 
 # _handle_set_semaphore
 
+
 def test_handle_set_semaphore_mcasts_correct_message():
     """Proves _handle_set_semaphore sends the semaphore name and state to the overseer."""
 
@@ -164,7 +181,9 @@ def test_handle_set_semaphore_mcasts_correct_message():
         yield
 
     with patch("evaluate.worker_handlers.mcast", _capturing):
-        gen = _handle_set_semaphore(OVERSEER, ESetSemaphore(name="db", state="impossible"))
+        gen = _handle_set_semaphore(
+            OVERSEER, ESetSemaphore(name="db", state="impossible")
+        )
         with pytest.raises(StopIteration):
             next(gen)
 
@@ -173,11 +192,20 @@ def test_handle_set_semaphore_mcasts_correct_message():
 
 # make_handlers
 
+
 def test_make_handlers_contains_all_effect_types():
     """Proves make_handlers returns entries for all handled effect types."""
 
     handlers = make_handlers(OVERSEER, [])
-    assert set(handlers.keys()) == {ESatisfied, EImpossible, EAwait, EAwaitAll, EAcquire, ESignal, ESetSemaphore}
+    assert set(handlers.keys()) == {
+        ESatisfied,
+        EImpossible,
+        EAwait,
+        EAwaitAll,
+        EAcquire,
+        ESignal,
+        ESetSemaphore,
+    }
 
 
 def test_make_handlers_returns_callables():

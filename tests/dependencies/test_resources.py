@@ -73,7 +73,7 @@ def test_timeout_yields_impossible():
     with patch("dependencies.resources._get_usage", _high_usage):
         with time_machine.travel(NOW, tick=False):
             gen = resource_dependency("cpu", max_percent=50.0, timeout=1.0)
-            next(gen)   # ESleep
+            next(gen)  # ESleep
 
         with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
             effect = next(gen)

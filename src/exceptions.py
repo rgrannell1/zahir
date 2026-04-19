@@ -14,4 +14,3 @@ class JobError(ZahirException):
 
 class InvalidEffect(ZahirException):
     pass
-

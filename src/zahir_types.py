@@ -11,12 +11,10 @@ class JobSpec:
     nonce: int | None = None
 
 
-
-
 @dataclass
 class OverseerState:
     queue: deque
     concurrency: dict[str, tuple[int, int]]  # name -> (limit, active_count)
-    semaphores: dict[str, str]               # name -> 'satisfied'|'unsatisfied'|'impossible'
+    semaphores: dict[str, str]  # name -> 'satisfied'|'unsatisfied'|'impossible'
     pending: int
     root_error: Exception | None = None

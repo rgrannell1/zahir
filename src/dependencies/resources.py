@@ -37,7 +37,11 @@ def resource_dependency(
     max_percent: float,
     timeout: float | None = None,
 ) -> Generator[ESatisfied | EImpossible | ESleep, None, None]:
-    timeout_at = datetime.now(tz=UTC) + timedelta(seconds=timeout) if timeout is not None else None
+    timeout_at = (
+        datetime.now(tz=UTC) + timedelta(seconds=timeout)
+        if timeout is not None
+        else None
+    )
 
     while True:
         now = datetime.now(tz=UTC)

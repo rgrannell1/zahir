@@ -13,7 +13,9 @@ def time_dependency(
     now = datetime.now(tz=UTC)
 
     if before is not None and now >= before:
-        event = EImpossible(reason=f"too late: now={now.isoformat()}, before={before.isoformat()}")
+        event = EImpossible(
+            reason=f"too late: now={now.isoformat()}, before={before.isoformat()}"
+        )
         yield event
         return event
 
@@ -21,9 +23,11 @@ def time_dependency(
         ms = int((after - now).total_seconds() * 1000)
         yield ESleep(ms=ms)
 
-    event = ESatisfied(metadata={
-        "before": before.isoformat() if before else None,
-        "after": after.isoformat() if after else None,
-    })
+    event = ESatisfied(
+        metadata={
+            "before": before.isoformat() if before else None,
+            "after": after.isoformat() if after else None,
+        }
+    )
     yield event
     return event

@@ -20,7 +20,9 @@ def concurrency_dependency(
 
     while True:
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
-            event = EImpossible(reason=f"concurrency slot '{name}' not available within {timeout_ms}ms")
+            event = EImpossible(
+                reason=f"concurrency slot '{name}' not available within {timeout_ms}ms"
+            )
             yield event
             return event
 

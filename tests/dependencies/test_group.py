@@ -68,7 +68,9 @@ def test_impossible_after_satisfied_short_circuits():
 
     effects = _drive(group_dependency([_satisfied(), _impossible(), _satisfied()]))
     assert isinstance(effects[-1], EImpossible)
-    assert not any(isinstance(e, ESatisfied) for e in effects[effects.index(effects[-1]):])
+    assert not any(
+        isinstance(e, ESatisfied) for e in effects[effects.index(effects[-1]) :]
+    )
 
 
 def test_sleep_effects_are_passed_through():

@@ -55,14 +55,12 @@ def evaluate(
     try:
         context()
     except Exception as exc:
-        raise TypeError(f"context class {context.__name__!r} failed to instantiate: {exc}") from exc
+        raise TypeError(
+            f"context class {context.__name__!r} failed to instantiate: {exc}"
+        ) from exc
 
     # merge the provided scope with the internal functions
-    full_scope: Scope = {
-        "run_overseer": run_overseer,
-        "worker": worker,
-        **scope
-    }
+    full_scope: Scope = {"run_overseer": run_overseer, "worker": worker, **scope}
 
     # run the tertius workflow
     yield from run(_root, fn_name, args, scope, n_workers, context, scope=full_scope)

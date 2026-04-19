@@ -56,9 +56,9 @@ def test_unsatisfied_then_satisfied_yields_esatisfied():
     """Proves the dependency re-probes after sleep and satisfies on next signal."""
 
     gen = semaphore_dependency("db")
-    next(gen)              # ESignal
+    next(gen)  # ESignal
     gen.send("unsatisfied")  # ESleep
-    signal = next(gen)     # next ESignal
+    signal = next(gen)  # next ESignal
     assert isinstance(signal, ESignal)
     assert isinstance(gen.send("satisfied"), ESatisfied)
 
@@ -68,11 +68,11 @@ def test_timeout_yields_impossible():
 
     with time_machine.travel(NOW, tick=False):
         gen = semaphore_dependency("db", timeout_ms=1000)
-        next(gen)                # ESignal
+        next(gen)  # ESignal
         gen.send("unsatisfied")  # ESleep — loops back to timeout check
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        effect = next(gen)       # timeout_at exceeded
+        effect = next(gen)  # timeout_at exceeded
 
     assert isinstance(effect, EImpossible)
     assert "db" in effect.reason
@@ -99,5 +99,5 @@ def test_no_timeout_polls_indefinitely():
 
     gen = semaphore_dependency("db")
     for _ in range(10):
-        next(gen)              # ESignal
+        next(gen)  # ESignal
         gen.send("unsatisfied")  # ESleep

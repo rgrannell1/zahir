@@ -1,6 +1,16 @@
 from typing import Any
 
-from constants import ACQUIRE, ENQUEUE, GET_ERROR, GET_JOB, IS_DONE, JOB_DONE, RELEASE, SET_SEMAPHORE, SIGNAL
+from constants import (
+    ACQUIRE,
+    ENQUEUE,
+    GET_ERROR,
+    GET_JOB,
+    IS_DONE,
+    JOB_DONE,
+    RELEASE,
+    SET_SEMAPHORE,
+    SIGNAL,
+)
 from zahir_types import JobSpec, OverseerState
 
 
@@ -55,7 +65,13 @@ def _enqueue(
 ) -> OverseerState:
     """Enqueue a new job to be processed. This is used to implement dynamic fan-out patterns, where the number of jobs is not known upfront."""
 
-    spec = JobSpec(fn_name=fn_name, args=args, reply_to=reply_to, timeout_ms=timeout_ms, nonce=nonce)
+    spec = JobSpec(
+        fn_name=fn_name,
+        args=args,
+        reply_to=reply_to,
+        timeout_ms=timeout_ms,
+        nonce=nonce,
+    )
     state.queue.append(spec)
     state.pending += 1
 
@@ -63,8 +79,7 @@ def _enqueue(
 
 
 def _job_done(state: OverseerState, error: Exception | None = None) -> OverseerState:
-    """Mark a job as done, optionally with an error. If there was an error and we don't already have a root error, set it.
-    """
+    """Mark a job as done, optionally with an error. If there was an error and we don't already have a root error, set it."""
     state.pending -= 1
 
     if error is not None and state.root_error is None:
@@ -99,19 +114,20 @@ def _dispatch(handlers: dict, state: OverseerState, body: Any) -> Any:
 
     return handlers[key](state, *args)
 
+
 # request-response handlers (mcall)
 CALL_HANDLERS = {
-    GET_JOB:   _get_job,
-    ACQUIRE:   _acquire,
-    SIGNAL:    _signal,
-    IS_DONE:   _is_done,
+    GET_JOB: _get_job,
+    ACQUIRE: _acquire,
+    SIGNAL: _signal,
+    IS_DONE: _is_done,
     GET_ERROR: _get_error,
 }
 
 # fire-and-forget handlers (mcast)
 CAST_HANDLERS = {
-    ENQUEUE:       _enqueue,
-    JOB_DONE:      _job_done,
-    RELEASE:       _release,
+    ENQUEUE: _enqueue,
+    JOB_DONE: _job_done,
+    RELEASE: _release,
     SET_SEMAPHORE: _set_semaphore,
 }

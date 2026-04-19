@@ -20,6 +20,7 @@ def _mock_mcall(return_value):
     def _gen(pid, body):
         return return_value
         yield
+
     return _gen
 
 
@@ -27,6 +28,7 @@ def _mock_mcast():
     def _gen(pid, body):
         return None
         yield
+
     return _gen
 
 
@@ -42,6 +44,7 @@ def _drive(gen):
 
 
 # evaluate_job — return value
+
 
 def test_evaluate_job_returns_job_result():
     """Proves evaluate_job returns the value from StopIteration when the job finishes."""
@@ -67,6 +70,7 @@ def test_evaluate_job_passes_through_unknown_effects():
 
 
 # evaluate_job — handled effects
+
 
 def test_evaluate_job_intercepts_esatisfied():
     """Proves ESatisfied is intercepted and the effect itself is returned to the job."""
@@ -95,6 +99,7 @@ def test_evaluate_job_intercepts_eimpossible():
 
 
 # evaluate_job — deadline
+
 
 def test_evaluate_job_throws_job_timeout_when_deadline_exceeded():
     """Proves evaluate_job throws JobTimeout into the job when the deadline passes."""
@@ -140,12 +145,14 @@ def test_evaluate_job_no_deadline_never_times_out():
 
 # evaluate_job — acquired tracking
 
+
 def test_evaluate_job_tracks_acquired_slots():
     """Proves evaluate_job populates acquired list via the acquire handler."""
 
     acquired = []
 
     with patch("evaluate.worker_handlers.mcall", _mock_mcall(True)):
+
         def job():
             yield EAcquire(name="workers", limit=4)
 
@@ -160,6 +167,7 @@ def test_evaluate_job_does_not_track_denied_slots():
     acquired = []
 
     with patch("evaluate.worker_handlers.mcall", _mock_mcall(False)):
+
         def job():
             yield EAcquire(name="workers", limit=4)
 
@@ -169,6 +177,7 @@ def test_evaluate_job_does_not_track_denied_slots():
 
 
 # evaluate_job — unhandled exceptions
+
 
 def test_evaluate_job_propagates_unhandled_exception():
     """Proves evaluate_job lets non-JobTimeout exceptions propagate to the caller."""

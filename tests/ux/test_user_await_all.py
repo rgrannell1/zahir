@@ -17,11 +17,13 @@ def slow_double(ctx: JobContext, value: int):
 
 
 def fan_out(ctx: JobContext):
-    results = yield EAwaitAll([
-        ctx.scope.double(1),
-        ctx.scope.double(2),
-        ctx.scope.double(3),
-    ])
+    results = yield EAwaitAll(
+        [
+            ctx.scope.double(1),
+            ctx.scope.double(2),
+            ctx.scope.double(3),
+        ]
+    )
     yield EEmit(results)
 
 
@@ -32,20 +34,24 @@ def failing_job(ctx: JobContext):
 
 def fan_out_with_failure(ctx: JobContext):
     try:
-        yield EAwaitAll([
-            ctx.scope.double(1),
-            ctx.scope.failing_job(),
-            ctx.scope.double(3),
-        ])
+        yield EAwaitAll(
+            [
+                ctx.scope.double(1),
+                ctx.scope.failing_job(),
+                ctx.scope.double(3),
+            ]
+        )
     except JobError as err:
         yield EEmit({"error": str(err.cause)})
 
 
 def fan_out_mixed(ctx: JobContext):
-    results = yield EAwaitAll([
-        ctx.scope.slow_double(1),
-        ctx.scope.double(2),
-    ])
+    results = yield EAwaitAll(
+        [
+            ctx.scope.slow_double(1),
+            ctx.scope.double(2),
+        ]
+    )
     yield EEmit(results)
 
 
@@ -61,7 +67,11 @@ def test_await_all_returns_results_in_input_order():
 def test_await_all_preserves_order_when_completions_arrive_out_of_order():
     """Proves EAwaitAll result ordering matches dispatch order even when a slow job finishes last."""
 
-    scope = {"fan_out_mixed": fan_out_mixed, "slow_double": slow_double, "double": double}
+    scope = {
+        "fan_out_mixed": fan_out_mixed,
+        "slow_double": slow_double,
+        "double": double,
+    }
     events = list(evaluate("fan_out_mixed", (), scope, n_workers=4))
 
     assert events == [[2, 4]]

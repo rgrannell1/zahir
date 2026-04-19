@@ -10,7 +10,6 @@ type Dependency = Generator[Any, Any, None]
 def group_dependency(
     dependencies: list[Dependency],
 ) -> Generator[Any, Any, None]:
-
     for dependency in dependencies:
         handler_value = None
         try:

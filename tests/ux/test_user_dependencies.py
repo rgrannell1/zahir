@@ -24,7 +24,9 @@ def job_with_satisfied_time_dep(ctx):
 def test_impossible_time_dependency_returns_eimpossible_to_job():
     """Proves an impossible time dependency returns EImpossible to the job for introspection."""
 
-    events = list(evaluate("job", (), {"job": job_with_impossible_time_dep}, n_workers=1))
+    events = list(
+        evaluate("job", (), {"job": job_with_impossible_time_dep}, n_workers=1)
+    )
 
     assert events == [{"impossible": True}]
 
@@ -32,6 +34,8 @@ def test_impossible_time_dependency_returns_eimpossible_to_job():
 def test_satisfied_time_dependency_returns_esatisfied_to_job():
     """Proves a satisfied time dependency returns ESatisfied to the job for introspection."""
 
-    events = list(evaluate("job", (), {"job": job_with_satisfied_time_dep}, n_workers=1))
+    events = list(
+        evaluate("job", (), {"job": job_with_satisfied_time_dep}, n_workers=1)
+    )
 
     assert events == [{"satisfied": True}]

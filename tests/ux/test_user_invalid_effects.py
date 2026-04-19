@@ -25,25 +25,41 @@ def test_yielding_non_effect_raises_job_error():
     """Proves a job that yields a non-Effect value raises JobError rather than hanging."""
 
     with pytest.raises(JobError):
-        list(evaluate("job_yielding_non_effect", (), {"job_yielding_non_effect": job_yielding_non_effect}, n_workers=1))
+        list(
+            evaluate(
+                "job_yielding_non_effect",
+                (),
+                {"job_yielding_non_effect": job_yielding_non_effect},
+                n_workers=1,
+            )
+        )
 
 
 def test_yielding_ereceive_raises_job_error():
     """Proves a job that yields EReceive directly raises JobError rather than blocking forever."""
 
     with pytest.raises(JobError):
-        list(evaluate("job_yielding_receive", (), {"job_yielding_receive": job_yielding_receive}, n_workers=1))
+        list(
+            evaluate(
+                "job_yielding_receive",
+                (),
+                {"job_yielding_receive": job_yielding_receive},
+                n_workers=1,
+            )
+        )
 
 
 def test_invalid_effect_is_catchable_in_job():
     """Proves a job can catch InvalidEffect and continue executing."""
 
-    events = list(evaluate(
-        "job_catching_invalid_effect",
-        (),
-        {"job_catching_invalid_effect": job_catching_invalid_effect},
-        n_workers=1,
-    ))
+    events = list(
+        evaluate(
+            "job_catching_invalid_effect",
+            (),
+            {"job_catching_invalid_effect": job_catching_invalid_effect},
+            n_workers=1,
+        )
+    )
 
     assert len(events) == 1
     assert "caught" in events[0]
@@ -64,4 +80,12 @@ def test_bad_context_raises_before_spawn():
             raise RuntimeError("init failed")
 
     with pytest.raises(TypeError, match="failed to instantiate"):
-        list(evaluate("job", (), {"job": job_yielding_non_effect}, context=BrokenContext, n_workers=1))
+        list(
+            evaluate(
+                "job",
+                (),
+                {"job": job_yielding_non_effect},
+                context=BrokenContext,
+                n_workers=1,
+            )
+        )

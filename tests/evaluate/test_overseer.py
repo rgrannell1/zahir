@@ -1,6 +1,15 @@
 from collections import deque
 
-from constants import ACQUIRE, ENQUEUE, GET_JOB, IS_DONE, JOB_DONE, RELEASE, SET_SEMAPHORE, SIGNAL
+from constants import (
+    ACQUIRE,
+    ENQUEUE,
+    GET_JOB,
+    IS_DONE,
+    JOB_DONE,
+    RELEASE,
+    SET_SEMAPHORE,
+    SIGNAL,
+)
 from evaluate.overseer import Overseer
 from zahir_types import OverseerState
 
@@ -13,6 +22,7 @@ def _init() -> OverseerState:
 
 
 # init
+
 
 def test_init_creates_initial_job_in_queue():
     """Proves init enqueues the starting job."""
@@ -43,6 +53,7 @@ def test_init_starts_with_empty_semaphores():
 
 # handle_call dispatch
 
+
 def test_handle_call_get_job_returns_job():
     """Proves handle_call dispatches get_job and returns the queued job."""
 
@@ -63,6 +74,7 @@ def test_handle_call_signal_raises_for_unknown_semaphore():
     """Proves handle_call dispatches signal and raises for unknown semaphores."""
 
     import pytest
+
     with pytest.raises(KeyError, match="has not been set"):
         overseer.handle_call(_init(), (SIGNAL, "db"))
 
@@ -75,6 +87,7 @@ def test_handle_call_is_done_false_initially():
 
 
 # handle_cast dispatch
+
 
 def test_handle_cast_enqueue_adds_job():
     """Proves handle_cast dispatches enqueue and adds a job to the queue."""
@@ -107,6 +120,7 @@ def test_handle_cast_set_semaphore_stores_state():
 
 
 # round-trip
+
 
 def test_enqueue_then_get_job_round_trips():
     """Proves a job enqueued via handle_cast is retrievable via handle_call."""

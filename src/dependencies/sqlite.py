@@ -46,7 +46,9 @@ def _query(
     with _connect(db_path, timeout_seconds) as conn:
         cursor = conn.cursor()
         cursor.execute(query, params)
-        column_names = [name for name, *_ in cursor.description] if cursor.description else []
+        column_names = (
+            [name for name, *_ in cursor.description] if cursor.description else []
+        )
         return column_names, cursor.fetchone()
 
 
@@ -61,7 +63,9 @@ def _status_result(
     status: str,
     db_path: str,
     metadata: dict[str, Any],
-) -> Generator[ESatisfied | EImpossible | ESleep, None, ESatisfied | EImpossible | None]:
+) -> Generator[
+    ESatisfied | EImpossible | ESleep, None, ESatisfied | EImpossible | None
+]:
     if status == SATISFIED:
         event = ESatisfied(metadata=metadata)
         yield event

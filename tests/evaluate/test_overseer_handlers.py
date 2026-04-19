@@ -1,6 +1,16 @@
 from collections import deque
 
-from evaluate.overseer_handlers import _acquire, _enqueue, _get_error, _get_job, _is_done, _job_done, _release, _set_semaphore, _signal
+from evaluate.overseer_handlers import (
+    _acquire,
+    _enqueue,
+    _get_error,
+    _get_job,
+    _is_done,
+    _job_done,
+    _release,
+    _set_semaphore,
+    _signal,
+)
 from zahir_types import JobSpec, OverseerState
 
 
@@ -10,6 +20,7 @@ def _state(**kwargs) -> OverseerState:
 
 
 # _get_job
+
 
 def test_get_job_returns_none_when_queue_empty():
     """Proves _get_job returns None when no jobs are queued."""
@@ -21,7 +32,9 @@ def test_get_job_returns_none_when_queue_empty():
 def test_get_job_returns_job_tuple():
     """Proves _get_job returns fn_name, args, reply_to, timeout_ms, and nonce from the queue."""
 
-    spec = JobSpec(fn_name="process", args=(1,), reply_to=None, timeout_ms=5000, nonce=3)
+    spec = JobSpec(
+        fn_name="process", args=(1,), reply_to=None, timeout_ms=5000, nonce=3
+    )
     state, job = _get_job(_state(queue=deque([spec])))
     assert job == ("process", (1,), None, 5000, 3)
 
@@ -44,6 +57,7 @@ def test_get_job_preserves_fifo_order():
 
 
 # _enqueue
+
 
 def test_enqueue_adds_job_to_queue():
     """Proves _enqueue appends a new JobSpec to the queue."""
@@ -69,6 +83,7 @@ def test_enqueue_stores_timeout_ms():
 
 # _job_done
 
+
 def test_job_done_decrements_pending():
     """Proves _job_done decrements the pending count."""
 
@@ -77,6 +92,7 @@ def test_job_done_decrements_pending():
 
 
 # _acquire
+
 
 def test_acquire_grants_slot_when_under_limit():
     """Proves _acquire returns True and records the slot when under limit."""
@@ -103,6 +119,7 @@ def test_acquire_respects_existing_limit():
 
 # _release
 
+
 def test_release_decrements_active_count():
     """Proves _release decrements the active count for a known slot."""
 
@@ -126,6 +143,7 @@ def test_release_ignores_unknown_name():
 
 # _signal
 
+
 def test_signal_returns_stored_state():
     """Proves _signal returns the current semaphore state."""
 
@@ -137,11 +155,13 @@ def test_signal_raises_for_unknown_name():
     """Proves _signal raises KeyError when the semaphore has not been set."""
 
     import pytest
+
     with pytest.raises(KeyError, match="has not been set"):
         _signal(_state(), "unknown")
 
 
 # _set_semaphore
+
 
 def test_set_semaphore_stores_state():
     """Proves _set_semaphore records the semaphore state by name."""
@@ -158,6 +178,7 @@ def test_set_semaphore_overwrites_existing_state():
 
 
 # _is_done
+
 
 def test_is_done_true_when_no_pending_and_empty_queue():
     """Proves _is_done returns True when pending is zero and queue is empty."""

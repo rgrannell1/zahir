@@ -19,7 +19,9 @@ def semaphore_dependency(
 
     while True:
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
-            event = EImpossible(reason=f"semaphore '{name}' not satisfied within {timeout_ms}ms")
+            event = EImpossible(
+                reason=f"semaphore '{name}' not satisfied within {timeout_ms}ms"
+            )
             yield event
             return event
 
