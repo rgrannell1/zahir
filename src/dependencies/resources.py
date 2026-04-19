@@ -9,7 +9,7 @@ from tertius import ESleep
 from constants import CPU_SAMPLE_INTERVAL_S, DEPENDENCY_DELAY_MS
 from effects import EImpossible, ESatisfied
 
-type ResourceType = Literal["cpu"] | Literal["memory"]
+type ResourceType = Literal["cpu", "memory"]
 
 
 def _get_usage(resource: ResourceType) -> float:

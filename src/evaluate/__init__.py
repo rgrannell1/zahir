@@ -3,7 +3,7 @@ from typing import Any
 
 from tertius import ESleep, ESpawn, Pid, Scope, mcall, run
 
-from constants import COMPLETION_POLL_MS, GET_ERROR
+from constants import COMPLETION_POLL_MS, GET_ERROR, IS_DONE
 from scope_proxy import ScopeProxy
 
 from evaluate.overseer import run_overseer
@@ -29,10 +29,11 @@ def _root(
 
     while True:
         # check if the overseer is done in a sleep loop
-        done = yield from mcall(overseer, "is_done")
+        done = yield from mcall(overseer, IS_DONE)
 
         if not done:
             yield ESleep(ms=COMPLETION_POLL_MS)
+            continue
 
         # once done, check if there was an error
         error = yield from mcall(overseer, GET_ERROR)
@@ -53,7 +54,7 @@ def evaluate(
     if fn_name not in scope:
         raise KeyError(f"job {fn_name!r} not found in scope")
 
-    # and make sure we could actuall instantiate the context class
+    # and make sure we could actually instantiate the context class
     try:
         context()
     except Exception as exc:

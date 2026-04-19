@@ -21,7 +21,7 @@ def _connect(db_path: str, timeout_seconds: float) -> sqlite3.Connection:
         check_same_thread=False,
     )
     conn.execute("PRAGMA journal_mode=WAL;")
-    conn.execute("PRAGMA busy_timeout=%d;" % _BUSY_TIMEOUT_MS)
+    conn.execute(f"PRAGMA busy_timeout={_BUSY_TIMEOUT_MS};")
     conn.execute("PRAGMA foreign_keys=ON;")
     conn.execute("PRAGMA synchronous=NORMAL;")
     return conn

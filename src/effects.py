@@ -22,7 +22,7 @@ class EAwait(Effect[Any]):
 
     tag: ClassVar[str] = "await"
     fn_name: str
-    args: tuple = field(default_factory=tuple)
+    args: tuple[Any, ...] = field(default_factory=tuple)
     timeout_ms: int | None = None
 
 
@@ -66,3 +66,23 @@ class EAwaitAll(Effect[list[Any]]):
 
     tag: ClassVar[str] = "await_all"
     effects: list[EAwait]
+
+
+@dataclass
+class EJobComplete(Effect[None]):
+    """Internal: report successful job completion and route the result to the caller."""
+
+    tag: ClassVar[str] = "job_complete"
+    result: Any
+    reply_to: bytes | None
+    nonce: Any
+
+
+@dataclass
+class EJobFail(Effect[None]):
+    """Internal: report job failure (timeout or error) and route the exception to the caller."""
+
+    tag: ClassVar[str] = "job_fail"
+    error: Exception
+    reply_to: bytes | None
+    nonce: Any

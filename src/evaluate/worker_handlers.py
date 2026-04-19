@@ -2,14 +2,16 @@ from collections.abc import Generator
 from functools import partial
 from typing import Any
 
-from tertius import EReceive, ESelf, Pid, mcall, mcast
+from tertius import EReceive, ESelf, ESend, Pid, mcall, mcast
 
-from constants import ACQUIRE, ENQUEUE, RELEASE, SET_SEMAPHORE, SIGNAL
+from constants import ACQUIRE, ENQUEUE, JOB_DONE, RELEASE, SET_SEMAPHORE, SIGNAL
 from effects import (
     EAcquire,
     EAwait,
     EAwaitAll,
     EImpossible,
+    EJobComplete,
+    EJobFail,
     ESatisfied,
     ESetSemaphore,
     ESignal,
@@ -26,7 +28,7 @@ def _handle_event(
     yield
 
 
-def _unwrap_reply(fn_name: str, timeout_ms: int | None, nonce: Any, body: Any) -> Any:
+def _unwrap_reply(body: Any) -> Any:
     """Unwrap the reply from a job, raising appropriate exceptions for timeouts or errors."""
 
     if isinstance(body, JobTimeout):
@@ -52,7 +54,7 @@ def _handle_await(overseer: Pid, effect: EAwait) -> Generator[Any, Any, Any]:
     envelope = yield EReceive()
     nonce, body = envelope.body
 
-    return _unwrap_reply(effect.fn_name, effect.timeout_ms, nonce, body)
+    return _unwrap_reply(body)
 
 
 def _handle_await_all(
@@ -78,10 +80,7 @@ def _handle_await_all(
         nonce, body = envelope.body
 
         try:
-            fn_name = effect.effects[nonce].fn_name
-            results[nonce] = _unwrap_reply(
-                fn_name, effect.effects[nonce].timeout_ms, nonce, body
-            )
+            results[nonce] = _unwrap_reply(body)
         except (JobTimeout, JobError) as exc:
             # let's throw the first error we see.
             if first_error is None:

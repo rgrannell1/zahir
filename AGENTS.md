@@ -9,6 +9,7 @@ We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
 
 **Coding style**
 
+- Do not delete comments, it's annoying. I use them to make it obvious what a block of code is intended to do
 - Never use single-letter variables
 - I name exceptions `err` and indices `idx`, `jdx`, etc.
 - Functions must be short and single purpose.
@@ -18,6 +19,7 @@ We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
 - Avoid deeply nested lines
 - Do not write large functions. Split into subfunctions
 - Do not write inner functions; use partial application instead
+- Avoid using optional, or `X | None = None` unless there's a direct need for it
 
 **Testing**
 
@@ -41,3 +43,6 @@ We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
 - We can only observe the system by looking at effects (zahir's or tertius's)
 - What does not have an effect / event, cannot be observed
 - Telemetry can only be added by decorating a handler. The handlers logic must be identical to before, including erroring, with the sole exception that more EEmit's are allowed
+
+- We may yield zahir effect internally that have handlers yielding their own zahir / tertius effects
+- Not all effects are sent by jobs themselves; most are not
