@@ -19,11 +19,11 @@ def test_get_job_returns_none_when_queue_empty():
 
 
 def test_get_job_returns_job_tuple():
-    """Proves _get_job returns fn_name, args, reply_to, and timeout_ms from the queue."""
+    """Proves _get_job returns fn_name, args, reply_to, timeout_ms, and nonce from the queue."""
 
-    spec = JobSpec(fn_name="process", args=(1,), reply_to=None, timeout_ms=5000)
+    spec = JobSpec(fn_name="process", args=(1,), reply_to=None, timeout_ms=5000, nonce=3)
     state, job = _get_job(_state(queue=deque([spec])))
-    assert job == ("process", (1,), None, 5000)
+    assert job == ("process", (1,), None, 5000, 3)
 
 
 def test_get_job_removes_job_from_queue():

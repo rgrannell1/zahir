@@ -11,7 +11,7 @@ from zahir_types import JobSpec, OverseerState
 def _get_job(state: OverseerState) -> tuple[OverseerState, Any]:
     if state.queue:
         job = state.queue.popleft()
-        return state, (job.fn_name, job.args, job.reply_to, job.timeout_ms)
+        return state, (job.fn_name, job.args, job.reply_to, job.timeout_ms, job.nonce)
     return state, None
 
 
@@ -33,8 +33,8 @@ def _is_done(state: OverseerState) -> tuple[OverseerState, bool]:
     return state, state.pending == 0 and not state.queue
 
 
-def _enqueue(state: OverseerState, fn_name: str, args: tuple, reply_to: bytes | None, timeout_ms: int | None) -> OverseerState:
-    state.queue.append(JobSpec(fn_name=fn_name, args=args, reply_to=reply_to, timeout_ms=timeout_ms))
+def _enqueue(state: OverseerState, fn_name: str, args: tuple, reply_to: bytes | None, timeout_ms: int | None, nonce: int | None = None) -> OverseerState:
+    state.queue.append(JobSpec(fn_name=fn_name, args=args, reply_to=reply_to, timeout_ms=timeout_ms, nonce=nonce))
     state.pending += 1
     return state
 

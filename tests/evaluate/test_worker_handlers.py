@@ -6,7 +6,7 @@ from tertius import EReceive, ESelf, Pid
 from tertius.types import Envelope
 
 from constants import ACQUIRE, ENQUEUE, RELEASE, SIGNAL, SET_SEMAPHORE
-from effects import EAcquire, EAwait, EImpossible, ESatisfied, ESetSemaphore, ESignal
+from effects import EAcquire, EAwait, EAwaitAll, EImpossible, ESatisfied, ESetSemaphore, ESignal
 from evaluate.worker_handlers import (
     _handle_acquire,
     _handle_await,
@@ -96,7 +96,7 @@ def test_handle_await_returns_envelope_body():
         gen = _handle_await(OVERSEER, EAwait(fn_name="child"))
         next(gen)
         gen.send(ME)
-        envelope = Envelope(sender=OVERSEER, body="result")
+        envelope = Envelope(sender=OVERSEER, body=(None, "result"))
         with pytest.raises(StopIteration) as exc:
             gen.send(envelope)
         assert exc.value.value == "result"
@@ -109,7 +109,7 @@ def test_handle_await_raises_job_timeout_on_sentinel():
         gen = _handle_await(OVERSEER, EAwait(fn_name="child", timeout_ms=1000))
         next(gen)
         gen.send(ME)
-        envelope = Envelope(sender=OVERSEER, body=_TIMEOUT_SENTINEL)
+        envelope = Envelope(sender=OVERSEER, body=(None, _TIMEOUT_SENTINEL))
         with pytest.raises(JobTimeout):
             gen.send(envelope)
 
@@ -178,7 +178,7 @@ def test_make_handlers_contains_all_effect_types():
     """Proves make_handlers returns entries for all handled effect types."""
 
     handlers = make_handlers(OVERSEER, [])
-    assert set(handlers.keys()) == {ESatisfied, EImpossible, EAwait, EAcquire, ESignal, ESetSemaphore}
+    assert set(handlers.keys()) == {ESatisfied, EImpossible, EAwait, EAwaitAll, EAcquire, ESignal, ESetSemaphore}
 
 
 def test_make_handlers_returns_callables():

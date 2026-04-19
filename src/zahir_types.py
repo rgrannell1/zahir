@@ -8,6 +8,7 @@ class JobSpec:
     args: tuple
     reply_to: bytes | None
     timeout_ms: int | None = None
+    nonce: int | None = None
 
 
 

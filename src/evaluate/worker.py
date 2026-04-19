@@ -56,7 +56,7 @@ def worker(overseer_pid_bytes: bytes, scope: Scope, context: type) -> Generator[
             yield ESleep(ms=WORKER_POLL_MS)
             continue
 
-        fn_name, args, reply_to, timeout_ms = job
+        fn_name, args, reply_to, timeout_ms, nonce = job
         deadline = datetime.now(UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms else None
         acquired: list[str] = []
 
@@ -77,17 +77,17 @@ def worker(overseer_pid_bytes: bytes, scope: Scope, context: type) -> Generator[
 
         if timed_out:
             if reply_to is not None:
-                yield ESend(Pid.from_bytes(reply_to), _TIMEOUT_SENTINEL)
+                yield ESend(Pid.from_bytes(reply_to), (nonce, _TIMEOUT_SENTINEL))
             yield from mcast(overseer, JOB_DONE)
             continue
 
         if job_error is not None:
             if reply_to is not None:
-                yield ESend(Pid.from_bytes(reply_to), job_error)
+                yield ESend(Pid.from_bytes(reply_to), (nonce, job_error))
             yield from mcast(overseer, JOB_DONE)
             continue
 
         if reply_to is not None:
-            yield ESend(Pid.from_bytes(reply_to), result)
+            yield ESend(Pid.from_bytes(reply_to), (nonce, result))
 
         yield from mcast(overseer, JOB_DONE)

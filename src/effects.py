@@ -58,3 +58,11 @@ class ESetSemaphore(Event):
     tag: ClassVar[str] = "set_semaphore"
     name: str
     state: str  # 'satisfied' | 'unsatisfied' | 'impossible'
+
+
+@dataclass
+class EAwaitAll(Effect[list[Any]]):
+    """Dispatch multiple child jobs concurrently and return results in input order."""
+
+    tag: ClassVar[str] = "await_all"
+    effects: list[EAwait]
