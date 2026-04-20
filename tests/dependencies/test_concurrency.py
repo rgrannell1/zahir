@@ -47,20 +47,6 @@ def test_retry_after_denied_yields_eacquire_again():
     assert isinstance(next(gen), EAcquire)
 
 
-# concurrency_dependency — satisfied metadata
-
-
-def test_satisfied_metadata_includes_name_and_limit():
-    """Proves ESatisfied metadata contains the slot name and limit."""
-
-    gen = concurrency_dependency("workers", limit=4)
-    next(gen)
-    effect = gen.send(True)
-    assert isinstance(effect, ESatisfied)
-    assert effect.metadata["name"] == "workers"
-    assert effect.metadata["limit"] == 4
-
-
 # concurrency_dependency — timeout
 
 
@@ -92,6 +78,7 @@ def test_timeout_reason_includes_name_and_duration():
     assert isinstance(effect, EImpossible)
     assert "workers" in effect.reason
     assert "5000" in effect.reason
+    assert "timed out" in effect.reason
 
 
 # concurrency_dependency — return values

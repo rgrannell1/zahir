@@ -1,19 +1,34 @@
-from zahir.core.effects import EImpossible, ESatisfied
+from zahir.core.dependencies.dependency import ImpossibleError, dependency
 from zahir.core.dependencies.group import group_dependency
+from zahir.core.effects import EImpossible, ESatisfied
 from tertius import ESleep
 
 
+def _always_satisfied():
+    return (True, {"source": "a"})
+    yield  # make it a generator function
+
+
+def _always_impossible():
+    raise ImpossibleError("blocked")
+    yield  # make it a generator function
+
+
+def _sleeps_then_satisfied():
+    yield ESleep(ms=1000)
+    return (True, {"source": "b"})
+
+
 def _satisfied():
-    yield ESatisfied(metadata={"source": "a"})
+    return dependency(_always_satisfied)
 
 
 def _impossible():
-    yield EImpossible(reason="blocked")
+    return dependency(_always_impossible)
 
 
 def _sleep_then_satisfied():
-    yield ESleep(ms=1000)
-    yield ESatisfied(metadata={"source": "b"})
+    return dependency(_sleeps_then_satisfied)
 
 
 def _drive(gen):
@@ -33,14 +48,16 @@ def _drive(gen):
     return effects
 
 
-def test_empty_group_yields_nothing():
-    """Proves an empty dependency group yields no effects."""
+def test_empty_group_yields_esatisfied():
+    """Proves an empty dependency group immediately yields ESatisfied."""
 
-    assert _drive(group_dependency([])) == []
+    effects = _drive(group_dependency([]))
+    assert len(effects) == 1
+    assert isinstance(effects[0], ESatisfied)
 
 
 def test_single_satisfied_dependency_yields_satisfied():
-    """Proves a single satisfied dependency passes its effect through."""
+    """Proves a single satisfied dependency passes its ESatisfied effect through."""
 
     effects = _drive(group_dependency([_satisfied()]))
     assert len(effects) == 1
@@ -69,7 +86,7 @@ def test_impossible_after_satisfied_short_circuits():
     effects = _drive(group_dependency([_satisfied(), _impossible(), _satisfied()]))
     assert isinstance(effects[-1], EImpossible)
     assert not any(
-        isinstance(e, ESatisfied) for e in effects[effects.index(effects[-1]) :]
+        isinstance(e, ESatisfied) for e in effects[effects.index(effects[-1]):]
     )
 
 
@@ -86,14 +103,17 @@ def test_handler_value_is_sent_back_into_dependency():
 
     received = []
 
-    def _capturing():
-        val = yield ESatisfied()
+    def _capturing_condition():
+        val = yield ESleep(ms=1)
         received.append(val)
+        return True
 
-    gen = group_dependency([_capturing()])
+    gen = group_dependency([dependency(_capturing_condition)])
     effect = next(gen)
+    assert isinstance(effect, ESleep)
+    gen.send(42)  # resumes condition with val=42, then ESatisfied comes out
     try:
-        gen.send(42)
+        next(gen)
     except StopIteration:
         pass
 

@@ -3,31 +3,32 @@ from datetime import UTC, datetime
 
 from tertius import ESleep
 
+from zahir.core.dependencies.dependency import ImpossibleError, dependency
 from zahir.core.effects import EImpossible, ESatisfied
+
+
+def _time_condition(
+    before: datetime | None,
+    after: datetime | None,
+) -> Generator:
+    """Returns True if now is within the time window, raises ImpossibleError if the window has passed."""
+    now = datetime.now(tz=UTC)
+
+    if before is not None and now >= before:
+        raise ImpossibleError(
+            f"too late: now={now.isoformat()}, before={before.isoformat()}"
+        )
+
+    if after is not None and now < after:
+        ms = int((after - now).total_seconds() * 1000)
+        yield ESleep(ms=ms)
+
+    return True
+    yield  # make it a generator function
 
 
 def time_dependency(
     before: datetime | None = None,
     after: datetime | None = None,
 ) -> Generator[ESleep | ESatisfied | EImpossible, None, ESatisfied | EImpossible]:
-    now = datetime.now(tz=UTC)
-
-    if before is not None and now >= before:
-        event = EImpossible(
-            reason=f"too late: now={now.isoformat()}, before={before.isoformat()}"
-        )
-        yield event
-        return event
-
-    if after is not None and now < after:
-        ms = int((after - now).total_seconds() * 1000)
-        yield ESleep(ms=ms)
-
-    event = ESatisfied(
-        metadata={
-            "before": before.isoformat() if before else None,
-            "after": after.isoformat() if after else None,
-        }
-    )
-    yield event
-    return event
+    return dependency(lambda: _time_condition(before, after))

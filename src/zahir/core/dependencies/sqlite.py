@@ -4,9 +4,8 @@ from collections.abc import Generator
 from contextlib import closing
 from typing import Any
 
-from tertius import ESleep
-
-from zahir.core.constants import DEPENDENCY_DELAY_MS, IMPOSSIBLE, SATISFIED, UNSATISFIED
+from zahir.core.constants import IMPOSSIBLE, SATISFIED, UNSATISFIED
+from zahir.core.dependencies.dependency import ImpossibleError, dependency
 from zahir.core.effects import EImpossible, ESatisfied
 
 _DEFAULT_TIMEOUT_SECONDS = 5.0
@@ -30,10 +29,8 @@ def _connect(db_path: str, timeout_seconds: float) -> sqlite3.Connection:
 def _validate_db_path(db_path: str) -> None:
     if not db_path or db_path.strip() == "":
         raise ValueError("db_path is required")
-
     if db_path == ":memory:":
         return
-
     if not pathlib.Path(db_path).exists():
         raise FileNotFoundError(f"db_path {db_path} does not exist")
 
@@ -60,24 +57,28 @@ def _parse_status(raw: str) -> str:
     return status
 
 
-def _status_result(
-    status: str,
+def _sqlite_condition(
     db_path: str,
-    metadata: dict[str, Any],
-) -> Generator[
-    ESatisfied | EImpossible | ESleep, None, ESatisfied | EImpossible | None
-]:
-    if status == SATISFIED:
-        event = ESatisfied(metadata=metadata)
-        yield event
-        return event
-    elif status == IMPOSSIBLE:
-        event = EImpossible(reason=f"status=impossible for query against {db_path}")
-        yield event
-        return event
-    elif status == UNSATISFIED:
-        yield ESleep(ms=DEPENDENCY_DELAY_MS)
-        return None
+    query: str,
+    params: tuple[Any, ...] | None,
+    timeout_seconds: float,
+) -> Generator:
+    """Returns (True, metadata) if the query returns rows (or a satisfied status), False if not yet, raises ImpossibleError if impossible."""
+    metadata = {"db_path": db_path, "query": query, "params": params, "timeout_seconds": timeout_seconds}
+    column_names, row = _query(db_path, query, params or (), timeout_seconds)
+
+    if row is None:
+        return False
+
+    if len(row) == 1 and column_names == ["status"]:
+        status = _parse_status(row[0])
+        if status == UNSATISFIED:
+            return False
+        if status == IMPOSSIBLE:
+            raise ImpossibleError(f"status=impossible for query against {db_path}")
+
+    return (True, metadata)
+    yield  # make it a generator function
 
 
 def sqlite_dependency(
@@ -85,32 +86,6 @@ def sqlite_dependency(
     query: str,
     params: tuple[Any, ...] | None = None,
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
-) -> Generator[
-    ESatisfied | EImpossible | ESleep, None, ESatisfied | EImpossible | None
-]:
+) -> Generator[ESatisfied | EImpossible, None, ESatisfied | EImpossible]:
     _validate_db_path(db_path)
-
-    metadata = {
-        "db_path": db_path,
-        "query": query,
-        "params": params,
-        "timeout_seconds": timeout_seconds,
-    }
-
-    while True:
-        column_names, row = _query(db_path, query, params or (), timeout_seconds)
-
-        if row is None:
-            yield ESleep(ms=DEPENDENCY_DELAY_MS)
-            continue
-
-        if len(row) == 1 and column_names == ["status"]:
-            status = _parse_status(row[0])
-            if status == UNSATISFIED:
-                yield ESleep(ms=DEPENDENCY_DELAY_MS)
-                continue
-            return (yield from _status_result(status, db_path, metadata))
-
-        event = ESatisfied(metadata=metadata)
-        yield event
-        return event
+    return dependency(lambda: _sqlite_condition(db_path, query, params, timeout_seconds))

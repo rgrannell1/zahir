@@ -4,20 +4,18 @@ from typing import Any
 from zahir.core.effects import EImpossible, ESatisfied
 
 
-type Dependency = Generator[Any, Any, None]
-
-
 def group_dependency(
-    dependencies: list[Dependency],
-) -> Generator[Any, Any, None]:
-    for dependency in dependencies:
-        handler_value = None
-        try:
-            event = next(dependency)
-            while True:
-                handler_value = yield event
-                if isinstance(event, EImpossible):
-                    return
-                event = dependency.send(handler_value)
-        except StopIteration:
-            pass
+    dependencies: list[Generator],
+) -> Generator[Any, Any, ESatisfied | EImpossible]:
+    """Run dependencies in sequence; short-circuit on the first impossible result."""
+    if not dependencies:
+        event = ESatisfied()
+        yield event
+        return event
+
+    last = None
+    for dep in dependencies:
+        last = yield from dep
+        if isinstance(last, EImpossible):
+            return last
+    return last
