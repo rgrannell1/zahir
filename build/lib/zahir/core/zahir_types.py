@@ -1,5 +1,5 @@
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -19,3 +19,6 @@ class OverseerState:
     semaphores: dict[str, str]  # name -> 'satisfied'|'unsatisfied'|'impossible'
     pending: int
     root_error: Exception | None = None
+    pending_results: dict[bytes, deque] = field(
+        default_factory=dict
+    )  # worker_pid_bytes -> deque[(nonce, body)]

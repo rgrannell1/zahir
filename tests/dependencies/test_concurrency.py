@@ -42,8 +42,8 @@ def test_retry_after_denied_yields_eacquire_again():
     """Proves the dependency loops and retries with another EAcquire after denial."""
 
     gen = concurrency_dependency("workers", limit=4)
-    next(gen)           # EAcquire
-    gen.send(False)     # ESleep
+    next(gen)  # EAcquire
+    gen.send(False)  # ESleep
     assert isinstance(next(gen), EAcquire)
 
 
@@ -69,8 +69,8 @@ def test_timeout_yields_eimpossible():
     """Proves exceeding timeout_ms yields EImpossible."""
 
     gen = concurrency_dependency("workers", limit=4, timeout_ms=1000)
-    next(gen)       # EAcquire
-    gen.send(False) # ESleep
+    next(gen)  # EAcquire
+    gen.send(False)  # ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
         effect = next(gen)

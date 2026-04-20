@@ -26,7 +26,9 @@ class SystemStats:
     def update(self, event: ZahirTelemetryEvent) -> None:
         """Record the worker pid from a start event."""
 
-        if not isinstance(event, ZahirTelemetryEvent) or isinstance(event, ZahirSpanEnd):
+        if not isinstance(event, ZahirTelemetryEvent) or isinstance(
+            event, ZahirSpanEnd
+        ):
             return
 
         if event.event != "start":
@@ -71,7 +73,9 @@ class SystemStats:
 
         if not self._resource_history:
             return 0.0
-        return sum(cpu for _, cpu, _ in self._resource_history) / len(self._resource_history)
+        return sum(cpu for _, cpu, _ in self._resource_history) / len(
+            self._resource_history
+        )
 
     @property
     def ram_percent(self) -> float:
@@ -79,7 +83,9 @@ class SystemStats:
 
         if not self._resource_history:
             return 0.0
-        return sum(ram for _, _, ram in self._resource_history) / len(self._resource_history)
+        return sum(ram for _, _, ram in self._resource_history) / len(
+            self._resource_history
+        )
 
     def format(self) -> str:
         """Format the current system stats for display in the progress bar. TODO move into progress bar"""

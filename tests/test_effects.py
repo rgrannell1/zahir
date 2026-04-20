@@ -1,6 +1,13 @@
 from orbis import Effect, Event
 
-from zahir.core.effects import EAcquire, EAwait, EImpossible, ESatisfied, ESetSemaphore, EGetSemaphore
+from zahir.core.effects import (
+    EAcquire,
+    EAwait,
+    EImpossible,
+    ESatisfied,
+    ESetSemaphore,
+    EGetSemaphore,
+)
 
 
 def test_esatisfied_is_event():

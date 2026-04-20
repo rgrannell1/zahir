@@ -34,7 +34,7 @@ def test_active_cores_counts_unique_pids_from_start_events():
     stats = SystemStats()
     stats.update(_start(pid=100))
     stats.update(_start(pid=200))
-    stats.update(_start(pid=100))   # duplicate pid — should count once
+    stats.update(_start(pid=100))  # duplicate pid — should count once
     assert stats.active_cores == 2
 
 
@@ -46,7 +46,9 @@ def test_end_events_do_not_increment_active_cores():
 
 def test_event_without_pid_is_ignored():
     stats = SystemStats()
-    event = ZahirTelemetryEvent(span_id="s", tag="t", event="start", timestamp=time.time(), attributes={})
+    event = ZahirTelemetryEvent(
+        span_id="s", tag="t", event="start", timestamp=time.time(), attributes={}
+    )
     stats.update(event)
     assert stats.active_cores == 0
 

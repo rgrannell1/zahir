@@ -25,7 +25,7 @@ The overseer process is a GenServer that manages mutable state (the job queue, c
 
 ### Effects: Request & Respond
 
-Effects are generally abstracted away from jobs in Zahir, but ultimately both the zahir workflow engine & underlying multiprocess runtime are stacked effect systems. For every effect there's a handler; they're handled internally by Zahir, with telemetry simply being a generator composed on top to watch the information flows. The user too can compose on top of the effect system, to facilitate debugging.
+Effects are generally abstracted away from jobs in Zahir, but ultimately both the zahir workflow engine & underlying multiprocess runtime are stacked effect systems. For every effect there's a handler; they're handled internally by Zahir, with telemetry simply being another generator composed on top to watch the information flows. The user too can compose on top of the effect system, to facilitate debugging.
 
 **Job-emittable effects**
 
@@ -42,13 +42,19 @@ These effects can be emitted by a job
 
 **Coordination effects**
 
-These are internal effects used as part of the workflow engine.
+These are internal effects used by the workflow engine; jobs cannot yield them directly.
 
-- `EEnqueue(fn_name, args, timeout_ms, nonce)`: queue a job & where to route the results
-- `ERelease(name)`: Release a concurrency hold
-- `EGetJob()`:
-- `EJobComplete(result, reply_to, nonce)`: a job completed successfully
-- `EJobFailed(result, reply_to, nonce)`: a job failed
+*Job lifecycle*
+- `EGetJob(worker_pid_bytes)`: request work from the overseer — returns a new job, a buffered child result, or None
+- `EEnqueue(fn_name, args, reply_to, timeout_ms, nonce)`: queue a child job and route its result back to this worker
+- `EJobComplete(result, reply_to, nonce)`: report successful job completion to the overseer
+- `EJobFail(error, reply_to, nonce)`: report job failure (error or timeout) to the overseer
+- `ERelease(name)`: release a named concurrency slot back to the overseer
+
+*Overseer queries*
+- `EAcquireSlot(name, limit)`: request a named concurrency slot from the overseer
+- `ESignal(name)`: query the current state of a named semaphore from the overseer
+- `ESetSemaphoreState(name, state)`: write a new state for a named semaphore to the overseer
 
 ## Jobs: Do things, wait for things
 

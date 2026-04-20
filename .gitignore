@@ -9,3 +9,5 @@ examples/warandpeace.txt
 plan.md
 .coverage
 events.md
+.claude/commands/*
+.claude/commands

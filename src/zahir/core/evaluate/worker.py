@@ -1,116 +1,228 @@
+import itertools
 from collections.abc import Generator
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from orbis import handle
-from tertius import Pid, Scope
+from tertius import ESelf, ESleep, Pid, Scope
 
-from zahir.core.constants import (
-    BLOCKED_EFFECTS,
-    THROWABLE,
+from zahir.core.constants import WORKER_POLL_MS
+from zahir.core.effects import (
+    EAwait,
+    EAwaitAll,
+    EEnqueue,
+    EGetJob,
+    EJobComplete,
+    EJobFail,
+    ERelease,
 )
-from zahir.core.effects import EGetJob, EJobComplete, EJobFail, ERelease, ZahirCoordinationEffect
-from zahir.core.evaluate.coordination_handlers import CoordinationHandlerContext, make_coordination_handlers
-from zahir.core.evaluate.job_handlers import JobHandlerContext, make_job_handlers
-from zahir.core.exceptions import InvalidEffect, JobError, JobTimeout
+from zahir.core.evaluate.coordination_handlers import (
+    CoordinationHandlerContext,
+    make_coordination_handlers,
+)
+from zahir.core.evaluate.job_handlers import (
+    JobHandlerContext,
+    _unwrap_reply,
+    evaluate_job,
+)
+from zahir.core.exceptions import JobError, JobTimeout
 from zahir.core.scope_proxy import ScopeProxy
 
 
-def evaluate_job(
-    job_gen: Generator[Any, Any, Any],
-    context: JobHandlerContext,
-    deadline: datetime | None,
-) -> Generator[Any, Any, Any]:
-    handlers = make_job_handlers(context)
+@dataclass
+class _WaitingJob:
+    """A job suspended while waiting for one or more child jobs to complete."""
+
+    eval_gen: Any  # the evaluate_job generator, frozen at yield EAwait/EAwaitAll
+    context: JobHandlerContext
+    reply_to: bytes | None  # where to send our result when we finish
+    parent_nonce: Any  # the nonce our parent assigned us
+    awaiting: set[int]  # child local nonces still outstanding
+    results: dict[int, Any]  # local nonce -> body (result or error)
+    result_order: list[int] | None  # None for EAwait; ordered nonce list for EAwaitAll
+
+
+def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
+    """Worker main loop — drives jobs step by step, suspending onto a local stack for EAwait/EAwaitAll."""
+
+    me: Pid = yield ESelf()
+    me_bytes = bytes(me)
+
+    waiting: dict[int, _WaitingJob] = {}  # parent_key -> _WaitingJob
+    child_to_parent: dict[int, int] = {}  # child local nonce -> parent_key
+    _alloc = itertools.count().__next__
+
+    current: _WaitingJob | None = None
     handler_value: Any = None
     pending_throw: Exception | None = None
 
     while True:
+        # ── If no current job, ask the overseer for work ──────────────────────────
+        if current is None:
+            work = yield EGetJob(worker_pid_bytes=me_bytes)
+
+            if work is None:
+                yield ESleep(ms=WORKER_POLL_MS)
+                continue
+
+            kind = work[0]
+
+            if kind == "result":
+                # A child job completed — find and possibly resume the suspended parent
+                _, child_nonce, body = work
+                parent_key = child_to_parent.pop(child_nonce)
+                job = waiting[parent_key]
+                job.results[child_nonce] = body
+                job.awaiting.remove(child_nonce)
+
+                if job.awaiting:
+                    continue  # still waiting on other children
+
+                # All children done — reconstruct handler_value and resume
+                current = waiting.pop(parent_key)
+                if current.result_order is not None:
+                    # EAwaitAll: ordered list; raise the first error seen
+                    first_error: Exception | None = None
+                    results = []
+                    for n in current.result_order:
+                        try:
+                            results.append(_unwrap_reply(current.results[n]))
+                        except (JobError, JobTimeout) as exc:
+                            if first_error is None:
+                                first_error = exc
+                    if first_error is not None:
+                        handler_value = None
+                        pending_throw = first_error
+                    else:
+                        handler_value = results
+                        pending_throw = None
+                else:
+                    # EAwait: single child result
+                    try:
+                        handler_value = _unwrap_reply(body)
+                        pending_throw = None
+                    except (JobError, JobTimeout) as exc:
+                        handler_value = None
+                        pending_throw = exc
+                continue
+
+            elif kind == "job":
+                # A new job arrived from the queue
+                _, fn_name, args, reply_to, timeout_ms, parent_nonce = work
+
+                if fn_name not in ctx._scope:
+                    err = JobError(KeyError(f"job {fn_name!r} not found in scope"))
+                    yield EJobFail(error=err, reply_to=reply_to, nonce=parent_nonce)
+                    continue
+
+                deadline = (
+                    datetime.now(UTC) + timedelta(milliseconds=timeout_ms)
+                    if timeout_ms
+                    else None
+                )
+                job_context = JobHandlerContext(
+                    handler_wrappers=ctx.handler_wrappers,
+                )
+                eval_gen = evaluate_job(
+                    ctx._scope[fn_name](ctx, *args), job_context, deadline
+                )
+                current = _WaitingJob(
+                    eval_gen=eval_gen,
+                    context=job_context,
+                    reply_to=reply_to,
+                    parent_nonce=parent_nonce,
+                    awaiting=set(),
+                    results={},
+                    result_order=None,
+                )
+                handler_value = None
+                pending_throw = None
+
+        # ── Advance the current job one step ─────────────────────────────────────
+        job = current
         try:
-            # Throw if pending back into the job
             effect = (
-                job_gen.throw(pending_throw)
+                job.eval_gen.throw(pending_throw)
                 if pending_throw
-                else job_gen.send(handler_value)
+                else job.eval_gen.send(handler_value)
             )
             pending_throw = None
         except StopIteration as exc:
-            # Job is done, return the value
-            return exc.value
-
-        # Check for timeout before processing the effect
-        if deadline and datetime.now(UTC) >= deadline:
-            pending_throw = JobTimeout()
+            current = None
+            for name in job.context.acquired:
+                yield ERelease(name=name)
+            yield EJobComplete(
+                result=exc.value, reply_to=job.reply_to, nonce=job.parent_nonce
+            )
+            handler_value = None
+            pending_throw = None
+            continue
+        except Exception as exc:
+            current = None
+            for name in job.context.acquired:
+                yield ERelease(name=name)
+            error = exc if isinstance(exc, (JobError, JobTimeout)) else JobError(exc)
+            yield EJobFail(error=error, reply_to=job.reply_to, nonce=job.parent_nonce)
+            handler_value = None
+            pending_throw = None
             continue
 
-        try:
-            if not hasattr(effect, "tag"):
-                raise InvalidEffect(f"job yielded non-Effect value: {effect!r}")
-            elif effect.tag in handlers:
-                handler_value = yield from handlers[effect.tag](effect)
-            elif isinstance(effect, ZahirCoordinationEffect):
-                raise InvalidEffect(
-                    f"{type(effect).__name__} cannot be yielded directly in a job"
-                )
-            elif isinstance(effect, BLOCKED_EFFECTS):
-                raise InvalidEffect(
-                    f"{type(effect).__name__} cannot be yielded directly in a job"
-                )
-            else:
-                handler_value = yield effect
-        except THROWABLE as exc:
-            pending_throw = exc
-
-
-def _worker_body(
-    overseer: Pid, coordination_context: CoordinationHandlerContext, ctx: Any
-) -> Generator[Any, Any, None]:
-    """Worker main loop — yields coordination effects for job lifecycle."""
-
-    while True:
-        # ask for a job, blocking until one is available
-        job = yield EGetJob()
-
-        # job acquired
-        fn_name, args, reply_to, timeout_ms, nonce = job
-        deadline = (
-            datetime.now(UTC) + timedelta(milliseconds=timeout_ms)
-            if timeout_ms
-            else None
-        )
-        job_context = JobHandlerContext(overseer=overseer, handler_wrappers=ctx.handler_wrappers)
-
-        timed_out = False
-        job_error: JobError | None = None
-        result: Any = None
-        try:
-            # try run the job
-            if fn_name not in ctx._scope:
-                raise KeyError(f"job {fn_name!r} not found in scope")
-
-            result = yield from evaluate_job(
-                ctx._scope[fn_name](ctx, *args), job_context, deadline
+        # ── Handle the yielded effect ─────────────────────────────────────────────
+        if isinstance(effect, EAwait):
+            # Suspend the current job and enqueue the child
+            child_nonce = _alloc()
+            parent_key = _alloc()
+            child_to_parent[child_nonce] = parent_key
+            waiting[parent_key] = _WaitingJob(
+                eval_gen=job.eval_gen,
+                context=job.context,
+                reply_to=job.reply_to,
+                parent_nonce=job.parent_nonce,
+                awaiting={child_nonce},
+                results={},
+                result_order=None,
             )
-        except JobTimeout:
-            timed_out = True
-        except JobError as exc:
-            job_error = exc
-        except Exception as exc:
-            job_error = JobError(exc)
+            yield EEnqueue(
+                fn_name=effect.fn_name,
+                args=effect.args,
+                reply_to=me_bytes,
+                timeout_ms=effect.timeout_ms,
+                nonce=child_nonce,
+            )
+            current = None
+            handler_value = None
+            pending_throw = None
 
-        # release any concurrency slots acquired during the job
-        for name in job_context.acquired:
-            yield ERelease(name=name)
+        elif isinstance(effect, EAwaitAll):
+            # Suspend the current job and enqueue all children
+            child_nonces = [_alloc() for _ in effect.effects]
+            parent_key = _alloc()
+            for cn, eff in zip(child_nonces, effect.effects):
+                child_to_parent[cn] = parent_key
+                yield EEnqueue(
+                    fn_name=eff.fn_name,
+                    args=eff.args,
+                    reply_to=me_bytes,
+                    timeout_ms=eff.timeout_ms,
+                    nonce=cn,
+                )
+            waiting[parent_key] = _WaitingJob(
+                eval_gen=job.eval_gen,
+                context=job.context,
+                reply_to=job.reply_to,
+                parent_nonce=job.parent_nonce,
+                awaiting=set(child_nonces),
+                results={},
+                result_order=child_nonces,
+            )
+            current = None
+            handler_value = None
+            pending_throw = None
 
-        if timed_out:
-            # send the timeout error to the caller
-            yield EJobFail(error=JobTimeout(), reply_to=reply_to, nonce=nonce)
-        elif job_error is not None:
-            # send the job error to the caller
-            yield EJobFail(error=job_error, reply_to=reply_to, nonce=nonce)
         else:
-            # send the result to the overseer waiting for it, and inform the overseer we're done
-            yield EJobComplete(result=result, reply_to=reply_to, nonce=nonce)
+            # All other effects (tertius effects, ESleep, etc.) pass through to the runtime
+            handler_value = yield effect
 
 
 def worker(
@@ -125,6 +237,6 @@ def worker(
 
     coordination_context = CoordinationHandlerContext(overseer=overseer)
     yield from handle(
-        _worker_body(overseer, coordination_context, ctx),
+        _worker_body(overseer, ctx),
         **make_coordination_handlers(coordination_context),
     )

@@ -5,7 +5,7 @@ from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
 
 @dataclass
 class JobStats:
-    total: int = 0      # jobs enqueued (incremented at start, before we know the outcome)
+    total: int = 0  # jobs enqueued (incremented at start, before we know the outcome)
     started: int = 0
     completed: int = 0
     failed: int = 0

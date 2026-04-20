@@ -20,6 +20,7 @@ def wrap(fn):
             except Exception as exc:
                 yield EEmit({"event": "end", "error": str(exc)}) # error teardown
     """
+
     def wrapper(handler):
         def wrapped(effect) -> Generator[Any, Any, Any]:
             gen = fn(effect)

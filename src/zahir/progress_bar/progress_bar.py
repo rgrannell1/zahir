@@ -120,7 +120,9 @@ class ZahirProgressBar:
         total = sum(s.total for s in self._state.jobs.values())
         processed = sum(s.processed for s in self._state.jobs.values())
         desc = workflow_description(total, processed, self._estimator.format_eta())
-        self._progress.update(self._workflow_task, description=desc, completed=processed, total=total)
+        self._progress.update(
+            self._workflow_task, description=desc, completed=processed, total=total
+        )
 
     def _ensure_job_task(self, fn_name: str) -> TaskID:
         if fn_name not in self._job_tasks:

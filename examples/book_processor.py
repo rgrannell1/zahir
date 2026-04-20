@@ -1,4 +1,3 @@
-
 import pathlib
 from collections.abc import Generator
 from typing import Any
@@ -23,7 +22,9 @@ def _longest_word(lines: list[str]) -> str:
     words = " ".join(lines).split()
     return max(words, key=len) if words else ""
 
+
 # The jobs
+
 
 def chapter_processor(ctx: JobContext, lines: list[str]) -> Generator[Any, Any, str]:
     """Return the longest word in this chunk of lines."""
@@ -52,11 +53,13 @@ def book_processor(ctx: JobContext, file_path: str) -> Generator[Any, Any, None]
     uppercased: list[str] = yield ctx.scope.uppercase_words(sorted(longest_words))
     yield EEmit({"longest_words": uppercased})
 
+
 _SCOPE = {
     "book_processor": book_processor,
     "chapter_processor": chapter_processor,
     "uppercase_words": uppercase_words,
 }
+
 
 class BookContext(JobContext):
     handler_wrappers = [make_telemetry()]
@@ -64,6 +67,12 @@ class BookContext(JobContext):
 
 if __name__ == "__main__":
     for _ in with_progress(
-        evaluate("book_processor", (str(FILE_PATH),), scope=_SCOPE, n_workers=4, context=BookContext)
+        evaluate(
+            "book_processor",
+            (str(FILE_PATH),),
+            scope=_SCOPE,
+            n_workers=4,
+            context=BookContext,
+        )
     ):
         pass

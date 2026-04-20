@@ -1,4 +1,4 @@
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from typing import Any
 
 from tertius import ESleep, ESpawn, Pid, Scope, mcall, run
@@ -13,7 +13,7 @@ from zahir.core.evaluate.worker import worker
 class JobContext:
     _scope: Scope
     scope: ScopeProxy
-    handler_wrappers: tuple = ()
+    handler_wrappers: Sequence = []
 
 
 def _root(

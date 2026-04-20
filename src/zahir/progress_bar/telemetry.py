@@ -73,15 +73,26 @@ def make_telemetry(before=None, after=None):
     span_id and timestamps are managed automatically. Exceptions from the handler
     are captured and recorded in ZahirSpanEnd.error before being re-raised.
     """
+
     def fn(effect):
         span_id = str(uuid.uuid4())
         start = time.time()
 
         yield EEmit(_span_start(span_id, effect, _before_attrs(before, effect), start))
         try:
-            result = yield                      # seam — handler runs here
-            yield EEmit(_span_end(span_id, effect, _after_attrs(after, effect, result), start, time.time()))
+            result = yield  # seam — handler runs here
+            yield EEmit(
+                _span_end(
+                    span_id,
+                    effect,
+                    _after_attrs(after, effect, result),
+                    start,
+                    time.time(),
+                )
+            )
         except Exception as exc:
-            yield EEmit(_span_end(span_id, effect, {}, start, time.time(), error=str(exc)))
+            yield EEmit(
+                _span_end(span_id, effect, {}, start, time.time(), error=str(exc))
+            )
 
     return wrap(fn)

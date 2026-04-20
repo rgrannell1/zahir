@@ -21,6 +21,7 @@ def _make_handler(return_value):
     def handler(effect):
         return return_value
         yield
+
     return handler
 
 
@@ -28,12 +29,17 @@ def _make_raising_handler(exc):
     def handler(effect):
         raise exc
         yield
+
     return handler
 
 
 def _emitted(effects):
     """Extract ZahirTelemetryEvent bodies from EEmit effects."""
-    return [e.body for e in effects if isinstance(e, EEmit) and isinstance(e.body, ZahirTelemetryEvent)]
+    return [
+        e.body
+        for e in effects
+        if isinstance(e, EEmit) and isinstance(e.body, ZahirTelemetryEvent)
+    ]
 
 
 # emitted event types
@@ -97,6 +103,7 @@ def test_end_event_has_positive_duration():
 
 def test_emits_span_end_with_error_on_exception():
     import pytest
+
     wrapper = make_telemetry()
     handler = wrapper(_make_raising_handler(ValueError("boom")))
     gen = handler(EAwait(fn_name="job_a"))

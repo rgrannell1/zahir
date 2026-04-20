@@ -90,6 +90,7 @@ class EEnqueue(ZahirCoordinationEffect[None]):
     tag: ClassVar[str] = "enqueue"
     fn_name: str
     args: tuple[Any, ...]
+    reply_to: bytes  # the requesting worker's PID bytes
     timeout_ms: int | None
     nonce: int | None  # None for EAwait; integer index for EAwaitAll
 
@@ -104,9 +105,36 @@ class ERelease(ZahirCoordinationEffect[None]):
 
 @dataclass
 class EGetJob(ZahirCoordinationEffect[Any]):
-    """Internal: request the next available job from the queue, blocking until one is available."""
+    """Internal: request work from the overseer — returns a new job, a buffered result, or None."""
 
     tag: ClassVar[str] = "get_job"
+    worker_pid_bytes: bytes = b""
+
+
+@dataclass
+class EAcquireSlot(ZahirCoordinationEffect[bool]):
+    """Internal: request a named concurrency slot from the overseer."""
+
+    tag: ClassVar[str] = "acquire_slot"
+    name: str
+    limit: int
+
+
+@dataclass
+class ESignal(ZahirCoordinationEffect[str]):
+    """Internal: query the current state of a named semaphore from the overseer."""
+
+    tag: ClassVar[str] = "signal"
+    name: str
+
+
+@dataclass
+class ESetSemaphoreState(ZahirCoordinationEffect[None]):
+    """Internal: write a new state for a named semaphore to the overseer."""
+
+    tag: ClassVar[str] = "set_semaphore_state"
+    name: str
+    state: str
 
 
 @dataclass

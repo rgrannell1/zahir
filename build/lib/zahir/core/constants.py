@@ -18,6 +18,7 @@ CPU_SAMPLE_INTERVAL_S = 0.1
 GET_JOB = "get_job"
 ENQUEUE = "enqueue"
 JOB_DONE = "job_done"
+JOB_FAILED = "job_failed"
 IS_DONE = "is_done"
 GET_ERROR = "get_error"
 ACQUIRE = "acquire"

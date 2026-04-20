@@ -40,6 +40,8 @@ def test_chained_awaits_with_identity_telemetry():
     """Proves an identity handler_wrapper does not alter behaviour across ten worker processes."""
 
     scope = {"chain_and_sum": chain_and_sum, "inc": inc}
-    events = list(evaluate("chain_and_sum", (), scope, n_workers=10, context=IdentityContext))
+    events = list(
+        evaluate("chain_and_sum", (), scope, n_workers=10, context=IdentityContext)
+    )
 
     assert events == [55]

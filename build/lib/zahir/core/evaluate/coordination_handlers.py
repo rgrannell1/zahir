@@ -3,9 +3,16 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any
 
-from tertius import ESend, ESelf, ESleep, Pid, mcall, mcast
+from tertius import ESelf, ESleep, Pid, mcall, mcast
 
-from zahir.core.constants import ENQUEUE, GET_JOB, JOB_DONE, RELEASE, WORKER_POLL_MS
+from zahir.core.constants import (
+    ENQUEUE,
+    GET_JOB,
+    JOB_DONE,
+    JOB_FAILED,
+    RELEASE,
+    WORKER_POLL_MS,
+)
 from zahir.core.effects import (
     EEnqueue,
     EGetJob,
@@ -26,42 +33,48 @@ def _handle_enqueue(
     """Enqueue a child job with the overseer, routing the reply back to this worker."""
 
     me: Pid = yield ESelf()
-    yield from mcast(context.overseer, (ENQUEUE, effect.fn_name, effect.args, bytes(me), effect.timeout_ms, effect.nonce))
+    yield from mcast(
+        context.overseer,
+        (
+            ENQUEUE,
+            effect.fn_name,
+            effect.args,
+            bytes(me),
+            effect.timeout_ms,
+            effect.nonce,
+        ),
+    )
 
 
 def _handle_get_job(
     context: CoordinationHandlerContext, effect: EGetJob
 ) -> Generator[Any, Any, Any]:
-    """Poll the overseer for a job, sleeping between attempts until one is available."""
+    """Ask the overseer for work — returns a new job, a buffered result, or None."""
 
-    while True:
-        job = yield from mcall(context.overseer, GET_JOB)
-        if job is not None:
-            return job
-        # no job available yet — sleep before retrying
-        yield ESleep(ms=WORKER_POLL_MS)
+    return (yield from mcall(context.overseer, (GET_JOB, effect.worker_pid_bytes)))
 
 
 def _handle_job_complete(
     context: CoordinationHandlerContext, effect: EJobComplete
 ) -> Generator[Any, Any, None]:
-    """Route the result to the caller and inform the overseer the job is done."""
+    """Route the result to the parent worker via the overseer and decrement pending."""
 
-    if effect.reply_to is not None:
-        yield ESend(Pid.from_bytes(effect.reply_to), (effect.nonce, effect.result))
-    yield from mcast(context.overseer, JOB_DONE)
+    yield from mcast(
+        context.overseer, (JOB_DONE, effect.reply_to, effect.nonce, effect.result)
+    )
 
 
 def _handle_job_fail(
     context: CoordinationHandlerContext, effect: EJobFail
 ) -> Generator[Any, Any, None]:
-    """Route the failure to the caller and inform the overseer the job is done."""
+    """Route the failure to the parent worker via the overseer, or record it as root error."""
 
     if effect.reply_to is not None:
-        yield ESend(Pid.from_bytes(effect.reply_to), (effect.nonce, effect.error))
-        yield from mcast(context.overseer, JOB_DONE)
+        yield from mcast(
+            context.overseer, (JOB_DONE, effect.reply_to, effect.nonce, effect.error)
+        )
     else:
-        yield from mcast(context.overseer, (JOB_DONE, effect.error))
+        yield from mcast(context.overseer, (JOB_FAILED, effect.error))
 
 
 def _handle_release(

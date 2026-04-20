@@ -3,15 +3,27 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any
 
-from tertius import ESend, ESelf, ESleep, Pid, mcall, mcast
+from tertius import ESleep, Pid, mcall, mcast
 
-from zahir.core.constants import ENQUEUE, GET_JOB, JOB_DONE, RELEASE, WORKER_POLL_MS
+from zahir.core.constants import (
+    ACQUIRE,
+    ENQUEUE,
+    GET_JOB,
+    JOB_DONE,
+    JOB_FAILED,
+    RELEASE,
+    SET_SEMAPHORE,
+    SIGNAL,
+)
 from zahir.core.effects import (
+    EAcquireSlot,
     EEnqueue,
     EGetJob,
     EJobComplete,
     EJobFail,
     ERelease,
+    ESetSemaphoreState,
+    ESignal,
 )
 
 
@@ -25,43 +37,48 @@ def _handle_enqueue(
 ) -> Generator[Any, Any, None]:
     """Enqueue a child job with the overseer, routing the reply back to this worker."""
 
-    me: Pid = yield ESelf()
-    yield from mcast(context.overseer, (ENQUEUE, effect.fn_name, effect.args, bytes(me), effect.timeout_ms, effect.nonce))
+    yield from mcast(
+        context.overseer,
+        (
+            ENQUEUE,
+            effect.fn_name,
+            effect.args,
+            effect.reply_to,
+            effect.timeout_ms,
+            effect.nonce,
+        ),
+    )
 
 
 def _handle_get_job(
     context: CoordinationHandlerContext, effect: EGetJob
 ) -> Generator[Any, Any, Any]:
-    """Poll the overseer for a job, sleeping between attempts until one is available."""
+    """Ask the overseer for work — returns a new job, a buffered result, or None."""
 
-    while True:
-        job = yield from mcall(context.overseer, GET_JOB)
-        if job is not None:
-            return job
-        # no job available yet — sleep before retrying
-        yield ESleep(ms=WORKER_POLL_MS)
+    return (yield from mcall(context.overseer, (GET_JOB, effect.worker_pid_bytes)))
 
 
 def _handle_job_complete(
     context: CoordinationHandlerContext, effect: EJobComplete
 ) -> Generator[Any, Any, None]:
-    """Route the result to the caller and inform the overseer the job is done."""
+    """Route the result to the parent worker via the overseer and decrement pending."""
 
-    if effect.reply_to is not None:
-        yield ESend(Pid.from_bytes(effect.reply_to), (effect.nonce, effect.result))
-    yield from mcast(context.overseer, JOB_DONE)
+    yield from mcast(
+        context.overseer, (JOB_DONE, effect.reply_to, effect.nonce, effect.result)
+    )
 
 
 def _handle_job_fail(
     context: CoordinationHandlerContext, effect: EJobFail
 ) -> Generator[Any, Any, None]:
-    """Route the failure to the caller and inform the overseer the job is done."""
+    """Route the failure to the parent worker via the overseer, or record it as root error."""
 
     if effect.reply_to is not None:
-        yield ESend(Pid.from_bytes(effect.reply_to), (effect.nonce, effect.error))
-        yield from mcast(context.overseer, JOB_DONE)
+        yield from mcast(
+            context.overseer, (JOB_DONE, effect.reply_to, effect.nonce, effect.error)
+        )
     else:
-        yield from mcast(context.overseer, (JOB_DONE, effect.error))
+        yield from mcast(context.overseer, (JOB_FAILED, effect.error))
 
 
 def _handle_release(
@@ -72,13 +89,40 @@ def _handle_release(
     yield from mcast(context.overseer, (RELEASE, effect.name))
 
 
+def _handle_acquire_slot(
+    context: CoordinationHandlerContext, effect: EAcquireSlot
+) -> Generator[Any, Any, bool]:
+    """Request a named concurrency slot from the overseer."""
+
+    return (yield from mcall(context.overseer, (ACQUIRE, effect.name, effect.limit)))
+
+
+def _handle_signal(
+    context: CoordinationHandlerContext, effect: ESignal
+) -> Generator[Any, Any, str]:
+    """Query the current state of a named semaphore from the overseer."""
+
+    return (yield from mcall(context.overseer, (SIGNAL, effect.name)))
+
+
+def _handle_set_semaphore_state(
+    context: CoordinationHandlerContext, effect: ESetSemaphoreState
+) -> Generator[Any, Any, None]:
+    """Write a new semaphore state to the overseer."""
+
+    yield from mcast(context.overseer, (SET_SEMAPHORE, effect.name, effect.state))
+
+
 def make_coordination_handlers(context: CoordinationHandlerContext) -> dict[str, Any]:
     """Create coordination handlers for the worker process — intercept job lifecycle effects."""
 
     return {
+        EAcquireSlot.tag: partial(_handle_acquire_slot, context),
         EEnqueue.tag: partial(_handle_enqueue, context),
         EGetJob.tag: partial(_handle_get_job, context),
         EJobComplete.tag: partial(_handle_job_complete, context),
         EJobFail.tag: partial(_handle_job_fail, context),
         ERelease.tag: partial(_handle_release, context),
+        ESetSemaphoreState.tag: partial(_handle_set_semaphore_state, context),
+        ESignal.tag: partial(_handle_signal, context),
     }

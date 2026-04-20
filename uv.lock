@@ -296,6 +296,7 @@ requires-dist = [{ name = "pyzmq", specifier = ">=26.0.0" }]
 dev = [
     { name = "hypothesis", specifier = ">=6.152.1" },
     { name = "orbis", editable = "../orbis" },
+    { name = "pyright", specifier = ">=1.1.408" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
 ]

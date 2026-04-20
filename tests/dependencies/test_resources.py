@@ -103,7 +103,9 @@ def test_high_then_low_usage_yields_satisfied():
 
     calls = iter([_high_usage, _low_usage])
 
-    with patch("zahir.core.dependencies.resources._get_usage", lambda r: next(calls)(r)):
+    with patch(
+        "zahir.core.dependencies.resources._get_usage", lambda r: next(calls)(r)
+    ):
         with time_machine.travel(NOW, tick=False):
             gen = resource_dependency("cpu", max_percent=50.0)
             assert isinstance(next(gen), ESleep)

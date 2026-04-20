@@ -1,32 +1,83 @@
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from functools import partial, reduce
 from typing import Any
 
 from tertius import EReceive, Pid, mcall, mcast
 
-from zahir.core.constants import ACQUIRE, SET_SEMAPHORE, SIGNAL
+from zahir.core.constants import (
+    ACQUIRE,
+    BLOCKED_EFFECTS,
+    SET_SEMAPHORE,
+    SIGNAL,
+    THROWABLE,
+)
 from zahir.core.effects import (
     EAcquire,
-    EAwait,
-    EAwaitAll,
-    EEnqueue,
+    EGetSemaphore,
     EImpossible,
     ESatisfied,
     ESetSemaphore,
-    ESignal,
+    ZahirCoordinationEffect,
 )
-from zahir.core.exceptions import JobError, JobTimeout
+from zahir.core.exceptions import InvalidEffect, JobError, JobTimeout
 
 
 @dataclass
 class JobHandlerContext:
     overseer: Pid
-    # acquired tracks concurrency slots taken during this job; it is a mutable
-    # side-channel shared with _worker_body, which reads it after job completion
-    # to yield ERelease effects. this coupling is a known limitation to be addressed.
+    scope: dict = field(default_factory=dict)
+    job_ctx: Any = None
     acquired: list[str] = field(default_factory=list)
-    handler_wrappers: tuple = ()
+    handler_wrappers: Sequence = field(default_factory=list)
+
+
+def evaluate_job(
+    job_gen: Generator[Any, Any, Any],
+    context: JobHandlerContext,
+    deadline: datetime | None,
+) -> Generator[Any, Any, Any]:
+    handlers = make_job_handlers(context)
+    handler_value: Any = None
+    pending_throw: Exception | None = None
+
+    while True:
+        try:
+            # Throw if pending back into the job
+            effect = (
+                job_gen.throw(pending_throw)
+                if pending_throw
+                else job_gen.send(handler_value)
+            )
+            pending_throw = None
+        except StopIteration as exc:
+            # Job is done, return the value
+            return exc.value
+
+        # Check for timeout before processing the effect
+        if deadline and datetime.now(UTC) >= deadline:
+            pending_throw = JobTimeout()
+            continue
+
+        try:
+            if not hasattr(effect, "tag"):
+                raise InvalidEffect(f"job yielded non-Effect value: {effect!r}")
+            elif effect.tag in handlers:
+                handler_value = yield from handlers[effect.tag](effect)
+            elif isinstance(effect, ZahirCoordinationEffect):
+                raise InvalidEffect(
+                    f"{type(effect).__name__} cannot be yielded directly in a job"
+                )
+            elif isinstance(effect, BLOCKED_EFFECTS):
+                raise InvalidEffect(
+                    f"{type(effect).__name__} cannot be yielded directly in a job"
+                )
+            else:
+                # EAwait and EAwaitAll fall through here; the worker body intercepts them
+                handler_value = yield effect
+        except THROWABLE as exc:
+            pending_throw = exc
 
 
 def _handle_event(
@@ -51,53 +102,6 @@ def _unwrap_reply(body: Any) -> Any:
     return body
 
 
-def _handle_await(
-    context: JobHandlerContext, effect: EAwait
-) -> Generator[Any, Any, Any]:
-    """Enqueue the awaited job and wait for the reply, unwrapping it and raising appropriate exceptions on failure."""
-
-    # enqueue the job, routing the reply back to this worker
-    yield EEnqueue(fn_name=effect.fn_name, args=effect.args, timeout_ms=effect.timeout_ms, nonce=None)
-
-    # wait for the reply and unwrap it, raising exceptions as needed
-    envelope = yield EReceive()
-    _nonce, body = envelope.body
-
-    return _unwrap_reply(body)
-
-
-def _handle_await_all(
-    context: JobHandlerContext, effect: EAwaitAll
-) -> Generator[Any, Any, list[Any]]:
-    """Enqueue multiple awaited jobs and wait for their replies, unwrapping them and raising appropriate exceptions on failure."""
-
-    # enqueue each job, using the index as a nonce to correlate replies
-    for idx, eff in enumerate(effect.effects):
-        yield EEnqueue(fn_name=eff.fn_name, args=eff.args, timeout_ms=eff.timeout_ms, nonce=idx)
-
-    # populate a blank list for the results
-    results: list[Any] = [None] * len(effect.effects)
-    first_error: Exception | None = None
-
-    for _ in effect.effects:
-        # wait for each reply and unwrap it, raising exceptions as needed. if multiple jobs error, we'll raise the first one we see.
-        envelope = yield EReceive()
-        nonce, body = envelope.body
-
-        try:
-            results[nonce] = _unwrap_reply(body)
-        except (JobTimeout, JobError) as exc:
-            # let's throw the first error we see.
-            if first_error is None:
-                first_error = exc
-
-    # if there were any errors, raise the first one we saw. otherwise return the list of results.
-    if first_error is not None:
-        raise first_error
-
-    return results
-
-
 def _handle_acquire(
     context: JobHandlerContext, effect: EAcquire
 ) -> Generator[Any, Any, bool]:
@@ -111,7 +115,7 @@ def _handle_acquire(
 
 
 def _handle_signal(
-    context: JobHandlerContext, effect: ESignal
+    context: JobHandlerContext, effect: EGetSemaphore
 ) -> Generator[Any, Any, str]:
     """Get the current state of a named semaphore."""
 
@@ -132,10 +136,8 @@ def make_job_handlers(context: JobHandlerContext) -> dict[str, Any]:
     handlers = {
         ESatisfied.tag: partial(_handle_event, context),
         EImpossible.tag: partial(_handle_event, context),
-        EAwait.tag: partial(_handle_await, context),
-        EAwaitAll.tag: partial(_handle_await_all, context),
         EAcquire.tag: partial(_handle_acquire, context),
-        ESignal.tag: partial(_handle_signal, context),
+        EGetSemaphore.tag: partial(_handle_signal, context),
         ESetSemaphore.tag: partial(_handle_set_semaphore, context),
     }
     return {

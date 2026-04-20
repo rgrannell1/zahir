@@ -7,11 +7,14 @@ from zahir.core.evaluate.overseer_handlers import (
     _get_job,
     _is_done,
     _job_done,
+    _job_failed,
     _release,
     _set_semaphore,
     _signal,
 )
 from zahir.core.zahir_types import JobSpec, OverseerState
+
+WORKER = b"worker-pid"
 
 
 def _state(**kwargs) -> OverseerState:
@@ -22,28 +25,28 @@ def _state(**kwargs) -> OverseerState:
 # _get_job
 
 
-def test_get_job_returns_none_when_queue_empty():
-    """Proves _get_job returns None when no jobs are queued."""
+def test_get_job_returns_none_when_queue_empty_and_no_results():
+    """Proves _get_job returns None when no jobs are queued and no results are buffered."""
 
-    state, job = _get_job(_state())
+    state, job = _get_job(_state(), WORKER)
     assert job is None
 
 
-def test_get_job_returns_job_tuple():
-    """Proves _get_job returns fn_name, args, reply_to, timeout_ms, and nonce from the queue."""
+def test_get_job_returns_job_tuple_from_queue():
+    """Proves _get_job returns a ("job", ...) tuple from the queue when no results are pending."""
 
     spec = JobSpec(
         fn_name="process", args=(1,), reply_to=None, timeout_ms=5000, nonce=3
     )
-    state, job = _get_job(_state(queue=deque([spec])))
-    assert job == ("process", (1,), None, 5000, 3)
+    state, job = _get_job(_state(queue=deque([spec])), WORKER)
+    assert job == ("job", "process", (1,), None, 5000, 3)
 
 
 def test_get_job_removes_job_from_queue():
     """Proves _get_job pops the job from the queue."""
 
     spec = JobSpec(fn_name="fn", args=(), reply_to=None)
-    state, _ = _get_job(_state(queue=deque([spec])))
+    state, _ = _get_job(_state(queue=deque([spec])), WORKER)
     assert len(state.queue) == 0
 
 
@@ -52,8 +55,30 @@ def test_get_job_preserves_fifo_order():
 
     specs = [JobSpec(fn_name=f"fn{i}", args=(), reply_to=None) for i in range(3)]
     state = _state(queue=deque(specs))
-    _, job = _get_job(state)
-    assert job[0] == "fn0"
+    _, job = _get_job(state, WORKER)
+    assert job[1] == "fn0"
+
+
+def test_get_job_returns_buffered_result_before_queue():
+    """Proves _get_job returns a pending result for this worker before taking a new job from the queue."""
+
+    from collections import deque as _deque
+
+    pending = {WORKER: _deque([(42, "result")])}
+    spec = JobSpec(fn_name="fn", args=(), reply_to=None)
+    state, work = _get_job(_state(queue=deque([spec]), pending_results=pending), WORKER)
+    assert work == ("result", 42, "result")
+
+
+def test_get_job_result_is_worker_specific():
+    """Proves _get_job only returns results addressed to the requesting worker."""
+
+    from collections import deque as _deque
+
+    other_worker = b"other-pid"
+    pending = {other_worker: _deque([(1, "result")])}
+    state, work = _get_job(_state(pending_results=pending), WORKER)
+    assert work is None
 
 
 # _enqueue
@@ -87,24 +112,49 @@ def test_enqueue_stores_timeout_ms():
 def test_job_done_decrements_pending():
     """Proves _job_done decrements the pending count."""
 
-    state = _job_done(_state(pending=3))
+    state = _job_done(_state(pending=3), WORKER, 1, "result")
     assert state.pending == 2
 
 
-def test_job_done_stores_error_as_root_error():
-    """Proves _job_done records the error when one is provided."""
+def test_job_done_buffers_result_for_worker():
+    """Proves _job_done stores (nonce, body) in pending_results for the given worker."""
+
+    state = _job_done(_state(pending=1), WORKER, 7, "result")
+    assert list(state.pending_results[WORKER]) == [(7, "result")]
+
+
+def test_job_done_with_none_reply_to_skips_buffering():
+    """Proves _job_done with reply_to=None (root job) only decrements pending without buffering."""
+
+    state = _job_done(_state(pending=1), None, None, "result")
+    assert state.pending == 0
+    assert not state.pending_results
+
+
+# _job_failed
+
+
+def test_job_failed_decrements_pending():
+    """Proves _job_failed decrements the pending count."""
+
+    state = _job_failed(_state(pending=2), ValueError("boom"))
+    assert state.pending == 1
+
+
+def test_job_failed_stores_root_error():
+    """Proves _job_failed records the error as root_error."""
 
     error = ValueError("boom")
-    state = _job_done(_state(pending=1), error=error)
+    state = _job_failed(_state(pending=1), error)
     assert state.root_error is error
 
 
-def test_job_done_does_not_overwrite_existing_root_error():
-    """Proves _job_done keeps the first error and ignores subsequent ones."""
+def test_job_failed_does_not_overwrite_existing_root_error():
+    """Proves _job_failed keeps the first error and ignores subsequent ones."""
 
     first = ValueError("first")
     second = ValueError("second")
-    state = _job_done(_state(pending=2, root_error=first), error=second)
+    state = _job_failed(_state(pending=2, root_error=first), second)
     assert state.root_error is first
 
 

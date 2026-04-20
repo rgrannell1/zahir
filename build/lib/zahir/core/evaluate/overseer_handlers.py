@@ -1,3 +1,4 @@
+from collections import deque
 from typing import Any
 
 from zahir.core.constants import (
@@ -7,6 +8,7 @@ from zahir.core.constants import (
     GET_JOB,
     IS_DONE,
     JOB_DONE,
+    JOB_FAILED,
     RELEASE,
     SET_SEMAPHORE,
     SIGNAL,
@@ -14,12 +16,26 @@ from zahir.core.constants import (
 from zahir.core.zahir_types import JobSpec, OverseerState
 
 
-def _get_job(state: OverseerState) -> tuple[OverseerState, Any]:
-    """Get the next job from the queue, if any. This is used by workers to fetch new jobs to process."""
+def _get_job(
+    state: OverseerState, worker_pid_bytes: bytes
+) -> tuple[OverseerState, Any]:
+    """Return a buffered result for this worker if one exists, otherwise the next queued job, otherwise None."""
+
+    results = state.pending_results.get(worker_pid_bytes)
+    if results:
+        nonce, body = results.popleft()
+        return state, ("result", nonce, body)
 
     if state.queue:
         job = state.queue.popleft()
-        return state, (job.fn_name, job.args, job.reply_to, job.timeout_ms, job.nonce)
+        return state, (
+            "job",
+            job.fn_name,
+            job.args,
+            job.reply_to,
+            job.timeout_ms,
+            job.nonce,
+        )
 
     return state, None
 
@@ -78,11 +94,27 @@ def _enqueue(
     return state
 
 
-def _job_done(state: OverseerState, error: Exception | None = None) -> OverseerState:
-    """Mark a job as done, optionally with an error. If there was an error and we don't already have a root error, set it."""
+def _job_done(
+    state: OverseerState, reply_to_bytes: bytes | None, nonce: Any, body: Any
+) -> OverseerState:
+    """Decrement pending and buffer the result for the waiting parent worker, if any."""
+
     state.pending -= 1
 
-    if error is not None and state.root_error is None:
+    if reply_to_bytes is not None:
+        if reply_to_bytes not in state.pending_results:
+            state.pending_results[reply_to_bytes] = deque()
+        state.pending_results[reply_to_bytes].append((nonce, body))
+
+    return state
+
+
+def _job_failed(state: OverseerState, error: Exception) -> OverseerState:
+    """Decrement pending and record the root error for a failed root job."""
+
+    state.pending -= 1
+
+    if state.root_error is None:
         state.root_error = error
 
     return state
@@ -128,6 +160,7 @@ CALL_HANDLERS = {
 CAST_HANDLERS = {
     ENQUEUE: _enqueue,
     JOB_DONE: _job_done,
+    JOB_FAILED: _job_failed,
     RELEASE: _release,
     SET_SEMAPHORE: _set_semaphore,
 }

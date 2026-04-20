@@ -42,14 +42,14 @@ class EAwait(ZahirJobEffect[Any]):
 
 
 @dataclass
-class ESignal(ZahirJobEffect[str]):
+class EGetSemaphore(ZahirJobEffect[str]):
     """Probe the current state of a named semaphore.
 
     Returns 'satisfied', 'unsatisfied', or 'impossible'.
     State is managed by the runner's GenServer and can be set externally.
     """
 
-    tag: ClassVar[str] = "signal"
+    tag: ClassVar[str] = "get_semaphore"
     name: str
 
 
@@ -104,9 +104,10 @@ class ERelease(ZahirCoordinationEffect[None]):
 
 @dataclass
 class EGetJob(ZahirCoordinationEffect[Any]):
-    """Internal: request the next available job from the queue, blocking until one is available."""
+    """Internal: request work from the overseer — returns a new job, a buffered result, or None."""
 
     tag: ClassVar[str] = "get_job"
+    worker_pid_bytes: bytes = b""
 
 
 @dataclass

@@ -70,8 +70,8 @@ def test_format_eta_returns_placeholder_when_no_duration_data():
 
 def test_format_eta_computes_from_in_flight_and_mean():
     est = TimeEstimator()
-    est.update(_end("job_a", 60_000.0))   # mean = 60s
-    est.update(_start("job_a"))           # 1 in flight
+    est.update(_end("job_a", 60_000.0))  # mean = 60s
+    est.update(_start("job_a"))  # 1 in flight
     assert est.format_eta() == "00:01:00"
 
 
@@ -80,7 +80,7 @@ def test_format_eta_multiplies_count_by_mean():
     est.update(_end("job_a", 10_000.0))
     est.update(_start("job_a"))
     est.update(_start("job_a"))
-    est.update(_start("job_a"))           # 3 in flight × 10s = 30s
+    est.update(_start("job_a"))  # 3 in flight × 10s = 30s
     assert est.format_eta() == "00:00:30"
 
 
@@ -88,8 +88,8 @@ def test_format_eta_sums_across_fn_names():
     est = TimeEstimator()
     est.update(_end("job_a", 30_000.0))
     est.update(_end("job_b", 30_000.0))
-    est.update(_start("job_a"))           # 30s
-    est.update(_start("job_b"))           # 30s → total 60s
+    est.update(_start("job_a"))  # 30s
+    est.update(_start("job_b"))  # 30s → total 60s
     assert est.format_eta() == "00:01:00"
 
 
@@ -104,20 +104,22 @@ def test_in_flight_decrements_on_end():
     est = TimeEstimator()
     est.update(_end("job_a", 1_000.0))
     est.update(_start("job_a"))
-    est.update(_end("job_a", 1_000.0))    # clears in-flight
+    est.update(_end("job_a", 1_000.0))  # clears in-flight
     assert est.format_eta() == "--:--:--"
 
 
 def test_in_flight_clamps_to_zero_on_out_of_order_end():
     """End events can arrive before start due to concurrency; count must not go negative."""
     est = TimeEstimator()
-    est.update(_end("job_a", 1_000.0))    # end before start
+    est.update(_end("job_a", 1_000.0))  # end before start
     est.update(_end("job_a", 1_000.0))
     assert est.format_eta() == "--:--:--"
 
 
 def test_event_without_fn_name_is_ignored():
     est = TimeEstimator()
-    event = ZahirTelemetryEvent(span_id="s", tag="t", event="start", timestamp=0.0, attributes={})
+    event = ZahirTelemetryEvent(
+        span_id="s", tag="t", event="start", timestamp=0.0, attributes={}
+    )
     est.update(event)
     assert est.format_eta() == "--:--:--"

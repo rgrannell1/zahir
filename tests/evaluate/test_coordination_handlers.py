@@ -2,17 +2,38 @@ from unittest.mock import patch
 
 import pytest
 
-from tertius import ESend, ESelf, ESleep, Pid
+from tertius import ESleep, Pid
 
-from zahir.core.constants import ENQUEUE, GET_JOB, JOB_DONE, RELEASE
-from zahir.core.effects import EEnqueue, EGetJob, EJobComplete, EJobFail, ERelease
+from zahir.core.constants import (
+    ACQUIRE,
+    ENQUEUE,
+    GET_JOB,
+    JOB_DONE,
+    JOB_FAILED,
+    RELEASE,
+    SET_SEMAPHORE,
+    SIGNAL,
+)
+from zahir.core.effects import (
+    EAcquireSlot,
+    EEnqueue,
+    EGetJob,
+    EJobComplete,
+    EJobFail,
+    ERelease,
+    ESetSemaphoreState,
+    ESignal,
+)
 from zahir.core.evaluate.coordination_handlers import (
     CoordinationHandlerContext,
+    _handle_acquire_slot,
     _handle_enqueue,
     _handle_get_job,
     _handle_job_complete,
     _handle_job_fail,
     _handle_release,
+    _handle_set_semaphore_state,
+    _handle_signal,
     make_coordination_handlers,
 )
 from zahir.core.exceptions import JobError, JobTimeout
@@ -21,6 +42,7 @@ from tests.evaluate.mocks import ME, OVERSEER, mock_mcall, mock_mcast
 CTX = CoordinationHandlerContext(overseer=OVERSEER)
 
 REPLY_TO = bytes(ME)
+WORKER_PID = b"worker-pid"
 
 
 def _drive(gen):
@@ -39,14 +61,6 @@ def _drive(gen):
 # _handle_enqueue
 
 
-def test_handle_enqueue_first_yields_eself():
-    """Proves _handle_enqueue first yields ESelf to obtain the worker's own pid."""
-
-    with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
-        gen = _handle_enqueue(CTX, EEnqueue(fn_name="child", args=(), timeout_ms=None, nonce=None))
-        assert isinstance(next(gen), ESelf)
-
-
 def test_handle_enqueue_sends_correct_message_to_overseer():
     """Proves _handle_enqueue sends the correct ENQUEUE tuple to the overseer."""
 
@@ -58,73 +72,51 @@ def test_handle_enqueue_sends_correct_message_to_overseer():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        gen = _handle_enqueue(CTX, EEnqueue(fn_name="child", args=(1,), timeout_ms=500, nonce=3))
-        next(gen)                  # ESelf
-        with pytest.raises(StopIteration):
-            gen.send(ME)           # provide our pid, triggers mcast then handler finishes
+        _drive(
+            _handle_enqueue(
+                CTX,
+                EEnqueue(
+                    fn_name="child",
+                    args=(1,),
+                    reply_to=WORKER_PID,
+                    timeout_ms=500,
+                    nonce=3,
+                ),
+            )
+        )
 
-    pid, body = sent[0]
-    assert pid == OVERSEER
-    assert body[0] == ENQUEUE
-    assert body[1] == "child"
-    assert body[2] == (1,)
-    assert body[4] == 500
-    assert body[5] == 3
+    assert sent[0] == (OVERSEER, (ENQUEUE, "child", (1,), WORKER_PID, 500, 3))
 
 
 # _handle_get_job
 
 
-def test_handle_get_job_returns_job_when_available():
-    """Proves _handle_get_job returns the job immediately when the overseer has one."""
+def test_handle_get_job_returns_work_from_overseer():
+    """Proves _handle_get_job returns whatever the overseer replies with."""
 
-    job = ("fn", (), None, None, None)
-    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(job)):
-        gen = _handle_get_job(CTX, EGetJob())
+    work = ("job", "fn", (), None, None, None)
+    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(work)):
+        gen = _handle_get_job(CTX, EGetJob(worker_pid_bytes=WORKER_PID))
         with pytest.raises(StopIteration) as exc:
             next(gen)
-        assert exc.value.value == job
+        assert exc.value.value == work
 
 
-def test_handle_get_job_sleeps_then_retries_when_none():
-    """Proves _handle_get_job yields ESleep and retries when no job is available."""
+def test_handle_get_job_returns_none_when_overseer_has_nothing():
+    """Proves _handle_get_job returns None without looping when the overseer has nothing."""
 
-    job = ("fn", (), None, None, None)
-    responses = iter([None, job])
-
-    def _mcall_sequence(pid, body):
-        return next(responses)
-        yield
-
-    with patch("zahir.core.evaluate.coordination_handlers.mcall", _mcall_sequence):
-        gen = _handle_get_job(CTX, EGetJob())
-        effect = next(gen)
-        assert isinstance(effect, ESleep)
+    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(None)):
+        gen = _handle_get_job(CTX, EGetJob(worker_pid_bytes=WORKER_PID))
+        with pytest.raises(StopIteration) as exc:
+            next(gen)
+        assert exc.value.value is None
 
 
 # _handle_job_complete
 
 
-def test_handle_job_complete_sends_result_to_reply_to():
-    """Proves _handle_job_complete yields ESend with the result when reply_to is set."""
-
-    with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
-        gen = _handle_job_complete(CTX, EJobComplete(result="done", reply_to=REPLY_TO, nonce=7))
-        effect = next(gen)
-        assert isinstance(effect, ESend)
-        assert effect.body == (7, "done")
-
-
-def test_handle_job_complete_skips_esend_when_no_reply_to():
-    """Proves _handle_job_complete does not yield ESend when reply_to is None."""
-
-    with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
-        effects = _drive(_handle_job_complete(CTX, EJobComplete(result="done", reply_to=None, nonce=None)))
-        assert not any(isinstance(eff, ESend) for eff in effects)
-
-
-def test_handle_job_complete_mcasts_job_done():
-    """Proves _handle_job_complete always sends JOB_DONE to the overseer."""
+def test_handle_job_complete_mcasts_job_done_with_result():
+    """Proves _handle_job_complete sends (JOB_DONE, reply_to, nonce, result) to the overseer."""
 
     sent = []
 
@@ -134,27 +126,40 @@ def test_handle_job_complete_mcasts_job_done():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        effects = _drive(_handle_job_complete(CTX, EJobComplete(result="done", reply_to=None, nonce=None)))
+        _drive(
+            _handle_job_complete(
+                CTX, EJobComplete(result="done", reply_to=REPLY_TO, nonce=7)
+            )
+        )
 
-    assert any(pid == OVERSEER and body == JOB_DONE for pid, body in sent)
+    assert sent[0] == (OVERSEER, (JOB_DONE, REPLY_TO, 7, "done"))
+
+
+def test_handle_job_complete_with_none_reply_to():
+    """Proves _handle_job_complete sends (JOB_DONE, None, None, result) for the root job."""
+
+    sent = []
+
+    def _capturing(pid, body):
+        sent.append((pid, body))
+        return None
+        yield
+
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
+        _drive(
+            _handle_job_complete(
+                CTX, EJobComplete(result="done", reply_to=None, nonce=None)
+            )
+        )
+
+    assert sent[0] == (OVERSEER, (JOB_DONE, None, None, "done"))
 
 
 # _handle_job_fail
 
 
-def test_handle_job_fail_sends_error_to_reply_to():
-    """Proves _handle_job_fail yields ESend with the error when reply_to is set."""
-
-    err = JobError(ValueError("boom"))
-    with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
-        gen = _handle_job_fail(CTX, EJobFail(error=err, reply_to=REPLY_TO, nonce=5))
-        effect = next(gen)
-        assert isinstance(effect, ESend)
-        assert effect.body == (5, err)
-
-
-def test_handle_job_fail_mcasts_job_done_with_reply_to():
-    """Proves _handle_job_fail sends JOB_DONE to the overseer when reply_to is set."""
+def test_handle_job_fail_routes_error_to_parent_via_overseer():
+    """Proves _handle_job_fail sends (JOB_DONE, reply_to, nonce, error) when reply_to is set."""
 
     sent = []
 
@@ -163,15 +168,15 @@ def test_handle_job_fail_mcasts_job_done_with_reply_to():
         return None
         yield
 
-    err = JobTimeout()
+    err = JobError(ValueError("boom"))
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        effects = _drive(_handle_job_fail(CTX, EJobFail(error=err, reply_to=REPLY_TO, nonce=0)))
+        _drive(_handle_job_fail(CTX, EJobFail(error=err, reply_to=REPLY_TO, nonce=5)))
 
-    assert any(pid == OVERSEER and body == JOB_DONE for pid, body in sent)
+    assert sent[0] == (OVERSEER, (JOB_DONE, REPLY_TO, 5, err))
 
 
-def test_handle_job_fail_mcasts_job_done_with_error_when_no_reply_to():
-    """Proves _handle_job_fail sends (JOB_DONE, error) to the overseer when reply_to is None."""
+def test_handle_job_fail_sends_job_failed_for_root_job():
+    """Proves _handle_job_fail sends (JOB_FAILED, error) to the overseer when reply_to is None."""
 
     sent = []
 
@@ -184,15 +189,7 @@ def test_handle_job_fail_mcasts_job_done_with_error_when_no_reply_to():
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         _drive(_handle_job_fail(CTX, EJobFail(error=err, reply_to=None, nonce=None)))
 
-    assert any(pid == OVERSEER and body == (JOB_DONE, err) for pid, body in sent)
-
-
-def test_handle_job_fail_skips_esend_when_no_reply_to():
-    """Proves _handle_job_fail does not yield ESend when reply_to is None."""
-
-    with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
-        effects = _drive(_handle_job_fail(CTX, EJobFail(error=JobTimeout(), reply_to=None, nonce=None)))
-        assert not any(isinstance(eff, ESend) for eff in effects)
+    assert sent[0] == (OVERSEER, (JOB_FAILED, err))
 
 
 # _handle_release
@@ -216,6 +213,73 @@ def test_handle_release_mcasts_release_with_name():
     assert sent[0] == (OVERSEER, (RELEASE, "workers"))
 
 
+# _handle_acquire_slot
+
+
+def test_handle_acquire_slot_mcalls_acquire():
+    """Proves _handle_acquire_slot sends (ACQUIRE, name, limit) to the overseer and returns the result."""
+
+    sent = []
+
+    def _capturing(pid, body):
+        sent.append((pid, body))
+        return True
+        yield
+
+    with patch("zahir.core.evaluate.coordination_handlers.mcall", _capturing):
+        gen = _handle_acquire_slot(CTX, EAcquireSlot(name="workers", limit=4))
+        with pytest.raises(StopIteration) as exc:
+            next(gen)
+
+    assert sent[0] == (OVERSEER, (ACQUIRE, "workers", 4))
+    assert exc.value.value is True
+
+
+# _handle_signal
+
+
+def test_handle_signal_mcalls_signal():
+    """Proves _handle_signal sends (SIGNAL, name) to the overseer and returns the state."""
+
+    sent = []
+
+    def _capturing(pid, body):
+        sent.append((pid, body))
+        return "satisfied"
+        yield
+
+    with patch("zahir.core.evaluate.coordination_handlers.mcall", _capturing):
+        gen = _handle_signal(CTX, ESignal(name="db"))
+        with pytest.raises(StopIteration) as exc:
+            next(gen)
+
+    assert sent[0] == (OVERSEER, (SIGNAL, "db"))
+    assert exc.value.value == "satisfied"
+
+
+# _handle_set_semaphore_state
+
+
+def test_handle_set_semaphore_state_mcasts_set_semaphore():
+    """Proves _handle_set_semaphore_state sends (SET_SEMAPHORE, name, state) to the overseer."""
+
+    sent = []
+
+    def _capturing(pid, body):
+        sent.append((pid, body))
+        return None
+        yield
+
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
+        _drive(
+            _handle_set_semaphore_state(
+                CTX, ESetSemaphoreState(name="db", state="impossible")
+            )
+        )
+
+    assert sent[0] == (OVERSEER, (SET_SEMAPHORE, "db", "impossible"))
+
+
 # make_coordination_handlers
 
 
@@ -224,11 +288,14 @@ def test_make_coordination_handlers_contains_all_effect_types():
 
     handlers = make_coordination_handlers(CTX)
     assert set(handlers.keys()) == {
+        EAcquireSlot.tag,
         EEnqueue.tag,
         EGetJob.tag,
         EJobComplete.tag,
         EJobFail.tag,
         ERelease.tag,
+        ESetSemaphoreState.tag,
+        ESignal.tag,
     }
 
 

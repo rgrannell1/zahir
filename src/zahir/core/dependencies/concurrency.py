@@ -11,7 +11,9 @@ def concurrency_dependency(
     name: str,
     limit: int,
     timeout_ms: int | None = None,
-) -> Generator[EAcquire | ESleep | ESatisfied | EImpossible, bool | None, ESatisfied | EImpossible]:
+) -> Generator[
+    EAcquire | ESleep | ESatisfied | EImpossible, bool | None, ESatisfied | EImpossible
+]:
     timeout_at = (
         datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms)
         if timeout_ms is not None

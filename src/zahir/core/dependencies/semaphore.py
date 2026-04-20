@@ -10,7 +10,11 @@ from zahir.core.effects import EImpossible, ESatisfied, EGetSemaphore
 def semaphore_dependency(
     name: str,
     timeout_ms: int | None = None,
-) -> Generator[EGetSemaphore | ESleep | ESatisfied | EImpossible, str | None, ESatisfied | EImpossible]:
+) -> Generator[
+    EGetSemaphore | ESleep | ESatisfied | EImpossible,
+    str | None,
+    ESatisfied | EImpossible,
+]:
     timeout_at = (
         datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms)
         if timeout_ms is not None

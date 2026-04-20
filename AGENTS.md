@@ -45,3 +45,7 @@ We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
 - Telemetry can only be added by decorating a handler. The handlers logic must be identical to before, including erroring, with the sole exception that more EEmit's are allowed
 - We may yield zahir effect internally that have handlers yielding their own zahir / tertius effects
 - Not all effects are sent by jobs themselves; most are not. We have subclasses denoting thie behaviour
+- Add short descriptions to each file of the intent of the contents
+- Factor out shared test setup code to a conftest.py
+- Factor out types to <module_name>_types.py
+- Avoid using python lambdas, except in .sort(). never use multiple lambdas in one call

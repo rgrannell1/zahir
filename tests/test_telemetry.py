@@ -19,9 +19,11 @@ def _drive(gen):
 
 def _make_handler(return_value):
     """Handler stub that returns a fixed value without yielding."""
+
     def handler(effect):
         return return_value
         yield
+
     return handler
 
 
@@ -163,9 +165,11 @@ def test_wrap_stacks_correctly_via_reduce():
 
 def _make_raising_handler(exc):
     """Handler stub that raises the given exception."""
+
     def handler(effect):
         raise exc
         yield
+
     return handler
 
 
@@ -187,7 +191,7 @@ def test_wrap_throws_exception_into_fn_teardown():
 
     def fn(effect):
         try:
-            yield                  # seam — throw lands here on handler exception
+            yield  # seam — throw lands here on handler exception
         except Exception as exc:
             errors.append(str(exc))
 
@@ -205,7 +209,7 @@ def test_wrap_propagates_teardown_yields_on_exception():
 
     def fn(effect):
         try:
-            yield                  # seam — throw lands here
+            yield  # seam — throw lands here
         except Exception:
             yield EEmit("error_event")
 
