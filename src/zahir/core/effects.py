@@ -25,9 +25,16 @@ class JobSpec:
     timeout_ms: int | None = None
 
 
-@dataclass
+_MISSING = object()
+
+
 class EAwait(ZahirJobEffect[Any]):
     """Dispatch one or more jobs concurrently.
+
+    Accepts three forms:
+      EAwait(ctx.scope.myjob())          — single job, wraps an existing EAwait
+      EAwait([ctx.scope.a(), ctx.scope.b()]) — multiple jobs in parallel
+      EAwait(jobs=[...], scalar=...)     — internal construction form
 
     For a single-job dispatch (scalar=True), returns the result directly.
     For a multi-job dispatch (scalar=False), returns results as a list in input order.
@@ -35,16 +42,32 @@ class EAwait(ZahirJobEffect[Any]):
 
     tag: ClassVar[str] = "await"
     jobs: list[JobSpec]
-    scalar: bool = True
+    scalar: bool
 
+    def __init__(self, spec_or_list=_MISSING, *, jobs=None, scalar=True):
+        if spec_or_list is not _MISSING:
+            if isinstance(spec_or_list, EAwait):
+                # EAwait(single_eawait) — passthrough
+                self.jobs = spec_or_list.jobs
+                self.scalar = spec_or_list.scalar
+            elif isinstance(spec_or_list, list):
+                # EAwait([eawait, ...]) — multi-dispatch
+                self.jobs = [s.jobs[0] for s in spec_or_list]
+                self.scalar = False
+            else:
+                raise TypeError(f"EAwait expects an EAwait or list of EAwait, got {type(spec_or_list).__name__}")
+        else:
+            # EAwait(jobs=[...], scalar=...) — internal form
+            self.jobs = jobs
+            self.scalar = scalar
 
-def EAwaitAll(specs: list[EAwait]) -> EAwait:
-    """Dispatch multiple jobs concurrently and return results in input order.
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, EAwait):
+            return NotImplemented
+        return self.jobs == other.jobs and self.scalar == other.scalar
 
-    Takes the EAwait objects produced by scope proxy calls and returns a single
-    EAwait effect that dispatches all of them in parallel.
-    """
-    return EAwait(jobs=[s.jobs[0] for s in specs], scalar=False)
+    def __repr__(self) -> str:
+        return f"EAwait(jobs={self.jobs!r}, scalar={self.scalar!r})"
 
 
 @dataclass

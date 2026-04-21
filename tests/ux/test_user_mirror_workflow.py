@@ -7,7 +7,7 @@ gracefully, and conditionally dispatches a final step.
 
 from tertius import EEmit
 
-from zahir.core.effects import EAwaitAll
+from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
 
 
@@ -74,7 +74,7 @@ def scan_media(ctx: JobContext, input: dict):
     """Mirrors scan.scan_media: sequential scan then parallel reads then wikidata."""
     yield ctx.scope.media_scan({})
 
-    yield EAwaitAll(
+    yield EAwait(
         [
             ctx.scope.read_albums({"markdown_path": input.get("albums_markdown_path")}),
             ctx.scope.read_photos({"markdown_path": input.get("photos_markdown_path")}),
@@ -98,13 +98,13 @@ def upload_media(ctx: JobContext, input: dict):
         for f in input.get("fpaths", [])
     ]
     if grey_effects:
-        yield EAwaitAll(grey_effects)
+        yield EAwait(grey_effects)
 
     mosaic_effects = [
         ctx.scope.compute_image_mosaic({"fpath": f}) for f in input.get("fpaths", [])
     ]
     if mosaic_effects:
-        yield EAwaitAll(mosaic_effects)
+        yield EAwait(mosaic_effects)
 
     if input.get("upload_images"):
         photo_effects = [
@@ -112,7 +112,7 @@ def upload_media(ctx: JobContext, input: dict):
             for f in input.get("fpaths", [])
         ]
         if photo_effects:
-            yield EAwaitAll(photo_effects)
+            yield EAwait(photo_effects)
 
     if input.get("upload_videos"):
         for fpath in input.get("fpaths", []):
@@ -246,7 +246,7 @@ def emitting_mosaic(ctx: JobContext, input: dict):
 
 
 def test_mirror_workflow_parallel_scan_reads():
-    """Proves EAwaitAll in scan_media fans out to all three read jobs."""
+    """Proves EAwait in scan_media fans out to all three read jobs."""
 
     scope = {
         **BASE_SCOPE,

@@ -1,6 +1,6 @@
 from tertius import EEmit, ESleep
 
-from zahir.core.effects import EAwaitAll
+from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import JobError
 
@@ -17,7 +17,7 @@ def slow_double(ctx: JobContext, value: int):
 
 
 def fan_out(ctx: JobContext):
-    results = yield EAwaitAll(
+    results = yield EAwait(
         [
             ctx.scope.double(1),
             ctx.scope.double(2),
@@ -34,7 +34,7 @@ def failing_job(ctx: JobContext):
 
 def fan_out_with_failure(ctx: JobContext):
     try:
-        yield EAwaitAll(
+        yield EAwait(
             [
                 ctx.scope.double(1),
                 ctx.scope.failing_job(),
@@ -46,7 +46,7 @@ def fan_out_with_failure(ctx: JobContext):
 
 
 def fan_out_mixed(ctx: JobContext):
-    results = yield EAwaitAll(
+    results = yield EAwait(
         [
             ctx.scope.slow_double(1),
             ctx.scope.double(2),
@@ -56,7 +56,7 @@ def fan_out_mixed(ctx: JobContext):
 
 
 def test_await_all_returns_results_in_input_order():
-    """Proves EAwaitAll returns results ordered by dispatch position, not arrival order."""
+    """Proves EAwait returns results ordered by dispatch position, not arrival order."""
 
     scope = {"fan_out": fan_out, "double": double}
     events = list(evaluate("fan_out", (), scope, n_workers=4))
@@ -65,7 +65,7 @@ def test_await_all_returns_results_in_input_order():
 
 
 def test_await_all_preserves_order_when_completions_arrive_out_of_order():
-    """Proves EAwaitAll result ordering matches dispatch order even when a slow job finishes last."""
+    """Proves EAwait result ordering matches dispatch order even when a slow job finishes last."""
 
     scope = {
         "fan_out_mixed": fan_out_mixed,
@@ -78,7 +78,7 @@ def test_await_all_preserves_order_when_completions_arrive_out_of_order():
 
 
 def test_await_all_raises_job_error_on_failure():
-    """Proves EAwaitAll raises JobError if any child job crashes."""
+    """Proves EAwait raises JobError if any child job crashes."""
 
     scope = {
         "fan_out_with_failure": fan_out_with_failure,

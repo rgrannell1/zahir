@@ -12,3 +12,5 @@ Job functions must be defined at module level so that worker processes can load 
 A job that yields an invalid effect — including raw tertius effects like EReceive — raises InvalidEffect rather than blocking or hanging. A job that catches InvalidEffect can continue executing.
 
 Jobs run across multiple OS processes so that work distributes across CPU cores. Fanning out enough parallel jobs results in execution on more than one OS process.
+
+The await API exposes a single construct, EAwait. A user may write `yield ctx.scope.myjob()`, `yield EAwait(ctx.scope.myjob())`, or `yield EAwait([ctx.scope.myjob(), ...])` and all three forms are equivalent. EAwait accepts a bare EAwait instance or a list of EAwait instances and normalises them internally. EAwaitAll is not part of the user-facing API.

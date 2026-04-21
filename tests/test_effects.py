@@ -3,7 +3,6 @@ from orbis import Effect, Event
 from zahir.core.effects import (
     EAcquire,
     EAwait,
-    EAwaitAll,
     ESetSemaphore,
     EGetSemaphore,
     JobSpec,
@@ -34,20 +33,30 @@ def test_eawait_scalar_defaults_to_true():
     assert EAwait(jobs=[_spec()]).scalar is True
 
 
-def test_eawait_all_returns_non_scalar_eawait():
-    """Proves EAwaitAll produces an EAwait with scalar=False."""
+def test_eawait_wraps_single_eawait():
+    """Proves EAwait(single_eawait) is a passthrough returning an equivalent EAwait."""
+
+    inner = EAwait(jobs=[_spec("a")])
+    outer = EAwait(inner)
+    assert isinstance(outer, EAwait)
+    assert outer.jobs == inner.jobs
+    assert outer.scalar == inner.scalar
+
+
+def test_eawait_list_returns_non_scalar_eawait():
+    """Proves EAwait([eawait, ...]) produces an EAwait with scalar=False."""
 
     specs = [EAwait(jobs=[_spec("a")]), EAwait(jobs=[_spec("b")])]
-    effect = EAwaitAll(specs)
+    effect = EAwait(specs)
     assert isinstance(effect, EAwait)
     assert effect.scalar is False
 
 
-def test_eawait_all_preserves_job_order():
-    """Proves EAwaitAll preserves the order of job specs."""
+def test_eawait_list_preserves_job_order():
+    """Proves EAwait([...]) preserves the order of job specs."""
 
     specs = [EAwait(jobs=[_spec("a")]), EAwait(jobs=[_spec("b")])]
-    effect = EAwaitAll(specs)
+    effect = EAwait(specs)
     assert [j.fn_name for j in effect.jobs] == ["a", "b"]
 
 

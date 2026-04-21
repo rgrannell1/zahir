@@ -4,7 +4,7 @@ import os
 
 from tertius import EEmit, ESleep
 
-from zahir.core.effects import EAwaitAll
+from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
 
 _N_WORKERS = 4
@@ -19,7 +19,7 @@ def report_pid(ctx: JobContext) -> int:
 
 
 def collect_pids(ctx: JobContext):
-    pids = yield EAwaitAll([ctx.scope.report_pid() for _ in range(_N_JOBS)])
+    pids = yield EAwait([ctx.scope.report_pid() for _ in range(_N_JOBS)])
     yield EEmit(pids)
 
 
