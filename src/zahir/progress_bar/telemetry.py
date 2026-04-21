@@ -12,12 +12,14 @@ def _default_attrs(effect):
     """Extract well-known fields from any effect that carries them."""
     attrs = {"pid": os.getpid()}
 
-    if hasattr(effect, "fn_name"):
+    if hasattr(effect, "jobs"):
+        if effect.scalar:
+            attrs["fn_name"] = effect.jobs[0].fn_name
+        else:
+            attrs["fn_names"] = [spec.fn_name for spec in effect.jobs]
+            attrs["count"] = len(effect.jobs)
+    elif hasattr(effect, "fn_name"):
         attrs["fn_name"] = effect.fn_name
-
-    if hasattr(effect, "effects"):
-        attrs["fn_names"] = [eff.fn_name for eff in effect.effects]
-        attrs["count"] = len(effect.effects)
 
     return attrs
 

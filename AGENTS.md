@@ -24,6 +24,7 @@ We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
 
 **Testing**
 
+- Do not attempt to run using Python -c, it will fail
 - Use pytest
 - Factor out test-data creation from test assertions
 - Tests must have description strings like  "Proves <general system property>"

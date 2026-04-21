@@ -15,6 +15,42 @@ Dependencies, schedules, signals, and jobs themselves use the same generator sys
 
 The following example workflow reads the text of a book, splits it into chapters, and `chapter_processor` computes the longest word in each chapter. `longest_word_assembly` depends on these results, aggregates them, and emits an output event with the longest words by chapter.
 
+```python
+from zahir.core.effects import EAwaitAll
+from zahir.core.evaluate import JobContext, evaluate
+from tertius import EEmit
+
+
+def chapter_processor(ctx: JobContext, chapter: str):
+    words = chapter.split()
+    longest = max(words, key=len) if words else ""
+    return longest
+    yield  # makes it a generator
+
+
+def longest_word_assembly(ctx: JobContext, chapters: list[str]):
+    results = yield EAwaitAll([
+        ctx.scope.chapter_processor(chapter)
+        for chapter in chapters
+    ])
+    yield EEmit({"longest_words": results})
+
+
+def book_workflow(ctx: JobContext, file_path: str):
+    chapters = open(file_path).read().split("\n\n")
+    yield ctx.scope.longest_word_assembly(chapters)
+
+
+scope = {
+    "book_workflow": book_workflow,
+    "longest_word_assembly": longest_word_assembly,
+    "chapter_processor": chapter_processor,
+}
+
+for event in evaluate("book_workflow", ("war-and-peace.txt",), scope, n_workers=4):
+    print(event)  # {"longest_words": [...]}
+```
+
 ## How Zahir Works
 
 Zahir builds on [tertius](https://github.com/rgrannell1/tertius), which provides a way of setting up processes and communicating between them. It is a supervisor - worker model.

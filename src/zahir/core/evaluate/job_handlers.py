@@ -64,7 +64,7 @@ def evaluate_job(
                     f"{type(effect).__name__} cannot be yielded directly in a job"
                 )
             else:
-                # EAwait and EAwaitAll fall through here; the worker body intercepts them
+                # EAwait falls through here; the worker body intercepts it
                 handler_value = yield effect
         except THROWABLE as exc:
             pending_throw = exc
