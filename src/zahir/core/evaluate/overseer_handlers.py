@@ -6,6 +6,7 @@ from zahir.core.constants import (
     ENQUEUE,
     GET_ERROR,
     GET_JOB,
+    GET_RESULT,
     IS_DONE,
     JOB_DONE,
     JOB_FAILED,
@@ -97,16 +98,24 @@ def _enqueue(
 def _job_done(
     state: OverseerState, reply_to_bytes: bytes | None, nonce: Any, body: Any
 ) -> OverseerState:
-    """Decrement pending and buffer the result for the waiting parent worker, if any."""
+    """Decrement pending and buffer the result for the waiting parent worker, if any. Root job results are stored on state."""
 
     state.pending -= 1
 
-    if reply_to_bytes is not None:
+    if reply_to_bytes is None:
+        state.root_result = body
+    else:
         if reply_to_bytes not in state.pending_results:
             state.pending_results[reply_to_bytes] = deque()
         state.pending_results[reply_to_bytes].append((nonce, body))
 
     return state
+
+
+def _get_result(state: OverseerState) -> tuple[OverseerState, Any]:
+    """Return the root job's return value."""
+
+    return state, state.root_result
 
 
 def _job_failed(state: OverseerState, error: Exception) -> OverseerState:
@@ -154,6 +163,7 @@ CALL_HANDLERS = {
     SIGNAL: _signal,
     IS_DONE: _is_done,
     GET_ERROR: _get_error,
+    GET_RESULT: _get_result,
 }
 
 # fire-and-forget handlers (mcast)

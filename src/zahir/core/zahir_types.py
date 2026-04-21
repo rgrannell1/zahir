@@ -26,6 +26,7 @@ class OverseerState:
     semaphores: dict[str, str]  # name -> 'satisfied'|'unsatisfied'|'impossible'
     pending: int
     root_error: Exception | None = None
+    root_result: Any = None
     pending_results: dict[bytes, deque] = field(
         default_factory=dict
     )  # worker_pid_bytes -> deque[(nonce, body)]

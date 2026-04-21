@@ -13,12 +13,11 @@ Dependencies, schedules, signals, and jobs themselves use the same generator sys
 
 ## A Simple Workflow
 
-The following example workflow reads the text of a book, splits it into chapters, and `chapter_processor` computes the longest word in each chapter. `longest_word_assembly` fans them out in parallel and returns the results. The top-level `book_workflow` emits the final output.
+The following example workflow reads the text of a book, splits it into chapters, and `chapter_processor` computes the longest word in each chapter. `longest_word_assembly` fans them out in parallel and returns the results. The root job `book_workflow` returns the final result, which `evaluate` surfaces as the last event in the stream.
 
 ```python
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
-from tertius import EEmit
 
 
 def chapter_processor(ctx: JobContext, chapter: str):
@@ -39,7 +38,8 @@ def longest_word_assembly(ctx: JobContext, chapters: list[str]):
 def book_workflow(ctx: JobContext, file_path: str):
     chapters = open(file_path).read().split("\n\n")
     results = yield ctx.scope.longest_word_assembly(chapters)
-    yield EEmit({"longest_words": results})
+    return {"longest_words": results}
+    yield
 
 
 scope = {
@@ -66,17 +66,13 @@ Effects are generally abstracted away from jobs in Zahir, but ultimately both th
 
 **Job-emittable effects**
 
-These effects can be emitted by a job
+These effects can be yielded by a job.
 
-- `yield ctx.scope.myjob(args)`: pause, wait for one job, resume with the result
-- `yield EAwait(ctx.scope.myjob(args))`: equivalent to the above; wraps a single scope call
-- `yield EAwait([ctx.scope.a(args), ctx.scope.b(args), ...])`: pause, wait for N jobs in parallel, resume with results in order or error on failure
-- `EAcquire(name, limit)`: acquire a concurrency slot
-- `EGetSemaphore(name)`: get a semaphore's state
-- `ESetSemaphore(name, state)`: set a semaphore's state
-- `ESatisfied(metadata?)`: if a dependency is satisfied, describe why
-- `EImpossible(reason)`: if a dependency is impossible, decribe why
-- `EEmit(msg)`: emit an event
+- `yield EAwait(job | job[])`: pause, wait for one or more jobs in parallel, resume with the result or a list of results in dispatch order. Raises `JobError` if any job failed. `yield ctx.scope.myjob()` is shorthand for the single-job form.
+- `yield EAcquire(name, limit)`: acquire a named concurrency slot
+- `yield EGetSemaphore(name)`: get a semaphore's state
+- `yield ESetSemaphore(name, state)`: set a semaphore's state
+- `yield EEmit(msg)`: emit an event to the `evaluate` caller
 
 **Coordination effects**
 
@@ -93,10 +89,13 @@ These are internal effects used by the workflow engine; jobs cannot yield them d
 - `EAcquireSlot(name, limit)`: request a named concurrency slot from the overseer
 - `ESignal(name)`: query the current state of a named semaphore from the overseer
 - `ESetSemaphoreState(name, state)`: write a new state for a named semaphore to the overseer
+- `EIsDone()`: ask the overseer whether all pending jobs have completed
+- `EGetError()`: retrieve the root error from the overseer, if any
+- `EGetResult()`: retrieve the root job's return value from the overseer
 
 ## Jobs: Do things, wait for things
 
-Jobs do something, based on an input. They can return a value themselves. Most crucially, they can await other jobs by invoking functions registered in scope; for example `res = yield ctx.scope.my_subtask(input)`. Jobs are generators; they can yield out to other jobs (which'll run in parallel) or just call regular functions.
+Jobs do something, based on an input, and return a value. Jobs can await other jobs by invoking functions registered in scope: `res = yield ctx.scope.my_subtask(input)`. Jobs are generators; they can fan out to other jobs (which run in parallel) or just call regular functions.
 
 There's no rollbacks; if something goes wrong, detect it with a try-catch or by inspecting returrn values, and run corrective actions yourself. Job-level rollbacks do not compose into workflow rollbacks; crouching, stepping backwards, and taking off your parachute will not get you back on your plane.
 

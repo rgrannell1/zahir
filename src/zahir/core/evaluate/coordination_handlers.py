@@ -8,7 +8,10 @@ from tertius import ESleep, Pid, mcall, mcast
 from zahir.core.constants import (
     ACQUIRE,
     ENQUEUE,
+    GET_ERROR,
     GET_JOB,
+    GET_RESULT,
+    IS_DONE,
     JOB_DONE,
     JOB_FAILED,
     RELEASE,
@@ -18,7 +21,10 @@ from zahir.core.constants import (
 from zahir.core.effects import (
     EAcquireSlot,
     EEnqueue,
+    EGetError,
     EGetJob,
+    EGetResult,
+    EIsDone,
     EJobComplete,
     EJobFail,
     ERelease,
@@ -112,6 +118,40 @@ def _handle_set_semaphore_state(
     """Write a new semaphore state to the overseer."""
 
     yield from mcast(context.overseer, (SET_SEMAPHORE, effect.name, effect.state))
+
+
+def _handle_is_done(
+    context: CoordinationHandlerContext, effect: EIsDone
+) -> Generator[Any, Any, bool]:
+    """Ask the overseer whether all pending jobs have completed."""
+
+    return (yield from mcall(context.overseer, IS_DONE))
+
+
+def _handle_get_error(
+    context: CoordinationHandlerContext, effect: EGetError
+) -> Generator[Any, Any, Exception | None]:
+    """Retrieve the root error from the overseer, if any."""
+
+    return (yield from mcall(context.overseer, GET_ERROR))
+
+
+def _handle_get_result(
+    context: CoordinationHandlerContext, effect: EGetResult
+) -> Generator[Any, Any, Any]:
+    """Retrieve the root job's return value from the overseer."""
+
+    return (yield from mcall(context.overseer, GET_RESULT))
+
+
+def make_root_handlers(context: CoordinationHandlerContext) -> dict[str, Any]:
+    """Create handlers for the root polling loop — check completion, errors, and the return value."""
+
+    return {
+        EIsDone.tag: partial(_handle_is_done, context),
+        EGetError.tag: partial(_handle_get_error, context),
+        EGetResult.tag: partial(_handle_get_result, context),
+    }
 
 
 def make_coordination_handlers(context: CoordinationHandlerContext) -> dict[str, Any]:

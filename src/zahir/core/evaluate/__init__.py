@@ -1,11 +1,17 @@
 from collections.abc import Generator, Sequence
 from typing import Any
 
-from tertius import ESleep, ESpawn, Pid, Scope, mcall, run
+from orbis import handle
+from tertius import EEmit, ESleep, ESpawn, Pid, Scope, run
 
-from zahir.core.constants import COMPLETION_POLL_MS, GET_ERROR, IS_DONE
+from zahir.core.constants import COMPLETION_POLL_MS
+from zahir.core.effects import EGetError, EGetResult, EIsDone
 from zahir.core.scope_proxy import ScopeProxy
 
+from zahir.core.evaluate.coordination_handlers import (
+    CoordinationHandlerContext,
+    make_root_handlers,
+)
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.worker import worker
 
@@ -14,6 +20,25 @@ class JobContext:
     _scope: Scope
     scope: ScopeProxy
     handler_wrappers: Sequence = []
+
+
+def _poll_completion() -> Generator[Any, Any, None]:
+    """Poll the overseer until all jobs finish, then surface the root result."""
+
+    while True:
+        done = yield EIsDone()
+        if not done:
+            yield ESleep(ms=COMPLETION_POLL_MS)
+            continue
+
+        error = yield EGetError()
+        if error is not None:
+            raise error
+
+        result = yield EGetResult()
+        if result is not None:
+            yield EEmit(result)
+        return
 
 
 def _root(
@@ -28,20 +53,8 @@ def _root(
     for _ in range(n_workers):
         yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, context))
 
-    while True:
-        # check if the overseer is done in a sleep loop
-        done = yield from mcall(overseer, IS_DONE)
-
-        if not done:
-            yield ESleep(ms=COMPLETION_POLL_MS)
-            continue
-
-        # once done, check if there was an error
-        error = yield from mcall(overseer, GET_ERROR)
-
-        if error is not None:
-            raise error
-        return
+    ctx = CoordinationHandlerContext(overseer=overseer)
+    yield from handle(_poll_completion(), **make_root_handlers(ctx))
 
 
 def evaluate(

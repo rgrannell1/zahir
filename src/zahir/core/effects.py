@@ -171,3 +171,24 @@ class EJobFail(ZahirCoordinationEffect[None]):
     reply_to: bytes | None
     nonce: Any
     fn_name: str = ""
+
+
+@dataclass
+class EIsDone(ZahirCoordinationEffect[bool]):
+    """Internal: ask the overseer whether all pending jobs have completed."""
+
+    tag: ClassVar[str] = "is_done"
+
+
+@dataclass
+class EGetError(ZahirCoordinationEffect[Exception | None]):
+    """Internal: retrieve the root error from the overseer, if any job failed fatally."""
+
+    tag: ClassVar[str] = "get_error"
+
+
+@dataclass
+class EGetResult(ZahirCoordinationEffect[Any]):
+    """Internal: retrieve the root job's return value from the overseer."""
+
+    tag: ClassVar[str] = "get_result"
