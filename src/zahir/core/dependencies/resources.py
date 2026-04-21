@@ -1,13 +1,13 @@
+# Dependency that waits until CPU or memory usage is within a given threshold.
 from collections.abc import Generator
-from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any, Literal
 
 import psutil
 
-from tertius import ESleep
-
-from zahir.core.constants import CPU_SAMPLE_INTERVAL_S, DEPENDENCY_DELAY_MS
-from zahir.core.effects import EImpossible, ESatisfied
+from zahir.core.constants import CPU_SAMPLE_INTERVAL_S
+from zahir.core.dependencies.dependency import dependency
+from zahir.core.zahir_types import DependencyResult
 
 type ResourceType = Literal["cpu", "memory"]
 
@@ -20,40 +20,22 @@ def _get_usage(resource: ResourceType) -> float:
             return psutil.virtual_memory().percent
 
 
-def _metadata(
-    resource: ResourceType,
-    max_percent: float,
-    timeout_at: datetime | None,
-) -> dict[str, Any]:
-    return {
-        "resource": resource,
-        "max_percent": max_percent,
-        "timeout_at": timeout_at.isoformat() if timeout_at else None,
-    }
+def _resource_condition(resource: ResourceType, max_percent: float) -> Generator[Any, Any, Any]:
+    """Returns (True, metadata) if resource usage is within the limit, False otherwise."""
+    if _get_usage(resource) <= max_percent:
+        return (True, {"resource": resource, "max_percent": max_percent})
+    return False
+    yield  # make it a generator function
 
 
 def resource_dependency(
     resource: ResourceType,
     max_percent: float,
     timeout: float | None = None,
-) -> Generator[ESatisfied | EImpossible | ESleep, None, ESatisfied | EImpossible]:
-    timeout_at = (
-        datetime.now(tz=UTC) + timedelta(seconds=timeout)
-        if timeout is not None
-        else None
+) -> Generator[Any, Any, DependencyResult]:
+    timeout_ms = int(timeout * 1000) if timeout is not None else None
+    return dependency(
+        partial(_resource_condition, resource, max_percent),
+        timeout_ms=timeout_ms,
+        label=f"{resource} resource",
     )
-
-    while True:
-        now = datetime.now(tz=UTC)
-
-        if timeout_at is not None and now >= timeout_at:
-            event = EImpossible(reason=f"{resource} limit timed out after {timeout}s")
-            yield event
-            return event
-
-        if _get_usage(resource) <= max_percent:
-            event = ESatisfied(metadata=_metadata(resource, max_percent, timeout_at))
-            yield event
-            return event
-
-        yield ESleep(ms=DEPENDENCY_DELAY_MS)

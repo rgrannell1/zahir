@@ -3,14 +3,11 @@ from datetime import timedelta
 import pytest
 import time_machine
 
+from tertius import EEmit, ESleep
+
 from zahir.core.dependencies.semaphore import semaphore_dependency
-from zahir.core.effects import EImpossible, ESatisfied, EGetSemaphore
-from tertius import ESleep
+from zahir.core.effects import EGetSemaphore
 from tests.shared import NOW
-
-
-def _step(gen, send_value=None):
-    return gen.send(send_value) if send_value is not None else next(gen)
 
 
 @time_machine.travel(NOW, tick=False)
@@ -24,21 +21,25 @@ def test_first_yield_is_esignal():
 
 
 @time_machine.travel(NOW, tick=False)
-def test_satisfied_state_yields_esatisfied():
-    """Proves a satisfied signal yields ESatisfied."""
+def test_satisfied_state_emits_satisfied():
+    """Proves a satisfied signal emits a satisfied result."""
 
     gen = semaphore_dependency("db")
     next(gen)
-    assert isinstance(gen.send("satisfied"), ESatisfied)
+    emit = gen.send("satisfied")
+    assert isinstance(emit, EEmit)
+    assert emit.body[0] == "satisfied"
 
 
 @time_machine.travel(NOW, tick=False)
-def test_impossible_state_yields_eimpossible():
-    """Proves an impossible signal yields EImpossible."""
+def test_impossible_state_emits_impossible():
+    """Proves an impossible signal emits an impossible result."""
 
     gen = semaphore_dependency("db")
     next(gen)
-    assert isinstance(gen.send("impossible"), EImpossible)
+    emit = gen.send("impossible")
+    assert isinstance(emit, EEmit)
+    assert emit.body[0] == "impossible"
 
 
 @time_machine.travel(NOW, tick=False)
@@ -51,7 +52,7 @@ def test_unsatisfied_state_yields_sleep():
 
 
 @time_machine.travel(NOW, tick=False)
-def test_unsatisfied_then_satisfied_yields_esatisfied():
+def test_unsatisfied_then_satisfied_emits_satisfied():
     """Proves the dependency re-probes after sleep and satisfies on next signal."""
 
     gen = semaphore_dependency("db")
@@ -59,26 +60,28 @@ def test_unsatisfied_then_satisfied_yields_esatisfied():
     gen.send("unsatisfied")  # ESleep
     signal = next(gen)  # next EGetSemaphore
     assert isinstance(signal, EGetSemaphore)
-    assert isinstance(gen.send("satisfied"), ESatisfied)
+    emit = gen.send("satisfied")
+    assert emit.body[0] == "satisfied"
 
 
-def test_timeout_yields_impossible():
-    """Proves exceeding timeout_ms yields EImpossible on the next probe."""
+def test_timeout_emits_impossible():
+    """Proves exceeding timeout_ms emits impossible on the next probe."""
 
     with time_machine.travel(NOW, tick=False):
         gen = semaphore_dependency("db", timeout_ms=1000)
         next(gen)  # EGetSemaphore
-        gen.send("unsatisfied")  # ESleep — loops back to timeout check
+        gen.send("unsatisfied")  # ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        effect = next(gen)  # timeout_at exceeded
+        emit = next(gen)
 
-    assert isinstance(effect, EImpossible)
-    assert "db" in effect.reason
+    assert isinstance(emit, EEmit)
+    assert emit.body[0] == "impossible"
+    assert "db" in emit.body[1]
 
 
 def test_timeout_reason_includes_name_and_duration():
-    """Proves EImpossible reason includes the semaphore name and timeout duration."""
+    """Proves the impossible reason includes the semaphore name and timeout duration."""
 
     with time_machine.travel(NOW, tick=False):
         gen = semaphore_dependency("my-semaphore", timeout_ms=5000)
@@ -86,11 +89,11 @@ def test_timeout_reason_includes_name_and_duration():
         gen.send("unsatisfied")
 
     with time_machine.travel(NOW + timedelta(seconds=10), tick=False):
-        effect = next(gen)
+        emit = next(gen)
 
-    assert isinstance(effect, EImpossible)
-    assert "my-semaphore" in effect.reason
-    assert "5000" in effect.reason
+    assert emit.body[0] == "impossible"
+    assert "my-semaphore" in emit.body[1]
+    assert "5000" in emit.body[1]
 
 
 @time_machine.travel(NOW, tick=False)
@@ -107,31 +110,31 @@ def test_no_timeout_polls_indefinitely():
 
 
 @time_machine.travel(NOW, tick=False)
-def test_satisfied_returns_event_as_generator_value():
-    """Proves the generator returns the ESatisfied event as its StopIteration value."""
+def test_satisfied_returns_tuple_as_generator_value():
+    """Proves the generator returns the satisfied tuple as its StopIteration value."""
 
     gen = semaphore_dependency("db")
     next(gen)
-    event = gen.send("satisfied")
+    emit = gen.send("satisfied")
     with pytest.raises(StopIteration) as exc:
         next(gen)
-    assert exc.value.value is event
+    assert exc.value.value is emit.body
 
 
 @time_machine.travel(NOW, tick=False)
-def test_impossible_state_returns_event_as_generator_value():
-    """Proves the generator returns the EImpossible event as its StopIteration value when signal is impossible."""
+def test_impossible_state_returns_tuple_as_generator_value():
+    """Proves the generator returns the impossible tuple as its StopIteration value when signal is impossible."""
 
     gen = semaphore_dependency("db")
     next(gen)
-    event = gen.send("impossible")
+    emit = gen.send("impossible")
     with pytest.raises(StopIteration) as exc:
         next(gen)
-    assert exc.value.value is event
+    assert exc.value.value is emit.body
 
 
-def test_impossible_timeout_returns_event_as_generator_value():
-    """Proves the generator returns the EImpossible event as its StopIteration value on timeout."""
+def test_impossible_timeout_returns_tuple_as_generator_value():
+    """Proves the generator returns the impossible tuple as its StopIteration value on timeout."""
 
     with time_machine.travel(NOW, tick=False):
         gen = semaphore_dependency("db", timeout_ms=1000)
@@ -139,8 +142,8 @@ def test_impossible_timeout_returns_event_as_generator_value():
         gen.send("unsatisfied")
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        event = next(gen)
+        emit = next(gen)
 
     with pytest.raises(StopIteration) as exc:
         next(gen)
-    assert exc.value.value is event
+    assert exc.value.value is emit.body

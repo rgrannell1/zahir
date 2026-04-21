@@ -1,6 +1,6 @@
-from collections.abc import Generator
-from dataclasses import dataclass
-from functools import partial
+from collections.abc import Generator, Sequence
+from dataclasses import dataclass, field
+from functools import partial, reduce
 from typing import Any
 
 from tertius import ESleep, Pid, mcall, mcast
@@ -30,6 +30,7 @@ from zahir.core.effects import (
 @dataclass
 class CoordinationHandlerContext:
     overseer: Pid
+    handler_wrappers: Sequence = field(default_factory=list)
 
 
 def _handle_enqueue(
@@ -116,7 +117,7 @@ def _handle_set_semaphore_state(
 def make_coordination_handlers(context: CoordinationHandlerContext) -> dict[str, Any]:
     """Create coordination handlers for the worker process — intercept job lifecycle effects."""
 
-    return {
+    handlers = {
         EAcquireSlot.tag: partial(_handle_acquire_slot, context),
         EEnqueue.tag: partial(_handle_enqueue, context),
         EGetJob.tag: partial(_handle_get_job, context),
@@ -125,4 +126,8 @@ def make_coordination_handlers(context: CoordinationHandlerContext) -> dict[str,
         ERelease.tag: partial(_handle_release, context),
         ESetSemaphoreState.tag: partial(_handle_set_semaphore_state, context),
         ESignal.tag: partial(_handle_signal, context),
+    }
+    return {
+        tag: reduce(lambda h, w: w(h), context.handler_wrappers, h)
+        for tag, h in handlers.items()
     }

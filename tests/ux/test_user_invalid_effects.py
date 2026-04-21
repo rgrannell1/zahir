@@ -3,7 +3,7 @@ import pytest
 from tertius import EEmit, EReceive
 
 from zahir.core.evaluate import JobContext, evaluate
-from zahir.core.exceptions import InvalidEffect, JobError
+from zahir.core.exceptions import InvalidEffect
 
 
 def job_yielding_non_effect(ctx: JobContext):
@@ -21,10 +21,10 @@ def job_catching_invalid_effect(ctx: JobContext):
         yield EEmit({"caught": str(err)})
 
 
-def test_yielding_non_effect_raises_job_error():
-    """Proves a job that yields a non-Effect value raises JobError rather than hanging."""
+def test_yielding_non_effect_raises_invalid_effect():
+    """Proves a job that yields a non-Effect value raises InvalidEffect rather than hanging."""
 
-    with pytest.raises(JobError):
+    with pytest.raises(InvalidEffect):
         list(
             evaluate(
                 "job_yielding_non_effect",
@@ -35,10 +35,10 @@ def test_yielding_non_effect_raises_job_error():
         )
 
 
-def test_yielding_ereceive_raises_job_error():
-    """Proves a job that yields EReceive directly raises JobError rather than blocking forever."""
+def test_yielding_ereceive_raises_invalid_effect():
+    """Proves a job that yields EReceive directly raises InvalidEffect rather than blocking forever."""
 
-    with pytest.raises(JobError):
+    with pytest.raises(InvalidEffect):
         list(
             evaluate(
                 "job_yielding_receive",

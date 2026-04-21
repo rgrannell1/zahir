@@ -1,43 +1,31 @@
+# Dependency that waits until a named semaphore reaches the satisfied state.
 from collections.abc import Generator
-from datetime import UTC, datetime, timedelta
+from functools import partial
+from typing import Any
 
-from tertius import ESleep
+from zahir.core.constants import IMPOSSIBLE, SATISFIED
+from zahir.core.dependencies.dependency import dependency
+from zahir.core.zahir_types import DependencyResult
+from zahir.core.effects import EGetSemaphore
+from zahir.core.exceptions import ImpossibleError
 
-from zahir.core.constants import DEPENDENCY_DELAY_MS, IMPOSSIBLE, SATISFIED, UNSATISFIED
-from zahir.core.effects import EImpossible, ESatisfied, EGetSemaphore
+
+def _semaphore_condition(name: str) -> Generator[Any, Any, Any]:
+    """Returns (True, metadata) if satisfied, False if unsatisfied, raises ImpossibleError if impossible."""
+    state = yield EGetSemaphore(name=name)
+    if state == IMPOSSIBLE:
+        raise ImpossibleError(f"semaphore '{name}' aborted")
+    if state == SATISFIED:
+        return (True, {"name": name})
+    return False
 
 
 def semaphore_dependency(
     name: str,
     timeout_ms: int | None = None,
-) -> Generator[
-    EGetSemaphore | ESleep | ESatisfied | EImpossible,
-    str | None,
-    ESatisfied | EImpossible,
-]:
-    timeout_at = (
-        datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms)
-        if timeout_ms is not None
-        else None
+) -> Generator[Any, Any, DependencyResult]:
+    return dependency(
+        partial(_semaphore_condition, name),
+        timeout_ms=timeout_ms,
+        label=f"semaphore '{name}'",
     )
-
-    while True:
-        if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
-            event = EImpossible(
-                reason=f"semaphore '{name}' not satisfied within {timeout_ms}ms"
-            )
-            yield event
-            return event
-
-        state = yield EGetSemaphore(name=name)
-
-        if state == SATISFIED:
-            event = ESatisfied(metadata={"name": name})
-            yield event
-            return event
-        elif state == IMPOSSIBLE:
-            event = EImpossible(reason=f"semaphore '{name}' aborted")
-            yield event
-            return event
-        elif state == UNSATISFIED:
-            yield ESleep(ms=DEPENDENCY_DELAY_MS)

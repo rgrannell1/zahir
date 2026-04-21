@@ -3,13 +3,13 @@ import inspect
 from collections.abc import Callable
 from typing import Any
 
-from zahir.core.effects import EAwait
+from zahir.core.effects import EAwait, JobSpec
 
 
 class ScopeProxy:
     """Wraps the job scope so attribute access returns typed EAwait factories.
 
-    ctx.scope.my_job(arg1, arg2) returns EAwait(fn_name="my_job", args=(arg1, arg2))
+    ctx.scope.my_job(arg1, arg2) returns EAwait(jobs=[JobSpec("my_job", (arg1, arg2))], scalar=True)
     rather than calling the function. The wrapper has the original signature minus
     the leading ctx parameter, so IDEs and type checkers see the correct types.
     """
@@ -34,7 +34,7 @@ class ScopeProxy:
             bound = inspect.Signature(params).bind(*args, **kwargs)
             bound.apply_defaults()
 
-            return EAwait(fn_name=name, args=bound.args, timeout_ms=timeout_ms)
+            return EAwait(jobs=[JobSpec(fn_name=name, args=bound.args, timeout_ms=timeout_ms)], scalar=True)
 
         dispatch.__signature__ = inspect.Signature(  # type: ignore[attr-defined]
             [

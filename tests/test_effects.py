@@ -3,75 +3,78 @@ from orbis import Effect, Event
 from zahir.core.effects import (
     EAcquire,
     EAwait,
-    EImpossible,
-    ESatisfied,
+    EAwaitAll,
     ESetSemaphore,
     EGetSemaphore,
+    JobSpec,
 )
 
 
-def test_esatisfied_is_event():
-    """Proves ESatisfied is an Event."""
-
-    assert isinstance(ESatisfied(), Event)
-
-
-def test_esatisfied_default_metadata_is_empty_dict():
-    """Proves ESatisfied metadata defaults to an empty dict."""
-
-    assert ESatisfied().metadata == {}
-
-
-def test_esatisfied_stores_metadata():
-    """Proves ESatisfied stores arbitrary metadata."""
-
-    effect = ESatisfied(metadata={"key": "value"})
-    assert effect.metadata == {"key": "value"}
-
-
-def test_eimpossible_is_event():
-    """Proves EImpossible is an Event."""
-
-    assert isinstance(EImpossible(reason="blocked"), Event)
-
-
-def test_eimpossible_stores_reason():
-    """Proves EImpossible stores its reason string."""
-
-    effect = EImpossible(reason="too late")
-    assert effect.reason == "too late"
+def _spec(fn_name="fn", args=(), timeout_ms=None):
+    return JobSpec(fn_name=fn_name, args=args, timeout_ms=timeout_ms)
 
 
 def test_eawait_is_effect():
     """Proves EAwait is an Effect."""
 
-    assert isinstance(EAwait(fn_name="my_fn"), Effect)
+    assert isinstance(EAwait(jobs=[_spec()]), Effect)
 
 
-def test_eawait_stores_fn_name_and_args():
-    """Proves EAwait stores fn_name and args."""
+def test_eawait_stores_job_spec():
+    """Proves EAwait stores the JobSpec list."""
 
-    effect = EAwait(fn_name="process", args=(1, 2))
-    assert effect.fn_name == "process"
-    assert effect.args == (1, 2)
-
-
-def test_eawait_default_args_is_empty_tuple():
-    """Proves EAwait args defaults to an empty tuple."""
-
-    assert EAwait(fn_name="fn").args == ()
+    spec = _spec("process", (1, 2))
+    effect = EAwait(jobs=[spec])
+    assert effect.jobs == [spec]
 
 
-def test_eawait_default_timeout_ms_is_none():
-    """Proves EAwait timeout_ms defaults to None."""
+def test_eawait_scalar_defaults_to_true():
+    """Proves EAwait scalar defaults to True for single-job dispatch."""
 
-    assert EAwait(fn_name="fn").timeout_ms is None
+    assert EAwait(jobs=[_spec()]).scalar is True
 
 
-def test_eawait_stores_timeout_ms():
-    """Proves EAwait stores an explicit timeout_ms."""
+def test_eawait_all_returns_non_scalar_eawait():
+    """Proves EAwaitAll produces an EAwait with scalar=False."""
 
-    assert EAwait(fn_name="fn", timeout_ms=5000).timeout_ms == 5000
+    specs = [EAwait(jobs=[_spec("a")]), EAwait(jobs=[_spec("b")])]
+    effect = EAwaitAll(specs)
+    assert isinstance(effect, EAwait)
+    assert effect.scalar is False
+
+
+def test_eawait_all_preserves_job_order():
+    """Proves EAwaitAll preserves the order of job specs."""
+
+    specs = [EAwait(jobs=[_spec("a")]), EAwait(jobs=[_spec("b")])]
+    effect = EAwaitAll(specs)
+    assert [j.fn_name for j in effect.jobs] == ["a", "b"]
+
+
+def test_jobspec_stores_fn_name_and_args():
+    """Proves JobSpec stores fn_name and args."""
+
+    spec = JobSpec(fn_name="process", args=(1, 2))
+    assert spec.fn_name == "process"
+    assert spec.args == (1, 2)
+
+
+def test_jobspec_default_args_is_empty_tuple():
+    """Proves JobSpec args defaults to an empty tuple."""
+
+    assert JobSpec(fn_name="fn").args == ()
+
+
+def test_jobspec_default_timeout_ms_is_none():
+    """Proves JobSpec timeout_ms defaults to None."""
+
+    assert JobSpec(fn_name="fn").timeout_ms is None
+
+
+def test_jobspec_stores_timeout_ms():
+    """Proves JobSpec stores an explicit timeout_ms."""
+
+    assert JobSpec(fn_name="fn", timeout_ms=5000).timeout_ms == 5000
 
 
 def test_eget_semaphore_is_effect():
@@ -121,8 +124,10 @@ def test_effect_tags_are_unique():
     assert len(tags) == len(set(tags))
 
 
+
+
 def test_event_tags_are_unique():
     """Proves all event tags are distinct from one another."""
 
-    tags = [cls.tag for cls in (ESatisfied, EImpossible, ESetSemaphore)]
+    tags = [cls.tag for cls in (ESetSemaphore,)]
     assert len(tags) == len(set(tags))

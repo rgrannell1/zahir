@@ -1,23 +1,25 @@
+# Combinator that runs a sequence of dependencies and short-circuits on the first impossible result.
 from collections.abc import Generator
 from typing import Any
 
-from zahir.core.effects import EImpossible, ESatisfied
+from tertius import EEmit
 
-
-type Dependency = Generator[Any, Any, None]
+from zahir.core.dependencies.dependency import DependencyResult
 
 
 def group_dependency(
-    dependencies: list[Dependency],
-) -> Generator[Any, Any, None]:
-    for dependency in dependencies:
-        handler_value = None
-        try:
-            event = next(dependency)
-            while True:
-                handler_value = yield event
-                if isinstance(event, EImpossible):
-                    return
-                event = dependency.send(handler_value)
-        except StopIteration:
-            pass
+    dependencies: list[Generator],
+) -> Generator[Any, Any, DependencyResult]:
+    """Run dependencies in sequence; short-circuit on the first impossible result."""
+    if not dependencies:
+        result: DependencyResult = ("satisfied", None)
+        yield EEmit(result)
+        return result
+
+    last: DependencyResult | None = None
+    for dep in dependencies:
+        last = yield from dep
+        if last[0] == "impossible":
+            return last
+    assert last is not None
+    return last

@@ -32,6 +32,7 @@ def wrap(fn):
 
             # run the handler, capturing any exception
             exc_caught = None
+            result = None
             try:
                 result = yield from handler(effect)
             except Exception as exc:

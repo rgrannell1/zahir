@@ -17,28 +17,34 @@ class ZahirCoordinationEffect[ReturnT](Effect[ReturnT], abstract=True):
 
 
 @dataclass
-class ESatisfied(ZahirJobEvent):
-    # Jobs yield this to signal a dependency is satisfied. The handler re-emits it
-    # as its return value, so the yielding job also receives it back — dual role.
-    tag: ClassVar[str] = "satisfied"
-    metadata: dict[str, Any] = field(default_factory=dict)
+class JobSpec:
+    """Describes a single job to be dispatched: what to call and with what arguments."""
 
-
-@dataclass
-class EImpossible(ZahirJobEvent):
-    # Jobs yield this to signal a dependency can never be satisfied. Same dual role as ESatisfied.
-    tag: ClassVar[str] = "impossible"
-    reason: str
+    fn_name: str
+    args: tuple[Any, ...] = field(default_factory=tuple)
+    timeout_ms: int | None = None
 
 
 @dataclass
 class EAwait(ZahirJobEffect[Any]):
-    """Dispatch a child job and block until it completes, returning its result."""
+    """Dispatch one or more jobs concurrently.
+
+    For a single-job dispatch (scalar=True), returns the result directly.
+    For a multi-job dispatch (scalar=False), returns results as a list in input order.
+    """
 
     tag: ClassVar[str] = "await"
-    fn_name: str
-    args: tuple[Any, ...] = field(default_factory=tuple)
-    timeout_ms: int | None = None
+    jobs: list[JobSpec]
+    scalar: bool = True
+
+
+def EAwaitAll(specs: list[EAwait]) -> EAwait:
+    """Dispatch multiple jobs concurrently and return results in input order.
+
+    Takes the EAwait objects produced by scope proxy calls and returns a single
+    EAwait effect that dispatches all of them in parallel.
+    """
+    return EAwait(jobs=[s.jobs[0] for s in specs], scalar=False)
 
 
 @dataclass
@@ -76,14 +82,6 @@ class ESetSemaphore(ZahirJobEvent):
 
 
 @dataclass
-class EAwaitAll(ZahirJobEffect[list[Any]]):
-    """Dispatch multiple child jobs concurrently and return results in input order."""
-
-    tag: ClassVar[str] = "await_all"
-    effects: list[EAwait]
-
-
-@dataclass
 class EEnqueue(ZahirCoordinationEffect[None]):
     """Internal: enqueue a child job and route its reply back to this worker."""
 
@@ -92,7 +90,7 @@ class EEnqueue(ZahirCoordinationEffect[None]):
     args: tuple[Any, ...]
     reply_to: bytes  # the requesting worker's PID bytes
     timeout_ms: int | None
-    nonce: int | None  # None for EAwait; integer index for EAwaitAll
+    nonce: int  # allocated nonce for routing the reply back to the parent
 
 
 @dataclass
@@ -145,6 +143,7 @@ class EJobComplete(ZahirCoordinationEffect[None]):
     result: Any
     reply_to: bytes | None
     nonce: Any
+    fn_name: str = ""
 
 
 @dataclass
@@ -155,3 +154,4 @@ class EJobFail(ZahirCoordinationEffect[None]):
     error: Exception
     reply_to: bytes | None
     nonce: Any
+    fn_name: str = ""

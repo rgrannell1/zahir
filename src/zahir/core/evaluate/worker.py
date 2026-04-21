@@ -10,7 +10,6 @@ from tertius import ESelf, ESleep, Pid, Scope
 from zahir.core.constants import WORKER_POLL_MS
 from zahir.core.effects import (
     EAwait,
-    EAwaitAll,
     EEnqueue,
     EGetJob,
     EJobComplete,
@@ -26,7 +25,7 @@ from zahir.core.evaluate.job_handlers import (
     _unwrap_reply,
     evaluate_job,
 )
-from zahir.core.exceptions import JobError, JobTimeout
+from zahir.core.exceptions import JobError, JobTimeout, ZahirException
 from zahir.core.scope_proxy import ScopeProxy
 
 
@@ -34,17 +33,18 @@ from zahir.core.scope_proxy import ScopeProxy
 class _WaitingJob:
     """A job suspended while waiting for one or more child jobs to complete."""
 
-    eval_gen: Any  # the evaluate_job generator, frozen at yield EAwait/EAwaitAll
+    fn_name: str  # the name of the function being executed
+    eval_gen: Any  # the evaluate_job generator, frozen at yield EAwait
     context: JobHandlerContext
     reply_to: bytes | None  # where to send our result when we finish
     parent_nonce: Any  # the nonce our parent assigned us
     awaiting: set[int]  # child local nonces still outstanding
     results: dict[int, Any]  # local nonce -> body (result or error)
-    result_order: list[int] | None  # None for EAwait; ordered nonce list for EAwaitAll
+    result_order: list[int] | None  # None for scalar dispatch; ordered nonce list for multi-job dispatch
 
 
 def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
-    """Worker main loop — drives jobs step by step, suspending onto a local stack for EAwait/EAwaitAll."""
+    """Worker main loop — drives jobs step by step, suspending onto a local stack on EAwait."""
 
     me: Pid = yield ESelf()
     me_bytes = bytes(me)
@@ -82,7 +82,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
                 # All children done — reconstruct handler_value and resume
                 current = waiting.pop(parent_key)
                 if current.result_order is not None:
-                    # EAwaitAll: ordered list; raise the first error seen
+                    # multi-job dispatch: ordered list; raise the first error seen
                     first_error: Exception | None = None
                     results = []
                     for n in current.result_order:
@@ -128,6 +128,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
                     ctx._scope[fn_name](ctx, *args), job_context, deadline
                 )
                 current = _WaitingJob(
+                    fn_name=fn_name,
                     eval_gen=eval_gen,
                     context=job_context,
                     reply_to=reply_to,
@@ -140,6 +141,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
                 pending_throw = None
 
         # ── Advance the current job one step ─────────────────────────────────────
+        assert current is not None
         job = current
         try:
             effect = (
@@ -153,7 +155,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
             for name in job.context.acquired:
                 yield ERelease(name=name)
             yield EJobComplete(
-                result=exc.value, reply_to=job.reply_to, nonce=job.parent_nonce
+                result=exc.value, reply_to=job.reply_to, nonce=job.parent_nonce, fn_name=job.fn_name
             )
             handler_value = None
             pending_throw = None
@@ -162,59 +164,35 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
             current = None
             for name in job.context.acquired:
                 yield ERelease(name=name)
-            error = exc if isinstance(exc, (JobError, JobTimeout)) else JobError(exc)
-            yield EJobFail(error=error, reply_to=job.reply_to, nonce=job.parent_nonce)
+            error = exc if isinstance(exc, ZahirException) else JobError(exc)
+            yield EJobFail(error=error, reply_to=job.reply_to, nonce=job.parent_nonce, fn_name=job.fn_name)
             handler_value = None
             pending_throw = None
             continue
 
         # ── Handle the yielded effect ─────────────────────────────────────────────
         if isinstance(effect, EAwait):
-            # Suspend the current job and enqueue the child
-            child_nonce = _alloc()
+            # Suspend the current job and enqueue all child jobs
+            child_nonces = [_alloc() for _ in effect.jobs]
             parent_key = _alloc()
-            child_to_parent[child_nonce] = parent_key
-            waiting[parent_key] = _WaitingJob(
-                eval_gen=job.eval_gen,
-                context=job.context,
-                reply_to=job.reply_to,
-                parent_nonce=job.parent_nonce,
-                awaiting={child_nonce},
-                results={},
-                result_order=None,
-            )
-            yield EEnqueue(
-                fn_name=effect.fn_name,
-                args=effect.args,
-                reply_to=me_bytes,
-                timeout_ms=effect.timeout_ms,
-                nonce=child_nonce,
-            )
-            current = None
-            handler_value = None
-            pending_throw = None
-
-        elif isinstance(effect, EAwaitAll):
-            # Suspend the current job and enqueue all children
-            child_nonces = [_alloc() for _ in effect.effects]
-            parent_key = _alloc()
-            for cn, eff in zip(child_nonces, effect.effects):
+            for cn, spec in zip(child_nonces, effect.jobs):
                 child_to_parent[cn] = parent_key
                 yield EEnqueue(
-                    fn_name=eff.fn_name,
-                    args=eff.args,
+                    fn_name=spec.fn_name,
+                    args=spec.args,
                     reply_to=me_bytes,
-                    timeout_ms=eff.timeout_ms,
+                    timeout_ms=spec.timeout_ms,
                     nonce=cn,
                 )
             waiting[parent_key] = _WaitingJob(
+                fn_name=job.fn_name,
                 eval_gen=job.eval_gen,
                 context=job.context,
                 reply_to=job.reply_to,
                 parent_nonce=job.parent_nonce,
                 awaiting=set(child_nonces),
                 results={},
-                result_order=child_nonces,
+                result_order=None if effect.scalar else child_nonces,
             )
             current = None
             handler_value = None
@@ -235,7 +213,7 @@ def worker(
     ctx._scope = scope
     ctx.scope = ScopeProxy(scope)
 
-    coordination_context = CoordinationHandlerContext(overseer=overseer)
+    coordination_context = CoordinationHandlerContext(overseer=overseer, handler_wrappers=ctx.handler_wrappers)
     yield from handle(
         _worker_body(overseer, ctx),
         **make_coordination_handlers(coordination_context),

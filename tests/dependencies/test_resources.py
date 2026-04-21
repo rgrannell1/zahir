@@ -4,9 +4,9 @@ from unittest.mock import patch
 import pytest
 import time_machine
 
+from tertius import EEmit, ESleep
+
 from zahir.core.dependencies.resources import resource_dependency
-from zahir.core.effects import EImpossible, ESatisfied
-from tertius import ESleep
 from tests.shared import NOW
 
 
@@ -19,21 +19,22 @@ def _high_usage(_resource):
 
 
 @time_machine.travel(NOW, tick=False)
-def test_cpu_below_limit_yields_satisfied():
-    """Proves cpu usage below max_percent yields ESatisfied."""
+def test_cpu_below_limit_emits_satisfied():
+    """Proves cpu usage below max_percent emits satisfied."""
 
     with patch("zahir.core.dependencies.resources._get_usage", _low_usage):
-        gen = resource_dependency("cpu", max_percent=50.0)
-        assert isinstance(next(gen), ESatisfied)
+        emit = next(resource_dependency("cpu", max_percent=50.0))
+    assert isinstance(emit, EEmit)
+    assert emit.body[0] == "satisfied"
 
 
 @time_machine.travel(NOW, tick=False)
-def test_memory_below_limit_yields_satisfied():
-    """Proves memory usage below max_percent yields ESatisfied."""
+def test_memory_below_limit_emits_satisfied():
+    """Proves memory usage below max_percent emits satisfied."""
 
     with patch("zahir.core.dependencies.resources._get_usage", _low_usage):
-        gen = resource_dependency("memory", max_percent=50.0)
-        assert isinstance(next(gen), ESatisfied)
+        emit = next(resource_dependency("memory", max_percent=50.0))
+    assert emit.body[0] == "satisfied"
 
 
 @time_machine.travel(NOW, tick=False)
@@ -41,34 +42,32 @@ def test_usage_above_limit_yields_sleep():
     """Proves usage exceeding max_percent yields ESleep."""
 
     with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
-        gen = resource_dependency("cpu", max_percent=50.0)
-        assert isinstance(next(gen), ESleep)
+        assert isinstance(next(resource_dependency("cpu", max_percent=50.0)), ESleep)
 
 
 @time_machine.travel(NOW, tick=False)
-def test_usage_at_limit_yields_satisfied():
+def test_usage_at_limit_emits_satisfied():
     """Proves usage exactly at max_percent is considered within limit."""
 
     with patch("zahir.core.dependencies.resources._get_usage", lambda _: 50.0):
-        gen = resource_dependency("cpu", max_percent=50.0)
-        assert isinstance(next(gen), ESatisfied)
+        emit = next(resource_dependency("cpu", max_percent=50.0))
+    assert emit.body[0] == "satisfied"
 
 
 @time_machine.travel(NOW, tick=False)
 def test_satisfied_metadata_includes_resource_and_limit():
-    """Proves ESatisfied metadata contains the resource type and max_percent."""
+    """Proves the satisfied body contains the resource type and max_percent."""
 
     with patch("zahir.core.dependencies.resources._get_usage", _low_usage):
-        gen = resource_dependency("cpu", max_percent=75.0)
-        effect = next(gen)
+        emit = next(resource_dependency("cpu", max_percent=75.0))
 
-    assert isinstance(effect, ESatisfied)
-    assert effect.metadata["resource"] == "cpu"
-    assert effect.metadata["max_percent"] == 75.0
+    assert emit.body[0] == "satisfied"
+    assert emit.body[1]["resource"] == "cpu"
+    assert emit.body[1]["max_percent"] == 75.0
 
 
-def test_timeout_yields_impossible():
-    """Proves exceeding timeout yields EImpossible."""
+def test_timeout_emits_impossible():
+    """Proves exceeding timeout emits impossible."""
 
     with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
         with time_machine.travel(NOW, tick=False):
@@ -76,14 +75,15 @@ def test_timeout_yields_impossible():
             next(gen)  # ESleep
 
         with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-            effect = next(gen)
+            emit = next(gen)
 
-    assert isinstance(effect, EImpossible)
-    assert "cpu" in effect.reason
+    assert isinstance(emit, EEmit)
+    assert emit.body[0] == "impossible"
+    assert "cpu" in emit.body[1]
 
 
 def test_timeout_reason_includes_resource_and_duration():
-    """Proves EImpossible reason includes the resource type and timeout duration."""
+    """Proves the impossible reason includes the resource type and timeout duration."""
 
     with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
         with time_machine.travel(NOW, tick=False):
@@ -91,14 +91,14 @@ def test_timeout_reason_includes_resource_and_duration():
             next(gen)
 
         with time_machine.travel(NOW + timedelta(seconds=60), tick=False):
-            effect = next(gen)
+            emit = next(gen)
 
-    assert isinstance(effect, EImpossible)
-    assert "memory" in effect.reason
-    assert "30" in effect.reason
+    assert emit.body[0] == "impossible"
+    assert "memory" in emit.body[1]
+    assert "30" in emit.body[1]
 
 
-def test_high_then_low_usage_yields_satisfied():
+def test_high_then_low_usage_emits_satisfied():
     """Proves the dependency satisfies once usage drops below the limit."""
 
     calls = iter([_high_usage, _low_usage])
@@ -109,26 +109,27 @@ def test_high_then_low_usage_yields_satisfied():
         with time_machine.travel(NOW, tick=False):
             gen = resource_dependency("cpu", max_percent=50.0)
             assert isinstance(next(gen), ESleep)
-            assert isinstance(next(gen), ESatisfied)
+            emit = next(gen)
+            assert emit.body[0] == "satisfied"
 
 
 # return values
 
 
 @time_machine.travel(NOW, tick=False)
-def test_satisfied_returns_event_as_generator_value():
-    """Proves the generator returns the ESatisfied event as its StopIteration value."""
+def test_satisfied_returns_tuple_as_generator_value():
+    """Proves the generator returns the satisfied tuple as its StopIteration value."""
 
     with patch("zahir.core.dependencies.resources._get_usage", _low_usage):
         gen = resource_dependency("cpu", max_percent=50.0)
-        event = next(gen)
+        emit = next(gen)
     with pytest.raises(StopIteration) as exc:
         next(gen)
-    assert exc.value.value is event
+    assert exc.value.value is emit.body
 
 
-def test_impossible_returns_event_as_generator_value():
-    """Proves the generator returns the EImpossible event as its StopIteration value."""
+def test_impossible_returns_tuple_as_generator_value():
+    """Proves the generator returns the impossible tuple as its StopIteration value."""
 
     with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
         with time_machine.travel(NOW, tick=False):
@@ -136,8 +137,8 @@ def test_impossible_returns_event_as_generator_value():
             next(gen)
 
         with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-            event = next(gen)
+            emit = next(gen)
 
     with pytest.raises(StopIteration) as exc:
         next(gen)
-    assert exc.value.value is event
+    assert exc.value.value is emit.body
