@@ -24,8 +24,8 @@ def _get_job(
 
     results = state.pending_results.get(worker_pid_bytes)
     if results:
-        nonce, body = results.popleft()
-        return state, ("result", nonce, body)
+        sequence_number, body = results.popleft()
+        return state, ("result", sequence_number, body)
 
     if state.queue:
         job = state.queue.popleft()
@@ -35,7 +35,7 @@ def _get_job(
             job.args,
             job.reply_to,
             job.timeout_ms,
-            job.nonce,
+            job.sequence_number,
         )
 
     return state, None
@@ -78,7 +78,7 @@ def _enqueue(
     args: tuple,
     reply_to: bytes | None,
     timeout_ms: int | None,
-    nonce: int | None = None,
+    sequence_number: int | None = None,
 ) -> OverseerState:
     """Enqueue a new job to be processed. This is used to implement dynamic fan-out patterns, where the number of jobs is not known upfront."""
 
@@ -87,7 +87,7 @@ def _enqueue(
         args=args,
         reply_to=reply_to,
         timeout_ms=timeout_ms,
-        nonce=nonce,
+        sequence_number=sequence_number,
     )
     state.queue.append(spec)
     state.pending += 1
@@ -96,7 +96,7 @@ def _enqueue(
 
 
 def _job_done(
-    state: OverseerState, reply_to_bytes: bytes | None, nonce: Any, body: Any
+    state: OverseerState, reply_to_bytes: bytes | None, sequence_number: Any, body: Any
 ) -> OverseerState:
     """Decrement pending and buffer the result for the waiting parent worker, if any. Root job results are stored on state."""
 
@@ -107,7 +107,7 @@ def _job_done(
     else:
         if reply_to_bytes not in state.pending_results:
             state.pending_results[reply_to_bytes] = deque()
-        state.pending_results[reply_to_bytes].append((nonce, body))
+        state.pending_results[reply_to_bytes].append((sequence_number, body))
 
     return state
 

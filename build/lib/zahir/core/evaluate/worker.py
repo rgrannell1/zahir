@@ -31,10 +31,10 @@ class _WaitingJob:
     eval_gen: Any  # the evaluate_job generator, frozen at yield EAwait/EAwaitAll
     context: JobHandlerContext
     reply_to: bytes | None  # where to send our result when we finish
-    parent_nonce: Any  # the nonce our parent assigned us
-    awaiting: set[int]  # child local nonces still outstanding
-    results: dict[int, Any]  # local nonce -> body (result or error)
-    result_order: list[int] | None  # None for EAwait; ordered nonce list for EAwaitAll
+    parent_sequence_number: Any  # the sequence_number our parent assigned us
+    awaiting: set[int]  # child local sequence_numbers still outstanding
+    results: dict[int, Any]  # local sequence_number -> body (result or error)
+    result_order: list[int] | None  # None for EAwait; ordered sequence_number list for EAwaitAll
 
 
 def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
@@ -44,7 +44,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
     me_bytes = bytes(me)
 
     waiting: dict[int, _WaitingJob] = {}  # parent_key -> _WaitingJob
-    child_to_parent: dict[int, int] = {}  # child local nonce -> parent_key
+    child_to_parent: dict[int, int] = {}  # child local sequence_number -> parent_key
     _counter = [0]
 
     def _alloc() -> int:
@@ -69,11 +69,11 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
 
             if kind == "result":
                 # A child job completed — find and possibly resume the suspended parent
-                _, child_nonce, body = work
-                parent_key = child_to_parent.pop(child_nonce)
+                _, child_sequence_number, body = work
+                parent_key = child_to_parent.pop(child_sequence_number)
                 job = waiting[parent_key]
-                job.results[child_nonce] = body
-                job.awaiting.discard(child_nonce)
+                job.results[child_sequence_number] = body
+                job.awaiting.discard(child_sequence_number)
 
                 if job.awaiting:
                     continue  # still waiting on other children
@@ -108,13 +108,13 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
 
             elif kind == "job":
                 # A new job arrived from the queue
-                _, fn_name, args, reply_to, timeout_ms, parent_nonce = work
+                _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
 
                 if fn_name not in ctx._scope:
                     err = JobError(KeyError(f"job {fn_name!r} not found in scope"))
                     yield from mcast(
                         overseer_pid,
-                        (JOB_DONE, reply_to, parent_nonce, err)
+                        (JOB_DONE, reply_to, parent_sequence_number, err)
                         if reply_to
                         else (JOB_FAILED, err),
                     )
@@ -138,7 +138,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
                     eval_gen=eval_gen,
                     context=job_context,
                     reply_to=reply_to,
-                    parent_nonce=parent_nonce,
+                    parent_sequence_number=parent_sequence_number,
                     awaiting=set(),
                     results={},
                     result_order=None,
@@ -160,7 +160,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
             for name in job.context.acquired:
                 yield from mcast(overseer_pid, (RELEASE, name))
             yield from mcast(
-                overseer_pid, (JOB_DONE, job.reply_to, job.parent_nonce, exc.value)
+                overseer_pid, (JOB_DONE, job.reply_to, job.parent_sequence_number, exc.value)
             )
             handler_value = None
             pending_throw = None
@@ -171,7 +171,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
                 yield from mcast(overseer_pid, (RELEASE, name))
             if job.reply_to is not None:
                 yield from mcast(
-                    overseer_pid, (JOB_DONE, job.reply_to, job.parent_nonce, exc)
+                    overseer_pid, (JOB_DONE, job.reply_to, job.parent_sequence_number, exc)
                 )
             else:
                 yield from mcast(overseer_pid, (JOB_FAILED, exc))
@@ -185,7 +185,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
             wrapped = JobError(exc)
             if job.reply_to is not None:
                 yield from mcast(
-                    overseer_pid, (JOB_DONE, job.reply_to, job.parent_nonce, wrapped)
+                    overseer_pid, (JOB_DONE, job.reply_to, job.parent_sequence_number, wrapped)
                 )
             else:
                 yield from mcast(overseer_pid, (JOB_FAILED, wrapped))
@@ -196,15 +196,15 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
         # ── Handle the yielded effect ─────────────────────────────────────────────
         if isinstance(effect, EAwait):
             # Suspend the current job and enqueue the child
-            child_nonce = _alloc()
+            child_sequence_number = _alloc()
             parent_key = _alloc()
-            child_to_parent[child_nonce] = parent_key
+            child_to_parent[child_sequence_number] = parent_key
             waiting[parent_key] = _WaitingJob(
                 eval_gen=job.eval_gen,
                 context=job.context,
                 reply_to=job.reply_to,
-                parent_nonce=job.parent_nonce,
-                awaiting={child_nonce},
+                parent_sequence_number=job.parent_sequence_number,
+                awaiting={child_sequence_number},
                 results={},
                 result_order=None,
             )
@@ -216,7 +216,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
                     effect.args,
                     me_bytes,
                     effect.timeout_ms,
-                    child_nonce,
+                    child_sequence_number,
                 ),
             )
             current = None
@@ -225,9 +225,9 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
 
         elif isinstance(effect, EAwaitAll):
             # Suspend the current job and enqueue all children
-            child_nonces = [_alloc() for _ in effect.effects]
+            child_sequence_numbers = [_alloc() for _ in effect.effects]
             parent_key = _alloc()
-            for cn, eff in zip(child_nonces, effect.effects):
+            for cn, eff in zip(child_sequence_numbers, effect.effects):
                 child_to_parent[cn] = parent_key
                 yield from mcast(
                     overseer_pid,
@@ -237,10 +237,10 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
                 eval_gen=job.eval_gen,
                 context=job.context,
                 reply_to=job.reply_to,
-                parent_nonce=job.parent_nonce,
-                awaiting=set(child_nonces),
+                parent_sequence_number=job.parent_sequence_number,
+                awaiting=set(child_sequence_numbers),
                 results={},
-                result_order=child_nonces,
+                result_order=child_sequence_numbers,
             )
             current = None
             handler_value = None

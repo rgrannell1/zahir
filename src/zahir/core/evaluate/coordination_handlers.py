@@ -52,7 +52,7 @@ def _handle_enqueue(
             effect.args,
             effect.reply_to,
             effect.timeout_ms,
-            effect.nonce,
+            effect.sequence_number,
         ),
     )
 
@@ -71,7 +71,7 @@ def _handle_job_complete(
     """Route the result to the parent worker via the overseer and decrement pending."""
 
     yield from mcast(
-        context.overseer, (JOB_DONE, effect.reply_to, effect.nonce, effect.result)
+        context.overseer, (JOB_DONE, effect.reply_to, effect.sequence_number, effect.result)
     )
 
 
@@ -82,7 +82,7 @@ def _handle_job_fail(
 
     if effect.reply_to is not None:
         yield from mcast(
-            context.overseer, (JOB_DONE, effect.reply_to, effect.nonce, effect.error)
+            context.overseer, (JOB_DONE, effect.reply_to, effect.sequence_number, effect.error)
         )
     else:
         yield from mcast(context.overseer, (JOB_FAILED, effect.error))

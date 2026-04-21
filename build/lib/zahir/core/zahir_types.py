@@ -9,7 +9,7 @@ class JobSpec:
     args: tuple[Any, ...]
     reply_to: bytes | None
     timeout_ms: int | None = None
-    nonce: int | None = None
+    sequence_number: int | None = None
 
 
 @dataclass
@@ -21,4 +21,4 @@ class OverseerState:
     root_error: Exception | None = None
     pending_results: dict[bytes, deque] = field(
         default_factory=dict
-    )  # worker_pid_bytes -> deque[(nonce, body)]
+    )  # worker_pid_bytes -> deque[(sequence_number, body)]

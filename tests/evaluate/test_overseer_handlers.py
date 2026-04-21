@@ -36,7 +36,7 @@ def test_get_job_returns_job_tuple_from_queue():
     """Proves _get_job returns a ("job", ...) tuple from the queue when no results are pending."""
 
     spec = JobSpec(
-        fn_name="process", args=(1,), reply_to=None, timeout_ms=5000, nonce=3
+        fn_name="process", args=(1,), reply_to=None, timeout_ms=5000, sequence_number=3
     )
     state, job = _get_job(_state(queue=deque([spec])), WORKER)
     assert job == ("job", "process", (1,), None, 5000, 3)
@@ -117,7 +117,7 @@ def test_job_done_decrements_pending():
 
 
 def test_job_done_buffers_result_for_worker():
-    """Proves _job_done stores (nonce, body) in pending_results for the given worker."""
+    """Proves _job_done stores (sequence_number, body) in pending_results for the given worker."""
 
     state = _job_done(_state(pending=1), WORKER, 7, "result")
     assert list(state.pending_results[WORKER]) == [(7, "result")]

@@ -91,7 +91,7 @@ class EEnqueue(ZahirCoordinationEffect[None]):
     fn_name: str
     args: tuple[Any, ...]
     timeout_ms: int | None
-    nonce: int | None  # None for EAwait; integer index for EAwaitAll
+    sequence_number: int | None  # None for EAwait; integer index for EAwaitAll
 
 
 @dataclass
@@ -117,7 +117,7 @@ class EJobComplete(ZahirCoordinationEffect[None]):
     tag: ClassVar[str] = "job_complete"
     result: Any
     reply_to: bytes | None
-    nonce: Any
+    sequence_number: Any
 
 
 @dataclass
@@ -127,4 +127,4 @@ class EJobFail(ZahirCoordinationEffect[None]):
     tag: ClassVar[str] = "job_fail"
     error: Exception
     reply_to: bytes | None
-    nonce: Any
+    sequence_number: Any

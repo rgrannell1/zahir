@@ -1,3 +1,5 @@
+"""Worker process: fetches jobs from the overseer, drives them step by step, suspends on EAwait."""
+
 import itertools
 from collections.abc import Generator
 from dataclasses import dataclass
@@ -37,10 +39,138 @@ class _WaitingJob:
     eval_gen: Any  # the evaluate_job generator, frozen at yield EAwait
     context: JobHandlerContext
     reply_to: bytes | None  # where to send our result when we finish
-    parent_nonce: Any  # the nonce our parent assigned us
-    awaiting: set[int]  # child local nonces still outstanding
-    results: dict[int, Any]  # local nonce -> body (result or error)
-    result_order: list[int] | None  # None for scalar dispatch; ordered nonce list for multi-job dispatch
+    parent_sequence_number: Any  # the sequence_number our parent assigned us
+    awaiting: set[int]  # child local sequence_numbers still outstanding
+    results: dict[int, Any]  # local sequence_number -> body (result or error)
+    result_order: list[int] | None  # None for scalar dispatch; ordered sequence_number list for multi-job dispatch
+
+
+def _collect_scalar_result(body: Any) -> tuple[Any, Exception | None]:
+    """Unwrap a single child result into (value, error)."""
+
+    try:
+        return _unwrap_reply(body), None
+    except (JobError, JobTimeout) as exc:
+        return None, exc
+
+
+def _collect_multi_results(job: _WaitingJob) -> tuple[list | None, Exception | None]:
+    """Collect ordered multi-job results, surfacing the first error if any."""
+
+    first_error: Exception | None = None
+    results = []
+    for sequence_number in job.result_order:
+        try:
+            results.append(_unwrap_reply(job.results[sequence_number]))
+        except (JobError, JobTimeout) as exc:
+            if first_error is None:
+                first_error = exc
+
+    if first_error is not None:
+        return None, first_error
+
+    return results, None
+
+
+def _resume_from_result(
+    work: tuple,
+    waiting: dict[int, _WaitingJob],
+    child_to_parent: dict[int, int],
+) -> tuple[_WaitingJob, Any, Exception | None] | None:
+    """Process a completed child result. Returns (job, handler_value, pending_throw) when all children are done, None if still waiting."""
+
+    _, child_sequence_number, body = work
+    parent_key = child_to_parent.pop(child_sequence_number)
+    job = waiting[parent_key]
+    job.results[child_sequence_number] = body
+    job.awaiting.remove(child_sequence_number)
+
+    if job.awaiting:
+        return None
+
+    current = waiting.pop(parent_key)
+
+    if current.result_order is not None:
+        handler_value, pending_throw = _collect_multi_results(current)
+    else:
+        handler_value, pending_throw = _collect_scalar_result(body)
+
+    return current, handler_value, pending_throw
+
+
+def _build_job(work: tuple, ctx: Any) -> _WaitingJob:
+    """Construct a WaitingJob from a dequeued job work item."""
+
+    _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
+    deadline = (
+        datetime.now(UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms else None
+    )
+    job_context = JobHandlerContext(handler_wrappers=ctx.handler_wrappers)
+    eval_gen = evaluate_job(ctx._scope[fn_name](ctx, *args), job_context, deadline)
+
+    return _WaitingJob(
+        fn_name=fn_name,
+        eval_gen=eval_gen,
+        context=job_context,
+        reply_to=reply_to,
+        parent_sequence_number=parent_sequence_number,
+        awaiting=set(),
+        results={},
+        result_order=None,
+    )
+
+
+def _complete_job(job: _WaitingJob, value: Any) -> Generator[Any, Any, None]:
+    """Release concurrency slots and report successful completion to the overseer."""
+
+    for name in job.context.acquired:
+        yield ERelease(name=name)
+
+    yield EJobComplete(result=value, reply_to=job.reply_to, sequence_number=job.parent_sequence_number, fn_name=job.fn_name)
+
+
+def _fail_job(job: _WaitingJob, exc: Exception) -> Generator[Any, Any, None]:
+    """Release concurrency slots and report job failure to the overseer."""
+
+    for name in job.context.acquired:
+        yield ERelease(name=name)
+    error = exc if isinstance(exc, ZahirException) else JobError(exc)
+    yield EJobFail(error=error, reply_to=job.reply_to, sequence_number=job.parent_sequence_number, fn_name=job.fn_name)
+
+
+def _enqueue_await(
+    effect: EAwait,
+    job: _WaitingJob,
+    waiting: dict[int, _WaitingJob],
+    child_to_parent: dict[int, int],
+    alloc: Any,
+    me_bytes: bytes,
+) -> Generator[Any, Any, None]:
+    """Suspend the current job and enqueue all child jobs for the EAwait effect."""
+
+    child_sequence_numbers = [alloc() for _ in effect.jobs]
+    parent_key = alloc()
+
+    for cn, spec in zip(child_sequence_numbers, effect.jobs):
+        child_to_parent[cn] = parent_key
+        yield EEnqueue(
+            fn_name=spec.fn_name,
+            args=spec.args,
+            reply_to=me_bytes,
+            timeout_ms=spec.timeout_ms,
+            sequence_number=cn,
+        )
+
+    waiting[parent_key] = _WaitingJob(
+        fn_name=job.fn_name,
+        eval_gen=job.eval_gen,
+        context=job.context,
+        reply_to=job.reply_to,
+        parent_sequence_number=job.parent_sequence_number,
+        awaiting=set(child_sequence_numbers),
+        results={},
+        result_order=None if effect.scalar else child_sequence_numbers,
+    )
 
 
 def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
@@ -50,8 +180,8 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
     me_bytes = bytes(me)
 
     waiting: dict[int, _WaitingJob] = {}  # parent_key -> _WaitingJob
-    child_to_parent: dict[int, int] = {}  # child local nonce -> parent_key
-    _alloc = itertools.count().__next__
+    child_to_parent: dict[int, int] = {}  # child local sequence_number -> parent_key
+    alloc = itertools.count().__next__
 
     current: _WaitingJob | None = None
     handler_value: Any = None
@@ -69,74 +199,19 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
             kind = work[0]
 
             if kind == "result":
-                # A child job completed — find and possibly resume the suspended parent
-                _, child_nonce, body = work
-                parent_key = child_to_parent.pop(child_nonce)
-                job = waiting[parent_key]
-                job.results[child_nonce] = body
-                job.awaiting.remove(child_nonce)
-
-                if job.awaiting:
-                    continue  # still waiting on other children
-
-                # All children done — reconstruct handler_value and resume
-                current = waiting.pop(parent_key)
-                if current.result_order is not None:
-                    # multi-job dispatch: ordered list; raise the first error seen
-                    first_error: Exception | None = None
-                    results = []
-                    for n in current.result_order:
-                        try:
-                            results.append(_unwrap_reply(current.results[n]))
-                        except (JobError, JobTimeout) as exc:
-                            if first_error is None:
-                                first_error = exc
-                    if first_error is not None:
-                        handler_value = None
-                        pending_throw = first_error
-                    else:
-                        handler_value = results
-                        pending_throw = None
-                else:
-                    # EAwait: single child result
-                    try:
-                        handler_value = _unwrap_reply(body)
-                        pending_throw = None
-                    except (JobError, JobTimeout) as exc:
-                        handler_value = None
-                        pending_throw = exc
+                resumed = _resume_from_result(work, waiting, child_to_parent)
+                if resumed is None:
+                    continue
+                current, handler_value, pending_throw = resumed
                 continue
 
             elif kind == "job":
-                # A new job arrived from the queue
-                _, fn_name, args, reply_to, timeout_ms, parent_nonce = work
-
+                _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
                 if fn_name not in ctx._scope:
                     err = JobError(KeyError(f"job {fn_name!r} not found in scope"))
-                    yield EJobFail(error=err, reply_to=reply_to, nonce=parent_nonce)
+                    yield EJobFail(error=err, reply_to=reply_to, sequence_number=parent_sequence_number)
                     continue
-
-                deadline = (
-                    datetime.now(UTC) + timedelta(milliseconds=timeout_ms)
-                    if timeout_ms
-                    else None
-                )
-                job_context = JobHandlerContext(
-                    handler_wrappers=ctx.handler_wrappers,
-                )
-                eval_gen = evaluate_job(
-                    ctx._scope[fn_name](ctx, *args), job_context, deadline
-                )
-                current = _WaitingJob(
-                    fn_name=fn_name,
-                    eval_gen=eval_gen,
-                    context=job_context,
-                    reply_to=reply_to,
-                    parent_nonce=parent_nonce,
-                    awaiting=set(),
-                    results={},
-                    result_order=None,
-                )
+                current = _build_job(work, ctx)
                 handler_value = None
                 pending_throw = None
 
@@ -152,52 +227,23 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
             pending_throw = None
         except StopIteration as exc:
             current = None
-            for name in job.context.acquired:
-                yield ERelease(name=name)
-            yield EJobComplete(
-                result=exc.value, reply_to=job.reply_to, nonce=job.parent_nonce, fn_name=job.fn_name
-            )
+            yield from _complete_job(job, exc.value)
             handler_value = None
             pending_throw = None
             continue
         except Exception as exc:
             current = None
-            for name in job.context.acquired:
-                yield ERelease(name=name)
-            error = exc if isinstance(exc, ZahirException) else JobError(exc)
-            yield EJobFail(error=error, reply_to=job.reply_to, nonce=job.parent_nonce, fn_name=job.fn_name)
+            yield from _fail_job(job, exc)
             handler_value = None
             pending_throw = None
             continue
 
         # ── Handle the yielded effect ─────────────────────────────────────────────
         if isinstance(effect, EAwait):
-            # Suspend the current job and enqueue all child jobs
-            child_nonces = [_alloc() for _ in effect.jobs]
-            parent_key = _alloc()
-            for cn, spec in zip(child_nonces, effect.jobs):
-                child_to_parent[cn] = parent_key
-                yield EEnqueue(
-                    fn_name=spec.fn_name,
-                    args=spec.args,
-                    reply_to=me_bytes,
-                    timeout_ms=spec.timeout_ms,
-                    nonce=cn,
-                )
-            waiting[parent_key] = _WaitingJob(
-                fn_name=job.fn_name,
-                eval_gen=job.eval_gen,
-                context=job.context,
-                reply_to=job.reply_to,
-                parent_nonce=job.parent_nonce,
-                awaiting=set(child_nonces),
-                results={},
-                result_order=None if effect.scalar else child_nonces,
-            )
+            yield from _enqueue_await(effect, job, waiting, child_to_parent, alloc, me_bytes)
             current = None
             handler_value = None
             pending_throw = None
-
         else:
             # All other effects (tertius effects, ESleep, etc.) pass through to the runtime
             handler_value = yield effect

@@ -80,9 +80,9 @@ These are internal effects used by the workflow engine; jobs cannot yield them d
 
 *Job lifecycle*
 - `EGetJob(worker_pid_bytes)`: request work from the overseer — returns a new job, a buffered child result, or None
-- `EEnqueue(fn_name, args, reply_to, timeout_ms, nonce)`: queue a child job and route its result back to this worker
-- `EJobComplete(result, reply_to, nonce)`: report successful job completion to the overseer
-- `EJobFail(error, reply_to, nonce)`: report job failure (error or timeout) to the overseer
+- `EEnqueue(fn_name, args, reply_to, timeout_ms, sequence_number)`: queue a child job and route its result back to this worker
+- `EJobComplete(result, reply_to, sequence_number)`: report successful job completion to the overseer
+- `EJobFail(error, reply_to, sequence_number)`: report job failure (error or timeout) to the overseer
 - `ERelease(name)`: release a named concurrency slot back to the overseer
 
 *Overseer queries*

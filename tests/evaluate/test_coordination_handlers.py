@@ -82,7 +82,7 @@ def test_handle_enqueue_sends_correct_message_to_overseer():
                     args=(1,),
                     reply_to=WORKER_PID,
                     timeout_ms=500,
-                    nonce=3,
+                    sequence_number=3,
                 ),
             )
         )
@@ -118,7 +118,7 @@ def test_handle_get_job_returns_none_when_overseer_has_nothing():
 
 
 def test_handle_job_complete_mcasts_job_done_with_result():
-    """Proves _handle_job_complete sends (JOB_DONE, reply_to, nonce, result) to the overseer."""
+    """Proves _handle_job_complete sends (JOB_DONE, reply_to, sequence_number, result) to the overseer."""
 
     sent = []
 
@@ -130,7 +130,7 @@ def test_handle_job_complete_mcasts_job_done_with_result():
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         _drive(
             _handle_job_complete(
-                CTX, EJobComplete(result="done", reply_to=REPLY_TO, nonce=7)
+                CTX, EJobComplete(result="done", reply_to=REPLY_TO, sequence_number=7)
             )
         )
 
@@ -150,7 +150,7 @@ def test_handle_job_complete_with_none_reply_to():
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         _drive(
             _handle_job_complete(
-                CTX, EJobComplete(result="done", reply_to=None, nonce=None)
+                CTX, EJobComplete(result="done", reply_to=None, sequence_number=None)
             )
         )
 
@@ -161,7 +161,7 @@ def test_handle_job_complete_with_none_reply_to():
 
 
 def test_handle_job_fail_routes_error_to_parent_via_overseer():
-    """Proves _handle_job_fail sends (JOB_DONE, reply_to, nonce, error) when reply_to is set."""
+    """Proves _handle_job_fail sends (JOB_DONE, reply_to, sequence_number, error) when reply_to is set."""
 
     sent = []
 
@@ -172,7 +172,7 @@ def test_handle_job_fail_routes_error_to_parent_via_overseer():
 
     err = JobError(ValueError("boom"))
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        _drive(_handle_job_fail(CTX, EJobFail(error=err, reply_to=REPLY_TO, nonce=5)))
+        _drive(_handle_job_fail(CTX, EJobFail(error=err, reply_to=REPLY_TO, sequence_number=5)))
 
     assert sent[0] == (OVERSEER, (JOB_DONE, REPLY_TO, 5, err))
 
@@ -189,7 +189,7 @@ def test_handle_job_fail_sends_job_failed_for_root_job():
 
     err = JobError(ValueError("boom"))
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        _drive(_handle_job_fail(CTX, EJobFail(error=err, reply_to=None, nonce=None)))
+        _drive(_handle_job_fail(CTX, EJobFail(error=err, reply_to=None, sequence_number=None)))
 
     assert sent[0] == (OVERSEER, (JOB_FAILED, err))
 
@@ -330,7 +330,7 @@ def test_job_complete_handler_emits_telemetry_with_fn_name():
     ctx = CoordinationHandlerContext(overseer=OVERSEER, handler_wrappers=[make_telemetry()])
     handlers = make_coordination_handlers(ctx)
 
-    effect = EJobComplete(result="done", reply_to=REPLY_TO, nonce=7, fn_name="chapter_processor")
+    effect = EJobComplete(result="done", reply_to=REPLY_TO, sequence_number=7, fn_name="chapter_processor")
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
         emitted = _collect(handlers[EJobComplete.tag](effect))
@@ -348,7 +348,7 @@ def test_job_fail_handler_emits_telemetry_with_fn_name():
     ctx = CoordinationHandlerContext(overseer=OVERSEER, handler_wrappers=[make_telemetry()])
     handlers = make_coordination_handlers(ctx)
 
-    effect = EJobFail(error=JobError(ValueError("boom")), reply_to=REPLY_TO, nonce=5, fn_name="chapter_processor")
+    effect = EJobFail(error=JobError(ValueError("boom")), reply_to=REPLY_TO, sequence_number=5, fn_name="chapter_processor")
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
         emitted = _collect(handlers[EJobFail.tag](effect))

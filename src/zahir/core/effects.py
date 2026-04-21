@@ -106,7 +106,7 @@ class EEnqueue(ZahirCoordinationEffect[None]):
     args: tuple[Any, ...]
     reply_to: bytes  # the requesting worker's PID bytes
     timeout_ms: int | None
-    nonce: int  # allocated nonce for routing the reply back to the parent
+    sequence_number: int  # allocated sequence_number for routing the reply back to the parent
 
 
 @dataclass
@@ -158,7 +158,7 @@ class EJobComplete(ZahirCoordinationEffect[None]):
     tag: ClassVar[str] = "job_complete"
     result: Any
     reply_to: bytes | None
-    nonce: Any
+    sequence_number: Any
     fn_name: str = ""
 
 
@@ -169,7 +169,7 @@ class EJobFail(ZahirCoordinationEffect[None]):
     tag: ClassVar[str] = "job_fail"
     error: Exception
     reply_to: bytes | None
-    nonce: Any
+    sequence_number: Any
     fn_name: str = ""
 
 
