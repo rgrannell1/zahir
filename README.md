@@ -16,7 +16,7 @@ Dependencies, schedules, signals, and jobs themselves use the same generator sys
 The following example workflow reads the text of a book, splits it into chapters, and `chapter_processor` computes the longest word in each chapter. `longest_word_assembly` depends on these results, aggregates them, and emits an output event with the longest words by chapter.
 
 ```python
-from zahir.core.effects import EAwaitAll
+from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
 from tertius import EEmit
 
@@ -29,7 +29,7 @@ def chapter_processor(ctx: JobContext, chapter: str):
 
 
 def longest_word_assembly(ctx: JobContext, chapters: list[str]):
-    results = yield EAwaitAll([
+    results = yield EAwait([
         ctx.scope.chapter_processor(chapter)
         for chapter in chapters
     ])
@@ -67,8 +67,9 @@ Effects are generally abstracted away from jobs in Zahir, but ultimately both th
 
 These effects can be emitted by a job
 
-- `EAwait(fn_name, args, timeout_ms?)`: pause, wait for this job, resume with the result or error on timeout
-- `EAwaitAll([ EAwait, ... ])`: pause, wait for N jobs, resume with the results or error if any job failed
+- `yield ctx.scope.myjob(args)`: pause, wait for one job, resume with the result
+- `yield EAwait(ctx.scope.myjob(args))`: equivalent to the above; wraps a single scope call
+- `yield EAwait([ctx.scope.a(args), ctx.scope.b(args), ...])`: pause, wait for N jobs in parallel, resume with results in order or error on failure
 - `EAcquire(name, limit)`: acquire a concurrency slot
 - `EGetSemaphore(name)`: get a semaphore's state
 - `ESetSemaphore(name, state)`: set a semaphore's state
