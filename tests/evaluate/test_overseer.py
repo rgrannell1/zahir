@@ -67,13 +67,11 @@ def test_handle_call_acquire_grants_slot():
     assert result is True
 
 
-def test_handle_call_signal_raises_for_unknown_semaphore():
-    """Proves handle_call dispatches signal and raises for unknown semaphores."""
+def test_handle_call_signal_returns_none_for_unknown_semaphore():
+    """Proves handle_call dispatches signal and returns None for an unregistered semaphore."""
 
-    import pytest
-
-    with pytest.raises(KeyError, match="has not been set"):
-        _handle_call(_make_state(), (SIGNAL, "db"))
+    _, result = _handle_call(_make_state(), (SIGNAL, "db"))
+    assert result is None
 
 
 def test_handle_call_is_done_false_initially():

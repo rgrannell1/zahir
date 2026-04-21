@@ -24,7 +24,7 @@ from zahir.core.evaluate.job_handlers import (
     JobHandlerContext,
     evaluate_job,
 )
-from zahir.core.evaluate.suspension import _SuspensionTable, _WaitingJob
+from zahir.core.evaluate.suspension import _RunningJob, _SuspensionTable
 from zahir.core.exceptions import JobError, ZahirException
 from zahir.core.scope_proxy import ScopeProxy
 
@@ -33,11 +33,11 @@ from zahir.core.scope_proxy import ScopeProxy
 class _LoopState:
     """Mutable state carried across iterations of the worker loop."""
 
-    current: _WaitingJob | None = None
+    current: _RunningJob | None = None
     handler_value: Any = None
     pending_throw: Exception | None = None
 
-    def start(self, job: _WaitingJob) -> None:
+    def start(self, job: _RunningJob) -> None:
         """Begin executing a new job."""
         self.current = job
         self.handler_value = None
@@ -50,7 +50,7 @@ class _LoopState:
         self.pending_throw = None
 
 
-def _build_job(work: tuple, ctx: Any) -> _WaitingJob:
+def _build_job(work: tuple, ctx: Any) -> _RunningJob:
     """Construct a WaitingJob from a dequeued job work item."""
 
     _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
@@ -60,19 +60,16 @@ def _build_job(work: tuple, ctx: Any) -> _WaitingJob:
     job_context = JobHandlerContext(handler_wrappers=ctx.handler_wrappers)
     eval_gen = evaluate_job(ctx._scope[fn_name](ctx, *args), job_context, deadline)
 
-    return _WaitingJob(
+    return _RunningJob(
         fn_name=fn_name,
         eval_gen=eval_gen,
         context=job_context,
         reply_to=reply_to,
         parent_sequence_number=parent_sequence_number,
-        awaiting=set(),
-        results={},
-        result_order=None,
     )
 
 
-def _complete_job(job: _WaitingJob, value: Any) -> Generator[Any, Any, None]:
+def _complete_job(job: _RunningJob, value: Any) -> Generator[Any, Any, None]:
     """Release concurrency slots and report successful completion to the overseer."""
 
     for name in job.context.acquired:
@@ -80,11 +77,12 @@ def _complete_job(job: _WaitingJob, value: Any) -> Generator[Any, Any, None]:
     yield EJobComplete(result=value, reply_to=job.reply_to, sequence_number=job.parent_sequence_number, fn_name=job.fn_name)
 
 
-def _fail_job(job: _WaitingJob, exc: Exception) -> Generator[Any, Any, None]:
+def _fail_job(job: _RunningJob, exc: Exception) -> Generator[Any, Any, None]:
     """Release concurrency slots and report job failure to the overseer."""
 
     for name in job.context.acquired:
         yield ERelease(name=name)
+
     error = exc if isinstance(exc, ZahirException) else JobError(exc)
     yield EJobFail(error=error, reply_to=job.reply_to, sequence_number=job.parent_sequence_number, fn_name=job.fn_name)
 

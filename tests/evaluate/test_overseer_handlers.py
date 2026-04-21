@@ -236,13 +236,11 @@ def test_signal_returns_stored_state():
     assert result == "satisfied"
 
 
-def test_signal_raises_for_unknown_name():
-    """Proves _signal raises KeyError when the semaphore has not been set."""
+def test_signal_returns_none_for_unknown_name():
+    """Proves _signal returns None for a semaphore that has not been set."""
 
-    import pytest
-
-    with pytest.raises(KeyError, match="has not been set"):
-        _signal(_state(), "unknown")
+    _, result = _signal(_state(), "unknown")
+    assert result is None
 
 
 # _set_semaphore

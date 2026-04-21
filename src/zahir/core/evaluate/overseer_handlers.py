@@ -53,11 +53,9 @@ def _acquire(state: OverseerState, name: str, limit: int) -> tuple[OverseerState
     return state, False
 
 
-def _signal(state: OverseerState, name: str) -> tuple[OverseerState, str]:
-    """Get the current state of a named semaphore. Raises if the semaphore has not been set."""
-    if name not in state.semaphores:
-        raise KeyError(f"semaphore {name!r} has not been set")
-    return state, state.semaphores[name]
+def _signal(state: OverseerState, name: str) -> tuple[OverseerState, str | None]:
+    """Get the current state of a named semaphore. Returns None if the semaphore has not been set."""
+    return state, state.semaphores.get(name)
 
 
 def _is_done(state: OverseerState) -> tuple[OverseerState, bool]:
