@@ -3,7 +3,8 @@ import inspect
 from collections.abc import Callable
 from typing import Any
 
-from zahir.core.effects import EAwait, JobSpec
+from zahir.core.effects import EAwait
+from zahir.core.zahir_types import JobSpec
 
 
 class ScopeProxy:

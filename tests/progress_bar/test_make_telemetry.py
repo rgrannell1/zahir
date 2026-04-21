@@ -1,6 +1,7 @@
 from tertius import EEmit
 
-from zahir.core.effects import EAwait, JobSpec
+from zahir.core.effects import EAwait
+from zahir.core.zahir_types import JobSpec
 from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
 from zahir.progress_bar.telemetry import make_telemetry
 

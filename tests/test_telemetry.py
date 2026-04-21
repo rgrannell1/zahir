@@ -1,7 +1,8 @@
 import pytest
 from tertius import EEmit
 
-from zahir.core.effects import EAwait, JobSpec
+from zahir.core.effects import EAwait
+from zahir.core.zahir_types import JobSpec
 from zahir.core.telemetry import wrap
 
 

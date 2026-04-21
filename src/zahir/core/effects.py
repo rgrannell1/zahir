@@ -1,7 +1,9 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, ClassVar
 
 from orbis import Effect, Event
+
+from zahir.core.zahir_types import JobSpec
 
 
 class ZahirJobEffect[ReturnT](Effect[ReturnT], abstract=True):
@@ -14,15 +16,6 @@ class ZahirJobEvent(ZahirJobEffect[None], Event, abstract=True):
 
 class ZahirCoordinationEffect[ReturnT](Effect[ReturnT], abstract=True):
     """Base class for effects yielded by the runtime layer, never by jobs directly."""
-
-
-@dataclass
-class JobSpec:
-    """Describes a single job to be dispatched: what to call and with what arguments."""
-
-    fn_name: str
-    args: tuple[Any, ...] = field(default_factory=tuple)
-    timeout_ms: int | None = None
 
 
 _MISSING = object()

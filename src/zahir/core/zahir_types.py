@@ -10,10 +10,12 @@ type DependencyResult = Satisfied | Impossible
 
 @dataclass
 class JobSpec:
+    """Describes a job to be dispatched: what to call and routing info for the reply."""
+
     fn_name: str
-    args: tuple[Any, ...]
-    reply_to: bytes | None
+    args: tuple[Any, ...] = field(default_factory=tuple)
     timeout_ms: int | None = None
+    reply_to: bytes | None = None
     nonce: int | None = None
 
 

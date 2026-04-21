@@ -17,7 +17,8 @@ def parent_job(ctx: JobContext):
 def test_scope_proxy_returns_eawait_with_correct_args():
     """Proves ScopeProxy.__getattr__ returns an EAwait with a JobSpec carrying fn_name and args."""
 
-    from zahir.core.effects import EAwait, JobSpec
+    from zahir.core.effects import EAwait
+    from zahir.core.zahir_types import JobSpec
 
     scope = {"child_job": child_job}
     proxy = ScopeProxy(scope)
