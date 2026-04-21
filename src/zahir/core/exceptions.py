@@ -14,3 +14,7 @@ class JobError(ZahirException):
 
 class InvalidEffect(ZahirException):
     pass
+
+
+class ImpossibleError(ZahirException):
+    """Raised by a condition function to signal the dependency can never be satisfied."""

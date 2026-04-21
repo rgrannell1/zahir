@@ -5,15 +5,11 @@ from typing import Any, Literal
 from tertius import EEmit, ESleep
 
 from zahir.core.constants import DEPENDENCY_DELAY_MS
-
+from zahir.core.exceptions import ImpossibleError
 
 type Satisfied = tuple[Literal["satisfied"], dict | None]
 type Impossible = tuple[Literal["impossible"], str]
 type DependencyResult = Satisfied | Impossible
-
-
-class ImpossibleError(Exception):
-    """Raised by a condition function to signal the dependency can never be satisfied."""
 
 
 def dependency(

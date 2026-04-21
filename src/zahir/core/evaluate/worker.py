@@ -26,7 +26,7 @@ from zahir.core.evaluate.job_handlers import (
     _unwrap_reply,
     evaluate_job,
 )
-from zahir.core.exceptions import JobError, JobTimeout
+from zahir.core.exceptions import JobError, JobTimeout, ZahirException
 from zahir.core.scope_proxy import ScopeProxy
 
 
@@ -163,7 +163,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
             current = None
             for name in job.context.acquired:
                 yield ERelease(name=name)
-            error = exc if isinstance(exc, (JobError, JobTimeout)) else JobError(exc)
+            error = exc if isinstance(exc, ZahirException) else JobError(exc)
             yield EJobFail(error=error, reply_to=job.reply_to, nonce=job.parent_nonce)
             handler_value = None
             pending_throw = None
