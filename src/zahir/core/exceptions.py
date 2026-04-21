@@ -1,3 +1,4 @@
+# Structured Left types for the zahir exception hierarchy — all subclasses pass through the worker unwrapped.
 class ZahirException(Exception):
     pass
 

@@ -1,10 +1,13 @@
+# Dependency that waits until CPU or memory usage is within a given threshold.
 from collections.abc import Generator
+from functools import partial
 from typing import Any, Literal
 
 import psutil
 
 from zahir.core.constants import CPU_SAMPLE_INTERVAL_S
-from zahir.core.dependencies.dependency import DependencyResult, dependency
+from zahir.core.dependencies.dependency import dependency
+from zahir.core.zahir_types import DependencyResult
 
 type ResourceType = Literal["cpu", "memory"]
 
@@ -32,7 +35,7 @@ def resource_dependency(
 ) -> Generator[Any, Any, DependencyResult]:
     timeout_ms = int(timeout * 1000) if timeout is not None else None
     return dependency(
-        lambda: _resource_condition(resource, max_percent),
+        partial(_resource_condition, resource, max_percent),
         timeout_ms=timeout_ms,
         label=f"{resource} resource",
     )

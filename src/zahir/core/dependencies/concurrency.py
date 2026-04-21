@@ -1,7 +1,10 @@
+# Dependency that waits until a named concurrency slot is available.
 from collections.abc import Generator
+from functools import partial
 from typing import Any
 
-from zahir.core.dependencies.dependency import DependencyResult, dependency
+from zahir.core.dependencies.dependency import dependency
+from zahir.core.zahir_types import DependencyResult
 from zahir.core.effects import EAcquire
 
 
@@ -19,7 +22,7 @@ def concurrency_dependency(
     timeout_ms: int | None = None,
 ) -> Generator[Any, Any, DependencyResult]:
     return dependency(
-        lambda: _concurrency_condition(name, limit),
+        partial(_concurrency_condition, name, limit),
         timeout_ms=timeout_ms,
         label=f"concurrency slot '{name}'",
     )

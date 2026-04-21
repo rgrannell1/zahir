@@ -1,3 +1,4 @@
+# Combinator that runs a sequence of dependencies and short-circuits on the first impossible result.
 from collections.abc import Generator
 from typing import Any
 

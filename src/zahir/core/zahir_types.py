@@ -1,6 +1,11 @@
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
+
+# Result types for dependency combinators — the Left/Right of the dependency monad.
+type Satisfied = tuple[Literal["satisfied"], dict | None]
+type Impossible = tuple[Literal["impossible"], str]
+type DependencyResult = Satisfied | Impossible
 
 
 @dataclass

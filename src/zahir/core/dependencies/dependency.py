@@ -1,15 +1,13 @@
+# Polling combinator that drives condition generators, handling retries, timeouts, and Left/Right signalling.
 from collections.abc import Callable, Generator
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from typing import Any
 
 from tertius import EEmit, ESleep
 
 from zahir.core.constants import DEPENDENCY_DELAY_MS
+from zahir.core.zahir_types import DependencyResult, Satisfied
 from zahir.core.exceptions import ImpossibleError
-
-type Satisfied = tuple[Literal["satisfied"], dict | None]
-type Impossible = tuple[Literal["impossible"], str]
-type DependencyResult = Satisfied | Impossible
 
 
 def dependency(

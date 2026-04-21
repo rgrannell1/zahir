@@ -1,15 +1,15 @@
+# Dependency that waits until a SQLite query returns a satisfied status row.
 import pathlib
 import sqlite3
 from collections.abc import Generator
 from contextlib import closing
+from functools import partial
 from typing import Any
 
 from zahir.core.constants import IMPOSSIBLE, SATISFIED, UNSATISFIED
-from zahir.core.dependencies.dependency import (
-    DependencyResult,
-    ImpossibleError,
-    dependency,
-)
+from zahir.core.dependencies.dependency import dependency
+from zahir.core.zahir_types import DependencyResult
+from zahir.core.exceptions import ImpossibleError
 
 _DEFAULT_TIMEOUT_SECONDS = 5.0
 _BUSY_TIMEOUT_MS = 5000
@@ -97,5 +97,5 @@ def sqlite_dependency(
 ) -> Generator[Any, Any, DependencyResult]:
     _validate_db_path(db_path)
     return dependency(
-        lambda: _sqlite_condition(db_path, query, params, timeout_seconds)
+        partial(_sqlite_condition, db_path, query, params, timeout_seconds)
     )

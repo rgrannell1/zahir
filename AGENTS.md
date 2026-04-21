@@ -20,6 +20,7 @@ We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
 - Do not write large functions. Split into subfunctions
 - Do not write inner functions; use partial application instead
 - Avoid using optional, or `X | None = None` unless there's a direct need for it
+- Factor out complex type definitions into named type definitions.
 
 **Testing**
 
