@@ -1,11 +1,17 @@
 from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
-from zahir.progress_bar.progress_bar_state import JobStats, ProgressBarState
+from zahir.progress_bar.progress_bar_state import (
+    JobStats,
+    ProgressBarState,
+    _ENQUEUE_TAG,
+    _JOB_COMPLETE_TAG,
+    _JOB_FAIL_TAG,
+)
 
 
 def _start(fn_name):
     return ZahirTelemetryEvent(
         span_id="s",
-        tag="t",
+        tag=_ENQUEUE_TAG,
         event="start",
         timestamp=0.0,
         attributes={"fn_name": fn_name},
@@ -13,9 +19,10 @@ def _start(fn_name):
 
 
 def _end(fn_name, error=None):
+    tag = _JOB_FAIL_TAG if error else _JOB_COMPLETE_TAG
     return ZahirSpanEnd(
         span_id="s",
-        tag="t",
+        tag=tag,
         event="end",
         timestamp=1.0,
         attributes={"fn_name": fn_name},

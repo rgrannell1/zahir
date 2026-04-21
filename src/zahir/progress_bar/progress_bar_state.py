@@ -2,6 +2,11 @@ from dataclasses import dataclass, field
 
 from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
 
+# only these effect tags drive job lifecycle counts
+_ENQUEUE_TAG = "enqueue"
+_JOB_COMPLETE_TAG = "job_complete"
+_JOB_FAIL_TAG = "job_fail"
+
 
 @dataclass
 class JobStats:
@@ -31,10 +36,10 @@ class ProgressBarState:
         stats = self._stats(fn_name)
 
         match event:
-            case ZahirSpanEnd(error=None):
+            case ZahirSpanEnd(error=None) if event.tag == _JOB_COMPLETE_TAG:
                 stats.completed += 1
-            case ZahirSpanEnd(error=_):
+            case ZahirSpanEnd(error=_) if event.tag == _JOB_FAIL_TAG:
                 stats.failed += 1
-            case ZahirTelemetryEvent(event="start"):
+            case ZahirTelemetryEvent(event="start") if event.tag == _ENQUEUE_TAG:
                 stats.total += 1
                 stats.started += 1
