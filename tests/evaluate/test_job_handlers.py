@@ -4,8 +4,6 @@ from zahir.core.effects import (
     EAcquire,
     EAcquireSlot,
     EGetSemaphore,
-    EImpossible,
-    ESatisfied,
     ESetSemaphore,
     ESetSemaphoreState,
     ESignal,
@@ -13,7 +11,6 @@ from zahir.core.effects import (
 from zahir.core.evaluate.job_handlers import (
     JobHandlerContext,
     _handle_acquire,
-    _handle_event,
     _handle_set_semaphore,
     _handle_signal,
     make_job_handlers,
@@ -22,27 +19,6 @@ from zahir.core.exceptions import JobError, JobTimeout
 from tests.evaluate.mocks import OVERSEER
 
 CTX = JobHandlerContext()
-
-
-# _handle_event
-
-
-def test_handle_event_returns_effect_for_satisfied():
-    """Proves _handle_event returns the ESatisfied effect for job introspection."""
-
-    gen = _handle_event(CTX, ESatisfied())
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value == ESatisfied()
-
-
-def test_handle_event_returns_effect_for_impossible():
-    """Proves _handle_event returns the EImpossible effect for job introspection."""
-
-    gen = _handle_event(CTX, EImpossible(reason="blocked"))
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value == EImpossible(reason="blocked")
 
 
 # _handle_acquire
@@ -122,8 +98,6 @@ def test_make_handlers_contains_all_effect_types():
 
     handlers = make_job_handlers(JobHandlerContext())
     assert set(handlers.keys()) == {
-        ESatisfied.tag,
-        EImpossible.tag,
         EAcquire.tag,
         EGetSemaphore.tag,
         ESetSemaphore.tag,

@@ -1,21 +1,24 @@
 from collections.abc import Generator
 from typing import Any
 
-from zahir.core.effects import EImpossible, ESatisfied
+from tertius import EEmit
+
+from zahir.core.dependencies.dependency import DependencyResult
 
 
 def group_dependency(
     dependencies: list[Generator],
-) -> Generator[Any, Any, ESatisfied | EImpossible]:
+) -> Generator[Any, Any, DependencyResult]:
     """Run dependencies in sequence; short-circuit on the first impossible result."""
     if not dependencies:
-        event = ESatisfied()
-        yield event
-        return event
+        result: DependencyResult = ("satisfied", None)
+        yield EEmit(result)
+        return result
 
-    last = None
+    last: DependencyResult | None = None
     for dep in dependencies:
         last = yield from dep
-        if isinstance(last, EImpossible):
+        if last[0] == "impossible":
             return last
+    assert last is not None
     return last

@@ -3,10 +3,9 @@ from datetime import timedelta
 import pytest
 import time_machine
 
-from tertius import ESleep
+from tertius import EEmit, ESleep
 
 from zahir.core.dependencies.dependency import ImpossibleError, dependency
-from zahir.core.effects import EImpossible, ESatisfied
 from tests.shared import NOW
 
 
@@ -24,38 +23,39 @@ def _drive(gen, responses=None):
 # condition returns True immediately
 
 
-def test_immediate_true_yields_esatisfied():
-    """Proves a condition returning True on the first call yields ESatisfied."""
+def test_immediate_true_emits_satisfied():
+    """Proves a condition returning True on the first call emits satisfied."""
 
     def _cond():
         return True
         yield
 
-    effect = next(dependency(_cond))
-    assert isinstance(effect, ESatisfied)
+    emit = next(dependency(_cond))
+    assert isinstance(emit, EEmit)
+    assert emit.body[0] == "satisfied"
 
 
-def test_immediate_true_returns_esatisfied():
-    """Proves a condition returning True on the first call returns ESatisfied."""
+def test_immediate_true_returns_satisfied_tuple():
+    """Proves a condition returning True on the first call returns a satisfied tuple."""
 
     def _cond():
         return True
         yield
 
     result = _drive(dependency(_cond))
-    assert isinstance(result, ESatisfied)
+    assert result[0] == "satisfied"
 
 
 def test_satisfied_carries_metadata():
-    """Proves metadata from a (True, metadata) return is attached to ESatisfied."""
+    """Proves metadata from a (True, metadata) return is attached to the satisfied body."""
 
     def _cond():
         return (True, {"key": "value"})
         yield
 
-    effect = next(dependency(_cond))
-    assert isinstance(effect, ESatisfied)
-    assert effect.metadata == {"key": "value"}
+    emit = next(dependency(_cond))
+    assert emit.body[0] == "satisfied"
+    assert emit.body[1] == {"key": "value"}
 
 
 def test_false_then_true_polls_and_satisfies():
@@ -68,52 +68,54 @@ def test_false_then_true_polls_and_satisfies():
         yield
 
     gen = dependency(_cond)
-    assert isinstance(next(gen), ESleep)   # False → sleep
-    assert isinstance(next(gen), ESatisfied)  # True → satisfied
+    assert isinstance(next(gen), ESleep)  # False → sleep
+    emit = next(gen)
+    assert emit.body[0] == "satisfied"  # True → satisfied
 
 
 # ImpossibleError
 
 
-def test_impossible_error_yields_eimpossible():
-    """Proves ImpossibleError from the condition yields EImpossible."""
+def test_impossible_error_emits_impossible():
+    """Proves ImpossibleError from the condition emits impossible."""
 
     def _cond():
         raise ImpossibleError("never")
         yield
 
-    effect = next(dependency(_cond))
-    assert isinstance(effect, EImpossible)
+    emit = next(dependency(_cond))
+    assert isinstance(emit, EEmit)
+    assert emit.body[0] == "impossible"
 
 
 def test_impossible_error_reason_is_preserved():
-    """Proves the ImpossibleError message becomes the EImpossible reason."""
+    """Proves the ImpossibleError message becomes the impossible reason."""
 
     def _cond():
         raise ImpossibleError("specific reason")
         yield
 
-    effect = next(dependency(_cond))
-    assert effect.reason == "specific reason"
+    emit = next(dependency(_cond))
+    assert emit.body[1] == "specific reason"
 
 
-def test_impossible_error_returns_eimpossible():
-    """Proves ImpossibleError from the condition returns EImpossible."""
+def test_impossible_error_returns_impossible_tuple():
+    """Proves ImpossibleError from the condition returns an impossible tuple."""
 
     def _cond():
         raise ImpossibleError("never")
         yield
 
     result = _drive(dependency(_cond))
-    assert isinstance(result, EImpossible)
+    assert result[0] == "impossible"
 
 
 # timeout
 
 
 @time_machine.travel(NOW, tick=False)
-def test_timeout_yields_eimpossible():
-    """Proves exceeding timeout_ms yields EImpossible."""
+def test_timeout_emits_impossible():
+    """Proves exceeding timeout_ms emits impossible."""
 
     def _cond():
         return False
@@ -123,16 +125,16 @@ def test_timeout_yields_eimpossible():
     next(gen)  # False → ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        effect = next(gen)
+        emit = next(gen)
 
-    assert isinstance(effect, EImpossible)
-    assert "timed out" in effect.reason
-    assert "1000" in effect.reason
+    assert emit.body[0] == "impossible"
+    assert "timed out" in emit.body[1]
+    assert "1000" in emit.body[1]
 
 
 @time_machine.travel(NOW, tick=False)
 def test_timeout_label_appears_in_reason():
-    """Proves the label parameter appears in the timeout EImpossible reason."""
+    """Proves the label parameter appears in the timeout impossible reason."""
 
     def _cond():
         return False
@@ -142,9 +144,9 @@ def test_timeout_label_appears_in_reason():
     next(gen)
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        effect = next(gen)
+        emit = next(gen)
 
-    assert "my-condition" in effect.reason
+    assert "my-condition" in emit.body[1]
 
 
 @time_machine.travel(NOW, tick=False)
@@ -157,8 +159,8 @@ def test_no_timeout_never_expires():
 
     gen = dependency(_cond)
     for _ in range(10):
-        assert isinstance(next(gen), ESleep)  # ESleep
-        next(gen)                              # re-enter condition
+        assert isinstance(next(gen), ESleep)
+        next(gen)
 
 
 # poll_ms
@@ -188,22 +190,23 @@ def test_condition_effects_pass_through():
         return True
 
     gen = dependency(_cond)
-    assert isinstance(next(gen), ESleep)   # from condition
-    assert isinstance(next(gen), ESatisfied)  # from dependency()
+    assert isinstance(next(gen), ESleep)  # from condition
+    emit = next(gen)
+    assert emit.body[0] == "satisfied"  # from dependency()
 
 
-# yield/return parity
+# emit/return parity
 
 
-def test_yielded_and_returned_event_are_same_object():
-    """Proves the ESatisfied yielded and the StopIteration value are the same object."""
+def test_emitted_and_returned_body_are_same_object():
+    """Proves the EEmit body and the StopIteration value are the same object."""
 
     def _cond():
         return True
         yield
 
     gen = dependency(_cond)
-    yielded = next(gen)
+    emit = next(gen)
     with pytest.raises(StopIteration) as exc:
         next(gen)
-    assert exc.value.value is yielded
+    assert exc.value.value is emit.body

@@ -1,16 +1,20 @@
 from collections.abc import Generator
 from datetime import UTC, datetime
+from typing import Any
 
 from tertius import ESleep
 
-from zahir.core.dependencies.dependency import ImpossibleError, dependency
-from zahir.core.effects import EImpossible, ESatisfied
+from zahir.core.dependencies.dependency import (
+    DependencyResult,
+    ImpossibleError,
+    dependency,
+)
 
 
 def _time_condition(
     before: datetime | None,
     after: datetime | None,
-) -> Generator:
+) -> Generator[Any, Any, Any]:
     """Returns True if now is within the time window, raises ImpossibleError if the window has passed."""
     now = datetime.now(tz=UTC)
 
@@ -30,5 +34,5 @@ def _time_condition(
 def time_dependency(
     before: datetime | None = None,
     after: datetime | None = None,
-) -> Generator[ESleep | ESatisfied | EImpossible, None, ESatisfied | EImpossible]:
+) -> Generator[Any, Any, DependencyResult]:
     return dependency(lambda: _time_condition(before, after))

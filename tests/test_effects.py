@@ -3,43 +3,9 @@ from orbis import Effect, Event
 from zahir.core.effects import (
     EAcquire,
     EAwait,
-    EImpossible,
-    ESatisfied,
     ESetSemaphore,
     EGetSemaphore,
 )
-
-
-def test_esatisfied_is_event():
-    """Proves ESatisfied is an Event."""
-
-    assert isinstance(ESatisfied(), Event)
-
-
-def test_esatisfied_default_metadata_is_empty_dict():
-    """Proves ESatisfied metadata defaults to an empty dict."""
-
-    assert ESatisfied().metadata == {}
-
-
-def test_esatisfied_stores_metadata():
-    """Proves ESatisfied stores arbitrary metadata."""
-
-    effect = ESatisfied(metadata={"key": "value"})
-    assert effect.metadata == {"key": "value"}
-
-
-def test_eimpossible_is_event():
-    """Proves EImpossible is an Event."""
-
-    assert isinstance(EImpossible(reason="blocked"), Event)
-
-
-def test_eimpossible_stores_reason():
-    """Proves EImpossible stores its reason string."""
-
-    effect = EImpossible(reason="too late")
-    assert effect.reason == "too late"
 
 
 def test_eawait_is_effect():
@@ -124,5 +90,5 @@ def test_effect_tags_are_unique():
 def test_event_tags_are_unique():
     """Proves all event tags are distinct from one another."""
 
-    tags = [cls.tag for cls in (ESatisfied, EImpossible, ESetSemaphore)]
+    tags = [cls.tag for cls in (ESetSemaphore,)]
     assert len(tags) == len(set(tags))

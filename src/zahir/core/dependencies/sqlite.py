@@ -5,8 +5,11 @@ from contextlib import closing
 from typing import Any
 
 from zahir.core.constants import IMPOSSIBLE, SATISFIED, UNSATISFIED
-from zahir.core.dependencies.dependency import ImpossibleError, dependency
-from zahir.core.effects import EImpossible, ESatisfied
+from zahir.core.dependencies.dependency import (
+    DependencyResult,
+    ImpossibleError,
+    dependency,
+)
 
 _DEFAULT_TIMEOUT_SECONDS = 5.0
 _BUSY_TIMEOUT_MS = 5000
@@ -62,9 +65,14 @@ def _sqlite_condition(
     query: str,
     params: tuple[Any, ...] | None,
     timeout_seconds: float,
-) -> Generator:
+) -> Generator[Any, Any, Any]:
     """Returns (True, metadata) if the query returns rows (or a satisfied status), False if not yet, raises ImpossibleError if impossible."""
-    metadata = {"db_path": db_path, "query": query, "params": params, "timeout_seconds": timeout_seconds}
+    metadata = {
+        "db_path": db_path,
+        "query": query,
+        "params": params,
+        "timeout_seconds": timeout_seconds,
+    }
     column_names, row = _query(db_path, query, params or (), timeout_seconds)
 
     if row is None:
@@ -86,6 +94,8 @@ def sqlite_dependency(
     query: str,
     params: tuple[Any, ...] | None = None,
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
-) -> Generator[ESatisfied | EImpossible, None, ESatisfied | EImpossible]:
+) -> Generator[Any, Any, DependencyResult]:
     _validate_db_path(db_path)
-    return dependency(lambda: _sqlite_condition(db_path, query, params, timeout_seconds))
+    return dependency(
+        lambda: _sqlite_condition(db_path, query, params, timeout_seconds)
+    )

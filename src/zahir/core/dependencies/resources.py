@@ -1,11 +1,10 @@
 from collections.abc import Generator
-from typing import Literal
+from typing import Any, Literal
 
 import psutil
 
 from zahir.core.constants import CPU_SAMPLE_INTERVAL_S
-from zahir.core.dependencies.dependency import dependency
-from zahir.core.effects import EImpossible, ESatisfied
+from zahir.core.dependencies.dependency import DependencyResult, dependency
 
 type ResourceType = Literal["cpu", "memory"]
 
@@ -18,7 +17,7 @@ def _get_usage(resource: ResourceType) -> float:
             return psutil.virtual_memory().percent
 
 
-def _resource_condition(resource: ResourceType, max_percent: float) -> Generator:
+def _resource_condition(resource: ResourceType, max_percent: float) -> Generator[Any, Any, Any]:
     """Returns (True, metadata) if resource usage is within the limit, False otherwise."""
     if _get_usage(resource) <= max_percent:
         return (True, {"resource": resource, "max_percent": max_percent})
@@ -30,7 +29,7 @@ def resource_dependency(
     resource: ResourceType,
     max_percent: float,
     timeout: float | None = None,
-) -> Generator[ESatisfied | EImpossible, None, ESatisfied | EImpossible]:
+) -> Generator[Any, Any, DependencyResult]:
     timeout_ms = int(timeout * 1000) if timeout is not None else None
     return dependency(
         lambda: _resource_condition(resource, max_percent),

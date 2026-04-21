@@ -17,21 +17,6 @@ class ZahirCoordinationEffect[ReturnT](Effect[ReturnT], abstract=True):
 
 
 @dataclass
-class ESatisfied(ZahirJobEvent):
-    # Jobs yield this to signal a dependency is satisfied. The handler re-emits it
-    # as its return value, so the yielding job also receives it back — dual role.
-    tag: ClassVar[str] = "satisfied"
-    metadata: dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class EImpossible(ZahirJobEvent):
-    # Jobs yield this to signal a dependency can never be satisfied. Same dual role as ESatisfied.
-    tag: ClassVar[str] = "impossible"
-    reason: str
-
-
-@dataclass
 class EAwait(ZahirJobEffect[Any]):
     """Dispatch a child job and block until it completes, returning its result."""
 

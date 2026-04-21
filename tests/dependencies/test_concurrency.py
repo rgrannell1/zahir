@@ -3,9 +3,10 @@ from datetime import timedelta
 import pytest
 import time_machine
 
+from tertius import EEmit, ESleep
+
 from zahir.core.dependencies.concurrency import concurrency_dependency
-from zahir.core.effects import EAcquire, EImpossible, ESatisfied
-from tertius import ESleep
+from zahir.core.effects import EAcquire
 from tests.shared import NOW
 
 
@@ -13,11 +14,13 @@ from tests.shared import NOW
 
 
 def test_slot_available_yields_esatisfied():
-    """Proves yielding True for EAcquire immediately satisfies the dependency."""
+    """Proves yielding True for EAcquire immediately emits a satisfied result."""
 
     gen = concurrency_dependency("workers", limit=4)
     assert isinstance(next(gen), EAcquire)
-    assert isinstance(gen.send(True), ESatisfied)
+    emit = gen.send(True)
+    assert isinstance(emit, EEmit)
+    assert emit.body[0] == "satisfied"
 
 
 def test_slot_unavailable_yields_esleep():
@@ -47,65 +50,79 @@ def test_retry_after_denied_yields_eacquire_again():
     assert isinstance(next(gen), EAcquire)
 
 
+# concurrency_dependency — satisfied metadata
+
+
+def test_satisfied_metadata_includes_name_and_limit():
+    """Proves the satisfied emit body contains the slot name and limit."""
+
+    gen = concurrency_dependency("workers", limit=4)
+    next(gen)
+    emit = gen.send(True)
+    assert emit.body[0] == "satisfied"
+    assert emit.body[1]["name"] == "workers"
+    assert emit.body[1]["limit"] == 4
+
+
 # concurrency_dependency — timeout
 
 
 @time_machine.travel(NOW, tick=False)
 def test_timeout_yields_eimpossible():
-    """Proves exceeding timeout_ms yields EImpossible."""
+    """Proves exceeding timeout_ms emits an impossible result."""
 
     gen = concurrency_dependency("workers", limit=4, timeout_ms=1000)
     next(gen)  # EAcquire
     gen.send(False)  # ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        effect = next(gen)
+        emit = next(gen)
 
-    assert isinstance(effect, EImpossible)
+    assert isinstance(emit, EEmit)
+    assert emit.body[0] == "impossible"
 
 
 @time_machine.travel(NOW, tick=False)
 def test_timeout_reason_includes_name_and_duration():
-    """Proves EImpossible reason includes the slot name and timeout duration."""
+    """Proves the impossible reason includes the slot name and timeout duration."""
 
     gen = concurrency_dependency("workers", limit=4, timeout_ms=5000)
     next(gen)
     gen.send(False)
 
     with time_machine.travel(NOW + timedelta(seconds=10), tick=False):
-        effect = next(gen)
+        emit = next(gen)
 
-    assert isinstance(effect, EImpossible)
-    assert "workers" in effect.reason
-    assert "5000" in effect.reason
-    assert "timed out" in effect.reason
+    assert emit.body[0] == "impossible"
+    assert "workers" in emit.body[1]
+    assert "5000" in emit.body[1]
 
 
 # concurrency_dependency — return values
 
 
-def test_satisfied_returns_event_as_generator_value():
-    """Proves the generator returns the ESatisfied event as its StopIteration value."""
+def test_satisfied_returns_tuple_as_generator_value():
+    """Proves the generator returns the satisfied tuple as its StopIteration value."""
 
     gen = concurrency_dependency("workers", limit=4)
     next(gen)
-    event = gen.send(True)
+    emit = gen.send(True)
     with pytest.raises(StopIteration) as exc:
         next(gen)
-    assert exc.value.value is event
+    assert exc.value.value is emit.body
 
 
 @time_machine.travel(NOW, tick=False)
-def test_impossible_returns_event_as_generator_value():
-    """Proves the generator returns the EImpossible event as its StopIteration value."""
+def test_impossible_returns_tuple_as_generator_value():
+    """Proves the generator returns the impossible tuple as its StopIteration value."""
 
     gen = concurrency_dependency("workers", limit=4, timeout_ms=1000)
     next(gen)
     gen.send(False)
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        event = next(gen)
+        emit = next(gen)
 
     with pytest.raises(StopIteration) as exc:
         next(gen)
-    assert exc.value.value is event
+    assert exc.value.value is emit.body

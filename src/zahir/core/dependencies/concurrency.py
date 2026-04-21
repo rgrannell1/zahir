@@ -1,10 +1,11 @@
 from collections.abc import Generator
+from typing import Any
 
-from zahir.core.dependencies.dependency import dependency
-from zahir.core.effects import EAcquire, EImpossible, ESatisfied
+from zahir.core.dependencies.dependency import DependencyResult, dependency
+from zahir.core.effects import EAcquire
 
 
-def _concurrency_condition(name: str, limit: int) -> Generator:
+def _concurrency_condition(name: str, limit: int) -> Generator[Any, Any, Any]:
     """Returns (True, metadata) if the slot was acquired, False if the slot is full."""
     acquired = yield EAcquire(name=name, limit=limit)
     if acquired:
@@ -16,7 +17,7 @@ def concurrency_dependency(
     name: str,
     limit: int,
     timeout_ms: int | None = None,
-) -> Generator[EAcquire | ESatisfied | EImpossible, bool | None, ESatisfied | EImpossible]:
+) -> Generator[Any, Any, DependencyResult]:
     return dependency(
         lambda: _concurrency_condition(name, limit),
         timeout_ms=timeout_ms,

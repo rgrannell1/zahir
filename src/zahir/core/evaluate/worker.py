@@ -140,6 +140,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
                 pending_throw = None
 
         # ── Advance the current job one step ─────────────────────────────────────
+        assert current is not None
         job = current
         try:
             effect = (

@@ -9,8 +9,6 @@ from zahir.core.effects import (
     EAcquire,
     EAcquireSlot,
     EGetSemaphore,
-    EImpossible,
-    ESatisfied,
     ESetSemaphore,
     ESetSemaphoreState,
     ESignal,
@@ -72,16 +70,6 @@ def evaluate_job(
             pending_throw = exc
 
 
-def _handle_event(
-    context: JobHandlerContext,
-    effect: ESatisfied | EImpossible,
-) -> Generator[Any, Any, ESatisfied | EImpossible]:
-    """Simply re-emit the event to unblock waiting workers."""
-
-    return effect
-    yield
-
-
 def _unwrap_reply(body: Any) -> Any:
     """Unwrap the reply from a job, raising appropriate exceptions for timeouts or errors."""
 
@@ -126,8 +114,6 @@ def make_job_handlers(context: JobHandlerContext) -> dict[str, Any]:
     """Create job-effect handlers keyed by effect tag, with any user-supplied wrappers applied."""
 
     handlers = {
-        ESatisfied.tag: partial(_handle_event, context),
-        EImpossible.tag: partial(_handle_event, context),
         EAcquire.tag: partial(_handle_acquire, context),
         EGetSemaphore.tag: partial(_handle_signal, context),
         ESetSemaphore.tag: partial(_handle_set_semaphore, context),

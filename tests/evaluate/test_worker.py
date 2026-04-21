@@ -4,7 +4,7 @@ import time_machine
 
 from tertius import ESleep
 
-from zahir.core.effects import EAcquire, EAcquireSlot, EImpossible, ESatisfied
+from zahir.core.effects import EAcquire, EAcquireSlot
 from zahir.core.evaluate.job_handlers import JobHandlerContext
 from zahir.core.evaluate.job_handlers import evaluate_job
 from zahir.core.exceptions import JobError, JobTimeout
@@ -47,35 +47,6 @@ def test_evaluate_job_passes_through_unknown_effects():
 
     effects, _ = _drive(evaluate_job(job(), JobHandlerContext(), None))
     assert unknown in effects
-
-
-# evaluate_job — handled effects
-
-
-def test_evaluate_job_intercepts_esatisfied():
-    """Proves ESatisfied is intercepted and the effect itself is returned to the job."""
-
-    received = []
-
-    def job():
-        val = yield ESatisfied()
-        received.append(val)
-
-    _drive(evaluate_job(job(), JobHandlerContext(), None))
-    assert received == [ESatisfied()]
-
-
-def test_evaluate_job_intercepts_eimpossible():
-    """Proves EImpossible is intercepted and the effect itself is returned to the job."""
-
-    received = []
-
-    def job():
-        val = yield EImpossible(reason="blocked")
-        received.append(val)
-
-    _drive(evaluate_job(job(), JobHandlerContext(), None))
-    assert received == [EImpossible(reason="blocked")]
 
 
 # evaluate_job — deadline

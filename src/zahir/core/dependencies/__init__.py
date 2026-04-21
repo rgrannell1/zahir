@@ -1,1 +1,7 @@
-from zahir.core.dependencies.dependency import ImpossibleError, dependency
+from zahir.core.dependencies.dependency import (
+    DependencyResult,
+    Impossible,
+    ImpossibleError,
+    Satisfied,
+    dependency,
+)
