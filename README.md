@@ -99,7 +99,9 @@ Jobs do something, based on an input, and return a value. Jobs can await other j
 
 There's no rollbacks; if something goes wrong, detect it with a try-catch or by inspecting returrn values, and run corrective actions yourself. Job-level rollbacks do not compose into workflow rollbacks; crouching, stepping backwards, and taking off your parachute will not get you back on your plane.
 
-Dependencies are jobs that wait for a condition, and yield `ESatisfied` when it's met, sleep with `ESleep` until then, and when the dependency can never be met yields `EImpossible`. Jobs should await suitable conditions to run using dependency-jobs, and post-check with the same mechanism. Zahir ships a few built-in dependency jobs.
+Dependencies are jobs that wait for a condition, and yield `ESatisfied` when it's met, sleep with `ESleep` until then, and when the dependency can never be met yields `EImpossible`. We can construct them with a combinator function that takes a function yielding those dependency results; it handles sleeping until a result is returned.
+
+Jobs should await suitable conditions to run using dependency-jobs, and post-check with the same mechanism. Zahir ships a few built-in dependency jobs.
 
 - `concurrency_dependency(name, limit, timeout_ms?)`: wait until a slot is free to run using an underlying `EAcquire` semaphore poll.
 - `semaphore_dependency(name, timeout_ms?)`: wait until a named semaphore signals satisfied or impossible. Another job can do this using `ESetSemaphore`, to coordinate starts or stops.
