@@ -15,15 +15,15 @@ def parent_job(ctx: JobContext):
 
 
 def test_scope_proxy_returns_eawait_with_correct_args():
-    """Proves ScopeProxy.__getattr__ returns an EAwait with fn_name and args set."""
+    """Proves ScopeProxy.__getattr__ returns an EAwait with a JobSpec carrying fn_name and args."""
 
-    from zahir.core.effects import EAwait
+    from zahir.core.effects import EAwait, JobSpec
 
     scope = {"child_job": child_job}
     proxy = ScopeProxy(scope)
 
     effect = proxy.child_job(99)
-    assert effect == EAwait(fn_name="child_job", args=(99,))
+    assert effect == EAwait(jobs=[JobSpec(fn_name="child_job", args=(99,))], scalar=True)
 
 
 def test_scope_proxy_strips_ctx_from_signature():
