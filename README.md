@@ -13,7 +13,7 @@ Dependencies, schedules, signals, and jobs themselves use the same generator sys
 
 ## A Simple Workflow
 
-The following example workflow reads the text of a book, splits it into chapters, and `chapter_processor` computes the longest word in each chapter. `longest_word_assembly` depends on these results, aggregates them, and emits an output event with the longest words by chapter.
+The following example workflow reads the text of a book, splits it into chapters, and `chapter_processor` computes the longest word in each chapter. `longest_word_assembly` fans them out in parallel and returns the results. The top-level `book_workflow` emits the final output.
 
 ```python
 from zahir.core.effects import EAwait
@@ -23,8 +23,7 @@ from tertius import EEmit
 
 def chapter_processor(ctx: JobContext, chapter: str):
     words = chapter.split()
-    longest = max(words, key=len) if words else ""
-    return longest
+    return max(words, key=len) if words else ""
     yield  # makes it a generator
 
 
@@ -33,12 +32,14 @@ def longest_word_assembly(ctx: JobContext, chapters: list[str]):
         ctx.scope.chapter_processor(chapter)
         for chapter in chapters
     ])
-    yield EEmit({"longest_words": results})
+    return results
+    yield
 
 
 def book_workflow(ctx: JobContext, file_path: str):
     chapters = open(file_path).read().split("\n\n")
-    yield ctx.scope.longest_word_assembly(chapters)
+    results = yield ctx.scope.longest_word_assembly(chapters)
+    yield EEmit({"longest_words": results})
 
 
 scope = {
