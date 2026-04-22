@@ -9,7 +9,18 @@ def job_status(stats: JobStats) -> str:
     return "running"
 
 
-def job_description(fn_name: str, stats: JobStats) -> str:
+_MEAN_WIDTH = 8  # width of the μXs prefix column, e.g. "μ1.23s  "
+
+
+def _format_mean(mean_ms: float | None) -> str:
+    """Format mean duration as μXs, padded to a fixed width."""
+    if mean_ms is None:
+        return " " * _MEAN_WIDTH
+    seconds = mean_ms / 1000
+    return f"μ{seconds:.2f}s".ljust(_MEAN_WIDTH)
+
+
+def job_description(fn_name: str, stats: JobStats, mean_ms: float | None = None) -> str:
     in_flight = stats.started - stats.processed
     parts = []
 
@@ -21,8 +32,9 @@ def job_description(fn_name: str, stats: JobStats) -> str:
         parts.append(f"[red]{stats.failed} failed[/]")
 
     body = ", ".join(parts) or "starting"
+    mean = _format_mean(mean_ms)
 
-    return f"  [blue]{fn_name}[/]: {body}"
+    return f"  {mean}[blue]{fn_name}[/]: {body}"
 
 
 def workflow_description(total: int, processed: int, eta: str) -> str:

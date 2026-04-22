@@ -105,10 +105,13 @@ class ZahirProgressBar:
 
     def _refresh_job_rows(self) -> None:
         for fn_name, stats in self._state.jobs.items():
+            if stats.total == 0:
+                continue
             task_id = self._ensure_job_task(fn_name)
+            mean_ms = self._estimator.mean_duration_ms(fn_name)
             self._progress.update(
                 task_id,
-                description=job_description(fn_name, stats),
+                description=job_description(fn_name, stats, mean_ms),
                 completed=stats.processed,
                 total=stats.total,
                 status=job_status(stats),
@@ -117,8 +120,9 @@ class ZahirProgressBar:
     def _refresh_workflow_row(self) -> None:
         if self._workflow_task is None:
             return
-        total = sum(s.total for s in self._state.jobs.values())
-        processed = sum(s.processed for s in self._state.jobs.values())
+        enqueued = [s for s in self._state.jobs.values() if s.total > 0]
+        total = sum(s.total for s in enqueued)
+        processed = sum(s.processed for s in enqueued)
         desc = workflow_description(total, processed, self._estimator.format_eta())
         self._progress.update(
             self._workflow_task, description=desc, completed=processed, total=total

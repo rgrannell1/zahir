@@ -159,7 +159,7 @@ class EJobComplete(ZahirCoordinationEffect[None]):
     result: Any
     reply_to: bytes | None
     sequence_number: Any
-    fn_name: str = ""
+    fn_name: str = ""  # TODO: deprecation candidate — piggybacks fn_name for telemetry; job identity should come from a dedicated event
 
 
 @dataclass
@@ -170,7 +170,7 @@ class EJobFail(ZahirCoordinationEffect[None]):
     error: Exception
     reply_to: bytes | None
     sequence_number: Any
-    fn_name: str = ""
+    fn_name: str = ""  # TODO: deprecation candidate — piggybacks fn_name for telemetry; job identity should come from a dedicated event
 
 
 @dataclass

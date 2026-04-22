@@ -10,25 +10,24 @@ class SystemStats:
     """Tracks cpu%, ram%, and active worker cores from telemetry events.
 
     cpu/ram are rolling 5-second averages sampled on each poll() call.
-    Active cores are the number of unique worker pids seen in a 3-second
-    window of start events — matching the visible concurrency at any moment.
+    Active cores are the number of unique worker pids with at least one
+    in-flight span — a span is in-flight from its start event until its
+    ZahirSpanEnd arrives.
     """
 
     _CPU_WINDOW_S = 5.0
-    _PID_WINDOW_S = 3.0
 
     def __init__(self):
         # (timestamp, cpu_percent, ram_percent)
         self._resource_history: deque[tuple[float, float, float]] = deque()
-        # (timestamp, pid)
-        self._pid_events: deque[tuple[float, int]] = deque()
+        # span_id -> pid for every span that has started but not yet ended
+        self._inflight: dict[str, int] = {}
 
     def update(self, event: ZahirTelemetryEvent) -> None:
-        """Record the worker pid from a start event."""
+        """Track in-flight spans to derive active core count."""
 
-        if not isinstance(event, ZahirTelemetryEvent) or isinstance(
-            event, ZahirSpanEnd
-        ):
+        if isinstance(event, ZahirSpanEnd):
+            self._inflight.pop(event.span_id, None)
             return
 
         if event.event != "start":
@@ -38,9 +37,7 @@ class SystemStats:
         if pid is None:
             return
 
-        now = time.time()
-        self._pid_events.append((now, pid))
-        self._evict_old_pids(now)
+        self._inflight[event.span_id] = pid
 
     def poll(self) -> None:
         """Sample cpu% and ram% and add to the rolling window. Call periodically from the main loop."""
@@ -54,18 +51,11 @@ class SystemStats:
         while self._resource_history and self._resource_history[0][0] < cutoff:
             self._resource_history.popleft()
 
-    def _evict_old_pids(self, now: float) -> None:
-        cutoff = now - self._PID_WINDOW_S
-
-        while self._pid_events and self._pid_events[0][0] < cutoff:
-            self._pid_events.popleft()
-
     @property
     def active_cores(self) -> int:
-        """Unique worker pids with a start event in the last 3 seconds."""
+        """Unique worker pids with at least one in-flight span."""
 
-        self._evict_old_pids(time.time())
-        return len({pid for _, pid in self._pid_events})
+        return len(set(self._inflight.values()))
 
     @property
     def cpu_percent(self) -> float:

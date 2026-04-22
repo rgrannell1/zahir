@@ -1,4 +1,5 @@
 from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
+from zahir.progress_bar.progress_bar_state import _ENQUEUE_TAG, _JOB_COMPLETE_TAG, _JOB_FAIL_TAG
 
 
 class TimeEstimator:
@@ -27,9 +28,9 @@ class TimeEstimator:
             return
 
         match event:
-            case ZahirSpanEnd():
+            case ZahirSpanEnd() if event.tag in (_JOB_COMPLETE_TAG, _JOB_FAIL_TAG):
                 self._record_end(fn_name, event.duration_ms)
-            case ZahirTelemetryEvent(event="start"):
+            case ZahirTelemetryEvent(event="start") if event.tag == _ENQUEUE_TAG:
                 self._record_start(fn_name)
 
     def mean_duration_ms(self, fn_name: str) -> float | None:

@@ -18,3 +18,5 @@ The await API exposes a single construct, EAwait. A user may write `yield ctx.sc
 The root job's return value is surfaced by evaluate as the final item in the event stream, after all emitted events. If the root job returns None, nothing extra is yielded.
 
 The tertius primitives mcall and mcast are never used directly outside of effect handler functions. All communication with the overseer goes through the effects system; a raw mcall or mcast is a sign that a coordination effect is missing.
+
+The progress bar displays the mean execution time for each job type, shown as μXs ahead of the function name. The column is fixed-width so function names remain aligned across all rows. The mean is derived from completed job spans only, not coordination effects.
