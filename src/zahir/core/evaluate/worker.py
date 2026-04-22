@@ -30,33 +30,30 @@ from zahir.core.scope_proxy import ScopeProxy
 
 
 @dataclass
-class _LoopState:
-    """Mutable state carried across iterations of the worker loop."""
+class _Idle:
+    """Worker is waiting for work from the overseer."""
 
-    current: RunningJob | None = None
+
+@dataclass
+class _Running:
+    """Worker is stepping a job through its generator."""
+
+    job: RunningJob
     handler_value: Any = None
     pending_throw: Exception | None = None
 
-    def start(self, job: RunningJob) -> None:
-        """Begin executing a new job."""
-        self.current = job
-        self.handler_value = None
-        self.pending_throw = None
 
-    def reset(self) -> None:
-        """Clear state after a job completes, fails, or suspends."""
-        self.current = None
-        self.handler_value = None
-        self.pending_throw = None
+type WorkerState = _Idle | _Running
 
 
 def _build_job(work: tuple, ctx: Any) -> RunningJob:
-    """Construct a WaitingJob from a dequeued job work item."""
+    """Construct a RunningJob from a dequeued job work item."""
 
     _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
-    deadline = (
-        datetime.now(UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms else None
-    )
+    if timeout_ms:
+        deadline = datetime.now(UTC) + timedelta(milliseconds=timeout_ms)
+    else:
+        deadline = None
     job_context = JobHandlerContext(handler_wrappers=ctx.handler_wrappers)
     eval_gen = evaluate_job(ctx._scope[fn_name](ctx, *args), job_context, deadline)
 
@@ -87,7 +84,6 @@ def _fail_job(job: RunningJob, exc: Exception) -> Generator[Any, Any, None]:
 
     for name in job.context.acquired:
         yield ERelease(name=name)
-
     error = exc if isinstance(exc, ZahirException) else JobError(exc)
     yield EJobFail(
         error=error,
@@ -97,6 +93,65 @@ def _fail_job(job: RunningJob, exc: Exception) -> Generator[Any, Any, None]:
     )
 
 
+def _handle_idle(
+    suspension: SuspensionTable, ctx: Any, me_bytes: bytes
+) -> Generator[Any, Any, WorkerState]:
+    """Fetch the next work item and transition to the appropriate state."""
+
+    work = yield EGetJob(worker_pid_bytes=me_bytes)
+
+    if work is None:
+        yield ESleep(ms=WORKER_POLL_MS)
+        return _Idle()
+
+    match work[0]:
+        case "result":
+            resumed = suspension.resume(work)
+            if resumed is None:
+                return _Idle()
+
+            job, handler_value, pending_throw = resumed
+            return _Running(job=job, handler_value=handler_value, pending_throw=pending_throw)
+
+        case "job":
+            _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
+
+            if fn_name not in ctx._scope:
+                err = JobError(KeyError(f"job {fn_name!r} not found in scope"))
+                yield EJobFail(error=err, reply_to=reply_to, sequence_number=parent_sequence_number)
+                return _Idle()
+            return _Running(job=_build_job(work, ctx))
+
+        case _:
+            return _Idle()
+
+
+def _handle_running(
+    state: _Running, suspension: SuspensionTable, me_bytes: bytes
+) -> Generator[Any, Any, WorkerState]:
+    """Advance the current job one step and transition based on the outcome."""
+
+    job = state.job
+    try:
+        if state.pending_throw:
+            effect = job.eval_gen.throw(state.pending_throw)
+        else:
+            effect = job.eval_gen.send(state.handler_value)
+    except StopIteration as exc:
+        yield from _complete_job(job, exc.value)
+        return _Idle()
+    except Exception as exc:
+        yield from _fail_job(job, exc)
+        return _Idle()
+
+    if isinstance(effect, EAwait):
+        yield from suspension.suspend(effect, job, me_bytes)
+        return _Idle()
+
+    handler_value = yield effect
+    return _Running(job=job, handler_value=handler_value, pending_throw=None)
+
+
 def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
     """Worker main loop — drives jobs step by step, suspending onto a local stack on EAwait."""
 
@@ -104,64 +159,14 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
     me_bytes = bytes(me)
 
     suspension = SuspensionTable()
-    state = _LoopState()
+    state: WorkerState = _Idle()
 
     while True:
-        # ── If no current job, ask the overseer for work ──────────────────────────
-        if state.current is None:
-            work = yield EGetJob(worker_pid_bytes=me_bytes)
-
-            if work is None:
-                yield ESleep(ms=WORKER_POLL_MS)
-                continue
-
-            kind = work[0]
-
-            if kind == "result":
-                resumed = suspension.resume(work)
-                if resumed is None:
-                    continue
-                state.current, state.handler_value, state.pending_throw = resumed
-                continue
-
-            elif kind == "job":
-                _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
-                if fn_name not in ctx._scope:
-                    err = JobError(KeyError(f"job {fn_name!r} not found in scope"))
-                    yield EJobFail(
-                        error=err,
-                        reply_to=reply_to,
-                        sequence_number=parent_sequence_number,
-                    )
-                    continue
-                state.start(_build_job(work, ctx))
-
-        # ── Advance the current job one step ─────────────────────────────────────
-        assert state.current is not None
-        job = state.current
-        try:
-            effect = (
-                job.eval_gen.throw(state.pending_throw)
-                if state.pending_throw
-                else job.eval_gen.send(state.handler_value)
-            )
-            state.pending_throw = None
-        except StopIteration as exc:
-            yield from _complete_job(job, exc.value)
-            state.reset()
-            continue
-        except Exception as exc:
-            yield from _fail_job(job, exc)
-            state.reset()
-            continue
-
-        # ── Handle the yielded effect ─────────────────────────────────────────────
-        if isinstance(effect, EAwait):
-            yield from suspension.suspend(effect, job, me_bytes)
-            state.reset()
-        else:
-            # All other effects (tertius effects, ESleep, etc.) pass through to the runtime
-            state.handler_value = yield effect
+        match state:
+            case _Idle():
+                state = yield from _handle_idle(suspension, ctx, me_bytes)
+            case _Running():
+                state = yield from _handle_running(state, suspension, me_bytes)
 
 
 def worker(
