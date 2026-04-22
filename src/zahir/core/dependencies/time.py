@@ -28,7 +28,7 @@ def _time_condition(
         yield ESleep(ms=ms)
 
     return True
-    yield  # make it a generator function
+    yield
 
 
 def time_dependency(

@@ -56,8 +56,10 @@ class EAwait(ZahirJobEffect[Any]):
             self.jobs = jobs
             self.scalar = scalar
         elif isinstance(spec_or_list, EAwait):
+            # EAwait(single_eawait) — copy fields from an existing scalar EAwait
             self.jobs, self.scalar = EAwait._fields_from_passthrough(spec_or_list)
         elif isinstance(spec_or_list, list):
+            # EAwait([eawait, ...]) — extract the single JobSpec from each scalar EAwait
             self.jobs, self.scalar = EAwait._fields_from_list(spec_or_list)
         else:
             raise TypeError(

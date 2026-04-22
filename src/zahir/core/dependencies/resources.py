@@ -1,4 +1,5 @@
 # Dependency that waits until CPU or memory usage is within a given threshold.
+
 from collections.abc import Generator
 from functools import partial
 from typing import Any, Literal
@@ -24,10 +25,12 @@ def _resource_condition(
     resource: ResourceType, max_percent: float
 ) -> Generator[Any, Any, Any]:
     """Returns (True, metadata) if resource usage is within the limit, False otherwise."""
+
     if _get_usage(resource) <= max_percent:
         return (True, {"resource": resource, "max_percent": max_percent})
+
     return False
-    yield  # make it a generator function
+    yield
 
 
 def resource_dependency(

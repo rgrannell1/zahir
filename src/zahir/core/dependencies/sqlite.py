@@ -82,6 +82,7 @@ def _sqlite_condition(
         status = _parse_status(row[0])
         if status == UNSATISFIED:
             return False
+
         if status == IMPOSSIBLE:
             raise ImpossibleError(f"status=impossible for query against {db_path}")
 

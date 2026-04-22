@@ -12,11 +12,14 @@ from zahir.core.exceptions import ImpossibleError
 
 def _semaphore_condition(name: str) -> Generator[Any, Any, Any]:
     """Returns (True, metadata) if satisfied, False if unsatisfied, raises ImpossibleError if impossible."""
+
     state = yield EGetSemaphore(name=name)
     if state == IMPOSSIBLE:
         raise ImpossibleError(f"semaphore '{name}' aborted")
+
     if state == SATISFIED:
         return (True, {"name": name})
+
     return False
 
 

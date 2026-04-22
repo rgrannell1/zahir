@@ -11,7 +11,7 @@ from zahir.core.exceptions import JobError, JobTimeout
 
 
 @dataclass
-class _RunningJob:
+class RunningJob:
     """A job currently being stepped through by the worker."""
 
     fn_name: str  # the name of the function being executed
@@ -22,7 +22,7 @@ class _RunningJob:
 
 
 @dataclass
-class _SuspendedJob(_RunningJob):
+class SuspendedJob(RunningJob):
     """A running job that has yielded EAwait and is waiting on one or more child jobs."""
 
     awaiting: set[int]  # child local sequence_numbers still outstanding
@@ -32,7 +32,7 @@ class _SuspendedJob(_RunningJob):
     )  # None for scalar dispatch; ordered sequence_number list for multi-job dispatch
 
     @classmethod
-    def from_job(cls, job: _RunningJob, child_sequence_numbers: list[int], effect: EAwait) -> "_SuspendedJob":
+    def from_job(cls, job: RunningJob, child_sequence_numbers: list[int], effect: EAwait) -> "SuspendedJob":
         """Promote a running job to suspended, recording the fan-out from an EAwait."""
         result_order = None if effect.scalar else child_sequence_numbers
         return cls(
@@ -56,7 +56,7 @@ def _collect_scalar_result(body: Any) -> tuple[Any, Exception | None]:
         return None, exc
 
 
-def _collect_multi_results(job: _SuspendedJob) -> tuple[list | None, Exception | None]:
+def _collect_multi_results(job: SuspendedJob) -> tuple[list | None, Exception | None]:
     """Collect ordered multi-job results, surfacing the first error if any."""
 
     first_error: Exception | None = None
@@ -75,17 +75,17 @@ def _collect_multi_results(job: _SuspendedJob) -> tuple[list | None, Exception |
 
 
 @dataclass
-class _SuspensionTable:
+class SuspensionTable:
     """Tracks jobs suspended on EAwait, mapping child sequence numbers back to their parent."""
 
-    waiting: dict[int, _SuspendedJob] = field(default_factory=dict)
+    waiting: dict[int, SuspendedJob] = field(default_factory=dict)
     child_to_parent: dict[int, int] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         self._alloc = itertools.count().__next__
 
     def suspend(
-        self, effect: EAwait, job: _RunningJob, me_bytes: bytes
+        self, effect: EAwait, job: RunningJob, me_bytes: bytes
     ) -> Generator[Any, Any, None]:
         """Suspend job, enqueue all child jobs, and record the fan-out in the table."""
 
@@ -102,9 +102,9 @@ class _SuspensionTable:
                 sequence_number=cn,
             )
 
-        self.waiting[parent_key] = _SuspendedJob.from_job(job, child_sequence_numbers, effect)
+        self.waiting[parent_key] = SuspendedJob.from_job(job, child_sequence_numbers, effect)
 
-    def resume(self, work: tuple) -> tuple[_RunningJob, Any, Exception | None] | None:
+    def resume(self, work: tuple) -> tuple[RunningJob, Any, Exception | None] | None:
         """Record a child result. Returns (job, handler_value, pending_throw) when all children are done, None if still waiting."""
 
         _, child_sequence_number, body = work
