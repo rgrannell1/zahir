@@ -4,9 +4,9 @@ from bookman.events import Event
 
 from zahir.emit import PHASE_END, PHASE_START
 
-_ENQUEUE_TAG = "enqueue"
-_JOB_COMPLETE_TAG = "job_complete"
-_JOB_FAIL_TAG = "job_fail"
+ENQUEUE_TAG = "enqueue"
+JOB_COMPLETE_TAG = "job_complete"
+JOB_FAIL_TAG = "job_fail"
 
 
 @dataclass
@@ -36,10 +36,10 @@ class ProgressBarState:
         tag = event.dim("tag")
         stats = self._stats(fn_name)
 
-        if tag == _JOB_COMPLETE_TAG and event.dim("phase") == PHASE_END:
+        if tag == JOB_COMPLETE_TAG and event.dim("phase") == PHASE_END:
             stats.completed += 1
-        elif tag == _JOB_FAIL_TAG and event.dim("phase") == PHASE_END:
+        elif tag == JOB_FAIL_TAG and event.dim("phase") == PHASE_END:
             stats.failed += 1
-        elif tag == _ENQUEUE_TAG and event.dim("phase") == PHASE_START:
+        elif tag == ENQUEUE_TAG and event.dim("phase") == PHASE_START:
             stats.total += 1
             stats.started += 1

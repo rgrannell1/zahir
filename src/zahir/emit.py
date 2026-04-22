@@ -22,10 +22,11 @@ def get_fn_name(effect) -> str | None:
 
 
 def base_dimensions(effect, span_id: str) -> Dims:
+    pid = str(os.getpid())
     dims: Dims = {
         "id": [span_id],
         "tag": [effect.tag],
-        "pid": [str(os.getpid())],
+        "pid": [pid],
     }
 
     fn = get_fn_name(effect)

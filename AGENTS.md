@@ -10,6 +10,7 @@ We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
 
 **Coding style**
 
+- Prefer assignments to complex nested expressions
 - Functional programming
 - Never use single-letter variables
 - I name exceptions `err` and indices `idx`, `jdx`, etc.

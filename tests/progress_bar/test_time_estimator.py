@@ -1,19 +1,15 @@
 from bookman.create import point, span
 from zahir.emit import PHASE_END, PHASE_START
-from zahir.progress_bar.progress_bar_state import (
-    _ENQUEUE_TAG,
-    _JOB_COMPLETE_TAG,
-    _JOB_FAIL_TAG,
-)
+from zahir.progress_bar.progress_bar_state import ENQUEUE_TAG, JOB_COMPLETE_TAG, JOB_FAIL_TAG
 from zahir.progress_bar.time_estimator import TimeEstimator
 
 
 def _start(fn_name):
-    return point({"tag": [_ENQUEUE_TAG], "fn": [fn_name], "id": ["s"], "phase": [PHASE_START]}, at=0.0)
+    return point({"tag": [ENQUEUE_TAG], "fn": [fn_name], "id": ["s"], "phase": [PHASE_START]}, at=0.0)
 
 
 def _end(fn_name, duration_ms, error=None):
-    tag = _JOB_FAIL_TAG if error else _JOB_COMPLETE_TAG
+    tag = JOB_FAIL_TAG if error else JOB_COMPLETE_TAG
     return span(
         {"tag": [tag], "fn": [fn_name], "id": ["s"], "phase": [PHASE_END]}, at=0.0, until=duration_ms / 1000.0
     )
@@ -107,5 +103,5 @@ def test_in_flight_clamps_to_zero_on_out_of_order_end():
 
 def test_event_without_fn_name_is_ignored():
     est = TimeEstimator()
-    est.update(point({"tag": [_ENQUEUE_TAG], "id": ["s"]}, at=0.0))
+    est.update(point({"tag": [ENQUEUE_TAG], "id": ["s"]}, at=0.0))
     assert est.format_eta() == "--:--:--"
