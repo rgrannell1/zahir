@@ -38,7 +38,7 @@ from zahir.core.evaluate.coordination_handlers import (
 )
 from zahir.core.exceptions import JobError, JobTimeout
 from bookman.events import Event
-from zahir.progress_bar.telemetry import make_telemetry
+from zahir.core.telemetry import make_telemetry
 from tests.evaluate.mocks import ME, OVERSEER, mock_mcall, mock_mcast
 
 CTX = CoordinationHandlerContext(overseer=OVERSEER)

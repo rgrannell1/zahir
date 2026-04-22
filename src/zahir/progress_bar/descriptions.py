@@ -17,6 +17,7 @@ def _format_mean(mean_ms: float | None) -> str:
     if mean_ms is None:
         return " " * _MEAN_WIDTH
     seconds = mean_ms / 1000
+
     return f"μ{seconds:.2f}s".ljust(_MEAN_WIDTH)
 
 
@@ -26,8 +27,10 @@ def job_description(fn_name: str, stats: JobStats, mean_ms: float | None = None)
 
     if in_flight > 0:
         parts.append(f"{in_flight} running")
+
     if stats.completed > 0:
         parts.append(f"{stats.completed} done")
+
     if stats.failed > 0:
         parts.append(f"[red]{stats.failed} failed[/]")
 

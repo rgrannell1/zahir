@@ -4,7 +4,7 @@ from tertius import EEmit
 from bookman.events import Event
 from zahir.core.effects import EAwait
 from zahir.core.zahir_types import JobSpec
-from zahir.progress_bar.telemetry import make_telemetry
+from zahir.core.telemetry import make_telemetry
 
 
 def _drive(gen):

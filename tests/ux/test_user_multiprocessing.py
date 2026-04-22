@@ -1,7 +1,7 @@
 from tertius import EEmit
 
 from zahir.core.evaluate import JobContext, evaluate
-from zahir.core.telemetry import wrap
+from zahir.core.combinators import wrap
 
 
 def identity(effect):

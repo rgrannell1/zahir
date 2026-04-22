@@ -3,7 +3,7 @@ from tertius import EEmit
 
 from zahir.core.effects import EAwait
 from zahir.core.zahir_types import JobSpec
-from zahir.core.telemetry import wrap
+from zahir.core.combinators import wrap
 
 
 def _drive(gen):
