@@ -1,4 +1,5 @@
 from bookman.create import point, span
+from zahir.emit import PHASE_END, PHASE_START
 from zahir.progress_bar.progress_bar_state import (
     JobStats,
     ProgressBarState,
@@ -9,12 +10,12 @@ from zahir.progress_bar.progress_bar_state import (
 
 
 def _start(fn_name):
-    return point({"tag": [_ENQUEUE_TAG], "fn": [fn_name], "id": ["s"]}, at=0.0)
+    return point({"tag": [_ENQUEUE_TAG], "fn": [fn_name], "id": ["s"], "phase": [PHASE_START]}, at=0.0)
 
 
 def _end(fn_name, error=None):
     tag = _JOB_FAIL_TAG if error else _JOB_COMPLETE_TAG
-    dims = {"tag": [tag], "fn": [fn_name], "id": ["s"]}
+    dims = {"tag": [tag], "fn": [fn_name], "id": ["s"], "phase": [PHASE_END]}
     return span(dims, at=0.0, until=1.0)
 
 

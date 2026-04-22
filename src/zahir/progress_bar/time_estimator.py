@@ -1,4 +1,6 @@
 from bookman.events import Event
+
+from zahir.emit import PHASE_END, PHASE_START
 from zahir.progress_bar.progress_bar_state import (
     _ENQUEUE_TAG,
     _JOB_COMPLETE_TAG,
@@ -32,9 +34,9 @@ class TimeEstimator:
 
         tag = event.dim("tag")
 
-        if tag in (_JOB_COMPLETE_TAG, _JOB_FAIL_TAG) and event.kind == "span":
+        if tag in (_JOB_COMPLETE_TAG, _JOB_FAIL_TAG) and event.dim("phase") == PHASE_END:
             self._record_end(fn_name, event.duration("ms"))
-        elif tag == _ENQUEUE_TAG and event.kind == "point":
+        elif tag == _ENQUEUE_TAG and event.dim("phase") == PHASE_START:
             self._record_start(fn_name)
 
     def mean_duration_ms(self, fn_name: str) -> float | None:

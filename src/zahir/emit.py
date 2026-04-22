@@ -1,6 +1,11 @@
 # Helpers that translate zahir effects into bookman Event objects
 import os
 
+# Event lifecycle phases — emitted as the 'phase' dim on every bookman event
+PHASE_START = "start"
+PHASE_END = "end"
+PHASE_ERROR = "error"
+
 from bookman.create import point, span
 from bookman.events import Event
 from bookman.primitives import Dims
@@ -33,21 +38,17 @@ def base_dimensions(effect, span_id: str) -> Dims:
 
 def start_effect_telemetry(effect, span_id: str, at: float) -> Event:
     """Point event marking when a handler began."""
-    dims = base_dimensions(effect, span_id)
+    dims = base_dimensions(effect, span_id) | {"phase": [PHASE_START]}
     return point(dims, at=at)
 
 
-def end_effect_success_telemetry(
-    effect, span_id: str, start: float, end: float
-) -> Event:
+def end_effect_success_telemetry(effect, span_id: str, start: float, end: float) -> Event:
     """Span event marking successful handler completion."""
+    dims = base_dimensions(effect, span_id) | {"phase": [PHASE_END]}
+    return span(dims, at=start, until=end)
 
-    return span(base_dimensions(effect, span_id), at=start, until=end)
 
-
-def end_effect_error_telemetry(
-    effect, span_id: str, start: float, end: float, error: str
-) -> Event:
+def end_effect_error_telemetry(effect, span_id: str, start: float, end: float, error: str) -> Event:
     """Span event marking handler failure."""
-
-    return span(base_dimensions(effect, span_id), at=start, until=end, value=error)
+    dims = base_dimensions(effect, span_id) | {"phase": [PHASE_ERROR]}
+    return span(dims, at=start, until=end, value=error)
