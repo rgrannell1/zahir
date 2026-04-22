@@ -74,7 +74,12 @@ def _complete_job(job: _RunningJob, value: Any) -> Generator[Any, Any, None]:
 
     for name in job.context.acquired:
         yield ERelease(name=name)
-    yield EJobComplete(result=value, reply_to=job.reply_to, sequence_number=job.parent_sequence_number, fn_name=job.fn_name)
+    yield EJobComplete(
+        result=value,
+        reply_to=job.reply_to,
+        sequence_number=job.parent_sequence_number,
+        fn_name=job.fn_name,
+    )
 
 
 def _fail_job(job: _RunningJob, exc: Exception) -> Generator[Any, Any, None]:
@@ -84,7 +89,12 @@ def _fail_job(job: _RunningJob, exc: Exception) -> Generator[Any, Any, None]:
         yield ERelease(name=name)
 
     error = exc if isinstance(exc, ZahirException) else JobError(exc)
-    yield EJobFail(error=error, reply_to=job.reply_to, sequence_number=job.parent_sequence_number, fn_name=job.fn_name)
+    yield EJobFail(
+        error=error,
+        reply_to=job.reply_to,
+        sequence_number=job.parent_sequence_number,
+        fn_name=job.fn_name,
+    )
 
 
 def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
@@ -118,7 +128,11 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
                 _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
                 if fn_name not in ctx._scope:
                     err = JobError(KeyError(f"job {fn_name!r} not found in scope"))
-                    yield EJobFail(error=err, reply_to=reply_to, sequence_number=parent_sequence_number)
+                    yield EJobFail(
+                        error=err,
+                        reply_to=reply_to,
+                        sequence_number=parent_sequence_number,
+                    )
                     continue
                 state.start(_build_job(work, ctx))
 
@@ -160,7 +174,9 @@ def worker(
     ctx._scope = scope
     ctx.scope = ScopeProxy(scope)
 
-    coordination_context = CoordinationHandlerContext(overseer=overseer, handler_wrappers=ctx.handler_wrappers)
+    coordination_context = CoordinationHandlerContext(
+        overseer=overseer, handler_wrappers=ctx.handler_wrappers
+    )
     yield from handle(
         _worker_body(overseer, ctx),
         **make_coordination_handlers(coordination_context),

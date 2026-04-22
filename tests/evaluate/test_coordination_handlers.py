@@ -172,7 +172,11 @@ def test_handle_job_fail_routes_error_to_parent_via_overseer():
 
     err = JobError(ValueError("boom"))
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        _drive(_handle_job_fail(CTX, EJobFail(error=err, reply_to=REPLY_TO, sequence_number=5)))
+        _drive(
+            _handle_job_fail(
+                CTX, EJobFail(error=err, reply_to=REPLY_TO, sequence_number=5)
+            )
+        )
 
     assert sent[0] == (OVERSEER, (JOB_DONE, REPLY_TO, 5, err))
 
@@ -189,7 +193,11 @@ def test_handle_job_fail_sends_job_failed_for_root_job():
 
     err = JobError(ValueError("boom"))
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        _drive(_handle_job_fail(CTX, EJobFail(error=err, reply_to=None, sequence_number=None)))
+        _drive(
+            _handle_job_fail(
+                CTX, EJobFail(error=err, reply_to=None, sequence_number=None)
+            )
+        )
 
     assert sent[0] == (OVERSEER, (JOB_FAILED, err))
 
@@ -327,17 +335,20 @@ def _collect(gen):
 def test_job_complete_handler_emits_telemetry_with_fn_name():
     """Proves EJobComplete handler emits telemetry events carrying fn_name when make_telemetry is applied."""
 
-    ctx = CoordinationHandlerContext(overseer=OVERSEER, handler_wrappers=[make_telemetry()])
+    ctx = CoordinationHandlerContext(
+        overseer=OVERSEER, handler_wrappers=[make_telemetry()]
+    )
     handlers = make_coordination_handlers(ctx)
 
-    effect = EJobComplete(result="done", reply_to=REPLY_TO, sequence_number=7, fn_name="chapter_processor")
+    effect = EJobComplete(
+        result="done", reply_to=REPLY_TO, sequence_number=7, fn_name="chapter_processor"
+    )
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
         emitted = _collect(handlers[EJobComplete.tag](effect))
 
     telemetry = [
-        e.body for e in emitted
-        if isinstance(e, EEmit) and isinstance(e.body, Event)
+        e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)
     ]
     assert any(e.dim("fn") == "chapter_processor" for e in telemetry)
 
@@ -345,16 +356,22 @@ def test_job_complete_handler_emits_telemetry_with_fn_name():
 def test_job_fail_handler_emits_telemetry_with_fn_name():
     """Proves EJobFail handler emits telemetry events carrying fn_name when make_telemetry is applied."""
 
-    ctx = CoordinationHandlerContext(overseer=OVERSEER, handler_wrappers=[make_telemetry()])
+    ctx = CoordinationHandlerContext(
+        overseer=OVERSEER, handler_wrappers=[make_telemetry()]
+    )
     handlers = make_coordination_handlers(ctx)
 
-    effect = EJobFail(error=JobError(ValueError("boom")), reply_to=REPLY_TO, sequence_number=5, fn_name="chapter_processor")
+    effect = EJobFail(
+        error=JobError(ValueError("boom")),
+        reply_to=REPLY_TO,
+        sequence_number=5,
+        fn_name="chapter_processor",
+    )
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
         emitted = _collect(handlers[EJobFail.tag](effect))
 
     telemetry = [
-        e.body for e in emitted
-        if isinstance(e, EEmit) and isinstance(e.body, Event)
+        e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)
     ]
     assert any(e.dim("fn") == "chapter_processor" for e in telemetry)

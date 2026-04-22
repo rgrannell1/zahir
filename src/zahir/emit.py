@@ -31,20 +31,23 @@ def base_dimensions(effect, span_id: str) -> Dims:
     return dims
 
 
-
 def start_effect_telemetry(effect, span_id: str, at: float) -> Event:
     """Point event marking when a handler began."""
     dims = base_dimensions(effect, span_id)
     return point(dims, at=at)
 
 
-def end_effect_success_telemetry(effect, span_id: str, start: float, end: float) -> Event:
+def end_effect_success_telemetry(
+    effect, span_id: str, start: float, end: float
+) -> Event:
     """Span event marking successful handler completion."""
 
     return span(base_dimensions(effect, span_id), at=start, until=end)
 
 
-def end_effect_error_telemetry(effect, span_id: str, start: float, end: float, error: str) -> Event:
+def end_effect_error_telemetry(
+    effect, span_id: str, start: float, end: float, error: str
+) -> Event:
     """Span event marking handler failure."""
 
     return span(base_dimensions(effect, span_id), at=start, until=end, value=error)

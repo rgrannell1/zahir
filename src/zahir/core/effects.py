@@ -48,7 +48,9 @@ class EAwait(ZahirJobEffect[Any]):
                 self.jobs = [s.jobs[0] for s in spec_or_list]
                 self.scalar = False
             else:
-                raise TypeError(f"EAwait expects an EAwait or list of EAwait, got {type(spec_or_list).__name__}")
+                raise TypeError(
+                    f"EAwait expects an EAwait or list of EAwait, got {type(spec_or_list).__name__}"
+                )
         else:
             # EAwait(jobs=[...], scalar=...) — internal form
             self.jobs = jobs
@@ -106,7 +108,9 @@ class EEnqueue(ZahirCoordinationEffect[None]):
     args: tuple[Any, ...]
     reply_to: bytes  # the requesting worker's PID bytes
     timeout_ms: int | None
-    sequence_number: int  # allocated sequence_number for routing the reply back to the parent
+    sequence_number: (
+        int  # allocated sequence_number for routing the reply back to the parent
+    )
 
 
 @dataclass

@@ -24,7 +24,9 @@ def test_scope_proxy_returns_eawait_with_correct_args():
     proxy = ScopeProxy(scope)
 
     effect = proxy.child_job(99)
-    assert effect == EAwait(jobs=[JobSpec(fn_name="child_job", args=(99,))], scalar=True)
+    assert effect == EAwait(
+        jobs=[JobSpec(fn_name="child_job", args=(99,))], scalar=True
+    )
 
 
 def test_scope_proxy_strips_ctx_from_signature():

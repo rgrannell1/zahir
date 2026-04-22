@@ -27,7 +27,9 @@ class _SuspendedJob(_RunningJob):
 
     awaiting: set[int]  # child local sequence_numbers still outstanding
     results: dict[int, Any]  # local sequence_number -> body (result or error)
-    result_order: list[int] | None  # None for scalar dispatch; ordered sequence_number list for multi-job dispatch
+    result_order: (
+        list[int] | None
+    )  # None for scalar dispatch; ordered sequence_number list for multi-job dispatch
 
 
 def _collect_scalar_result(body: Any) -> tuple[Any, Exception | None]:
@@ -96,9 +98,7 @@ class _SuspensionTable:
             result_order=None if effect.scalar else child_sequence_numbers,
         )
 
-    def resume(
-        self, work: tuple
-    ) -> tuple[_RunningJob, Any, Exception | None] | None:
+    def resume(self, work: tuple) -> tuple[_RunningJob, Any, Exception | None] | None:
         """Record a child result. Returns (job, handler_value, pending_throw) when all children are done, None if still waiting."""
 
         _, child_sequence_number, body = work

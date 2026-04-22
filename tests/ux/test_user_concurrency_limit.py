@@ -60,7 +60,9 @@ def test_concurrency_limit_is_never_exceeded():
     events = list(evaluate("fan_out", (), _SCOPE, n_workers=8))
 
     spans = _span_events(events)
-    assert len(spans) == _N_JOBS * 2, f"expected {_N_JOBS * 2} bracket events, got {len(spans)}"
+    assert (
+        len(spans) == _N_JOBS * 2
+    ), f"expected {_N_JOBS * 2} bracket events, got {len(spans)}"
 
     peak = _peak_concurrent(spans)
     assert peak > 0, "no jobs ever acquired the slot"

@@ -1,5 +1,9 @@
 from bookman.create import point, span
-from zahir.progress_bar.progress_bar_state import _ENQUEUE_TAG, _JOB_COMPLETE_TAG, _JOB_FAIL_TAG
+from zahir.progress_bar.progress_bar_state import (
+    _ENQUEUE_TAG,
+    _JOB_COMPLETE_TAG,
+    _JOB_FAIL_TAG,
+)
 from zahir.progress_bar.time_estimator import TimeEstimator
 
 
@@ -9,7 +13,9 @@ def _start(fn_name):
 
 def _end(fn_name, duration_ms, error=None):
     tag = _JOB_FAIL_TAG if error else _JOB_COMPLETE_TAG
-    return span({"tag": [tag], "fn": [fn_name], "id": ["s"]}, at=0.0, until=duration_ms / 1000.0)
+    return span(
+        {"tag": [tag], "fn": [fn_name], "id": ["s"]}, at=0.0, until=duration_ms / 1000.0
+    )
 
 
 def test_mean_duration_returns_none_with_no_data():

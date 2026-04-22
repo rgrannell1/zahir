@@ -10,7 +10,9 @@ def _start(span_id: str, pid: int = 1234):
 
 def _end(span_id: str, pid: int = 1234):
     now = time.time()
-    return span({"tag": ["t"], "id": [span_id], "pid": [str(pid)]}, at=now, until=now + 0.1)
+    return span(
+        {"tag": ["t"], "id": [span_id], "pid": [str(pid)]}, at=now, until=now + 0.1
+    )
 
 
 def test_active_cores_zero_with_no_events():

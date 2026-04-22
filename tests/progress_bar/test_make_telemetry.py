@@ -37,7 +37,9 @@ def _make_raising_handler(exc):
 
 def _emitted(effects):
     """Extract bookman Events from EEmit effects."""
-    return [e.body for e in effects if isinstance(e, EEmit) and isinstance(e.body, Event)]
+    return [
+        e.body for e in effects if isinstance(e, EEmit) and isinstance(e.body, Event)
+    ]
 
 
 def test_emits_start_event_before_handler():
@@ -115,5 +117,3 @@ def test_handler_return_value_preserved_through_telemetry():
     handler = wrapper(_make_handler(42))
     _, value = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
     assert value == 42
-
-

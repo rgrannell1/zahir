@@ -133,8 +133,6 @@ def test_effect_tags_are_unique():
     assert len(tags) == len(set(tags))
 
 
-
-
 def test_event_tags_are_unique():
     """Proves all event tags are distinct from one another."""
 

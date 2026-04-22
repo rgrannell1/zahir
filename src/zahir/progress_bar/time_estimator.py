@@ -1,5 +1,9 @@
 from bookman.events import Event
-from zahir.progress_bar.progress_bar_state import _ENQUEUE_TAG, _JOB_COMPLETE_TAG, _JOB_FAIL_TAG
+from zahir.progress_bar.progress_bar_state import (
+    _ENQUEUE_TAG,
+    _JOB_COMPLETE_TAG,
+    _JOB_FAIL_TAG,
+)
 
 
 class TimeEstimator:

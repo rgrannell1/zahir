@@ -35,7 +35,10 @@ class ScopeProxy:
             bound = inspect.Signature(params).bind(*args, **kwargs)
             bound.apply_defaults()
 
-            return EAwait(jobs=[JobSpec(fn_name=name, args=bound.args, timeout_ms=timeout_ms)], scalar=True)
+            return EAwait(
+                jobs=[JobSpec(fn_name=name, args=bound.args, timeout_ms=timeout_ms)],
+                scalar=True,
+            )
 
         dispatch.__signature__ = inspect.Signature(  # type: ignore[attr-defined]
             [

@@ -44,7 +44,9 @@ def test_mirror_workflow_counts_each_job_once():
         stats = state.jobs.get(fn_name)
         assert stats is not None, f"{fn_name!r} not found in progress bar state"
         assert stats.total == 1, f"{fn_name!r}: expected total=1, got {stats.total}"
-        assert stats.completed == 1, f"{fn_name!r}: expected completed=1, got {stats.completed}"
+        assert (
+            stats.completed == 1
+        ), f"{fn_name!r}: expected completed=1, got {stats.completed}"
         assert stats.failed == 0, f"{fn_name!r}: expected failed=0, got {stats.failed}"
 
 
@@ -74,11 +76,13 @@ def bomb_job(ctx: JobContext):
 def mixed_root(ctx: JobContext):
     """Fan out to 2 ok jobs and 1 failing job, swallow the error."""
     try:
-        yield EAwait([
-            ctx.scope.ok_job(1),
-            ctx.scope.bomb_job(),
-            ctx.scope.ok_job(2),
-        ])
+        yield EAwait(
+            [
+                ctx.scope.ok_job(1),
+                ctx.scope.bomb_job(),
+                ctx.scope.ok_job(2),
+            ]
+        )
     except JobError:
         pass
 
@@ -116,6 +120,6 @@ def test_mixed_workflow_enqueued_jobs_all_processed():
     # exclude the root job itself, which is never enqueued
     enqueued = {fn: stats for fn, stats in state.jobs.items() if stats.total > 0}
     for fn_name, stats in enqueued.items():
-        assert stats.processed == stats.total, (
-            f"{fn_name!r}: processed={stats.processed} != total={stats.total}"
-        )
+        assert (
+            stats.processed == stats.total
+        ), f"{fn_name!r}: processed={stats.processed} != total={stats.total}"

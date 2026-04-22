@@ -7,7 +7,11 @@ import uuid
 from tertius import EEmit
 
 from zahir.core.telemetry import wrap
-from zahir.emit import start_effect_telemetry, end_effect_success_telemetry, end_effect_error_telemetry
+from zahir.emit import (
+    start_effect_telemetry,
+    end_effect_success_telemetry,
+    end_effect_error_telemetry,
+)
 
 
 def make_telemetry():
@@ -20,8 +24,14 @@ def make_telemetry():
         yield EEmit(start_effect_telemetry(effect, span_id, start))
         try:
             result = yield
-            yield EEmit(end_effect_success_telemetry(effect, span_id, start, time.time()))
+            yield EEmit(
+                end_effect_success_telemetry(effect, span_id, start, time.time())
+            )
         except Exception as exc:
-            yield EEmit(end_effect_error_telemetry(effect, span_id, start, time.time(), str(exc)))
+            yield EEmit(
+                end_effect_error_telemetry(
+                    effect, span_id, start, time.time(), str(exc)
+                )
+            )
 
     return wrap(fn)

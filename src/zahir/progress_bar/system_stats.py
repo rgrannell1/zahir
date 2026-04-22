@@ -52,14 +52,18 @@ class SystemStats:
         """Rolling average cpu% over the last 5 seconds."""
         if not self._resource_history:
             return 0.0
-        return sum(cpu for _, cpu, _ in self._resource_history) / len(self._resource_history)
+        return sum(cpu for _, cpu, _ in self._resource_history) / len(
+            self._resource_history
+        )
 
     @property
     def ram_percent(self) -> float:
         """Rolling average ram% over the last 5 seconds."""
         if not self._resource_history:
             return 0.0
-        return sum(ram for _, _, ram in self._resource_history) / len(self._resource_history)
+        return sum(ram for _, _, ram in self._resource_history) / len(
+            self._resource_history
+        )
 
     def format(self) -> str:
         """Format the current system stats for display in the progress bar. TODO move into progress bar"""
