@@ -31,6 +31,21 @@ class _SuspendedJob(_RunningJob):
         list[int] | None
     )  # None for scalar dispatch; ordered sequence_number list for multi-job dispatch
 
+    @classmethod
+    def from_job(cls, job: _RunningJob, child_sequence_numbers: list[int], effect: EAwait) -> "_SuspendedJob":
+        """Promote a running job to suspended, recording the fan-out from an EAwait."""
+        result_order = None if effect.scalar else child_sequence_numbers
+        return cls(
+            fn_name=job.fn_name,
+            eval_gen=job.eval_gen,
+            context=job.context,
+            reply_to=job.reply_to,
+            parent_sequence_number=job.parent_sequence_number,
+            awaiting=set(child_sequence_numbers),
+            results={},
+            result_order=result_order,
+        )
+
 
 def _collect_scalar_result(body: Any) -> tuple[Any, Exception | None]:
     """Unwrap a single child result into (value, error)."""
@@ -87,16 +102,7 @@ class _SuspensionTable:
                 sequence_number=cn,
             )
 
-        self.waiting[parent_key] = _SuspendedJob(
-            fn_name=job.fn_name,
-            eval_gen=job.eval_gen,
-            context=job.context,
-            reply_to=job.reply_to,
-            parent_sequence_number=job.parent_sequence_number,
-            awaiting=set(child_sequence_numbers),
-            results={},
-            result_order=None if effect.scalar else child_sequence_numbers,
-        )
+        self.waiting[parent_key] = _SuspendedJob.from_job(job, child_sequence_numbers, effect)
 
     def resume(self, work: tuple) -> tuple[_RunningJob, Any, Exception | None] | None:
         """Record a child result. Returns (job, handler_value, pending_throw) when all children are done, None if still waiting."""
