@@ -1,31 +1,27 @@
-# Builds a handler wrapper that emits bookman telemetry events around effect handlers
+# Wrapper around bookman telemetry, composes over all handler calls. Want telemetry?
+# inspect events, grab properties from them, emit
+
 import time
 import uuid
 
 from tertius import EEmit
 
 from zahir.core.telemetry import wrap
-from zahir.emit import _end_error, _end_success, _start_event
+from zahir.emit import start_effect_telemetry, end_effect_success_telemetry, end_effect_error_telemetry
 
 
-def make_telemetry(before=None, after=None):
-    """Build a handler_wrapper that emits bookman Events via EEmit.
-
-    before: dict mapping effect class to Callable[[effect], Dims]
-    after:  dict mapping effect class to Callable[[effect, result], Dims]
-
-    Extra dims from before/after are merged into the emitted event.
-    """
+def make_telemetry():
+    """Build a handler_wrapper that emits bookman Events via EEmit."""
 
     def fn(effect):
         span_id = str(uuid.uuid4())
         start = time.time()
 
-        yield EEmit(_start_event(effect, span_id, start, before))
+        yield EEmit(start_effect_telemetry(effect, span_id, start))
         try:
             result = yield
-            yield EEmit(_end_success(effect, span_id, start, time.time(), result, after))
+            yield EEmit(end_effect_success_telemetry(effect, span_id, start, time.time()))
         except Exception as exc:
-            yield EEmit(_end_error(effect, span_id, start, time.time(), str(exc)))
+            yield EEmit(end_effect_error_telemetry(effect, span_id, start, time.time(), str(exc)))
 
     return wrap(fn)

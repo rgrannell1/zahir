@@ -2,7 +2,6 @@ import pytest
 from tertius import EEmit
 
 from bookman.events import Event
-from bookman.primitives import Message
 from zahir.core.effects import EAwait
 from zahir.core.zahir_types import JobSpec
 from zahir.progress_bar.telemetry import make_telemetry
@@ -118,19 +117,3 @@ def test_handler_return_value_preserved_through_telemetry():
     assert value == 42
 
 
-def test_before_dispatcher_merges_dims_into_start_event():
-    "Proves before-dispatch dims appear on the start event without affecting the end event"
-    wrapper = make_telemetry(before={EAwait: lambda e: {"custom": ["value"]}})
-    handler = wrapper(_make_handler("result"))
-    effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
-    start = next(e for e in _emitted(effects) if e.kind == "point")
-    assert start.dim("custom") == "value"
-
-
-def test_after_dispatcher_merges_dims_into_end_event():
-    "Proves after-dispatch dims appear on the end span without affecting the start event"
-    wrapper = make_telemetry(after={EAwait: lambda e, r: {"result_len": [str(len(r))]}})
-    handler = wrapper(_make_handler("hello"))
-    effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
-    end = next(e for e in _emitted(effects) if e.kind == "span")
-    assert end.dim("result_len") == "5"
