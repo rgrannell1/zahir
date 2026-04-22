@@ -11,7 +11,7 @@ from zahir.progress_bar.descriptions import (
     system_description,
     workflow_description,
 )
-from zahir.progress_bar.events import ZahirTelemetryEvent
+from bookman.events import Event
 from zahir.progress_bar.progress_bar_state import ProgressBarState
 from zahir.progress_bar.system_stats import SystemStats
 from zahir.progress_bar.time_estimator import TimeEstimator
@@ -35,7 +35,7 @@ def with_progress(events: Iterable[Any]) -> Generator[Any, None, None]:
                 bar.poll()
                 last_poll = now
 
-            if isinstance(event, ZahirTelemetryEvent):
+            if isinstance(event, Event):
                 bar.update(event)
 
             yield event
@@ -77,6 +77,10 @@ class ZahirProgressBar:
         return self
 
     def __exit__(self, *args):
+        # Remove the indeterminate system row before stopping so Rich doesn't
+        # freeze several spinner frames into the terminal on exit.
+        if self._system_task is not None:
+            self._progress.remove_task(self._system_task)
         return self._progress.__exit__(*args)
 
     def poll(self) -> None:

@@ -1,4 +1,4 @@
-from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
+from bookman.events import Event
 from zahir.progress_bar.progress_bar_state import _ENQUEUE_TAG, _JOB_COMPLETE_TAG, _JOB_FAIL_TAG
 
 
@@ -21,24 +21,22 @@ class TimeEstimator:
         self._in_flight[fn_name] = max(0, self._in_flight.get(fn_name, 0) - 1)
         self._durations.setdefault(fn_name, []).append(duration_ms)
 
-    def update(self, event: ZahirTelemetryEvent) -> None:
-        fn_name = event.attributes.get("fn_name")
-
+    def update(self, event: Event) -> None:
+        fn_name = event.dim("fn")
         if not fn_name:
             return
 
-        match event:
-            case ZahirSpanEnd() if event.tag in (_JOB_COMPLETE_TAG, _JOB_FAIL_TAG):
-                self._record_end(fn_name, event.duration_ms)
-            case ZahirTelemetryEvent(event="start") if event.tag == _ENQUEUE_TAG:
-                self._record_start(fn_name)
+        tag = event.dim("tag")
+
+        if tag in (_JOB_COMPLETE_TAG, _JOB_FAIL_TAG) and event.kind == "span":
+            self._record_end(fn_name, event.duration("ms"))
+        elif tag == _ENQUEUE_TAG and event.kind == "point":
+            self._record_start(fn_name)
 
     def mean_duration_ms(self, fn_name: str) -> float | None:
         durations = self._durations.get(fn_name)
-
         if not durations:
             return None
-
         return sum(durations) / len(durations)
 
     def _estimated_remaining_ms(self) -> float | None:
@@ -49,25 +47,19 @@ class TimeEstimator:
         for fn_name, count in self._in_flight.items():
             if count <= 0:
                 continue
-
             has_in_flight = True
             mean = self.mean_duration_ms(fn_name)
-
             if mean is None:
                 return None
-
             total += count * mean
 
         return total if has_in_flight else None
 
     def format_eta(self) -> str:
         ms = self._estimated_remaining_ms()
-
         if ms is None:
             return "--:--:--"
-
         total_seconds = int(ms / 1000)
         hours, remainder = divmod(total_seconds, 3600)
         minutes, seconds = divmod(remainder, 60)
-
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"

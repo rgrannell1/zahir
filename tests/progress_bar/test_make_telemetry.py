@@ -1,8 +1,10 @@
+import pytest
 from tertius import EEmit
 
+from bookman.events import Event
+from bookman.primitives import Message
 from zahir.core.effects import EAwait
 from zahir.core.zahir_types import JobSpec
-from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
 from zahir.progress_bar.telemetry import make_telemetry
 
 
@@ -35,76 +37,65 @@ def _make_raising_handler(exc):
 
 
 def _emitted(effects):
-    """Extract ZahirTelemetryEvent bodies from EEmit effects."""
-    return [
-        e.body
-        for e in effects
-        if isinstance(e, EEmit) and isinstance(e.body, ZahirTelemetryEvent)
-    ]
-
-
-# emitted event types
+    """Extract bookman Events from EEmit effects."""
+    return [e.body for e in effects if isinstance(e, EEmit) and isinstance(e.body, Event)]
 
 
 def test_emits_start_event_before_handler():
+    "Proves the first emitted event is a point event"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
     effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
     events = _emitted(effects)
-    assert isinstance(events[0], ZahirTelemetryEvent)
-    assert not isinstance(events[0], ZahirSpanEnd)
-    assert events[0].event == "start"
+    assert events[0].kind == "point"
 
 
 def test_emits_span_end_after_handler():
+    "Proves the last emitted event is a span event"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
     effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
     events = _emitted(effects)
-    assert isinstance(events[-1], ZahirSpanEnd)
+    assert events[-1].kind == "span"
 
 
 def test_emits_exactly_two_events_on_success():
+    "Proves exactly one start and one end event are emitted per handler invocation"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
     effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
-    events = _emitted(effects)
-    assert len(events) == 2
+    assert len(_emitted(effects)) == 2
 
 
 def test_start_and_end_share_span_id():
+    "Proves start and end events carry the same id dimension for correlation"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
     effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
     events = _emitted(effects)
-    assert events[0].span_id == events[1].span_id
-
-
-# fn_name in attributes
+    assert events[0].dim("id") == events[1].dim("id")
 
 
 def test_start_event_carries_fn_name():
+    "Proves the fn dimension on the start event reflects the job function name"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
     effects, _ = _drive(handler(EAwait(jobs=[JobSpec("my_job")])))
-    start = next(e for e in _emitted(effects) if e.event == "start")
-    assert start.attributes.get("fn_name") == "my_job"
+    start = next(e for e in _emitted(effects) if e.kind == "point")
+    assert start.dim("fn") == "my_job"
 
 
-def test_end_event_has_positive_duration():
+def test_end_event_has_non_negative_duration():
+    "Proves the span end event records a non-negative duration"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
     effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
-    end = next(e for e in _emitted(effects) if isinstance(e, ZahirSpanEnd))
-    assert end.duration_ms >= 0.0
+    end = next(e for e in _emitted(effects) if e.kind == "span")
+    assert end.duration("ms") >= 0.0
 
 
-# error path
-
-
-def test_emits_span_end_with_error_on_exception():
-    import pytest
-
+def test_emits_span_end_with_error_message_on_exception():
+    "Proves a handler exception is captured as a Message value on the end span"
     wrapper = make_telemetry()
     handler = wrapper(_make_raising_handler(ValueError("boom")))
     gen = handler(EAwait(jobs=[JobSpec("job_a")]))
@@ -114,33 +105,32 @@ def test_emits_span_end_with_error_on_exception():
         while True:
             effects.append(value)
             value = gen.send(None)
-    end_events = [e for e in _emitted(effects) if isinstance(e, ZahirSpanEnd)]
+    end_events = [e for e in _emitted(effects) if e.kind == "span"]
     assert len(end_events) == 1
-    assert end_events[0].error == "boom"
+    assert end_events[0].value == "boom"
 
 
 def test_handler_return_value_preserved_through_telemetry():
+    "Proves the telemetry wrapper does not swallow or alter the handler return value"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler(42))
     _, value = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
     assert value == 42
 
 
-# custom before/after dispatchers
-
-
-def test_before_dispatcher_merges_attrs_into_start_event():
-    extra = {"custom_key": "custom_value"}
-    wrapper = make_telemetry(before={EAwait: lambda e: extra})
+def test_before_dispatcher_merges_dims_into_start_event():
+    "Proves before-dispatch dims appear on the start event without affecting the end event"
+    wrapper = make_telemetry(before={EAwait: lambda e: {"custom": ["value"]}})
     handler = wrapper(_make_handler("result"))
     effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
-    start = next(e for e in _emitted(effects) if e.event == "start")
-    assert start.attributes.get("custom_key") == "custom_value"
+    start = next(e for e in _emitted(effects) if e.kind == "point")
+    assert start.dim("custom") == "value"
 
 
-def test_after_dispatcher_merges_attrs_into_end_event():
-    wrapper = make_telemetry(after={EAwait: lambda e, r: {"result_len": len(r)}})
+def test_after_dispatcher_merges_dims_into_end_event():
+    "Proves after-dispatch dims appear on the end span without affecting the start event"
+    wrapper = make_telemetry(after={EAwait: lambda e, r: {"result_len": [str(len(r))]}})
     handler = wrapper(_make_handler("hello"))
     effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
-    end = next(e for e in _emitted(effects) if isinstance(e, ZahirSpanEnd))
-    assert end.attributes.get("result_len") == 5
+    end = next(e for e in _emitted(effects) if e.kind == "span")
+    assert end.dim("result_len") == "5"

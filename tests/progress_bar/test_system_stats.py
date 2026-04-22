@@ -1,28 +1,16 @@
 import time
 
-from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
+from bookman.create import point, span
 from zahir.progress_bar.system_stats import SystemStats
 
 
-def _start(span_id: str, pid: int = 1234) -> ZahirTelemetryEvent:
-    return ZahirTelemetryEvent(
-        span_id=span_id,
-        tag="t",
-        event="start",
-        timestamp=time.time(),
-        attributes={"fn_name": "job_a", "pid": pid},
-    )
+def _start(span_id: str, pid: int = 1234):
+    return point({"tag": ["t"], "id": [span_id], "pid": [str(pid)]}, at=time.time())
 
 
-def _end(span_id: str, pid: int = 1234) -> ZahirSpanEnd:
-    return ZahirSpanEnd(
-        span_id=span_id,
-        tag="t",
-        event="end",
-        timestamp=time.time(),
-        attributes={"fn_name": "job_a", "pid": pid},
-        duration_ms=100.0,
-    )
+def _end(span_id: str, pid: int = 1234):
+    now = time.time()
+    return span({"tag": ["t"], "id": [span_id], "pid": [str(pid)]}, at=now, until=now + 0.1)
 
 
 def test_active_cores_zero_with_no_events():
@@ -89,12 +77,9 @@ def test_end_event_with_no_matching_start_is_ignored():
 
 
 def test_event_without_pid_is_ignored():
-    "Proves a start event missing a pid attribute is silently skipped"
+    "Proves a start event missing a pid dim is silently skipped"
     stats = SystemStats()
-    event = ZahirTelemetryEvent(
-        span_id="span-1", tag="t", event="start", timestamp=time.time(), attributes={}
-    )
-    stats.update(event)
+    stats.update(point({"tag": ["t"], "id": ["span-1"]}, at=time.time()))
     assert stats.active_cores == 0
 
 

@@ -3,7 +3,7 @@
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import JobError
-from zahir.progress_bar.events import ZahirTelemetryEvent
+from bookman.events import Event
 from zahir.progress_bar.progress_bar_state import ProgressBarState
 from zahir.progress_bar.telemetry import make_telemetry
 
@@ -18,7 +18,7 @@ def _collect_state(fn_name, args, scope) -> ProgressBarState:
     """Run a workflow and return the accumulated progress bar state."""
     state = ProgressBarState()
     for event in evaluate(fn_name, args, scope, n_workers=4, context=TelemetryContext):
-        if isinstance(event, ZahirTelemetryEvent):
+        if isinstance(event, Event):
             state.update(event)
     return state
 

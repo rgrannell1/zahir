@@ -11,6 +11,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "bookman>=0.5",
     "orbis",
     "pyright>=1.1.408",
     "pytest",
@@ -36,5 +37,6 @@ max-complexity = 15
 package = true
 
 [tool.uv.sources]
+bookman = { path = "../sand", editable = true }
 orbis = { path = "../orbis" }
 tertius = { path = "../tertius" }

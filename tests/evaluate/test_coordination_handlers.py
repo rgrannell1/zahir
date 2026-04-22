@@ -37,7 +37,7 @@ from zahir.core.evaluate.coordination_handlers import (
     make_coordination_handlers,
 )
 from zahir.core.exceptions import JobError, JobTimeout
-from zahir.progress_bar.events import ZahirTelemetryEvent
+from bookman.events import Event
 from zahir.progress_bar.telemetry import make_telemetry
 from tests.evaluate.mocks import ME, OVERSEER, mock_mcall, mock_mcast
 
@@ -337,9 +337,9 @@ def test_job_complete_handler_emits_telemetry_with_fn_name():
 
     telemetry = [
         e.body for e in emitted
-        if isinstance(e, EEmit) and isinstance(e.body, ZahirTelemetryEvent)
+        if isinstance(e, EEmit) and isinstance(e.body, Event)
     ]
-    assert any(e.attributes.get("fn_name") == "chapter_processor" for e in telemetry)
+    assert any(e.dim("fn") == "chapter_processor" for e in telemetry)
 
 
 def test_job_fail_handler_emits_telemetry_with_fn_name():
@@ -355,6 +355,6 @@ def test_job_fail_handler_emits_telemetry_with_fn_name():
 
     telemetry = [
         e.body for e in emitted
-        if isinstance(e, EEmit) and isinstance(e.body, ZahirTelemetryEvent)
+        if isinstance(e, EEmit) and isinstance(e.body, Event)
     ]
-    assert any(e.attributes.get("fn_name") == "chapter_processor" for e in telemetry)
+    assert any(e.dim("fn") == "chapter_processor" for e in telemetry)

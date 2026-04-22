@@ -1,8 +1,7 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
-from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
+from bookman.events import Event
 
-# only these effect tags drive job lifecycle counts
 _ENQUEUE_TAG = "enqueue"
 _JOB_COMPLETE_TAG = "job_complete"
 _JOB_FAIL_TAG = "job_fail"
@@ -10,7 +9,7 @@ _JOB_FAIL_TAG = "job_fail"
 
 @dataclass
 class JobStats:
-    total: int = 0  # jobs enqueued (incremented at start, before we know the outcome)
+    total: int = 0
     started: int = 0
     completed: int = 0
     failed: int = 0
@@ -27,19 +26,18 @@ class ProgressBarState:
     def _stats(self, fn_name: str) -> JobStats:
         return self.jobs.setdefault(fn_name, JobStats())
 
-    def update(self, event: ZahirTelemetryEvent) -> None:
-        """Update state from a ZahirTelemetryEvent or ZahirSpanEnd."""
-        fn_name = event.attributes.get("fn_name")
+    def update(self, event: Event) -> None:
+        fn_name = event.dim("fn")
         if not fn_name:
             return
 
+        tag = event.dim("tag")
         stats = self._stats(fn_name)
 
-        match event:
-            case ZahirSpanEnd(error=None) if event.tag == _JOB_COMPLETE_TAG:
-                stats.completed += 1
-            case ZahirSpanEnd(error=_) if event.tag == _JOB_FAIL_TAG:
-                stats.failed += 1
-            case ZahirTelemetryEvent(event="start") if event.tag == _ENQUEUE_TAG:
-                stats.total += 1
-                stats.started += 1
+        if tag == _JOB_COMPLETE_TAG and event.kind == "span":
+            stats.completed += 1
+        elif tag == _JOB_FAIL_TAG and event.kind == "span":
+            stats.failed += 1
+        elif tag == _ENQUEUE_TAG and event.kind == "point":
+            stats.total += 1
+            stats.started += 1

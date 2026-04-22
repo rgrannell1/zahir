@@ -1,4 +1,4 @@
-from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
+from bookman.create import point, span
 from zahir.progress_bar.progress_bar_state import (
     JobStats,
     ProgressBarState,
@@ -9,26 +9,13 @@ from zahir.progress_bar.progress_bar_state import (
 
 
 def _start(fn_name):
-    return ZahirTelemetryEvent(
-        span_id="s",
-        tag=_ENQUEUE_TAG,
-        event="start",
-        timestamp=0.0,
-        attributes={"fn_name": fn_name},
-    )
+    return point({"tag": [_ENQUEUE_TAG], "fn": [fn_name], "id": ["s"]}, at=0.0)
 
 
 def _end(fn_name, error=None):
     tag = _JOB_FAIL_TAG if error else _JOB_COMPLETE_TAG
-    return ZahirSpanEnd(
-        span_id="s",
-        tag=tag,
-        event="end",
-        timestamp=1.0,
-        attributes={"fn_name": fn_name},
-        duration_ms=100.0,
-        error=error,
-    )
+    dims = {"tag": [tag], "fn": [fn_name], "id": ["s"]}
+    return span(dims, at=0.0, until=1.0)
 
 
 def test_start_event_increments_started():
@@ -77,10 +64,7 @@ def test_events_for_different_fn_names_are_isolated():
 
 def test_event_without_fn_name_is_ignored():
     state = ProgressBarState()
-    event = ZahirTelemetryEvent(
-        span_id="s", tag="t", event="start", timestamp=0.0, attributes={}
-    )
-    state.update(event)
+    state.update(point({"tag": [_ENQUEUE_TAG], "id": ["s"]}, at=0.0))
     assert state.jobs == {}
 
 
@@ -88,7 +72,6 @@ def test_start_increments_total():
     state = ProgressBarState()
     state.update(_start("job_a"))
     state.update(_start("job_a"))
-
     assert state.jobs["job_a"].total == 2
 
 
@@ -96,5 +79,4 @@ def test_processed_is_completed_plus_failed():
     state = ProgressBarState()
     state.update(_end("job_a"))
     state.update(_end("job_a", error="boom"))
-
     assert state.jobs["job_a"].processed == 2

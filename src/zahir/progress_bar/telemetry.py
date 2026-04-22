@@ -2,99 +2,76 @@ import os
 import time
 import uuid
 
+from bookman.create import point, span
+from bookman.events import Event
+from bookman.primitives import Dims, Message
 from tertius import EEmit
 
 from zahir.core.telemetry import wrap
-from zahir.progress_bar.events import ZahirSpanEnd, ZahirTelemetryEvent
 
 
-def _default_attrs(effect):
-    """Extract well-known fields from any effect that carries them."""
-    attrs = {"pid": os.getpid()}
-
-    if hasattr(effect, "jobs"):
-        if effect.scalar:
-            attrs["fn_name"] = effect.jobs[0].fn_name
-        else:
-            attrs["fn_names"] = [spec.fn_name for spec in effect.jobs]
-            attrs["count"] = len(effect.jobs)
-    elif hasattr(effect, "fn_name"):
-        attrs["fn_name"] = effect.fn_name
-
-    return attrs
+def _fn_name(effect) -> str | None:
+    if hasattr(effect, "jobs") and effect.scalar:
+        return effect.jobs[0].fn_name
+    if hasattr(effect, "fn_name"):
+        return effect.fn_name
+    return None
 
 
-def _before_attrs(dispatch, effect):
-    """Get attributes for the start event, merging defaults with any user-provided handler."""
-    attrs = _default_attrs(effect)
-    if dispatch:
-        handler = dispatch.get(type(effect))
-        if handler:
-            attrs |= handler(effect)
-    return attrs
+def _base_dims(effect, span_id: str) -> Dims:
+    dims: Dims = {
+        "id": [span_id],
+        "tag": [effect.tag],
+        "pid": [str(os.getpid())],
+    }
+    fn = _fn_name(effect)
+    if fn:
+        dims["fn"] = [fn]
+    return dims
 
 
-def _after_attrs(dispatch, effect, result):
-    """Get attributes for the end event, merging defaults with any user-provided handler."""
-    attrs = _default_attrs(effect)
-    if dispatch:
-        handler = dispatch.get(type(effect))
-        if handler:
-            attrs |= handler(effect, result)
-    return attrs
+def _extra_dims(dispatch, effect, result=None) -> Dims:
+    if not dispatch:
+        return {}
+    handler = dispatch.get(type(effect))
+    if not handler:
+        return {}
+    return handler(effect, result) if result is not None else handler(effect)
 
 
-def _span_start(span_id, effect, attrs, timestamp):
-    return ZahirTelemetryEvent(
-        span_id=span_id,
-        tag=effect.tag,
-        event="start",
-        timestamp=timestamp,
-        attributes=attrs,
-    )
+def _start_event(effect, span_id: str, at: float, before: dict) -> Event:
+    dims = _base_dims(effect, span_id) | _extra_dims(before, effect)
+    return point(dims, at=at)
 
 
-def _span_end(span_id, effect, attrs, start, end, error=None):
-    return ZahirSpanEnd(
-        span_id=span_id,
-        tag=effect.tag,
-        event="end",
-        timestamp=end,
-        attributes=attrs,
-        duration_ms=(end - start) * 1000,
-        error=error,
-    )
+def _end_success(effect, span_id: str, start: float, end: float, result, after: dict) -> Event:
+    dims = _base_dims(effect, span_id) | _extra_dims(after, effect, result)
+    value = Message(str(result)) if result is not None and effect.tag != "enqueue" else None
+    return span(dims, at=start, until=end, value=value)
+
+
+def _end_error(effect, span_id: str, start: float, end: float, error: str) -> Event:
+    return span(_base_dims(effect, span_id), at=start, until=end, value=Message(error))
 
 
 def make_telemetry(before=None, after=None):
-    """Build a handler_wrapper that emits ZahirTelemetryEvent and ZahirSpanEnd via EEmit.
+    """Build a handler_wrapper that emits bookman Events via EEmit.
 
-    before: dict mapping effect class to Callable[[effect], dict]
-    after:  dict mapping effect class to Callable[[effect, result], dict]
+    before: dict mapping effect class to Callable[[effect], Dims]
+    after:  dict mapping effect class to Callable[[effect, result], Dims]
 
-    span_id and timestamps are managed automatically. Exceptions from the handler
-    are captured and recorded in ZahirSpanEnd.error before being re-raised.
+    Extra dims from before/after are merged into the emitted event.
     """
 
     def fn(effect):
         span_id = str(uuid.uuid4())
         start = time.time()
 
-        yield EEmit(_span_start(span_id, effect, _before_attrs(before, effect), start))
+        yield EEmit(_start_event(effect, span_id, start, before))
         try:
-            result = yield  # seam — handler runs here
-            yield EEmit(
-                _span_end(
-                    span_id,
-                    effect,
-                    _after_attrs(after, effect, result),
-                    start,
-                    time.time(),
-                )
-            )
+            result = yield
+            yield EEmit(_end_success(effect, span_id, start, time.time(), result, after))
         except Exception as exc:
-            yield EEmit(
-                _span_end(span_id, effect, {}, start, time.time(), error=str(exc))
-            )
+            yield EEmit(_end_error(effect, span_id, start, time.time(), str(exc)))
 
     return wrap(fn)
