@@ -37,24 +37,32 @@ class EAwait(ZahirJobEffect[Any]):
     jobs: list[JobSpec]
     scalar: bool
 
+    @staticmethod
+    def _fields_from_passthrough(spec: "EAwait") -> tuple[list[JobSpec], bool]:
+        # EAwait(single_eawait) — copy fields from an existing scalar EAwait
+
+        return spec.jobs, spec.scalar
+
+    @staticmethod
+    def _fields_from_list(specs: list["EAwait"]) -> tuple[list[JobSpec], bool]:
+        # EAwait([eawait, ...]) — extract the single JobSpec from each scalar EAwait
+
+        jobs = [spec.jobs[0] for spec in specs]
+        return jobs, False
+
     def __init__(self, spec_or_list=_MISSING, *, jobs=None, scalar=True):
-        if spec_or_list is not _MISSING:
-            if isinstance(spec_or_list, EAwait):
-                # EAwait(single_eawait) — passthrough
-                self.jobs = spec_or_list.jobs
-                self.scalar = spec_or_list.scalar
-            elif isinstance(spec_or_list, list):
-                # EAwait([eawait, ...]) — multi-dispatch
-                self.jobs = [s.jobs[0] for s in spec_or_list]
-                self.scalar = False
-            else:
-                raise TypeError(
-                    f"EAwait expects an EAwait or list of EAwait, got {type(spec_or_list).__name__}"
-                )
-        else:
+        if spec_or_list is _MISSING:
             # EAwait(jobs=[...], scalar=...) — internal form
             self.jobs = jobs
             self.scalar = scalar
+        elif isinstance(spec_or_list, EAwait):
+            self.jobs, self.scalar = EAwait._fields_from_passthrough(spec_or_list)
+        elif isinstance(spec_or_list, list):
+            self.jobs, self.scalar = EAwait._fields_from_list(spec_or_list)
+        else:
+            raise TypeError(
+                f"EAwait expects an EAwait or list of EAwait, got {type(spec_or_list).__name__}"
+            )
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, EAwait):
