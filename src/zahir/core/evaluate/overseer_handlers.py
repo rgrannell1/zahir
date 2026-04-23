@@ -1,19 +1,7 @@
 from collections import deque
 from typing import Any
 
-from zahir.core.constants import (
-    ACQUIRE,
-    ENQUEUE,
-    GET_ERROR,
-    GET_JOB,
-    GET_RESULT,
-    IS_DONE,
-    JOB_DONE,
-    JOB_FAILED,
-    RELEASE,
-    SET_SEMAPHORE,
-    SIGNAL,
-)
+from zahir.core.constants import OverseerMessage as OM
 from zahir.core.zahir_types import JobSpec, OverseerState
 
 
@@ -156,19 +144,19 @@ def _dispatch(handlers: dict, state: OverseerState, body: Any) -> Any:
 
 # request-response handlers (mcall)
 CALL_HANDLERS = {
-    GET_JOB: _get_job,
-    ACQUIRE: _acquire,
-    SIGNAL: _signal,
-    IS_DONE: _is_done,
-    GET_ERROR: _get_error,
-    GET_RESULT: _get_result,
+    OM.GET_JOB: _get_job,
+    OM.ACQUIRE: _acquire,
+    OM.SIGNAL: _signal,
+    OM.IS_DONE: _is_done,
+    OM.GET_ERROR: _get_error,
+    OM.GET_RESULT: _get_result,
 }
 
 # fire-and-forget handlers (mcast)
 CAST_HANDLERS = {
-    ENQUEUE: _enqueue,
-    JOB_DONE: _job_done,
-    JOB_FAILED: _job_failed,
-    RELEASE: _release,
-    SET_SEMAPHORE: _set_semaphore,
+    OM.ENQUEUE: _enqueue,
+    OM.JOB_DONE: _job_done,
+    OM.JOB_FAILED: _job_failed,
+    OM.RELEASE: _release,
+    OM.SET_SEMAPHORE: _set_semaphore,
 }

@@ -5,10 +5,7 @@ from bookman.create import point, span
 from bookman.events import Event
 from bookman.primitives import Dims
 
-# Event lifecycle phases — emitted as the 'phase' dim on every bookman event
-PHASE_START = "start"
-PHASE_END = "end"
-PHASE_ERROR = "error"
+from zahir.core.constants import Phase
 
 
 def get_fn_name(effect) -> str | None:
@@ -22,16 +19,19 @@ def get_fn_name(effect) -> str | None:
 
 
 def get_job_id(effect) -> str | None:
-    # sequence_number resets to 0 per worker, so we combine it with reply_to (parent
-    # worker's PID bytes) to form a globally unique job identifier
+    """Form a globally unique job identifier from the sequence_number and reply_to."""
+
     seq = getattr(effect, "sequence_number", None)
     reply_to = getattr(effect, "reply_to", None)
+
     if seq is not None and isinstance(reply_to, bytes):
         return f"{reply_to.hex()}:{seq}"
     return None
 
 
 def base_dimensions(effect, span_id: str) -> Dims:
+    """We can filter all events by these dimensions."""
+
     pid = str(os.getpid())
     dims: Dims = {
         "id": [span_id],
@@ -52,17 +52,20 @@ def base_dimensions(effect, span_id: str) -> Dims:
 
 def start_effect_telemetry(effect, span_id: str, at: float) -> Event:
     """Point event marking when a handler began."""
-    dims = base_dimensions(effect, span_id) | {"phase": [PHASE_START]}
+
+    dims = base_dimensions(effect, span_id) | {"phase": [Phase.START]}
     return point(dims, at=at)
 
 
 def end_effect_success_telemetry(effect, span_id: str, start: float, end: float) -> Event:
     """Span event marking successful handler completion."""
-    dims = base_dimensions(effect, span_id) | {"phase": [PHASE_END]}
+
+    dims = base_dimensions(effect, span_id) | {"phase": [Phase.END]}
     return span(dims, at=start, until=end)
 
 
 def end_effect_error_telemetry(effect, span_id: str, start: float, end: float, error: str) -> Event:
     """Span event marking handler failure."""
-    dims = base_dimensions(effect, span_id) | {"phase": [PHASE_ERROR]}
+
+    dims = base_dimensions(effect, span_id) | {"phase": [Phase.ERROR]}
     return span(dims, at=start, until=end, value=error)

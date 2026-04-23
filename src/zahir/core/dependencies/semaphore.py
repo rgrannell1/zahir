@@ -3,7 +3,7 @@ from collections.abc import Generator
 from functools import partial
 from typing import Any
 
-from zahir.core.constants import IMPOSSIBLE, SATISFIED
+from zahir.core.constants import SemaphoreState as SS
 from zahir.core.dependencies.dependency import dependency
 from zahir.core.zahir_types import DependencyResult
 from zahir.core.effects import EGetSemaphore
@@ -14,10 +14,10 @@ def _semaphore_condition(name: str) -> Generator[Any, Any, Any]:
     """Returns (True, metadata) if satisfied, False if unsatisfied, raises ImpossibleError if impossible."""
 
     state = yield EGetSemaphore(name=name)
-    if state == IMPOSSIBLE:
+    if state == SS.IMPOSSIBLE:
         raise ImpossibleError(f"semaphore '{name}' aborted")
 
-    if state == SATISFIED:
+    if state == SS.SATISFIED:
         return (True, {"name": name})
 
     return False

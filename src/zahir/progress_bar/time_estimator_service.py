@@ -3,10 +3,9 @@ from collections import defaultdict
 
 from bookman.events import Event
 
-from zahir.emit import PHASE_END, PHASE_START
-from zahir.progress_bar.progress_bar_state_model import ENQUEUE_TAG, JOB_COMPLETE_TAG, JOB_FAIL_TAG
+from zahir.core.constants import JobTag, Phase
 
-_JOB_END_TAGS = {JOB_COMPLETE_TAG, JOB_FAIL_TAG}
+_JOB_END_TAGS = {JobTag.JOB_COMPLETE, JobTag.JOB_FAIL}
 
 
 def _format_ms(ms: float) -> str:
@@ -58,9 +57,9 @@ class TimeEstimator:
         phase = event.dim("phase")
         job_id = event.dim("job_id")
 
-        if tag in _JOB_END_TAGS and phase == PHASE_END:
+        if tag in _JOB_END_TAGS and phase == Phase.END:
             self._record_end(fn_name, event.until, job_id)
-        elif tag == ENQUEUE_TAG and phase == PHASE_START:
+        elif tag == JobTag.ENQUEUE and phase == Phase.START:
             self._record_start(fn_name, event.at, job_id)
 
     def mean_duration_ms(self, fn_name: str) -> float | None:

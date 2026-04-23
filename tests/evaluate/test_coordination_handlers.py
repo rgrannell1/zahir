@@ -4,16 +4,7 @@ import pytest
 
 from tertius import EEmit, ESleep, Pid
 
-from zahir.core.constants import (
-    ACQUIRE,
-    ENQUEUE,
-    GET_JOB,
-    JOB_DONE,
-    JOB_FAILED,
-    RELEASE,
-    SET_SEMAPHORE,
-    SIGNAL,
-)
+from zahir.core.constants import OverseerMessage as OM
 from zahir.core.effects import (
     EAcquireSlot,
     EEnqueue,
@@ -87,7 +78,7 @@ def test_handle_enqueue_sends_correct_message_to_overseer():
             )
         )
 
-    assert sent[0] == (OVERSEER, (ENQUEUE, "child", (1,), WORKER_PID, 500, 3))
+    assert sent[0] == (OVERSEER, (OM.ENQUEUE, "child", (1,), WORKER_PID, 500, 3))
 
 
 # _handle_get_job
@@ -118,7 +109,7 @@ def test_handle_get_job_returns_none_when_overseer_has_nothing():
 
 
 def test_handle_job_complete_mcasts_job_done_with_result():
-    """Proves _handle_job_complete sends (JOB_DONE, reply_to, sequence_number, result) to the overseer."""
+    """Proves _handle_job_complete sends (OM.JOB_DONE, reply_to, sequence_number, result) to the overseer."""
 
     sent = []
 
@@ -134,11 +125,11 @@ def test_handle_job_complete_mcasts_job_done_with_result():
             )
         )
 
-    assert sent[0] == (OVERSEER, (JOB_DONE, REPLY_TO, 7, "done"))
+    assert sent[0] == (OVERSEER, (OM.JOB_DONE, REPLY_TO, 7, "done"))
 
 
 def test_handle_job_complete_with_none_reply_to():
-    """Proves _handle_job_complete sends (JOB_DONE, None, None, result) for the root job."""
+    """Proves _handle_job_complete sends (OM.JOB_DONE, None, None, result) for the root job."""
 
     sent = []
 
@@ -154,14 +145,14 @@ def test_handle_job_complete_with_none_reply_to():
             )
         )
 
-    assert sent[0] == (OVERSEER, (JOB_DONE, None, None, "done"))
+    assert sent[0] == (OVERSEER, (OM.JOB_DONE, None, None, "done"))
 
 
 # _handle_job_fail
 
 
 def test_handle_job_fail_routes_error_to_parent_via_overseer():
-    """Proves _handle_job_fail sends (JOB_DONE, reply_to, sequence_number, error) when reply_to is set."""
+    """Proves _handle_job_fail sends (OM.JOB_DONE, reply_to, sequence_number, error) when reply_to is set."""
 
     sent = []
 
@@ -178,11 +169,11 @@ def test_handle_job_fail_routes_error_to_parent_via_overseer():
             )
         )
 
-    assert sent[0] == (OVERSEER, (JOB_DONE, REPLY_TO, 5, err))
+    assert sent[0] == (OVERSEER, (OM.JOB_DONE, REPLY_TO, 5, err))
 
 
 def test_handle_job_fail_sends_job_failed_for_root_job():
-    """Proves _handle_job_fail sends (JOB_FAILED, error) to the overseer when reply_to is None."""
+    """Proves _handle_job_fail sends (OM.JOB_FAILED, error) to the overseer when reply_to is None."""
 
     sent = []
 
@@ -199,14 +190,14 @@ def test_handle_job_fail_sends_job_failed_for_root_job():
             )
         )
 
-    assert sent[0] == (OVERSEER, (JOB_FAILED, err))
+    assert sent[0] == (OVERSEER, (OM.JOB_FAILED, err))
 
 
 # _handle_release
 
 
 def test_handle_release_mcasts_release_with_name():
-    """Proves _handle_release sends (RELEASE, name) to the overseer."""
+    """Proves _handle_release sends (OM.RELEASE, name) to the overseer."""
 
     sent = []
 
@@ -220,14 +211,14 @@ def test_handle_release_mcasts_release_with_name():
         with pytest.raises(StopIteration):
             next(gen)
 
-    assert sent[0] == (OVERSEER, (RELEASE, "workers"))
+    assert sent[0] == (OVERSEER, (OM.RELEASE, "workers"))
 
 
 # _handle_acquire_slot
 
 
 def test_handle_acquire_slot_mcalls_acquire():
-    """Proves _handle_acquire_slot sends (ACQUIRE, name, limit) to the overseer and returns the result."""
+    """Proves _handle_acquire_slot sends (OM.ACQUIRE, name, limit) to the overseer and returns the result."""
 
     sent = []
 
@@ -241,7 +232,7 @@ def test_handle_acquire_slot_mcalls_acquire():
         with pytest.raises(StopIteration) as exc:
             next(gen)
 
-    assert sent[0] == (OVERSEER, (ACQUIRE, "workers", 4))
+    assert sent[0] == (OVERSEER, (OM.ACQUIRE, "workers", 4))
     assert exc.value.value is True
 
 
@@ -249,7 +240,7 @@ def test_handle_acquire_slot_mcalls_acquire():
 
 
 def test_handle_signal_mcalls_signal():
-    """Proves _handle_signal sends (SIGNAL, name) to the overseer and returns the state."""
+    """Proves _handle_signal sends (OM.SIGNAL, name) to the overseer and returns the state."""
 
     sent = []
 
@@ -263,7 +254,7 @@ def test_handle_signal_mcalls_signal():
         with pytest.raises(StopIteration) as exc:
             next(gen)
 
-    assert sent[0] == (OVERSEER, (SIGNAL, "db"))
+    assert sent[0] == (OVERSEER, (OM.SIGNAL, "db"))
     assert exc.value.value == "satisfied"
 
 
@@ -271,7 +262,7 @@ def test_handle_signal_mcalls_signal():
 
 
 def test_handle_set_semaphore_state_mcasts_set_semaphore():
-    """Proves _handle_set_semaphore_state sends (SET_SEMAPHORE, name, state) to the overseer."""
+    """Proves _handle_set_semaphore_state sends (OM.SET_SEMAPHORE, name, state) to the overseer."""
 
     sent = []
 
@@ -287,7 +278,7 @@ def test_handle_set_semaphore_state_mcasts_set_semaphore():
             )
         )
 
-    assert sent[0] == (OVERSEER, (SET_SEMAPHORE, "db", "impossible"))
+    assert sent[0] == (OVERSEER, (OM.SET_SEMAPHORE, "db", "impossible"))
 
 
 # make_coordination_handlers

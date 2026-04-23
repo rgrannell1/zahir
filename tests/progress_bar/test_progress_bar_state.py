@@ -1,21 +1,15 @@
 from bookman.create import point, span
-from zahir.emit import PHASE_END, PHASE_START
-from zahir.progress_bar.progress_bar_state_model import (
-    ENQUEUE_TAG,
-    JOB_COMPLETE_TAG,
-    JOB_FAIL_TAG,
-    JobStats,
-    ProgressBarState,
-)
+from zahir.core.constants import JobTag, Phase
+from zahir.progress_bar.progress_bar_state_model import JobStats, ProgressBarState
 
 
 def _start(fn_name):
-    return point({"tag": [ENQUEUE_TAG], "fn": [fn_name], "id": ["s"], "phase": [PHASE_START]}, at=0.0)
+    return point({"tag": [JobTag.ENQUEUE], "fn": [fn_name], "id": ["s"], "phase": [Phase.START]}, at=0.0)
 
 
 def _end(fn_name, error=None):
-    tag = JOB_FAIL_TAG if error else JOB_COMPLETE_TAG
-    dims = {"tag": [tag], "fn": [fn_name], "id": ["s"], "phase": [PHASE_END]}
+    tag = JobTag.JOB_FAIL if error else JobTag.JOB_COMPLETE
+    dims = {"tag": [tag], "fn": [fn_name], "id": ["s"], "phase": [Phase.END]}
     return span(dims, at=0.0, until=1.0)
 
 
@@ -65,7 +59,7 @@ def test_events_for_different_fn_names_are_isolated():
 
 def test_event_without_fn_name_is_ignored():
     state = ProgressBarState()
-    state.update(point({"tag": [ENQUEUE_TAG], "id": ["s"]}, at=0.0))
+    state.update(point({"tag": [JobTag.ENQUEUE], "id": ["s"]}, at=0.0))
     assert state.jobs == {}
 
 

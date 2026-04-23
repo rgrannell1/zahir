@@ -6,7 +6,7 @@ from contextlib import closing
 from functools import partial
 from typing import Any
 
-from zahir.core.constants import IMPOSSIBLE, SATISFIED, UNSATISFIED
+from zahir.core.constants import SemaphoreState as SS
 from zahir.core.dependencies.dependency import dependency
 from zahir.core.zahir_types import DependencyResult
 from zahir.core.exceptions import ImpossibleError
@@ -55,7 +55,7 @@ def _query(
 
 def _parse_status(raw: str) -> str:
     status = raw.lower().strip()
-    if status not in {SATISFIED, UNSATISFIED, IMPOSSIBLE}:
+    if status not in {SS.SATISFIED, SS.UNSATISFIED, SS.IMPOSSIBLE}:
         raise ValueError(f"invalid status value: {status!r}")
     return status
 
@@ -80,10 +80,10 @@ def _sqlite_condition(
 
     if len(row) == 1 and column_names == ["status"]:
         status = _parse_status(row[0])
-        if status == UNSATISFIED:
+        if status == SS.UNSATISFIED:
             return False
 
-        if status == IMPOSSIBLE:
+        if status == SS.IMPOSSIBLE:
             raise ImpossibleError(f"status=impossible for query against {db_path}")
 
     return (True, metadata)

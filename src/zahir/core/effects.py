@@ -106,7 +106,7 @@ class ESetSemaphore(ZahirJobEvent):
 
     tag: ClassVar[str] = "set_semaphore"
     name: str
-    state: str  # SATISFIED | UNSATISFIED | IMPOSSIBLE from constants
+    state: str  # SemaphoreState value from constants
 
 
 @dataclass

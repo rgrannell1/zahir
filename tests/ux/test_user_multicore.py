@@ -8,8 +8,7 @@ from bookman.events import Event
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.telemetry import make_telemetry
-from zahir.emit import PHASE_START
-from zahir.progress_bar.progress_bar_state_model import ENQUEUE_TAG
+from zahir.core.constants import JobTag, Phase
 
 _N_WORKERS = 4
 _N_JOBS = 8  # more jobs than workers so at least two workers must be used
@@ -52,8 +51,8 @@ def test_job_ids_are_unique_across_workers():
     enqueue_starts = [
         e for e in raw_events
         if isinstance(e, Event)
-        and e.dim("tag") == ENQUEUE_TAG
-        and e.dim("phase") == PHASE_START
+        and e.dim("tag") == JobTag.ENQUEUE
+        and e.dim("phase") == Phase.START
         and e.dim("job_id") is not None
     ]
 
