@@ -4,7 +4,7 @@ from collections import defaultdict
 from bookman.events import Event
 
 from zahir.emit import PHASE_END, PHASE_START
-from zahir.progress_bar.progress_bar_state import ENQUEUE_TAG, JOB_COMPLETE_TAG, JOB_FAIL_TAG
+from zahir.progress_bar.progress_bar_state_model import ENQUEUE_TAG, JOB_COMPLETE_TAG, JOB_FAIL_TAG
 
 _JOB_END_TAGS = {JOB_COMPLETE_TAG, JOB_FAIL_TAG}
 

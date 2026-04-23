@@ -1,14 +1,14 @@
 # Helpers that translate zahir effects into bookman Event objects
 import os
 
+from bookman.create import point, span
+from bookman.events import Event
+from bookman.primitives import Dims
+
 # Event lifecycle phases — emitted as the 'phase' dim on every bookman event
 PHASE_START = "start"
 PHASE_END = "end"
 PHASE_ERROR = "error"
-
-from bookman.create import point, span
-from bookman.events import Event
-from bookman.primitives import Dims
 
 
 def get_fn_name(effect) -> str | None:

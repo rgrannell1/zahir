@@ -23,6 +23,7 @@ class SystemStats:
 
     def update(self, event: Event) -> None:
         """Track in-flight spans to derive active core count."""
+
         if event.kind == "span":
             self._inflight.pop(event.dim("id"), None)
             return
@@ -33,6 +34,7 @@ class SystemStats:
 
     def poll(self) -> None:
         """Sample cpu% and ram% and add to the rolling window. Call periodically from the main loop."""
+
         now = time.time()
         cpu = psutil.cpu_percent(interval=0.0)
         ram = psutil.virtual_memory().percent
@@ -45,11 +47,13 @@ class SystemStats:
     @property
     def active_cores(self) -> int:
         """Unique worker pids with at least one in-flight span."""
+
         return len(set(self._inflight.values()))
 
     @property
     def cpu_percent(self) -> float:
         """Rolling average cpu% over the last 5 seconds."""
+
         if not self._resource_history:
             return 0.0
         return sum(cpu for _, cpu, _ in self._resource_history) / len(
@@ -59,12 +63,10 @@ class SystemStats:
     @property
     def ram_percent(self) -> float:
         """Rolling average ram% over the last 5 seconds."""
+
         if not self._resource_history:
             return 0.0
         return sum(ram for _, _, ram in self._resource_history) / len(
             self._resource_history
         )
 
-    def format(self) -> str:
-        """Format the current system stats for display in the progress bar. TODO move into progress bar"""
-        return f"{self.active_cores} cores | cpu {self.cpu_percent:.0f}% ram {self.ram_percent:.0f}%"

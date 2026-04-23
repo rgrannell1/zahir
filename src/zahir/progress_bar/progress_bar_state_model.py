@@ -29,7 +29,10 @@ class ProgressBarState:
         return self.jobs.setdefault(fn_name, JobStats())
 
     def update(self, event: Event) -> None:
+        """Ingest one bookman event, updating job stats."""
+
         fn_name = event.dim("fn")
+
         if not fn_name:
             return
 

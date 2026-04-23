@@ -1,4 +1,4 @@
-from zahir.progress_bar.progress_bar_state import JobStats
+from zahir.progress_bar.progress_bar_state_model import JobStats
 
 
 def job_status(stats: JobStats) -> str:
