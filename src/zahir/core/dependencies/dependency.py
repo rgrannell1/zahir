@@ -5,7 +5,7 @@ from typing import Any
 
 from tertius import EEmit, ESleep
 
-from zahir.core.constants import DEPENDENCY_DELAY_MS
+from zahir.core.constants import DEPENDENCY_DELAY_MS, DependencyState as SS
 from zahir.core.zahir_types import DependencyResult, Satisfied
 from zahir.core.exceptions import ImpossibleError
 
@@ -33,7 +33,7 @@ def dependency(
     while True:
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
             result: DependencyResult = (
-                "impossible",
+                SS.IMPOSSIBLE,
                 f"{label} timed out after {timeout_ms}ms",
             )
             yield EEmit(result)
@@ -45,11 +45,11 @@ def dependency(
                 outcome if isinstance(outcome, tuple) else (outcome, None)
             )
             if satisfied:
-                result = ("satisfied", metadata)
+                result = (SS.SATISFIED, metadata)
                 yield EEmit(result)
                 return result
         except ImpossibleError as exc:
-            result = ("impossible", str(exc))
+            result = (SS.IMPOSSIBLE, str(exc))
             yield EEmit(result)
             return result
 

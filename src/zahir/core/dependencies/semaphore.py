@@ -3,7 +3,7 @@ from collections.abc import Generator
 from functools import partial
 from typing import Any
 
-from zahir.core.constants import SemaphoreState as SS
+from zahir.core.constants import DependencyState as SS
 from zahir.core.dependencies.dependency import dependency
 from zahir.core.zahir_types import DependencyResult
 from zahir.core.effects import EGetSemaphore

@@ -23,13 +23,18 @@ WORKER_POLL_MS = 100
 COMPLETION_POLL_MS = 200
 
 # Semaphore and dependency status values — the three states a dependency or semaphore can be in
-class SemaphoreState(StrEnum):
+class DependencyState(StrEnum):
     SATISFIED = "satisfied"
     UNSATISFIED = "unsatisfied"
     IMPOSSIBLE = "impossible"
 
 # How long to wait between CPU usage samples when checking resource availability
 CPU_SAMPLE_INTERVAL_S = 0.1
+
+# Tags on work items returned by the overseer to workers
+class WorkItemTag(StrEnum):
+    JOB = "job"
+    RESULT = "result"
 
 # Messages exchanged between workers and the overseer GenServer
 class OverseerMessage(StrEnum):

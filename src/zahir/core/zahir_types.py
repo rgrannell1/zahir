@@ -2,6 +2,8 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from zahir.core.constants import DependencyState
+
 # Result types for dependency combinators — the Left/Right of the dependency monad.
 type Satisfied = tuple[Literal["satisfied"], dict | None]
 type Impossible = tuple[Literal["impossible"], str]
@@ -23,7 +25,7 @@ class JobSpec:
 class OverseerState:
     queue: deque[JobSpec]
     concurrency: dict[str, tuple[int, int]]  # name -> (limit, active_count)
-    semaphores: dict[str, str]  # name -> 'satisfied'|'unsatisfied'|'impossible'
+    semaphores: dict[str, DependencyState]
     pending: int
     root_error: Exception | None = None
     root_result: Any = None

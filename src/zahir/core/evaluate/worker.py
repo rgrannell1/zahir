@@ -8,7 +8,7 @@ from typing import Any
 from orbis import handle
 from tertius import ESelf, ESleep, Pid, Scope
 
-from zahir.core.constants import WORKER_POLL_MS
+from zahir.core.constants import WORKER_POLL_MS, WorkItemTag
 from zahir.core.effects import (
     EAwait,
     EGetJob,
@@ -105,7 +105,7 @@ def _handle_idle(
         return _Idle()
 
     match work[0]:
-        case "result":
+        case WorkItemTag.RESULT:
             resumed = suspension.resume(work)
             if resumed is None:
                 return _Idle()
@@ -113,7 +113,7 @@ def _handle_idle(
             job, handler_value, pending_throw = resumed
             return _Running(job=job, handler_value=handler_value, pending_throw=pending_throw)
 
-        case "job":
+        case WorkItemTag.JOB:
             _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
 
             if fn_name not in ctx._scope:

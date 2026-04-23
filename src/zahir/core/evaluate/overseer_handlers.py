@@ -1,7 +1,7 @@
 from collections import deque
 from typing import Any
 
-from zahir.core.constants import OverseerMessage as OM
+from zahir.core.constants import OverseerMessage as OM, WorkItemTag
 from zahir.core.zahir_types import JobSpec, OverseerState
 
 
@@ -13,12 +13,12 @@ def _get_job(
     results = state.pending_results.get(worker_pid_bytes)
     if results:
         sequence_number, body = results.popleft()
-        return state, ("result", sequence_number, body)
+        return state, (WorkItemTag.RESULT, sequence_number, body)
 
     if state.queue:
         job = state.queue.popleft()
         return state, (
-            "job",
+            WorkItemTag.JOB,
             job.fn_name,
             job.args,
             job.reply_to,
