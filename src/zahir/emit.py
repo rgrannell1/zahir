@@ -21,6 +21,16 @@ def get_fn_name(effect) -> str | None:
     return None
 
 
+def get_job_id(effect) -> str | None:
+    # sequence_number resets to 0 per worker, so we combine it with reply_to (parent
+    # worker's PID bytes) to form a globally unique job identifier
+    seq = getattr(effect, "sequence_number", None)
+    reply_to = getattr(effect, "reply_to", None)
+    if seq is not None and isinstance(reply_to, bytes):
+        return f"{reply_to.hex()}:{seq}"
+    return None
+
+
 def base_dimensions(effect, span_id: str) -> Dims:
     pid = str(os.getpid())
     dims: Dims = {
@@ -30,9 +40,12 @@ def base_dimensions(effect, span_id: str) -> Dims:
     }
 
     fn = get_fn_name(effect)
-
     if fn:
         dims["fn"] = [fn]
+
+    job_id = get_job_id(effect)
+    if job_id:
+        dims["job_id"] = [job_id]
 
     return dims
 

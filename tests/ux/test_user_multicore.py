@@ -3,9 +3,13 @@
 import os
 
 from tertius import EEmit, ESleep
+from bookman.events import Event
 
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.telemetry import make_telemetry
+from zahir.emit import PHASE_START
+from zahir.progress_bar.progress_bar_state_model import ENQUEUE_TAG
 
 _N_WORKERS = 4
 _N_JOBS = 8  # more jobs than workers so at least two workers must be used
@@ -34,3 +38,24 @@ def test_parallel_fanout_uses_multiple_os_processes():
 
     assert len(pids) == _N_JOBS
     assert len(set(pids)) > 1, f"all jobs ran on the same OS process — got pids: {pids}"
+
+
+class TelemetryContext(JobContext):
+    handler_wrappers = [make_telemetry()]
+
+
+def test_job_ids_are_unique_across_workers():
+    """Proves that job_id dimensions on enqueue events are globally unique across all worker processes."""
+
+    raw_events = list(evaluate("collect_pids", (), _SCOPE, n_workers=_N_WORKERS, context=TelemetryContext))
+
+    enqueue_starts = [
+        e for e in raw_events
+        if isinstance(e, Event)
+        and e.dim("tag") == ENQUEUE_TAG
+        and e.dim("phase") == PHASE_START
+        and e.dim("job_id") is not None
+    ]
+
+    job_ids = [e.dim("job_id") for e in enqueue_starts]
+    assert len(job_ids) == len(set(job_ids)), f"duplicate job_ids found: {job_ids}"

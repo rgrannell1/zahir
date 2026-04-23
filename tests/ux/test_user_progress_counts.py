@@ -4,7 +4,7 @@ from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import JobError
 from bookman.events import Event
-from zahir.progress_bar.progress_bar_state import ProgressBarState
+from zahir.progress_bar.progress_bar_state_model import ProgressBarState
 from zahir.core.telemetry import make_telemetry
 
 from tests.ux.test_user_mirror_workflow import BASE_SCOPE

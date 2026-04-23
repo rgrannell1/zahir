@@ -1,7 +1,7 @@
 import time
 
 from bookman.create import point, span
-from zahir.progress_bar.system_stats import SystemStats
+from zahir.progress_bar.system_stats_service import SystemStats
 
 
 def _start(span_id: str, pid: int = 1234):
@@ -102,10 +102,12 @@ def test_poll_populates_cpu_and_ram():
 
 def test_format_contains_cores_cpu_ram():
     "Proves format() output includes cores, cpu, and ram labels"
+    from zahir.progress_bar.descriptions_view import system_description
+
     stats = SystemStats()
     stats.poll()
     stats.update(_start("span-1", pid=42))
-    result = stats.format()
+    result = system_description(stats.active_cores, stats.cpu_percent, stats.ram_percent)
     assert "cores" in result
     assert "cpu" in result
     assert "ram" in result

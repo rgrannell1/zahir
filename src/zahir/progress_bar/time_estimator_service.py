@@ -26,19 +26,27 @@ class TimeEstimator:
     def __init__(self):
         self._durations: defaultdict[str, list[float]] = defaultdict(list)
         self._in_flight: defaultdict[str, int] = defaultdict(int)
+        # enqueue timestamps keyed by job_id (sequence_number) for correct concurrent matching
+        self._enqueue_times: dict[str, float] = {}
 
-    def _record_start(self, fn_name: str) -> None:
-        """Mark one more job of this type as in-flight."""
+    def _record_start(self, fn_name: str, enqueued_at: float, job_id: str | None) -> None:
+        """Mark one more job of this type as in-flight and record its enqueue timestamp."""
 
         self._in_flight[fn_name] += 1
+        if job_id is not None:
+            self._enqueue_times[job_id] = enqueued_at
 
-    def _record_end(self, fn_name: str, duration_ms: float) -> None:
+    def _record_end(self, fn_name: str, completed_until: float, job_id: str | None) -> None:
         """Decrement in-flight count and record the completed duration."""
 
         # clamp to zero — workers run concurrently so events can arrive out of order
         if self._in_flight[fn_name] > 0:
             self._in_flight[fn_name] -= 1
-        self._durations[fn_name].append(duration_ms)
+
+        if job_id is not None and job_id in self._enqueue_times:
+            enqueued_at = self._enqueue_times.pop(job_id)
+            duration_ms = (completed_until - enqueued_at) * 1000
+            self._durations[fn_name].append(duration_ms)
 
     def update(self, event: Event) -> None:
         """Ingest one bookman event, updating in-flight counts or duration history."""
@@ -48,11 +56,12 @@ class TimeEstimator:
             return
         tag = event.dim("tag")
         phase = event.dim("phase")
+        job_id = event.dim("job_id")
 
         if tag in _JOB_END_TAGS and phase == PHASE_END:
-            self._record_end(fn_name, event.duration("ms"))
+            self._record_end(fn_name, event.until, job_id)
         elif tag == ENQUEUE_TAG and phase == PHASE_START:
-            self._record_start(fn_name)
+            self._record_start(fn_name, event.at, job_id)
 
     def mean_duration_ms(self, fn_name: str) -> float | None:
         """Return the mean completed duration for this job type, or None if no data."""
