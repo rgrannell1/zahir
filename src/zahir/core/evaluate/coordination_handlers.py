@@ -19,6 +19,7 @@ from zahir.core.effects import (
     ESetSemaphoreState,
     ESignal,
 )
+from zahir.core.zahir_types import HandlerMap
 
 
 @dataclass
@@ -134,7 +135,7 @@ def _handle_get_result(
     return (yield from mcall(context.overseer, OM.GET_RESULT))
 
 
-def make_root_handlers(context: CoordinationHandlerContext) -> dict[str, Any]:
+def make_root_handlers(context: CoordinationHandlerContext) -> HandlerMap:
     """Create handlers for the root polling loop — check completion, errors, and the return value."""
 
     return {
@@ -144,7 +145,7 @@ def make_root_handlers(context: CoordinationHandlerContext) -> dict[str, Any]:
     }
 
 
-def make_coordination_handlers(context: CoordinationHandlerContext) -> dict[str, Any]:
+def make_coordination_handlers(context: CoordinationHandlerContext) -> HandlerMap:
     """Create coordination handlers for the worker process — intercept job lifecycle effects."""
 
     handlers = {

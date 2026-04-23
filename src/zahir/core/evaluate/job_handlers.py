@@ -15,6 +15,7 @@ from zahir.core.effects import (
     ZahirCoordinationEffect,
 )
 from zahir.core.exceptions import InvalidEffect, JobError, JobTimeout
+from zahir.core.zahir_types import HandlerMap
 
 
 @dataclass
@@ -110,7 +111,7 @@ def _handle_set_semaphore(
     yield ESetSemaphoreState(name=effect.name, state=effect.state)
 
 
-def make_job_handlers(context: JobHandlerContext) -> dict[str, Any]:
+def make_job_handlers(context: JobHandlerContext) -> HandlerMap:
     """Create job-effect handlers keyed by effect tag, with any user-supplied wrappers applied."""
 
     handlers = {

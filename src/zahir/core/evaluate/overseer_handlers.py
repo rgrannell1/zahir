@@ -1,4 +1,5 @@
 from collections import deque
+from collections.abc import Generator
 from typing import Any
 
 from zahir.core.constants import OverseerMessage as OM, WorkItemTag
@@ -7,7 +8,7 @@ from zahir.core.zahir_types import JobSpec, OverseerState
 
 def _get_job(
     state: OverseerState, worker_pid_bytes: bytes
-) -> tuple[OverseerState, Any]:
+) -> Generator[Any, Any, tuple[OverseerState, Any]]:
     """Return a buffered result for this worker if one exists, otherwise the next queued job, otherwise None."""
 
     results = state.pending_results.get(worker_pid_bytes)
@@ -27,9 +28,10 @@ def _get_job(
         )
 
     return state, None
+    yield
 
 
-def _acquire(state: OverseerState, name: str, limit: int) -> tuple[OverseerState, bool]:
+def _acquire(state: OverseerState, name: str, limit: int) -> Generator[Any, Any, tuple[OverseerState, bool]]:
     """Try to acquire a concurrency slot for a given name. Returns True if successful, False if the limit has been reached."""
 
     current_limit, count = state.concurrency.get(name, (limit, 0))
@@ -39,23 +41,27 @@ def _acquire(state: OverseerState, name: str, limit: int) -> tuple[OverseerState
         return state, True
 
     return state, False
+    yield
 
 
-def _signal(state: OverseerState, name: str) -> tuple[OverseerState, str | None]:
+def _signal(state: OverseerState, name: str) -> Generator[Any, Any, tuple[OverseerState, str | None]]:
     """Get the current state of a named semaphore. Returns None if the semaphore has not been set."""
     return state, state.semaphores.get(name)
+    yield
 
 
-def _is_done(state: OverseerState) -> tuple[OverseerState, bool]:
+def _is_done(state: OverseerState) -> Generator[Any, Any, tuple[OverseerState, bool]]:
     """Check if all jobs are done. This is used by workers to determine if they should continue processing."""
 
     return state, state.pending == 0 and not state.queue
+    yield
 
 
-def _get_error(state: OverseerState) -> tuple[OverseerState, Exception | None]:
+def _get_error(state: OverseerState) -> Generator[Any, Any, tuple[OverseerState, Exception | None]]:
     """Get the root error, if any. This is used by workers to check if they should abort early."""
 
     return state, state.root_error
+    yield
 
 
 def _enqueue(
@@ -65,7 +71,7 @@ def _enqueue(
     reply_to: bytes | None,
     timeout_ms: int | None,
     sequence_number: int | None = None,
-) -> OverseerState:
+) -> Generator[Any, Any, OverseerState]:
     """Enqueue a new job to be processed. This is used to implement dynamic fan-out patterns, where the number of jobs is not known upfront."""
 
     spec = JobSpec(
@@ -79,11 +85,12 @@ def _enqueue(
     state.pending += 1
 
     return state
+    yield
 
 
 def _job_done(
     state: OverseerState, reply_to_bytes: bytes | None, sequence_number: Any, body: Any
-) -> OverseerState:
+) -> Generator[Any, Any, OverseerState]:
     """Decrement pending and buffer the result for the waiting parent worker, if any. Root job results are stored on state."""
 
     state.pending -= 1
@@ -96,15 +103,17 @@ def _job_done(
         state.pending_results[reply_to_bytes].append((sequence_number, body))
 
     return state
+    yield
 
 
-def _get_result(state: OverseerState) -> tuple[OverseerState, Any]:
+def _get_result(state: OverseerState) -> Generator[Any, Any, tuple[OverseerState, Any]]:
     """Return the root job's return value."""
 
     return state, state.root_result
+    yield
 
 
-def _job_failed(state: OverseerState, error: Exception) -> OverseerState:
+def _job_failed(state: OverseerState, error: Exception) -> Generator[Any, Any, OverseerState]:
     """Decrement pending and record the root error for a failed root job."""
 
     state.pending -= 1
@@ -113,9 +122,10 @@ def _job_failed(state: OverseerState, error: Exception) -> OverseerState:
         state.root_error = error
 
     return state
+    yield
 
 
-def _release(state: OverseerState, name: str) -> OverseerState:
+def _release(state: OverseerState, name: str) -> Generator[Any, Any, OverseerState]:
     """Release a concurrency slot for a given name."""
 
     if name in state.concurrency:
@@ -123,14 +133,16 @@ def _release(state: OverseerState, name: str) -> OverseerState:
         state.concurrency[name] = (current_limit, max(0, count - 1))
 
     return state
+    yield
 
 
-def _set_semaphore(state: OverseerState, name: str, sem_state: str) -> OverseerState:
+def _set_semaphore(state: OverseerState, name: str, sem_state: str) -> Generator[Any, Any, OverseerState]:
     """Set the state of a semaphore. This can be used to implement more complex synchronization patterns."""
 
     state.semaphores[name] = sem_state
 
     return state
+    yield
 
 
 def _dispatch(handlers: dict, state: OverseerState, body: Any) -> Any:

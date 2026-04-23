@@ -9,6 +9,15 @@ type Satisfied = tuple[Literal["satisfied"], dict | None]
 type Impossible = tuple[Literal["impossible"], str]
 type DependencyResult = Satisfied | Impossible
 
+# Concurrency slot tracking: name -> (limit, active_count)
+type ConcurrencyMap = dict[str, tuple[int, int]]
+
+# Per-worker buffered results: worker_pid_bytes -> deque of (sequence_number, body)
+type PendingResults = dict[bytes, deque[tuple[int, Any]]]
+
+# Effect tag -> handler callable, as returned by handler factory functions
+type HandlerMap = dict[str, Any]
+
 
 @dataclass
 class JobSpec:
@@ -24,11 +33,9 @@ class JobSpec:
 @dataclass
 class OverseerState:
     queue: deque[JobSpec]
-    concurrency: dict[str, tuple[int, int]]  # name -> (limit, active_count)
+    concurrency: ConcurrencyMap
     semaphores: dict[str, DependencyState]
     pending: int
     root_error: Exception | None = None
     root_result: Any = None
-    pending_results: dict[bytes, deque] = field(
-        default_factory=dict
-    )  # worker_pid_bytes -> deque[(sequence_number, body)]
+    pending_results: PendingResults = field(default_factory=dict)
