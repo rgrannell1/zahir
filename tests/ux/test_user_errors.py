@@ -4,6 +4,7 @@ import pytest
 
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import JobError
+from tests.shared import user_events
 
 
 def crashing_job(ctx: JobContext):
@@ -34,6 +35,6 @@ def test_crashing_job_sends_job_error_to_awaiter():
         "crashing_job": crashing_job,
         "job_awaiting_crash": job_awaiting_crash,
     }
-    events = list(evaluate("job_awaiting_crash", (), scope, n_workers=2))
+    events = user_events(evaluate("job_awaiting_crash", (), scope, n_workers=2))
 
     assert events == [{"error": "something went wrong"}]

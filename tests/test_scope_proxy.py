@@ -2,6 +2,7 @@ from tertius import EEmit
 
 from zahir.core.evaluate import evaluate, JobContext
 from zahir.core.scope_proxy import ScopeProxy
+from tests.shared import user_events
 
 
 def child_job(ctx: JobContext, value: int):
@@ -56,6 +57,6 @@ def test_scope_proxy_dispatches_typed_await():
     """Proves ctx.scope.<fn>(args) produces a correctly dispatched EAwait end-to-end."""
 
     scope = {"parent_job": parent_job, "child_job": child_job}
-    events = list(evaluate("parent_job", (), scope, n_workers=2))
+    events = user_events(evaluate("parent_job", (), scope, n_workers=2))
 
     assert events == [{"result": 42}]

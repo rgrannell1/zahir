@@ -9,6 +9,7 @@ from tertius import EEmit
 
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
+from tests.shared import user_events
 
 
 # --- mock leaf jobs (no-ops that mirror real job signatures) ---
@@ -173,7 +174,7 @@ BASE_SCOPE = {
 def test_mirror_workflow_runs_and_publishes():
     """Proves a mirror-shaped workflow completes and emits a publish event."""
 
-    events = list(
+    events = user_events(
         evaluate("mirror_workflow", ({"publish_d1": False},), BASE_SCOPE, n_workers=4)
     )
 
@@ -183,7 +184,7 @@ def test_mirror_workflow_runs_and_publishes():
 def test_mirror_workflow_builds_website_when_publish_d1():
     """Proves build_website is dispatched only when publish_d1 is set."""
 
-    events = list(
+    events = user_events(
         evaluate("mirror_workflow", ({"publish_d1": True},), BASE_SCOPE, n_workers=4)
     )
 
@@ -194,7 +195,7 @@ def test_mirror_workflow_continues_after_scan_failure():
     """Proves mirror_workflow swallows scan errors and still publishes."""
 
     scope = {**BASE_SCOPE, "scan_media": failing_scan_media}
-    events = list(
+    events = user_events(
         evaluate("mirror_workflow", ({"publish_d1": False},), scope, n_workers=4)
     )
 
@@ -276,7 +277,7 @@ def test_mirror_workflow_parallel_image_processing():
     }
 
     fpaths = ["a.jpg", "b.jpg"]
-    events = list(
+    events = user_events(
         evaluate("mirror_workflow", ({"fpaths": fpaths},), scope, n_workers=4)
     )
 

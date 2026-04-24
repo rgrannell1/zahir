@@ -299,11 +299,15 @@ name = "tertius"
 version = "0.1.0"
 source = { editable = "../tertius" }
 dependencies = [
+    { name = "bookman" },
     { name = "pyzmq" },
 ]
 
 [package.metadata]
-requires-dist = [{ name = "pyzmq", specifier = ">=26.0.0" }]
+requires-dist = [
+    { name = "bookman", editable = "../sand" },
+    { name = "pyzmq", specifier = ">=26.0.0" },
+]
 
 [package.metadata.requires-dev]
 dev = [

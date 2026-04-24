@@ -3,6 +3,7 @@
 from tertius import EEmit
 
 from zahir.core.evaluate import JobContext, evaluate
+from tests.shared import user_events
 
 
 def returning_root(ctx: JobContext):
@@ -24,7 +25,7 @@ def returning_none_root(ctx: JobContext):
 def test_root_return_value_is_yielded_by_evaluate():
     """Proves evaluate yields the root job's return value as the final event."""
 
-    events = list(
+    events = user_events(
         evaluate("returning_root", (), {"returning_root": returning_root}, n_workers=1)
     )
 
@@ -34,7 +35,7 @@ def test_root_return_value_is_yielded_by_evaluate():
 def test_root_return_value_comes_after_emitted_events():
     """Proves the root return value appears after any EEmit events in the stream."""
 
-    events = list(
+    events = user_events(
         evaluate(
             "returning_root_with_emit",
             (),
@@ -49,7 +50,7 @@ def test_root_return_value_comes_after_emitted_events():
 def test_root_return_none_yields_nothing_extra():
     """Proves a root job returning None does not add anything to the event stream."""
 
-    events = list(
+    events = user_events(
         evaluate(
             "returning_none_root",
             (),

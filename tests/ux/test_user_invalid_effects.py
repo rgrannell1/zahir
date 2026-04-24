@@ -4,6 +4,7 @@ from tertius import EEmit, EReceive
 
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import InvalidEffect
+from tests.shared import user_events
 
 
 def job_yielding_non_effect(ctx: JobContext):
@@ -52,7 +53,7 @@ def test_yielding_ereceive_raises_invalid_effect():
 def test_invalid_effect_is_catchable_in_job():
     """Proves a job can catch InvalidEffect and continue executing."""
 
-    events = list(
+    events = user_events(
         evaluate(
             "job_catching_invalid_effect",
             (),

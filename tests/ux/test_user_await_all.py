@@ -3,6 +3,7 @@ from tertius import EEmit, ESleep
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import JobError
+from tests.shared import user_events
 
 
 def double(ctx: JobContext, value: int):
@@ -59,7 +60,7 @@ def test_await_all_returns_results_in_input_order():
     """Proves EAwait returns results ordered by dispatch position, not arrival order."""
 
     scope = {"fan_out": fan_out, "double": double}
-    events = list(evaluate("fan_out", (), scope, n_workers=4))
+    events = user_events(evaluate("fan_out", (), scope, n_workers=4))
 
     assert events == [[2, 4, 6]]
 
@@ -72,7 +73,7 @@ def test_await_all_preserves_order_when_completions_arrive_out_of_order():
         "slow_double": slow_double,
         "double": double,
     }
-    events = list(evaluate("fan_out_mixed", (), scope, n_workers=4))
+    events = user_events(evaluate("fan_out_mixed", (), scope, n_workers=4))
 
     assert events == [[2, 4]]
 
@@ -85,6 +86,6 @@ def test_await_all_raises_job_error_on_failure():
         "double": double,
         "failing_job": failing_job,
     }
-    events = list(evaluate("fan_out_with_failure", (), scope, n_workers=4))
+    events = user_events(evaluate("fan_out_with_failure", (), scope, n_workers=4))
 
     assert events == [{"error": "boom"}]

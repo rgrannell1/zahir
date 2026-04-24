@@ -3,6 +3,7 @@ import pytest
 from tertius import EEmit
 
 from zahir.core.evaluate import evaluate
+from tests.shared import user_events
 
 
 def module_level_job(ctx):
@@ -12,7 +13,7 @@ def module_level_job(ctx):
 def test_module_level_job_runs_successfully():
     """Proves a module-level job function can be loaded by worker processes."""
 
-    events = list(evaluate("job", (), {"job": module_level_job}, n_workers=1))
+    events = user_events(evaluate("job", (), {"job": module_level_job}, n_workers=1))
     assert events == ["ok"]
 
 

@@ -1,6 +1,7 @@
 from tertius import EEmit
 
 from zahir.core.evaluate import evaluate, JobContext
+from tests.shared import user_events
 
 
 class CustomContext(JobContext):
@@ -19,7 +20,7 @@ def job_with_default_context(ctx: JobContext):
 def test_custom_context_is_passed_as_first_arg():
     """Proves a custom context instance is created per worker and passed as the first job argument."""
 
-    events = list(
+    events = user_events(
         evaluate(
             "job_reading_context",
             (),
@@ -35,7 +36,7 @@ def test_custom_context_is_passed_as_first_arg():
 def test_default_context_is_used_when_none_provided():
     """Proves the default JobContext is used when no context class is given."""
 
-    events = list(
+    events = user_events(
         evaluate(
             "job_with_default_context",
             (),
