@@ -5,7 +5,7 @@ import uuid
 from tertius import EEmit
 
 from zahir.core.combinators import wrap
-from zahir.emit import (
+from zahir.core.emit import (
     end_effect_error_telemetry,
     end_effect_success_telemetry,
     start_effect_telemetry,
