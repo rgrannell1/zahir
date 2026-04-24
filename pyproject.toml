@@ -7,6 +7,7 @@ requires-python = ">=3.14"
 dependencies = [
     "psutil>=7.2.2",
     "rich>=13.0.0",
+    "tertius",
 ]
 
 [dependency-groups]
@@ -38,5 +39,5 @@ package = true
 
 [tool.uv.sources]
 bookman = { path = "../sand", editable = true }
-orbis = { path = "../orbis" }
-tertius = { path = "../tertius" }
+orbis = { path = "../orbis", editable = true }
+tertius = { path = "../tertius", editable = true }

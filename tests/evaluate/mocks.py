@@ -1,7 +1,7 @@
 from tertius import Pid
 
-OVERSEER = Pid(id=1)
-ME = Pid(id=2)
+OVERSEER = Pid(node_id=0, id=1)
+ME = Pid(node_id=0, id=2)
 
 
 def mock_mcall(return_value):

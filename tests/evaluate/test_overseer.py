@@ -8,7 +8,7 @@ from zahir.core.zahir_types import OverseerState
 
 
 def _make_state() -> OverseerState:
-    return _init("start", (1, 2))
+    return complete(_init("start", (1, 2)))
 
 
 # init

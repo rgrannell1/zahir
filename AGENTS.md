@@ -1,6 +1,7 @@
 
 We use `../orbius` as an algebraic effects library
 We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
+`../mirror` is our main dependent; we'll often debug it
 
 **Communication**
 - No sychophantic language please
@@ -28,14 +29,17 @@ We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
 - Factor out types to <module_name>_types.py
 - Avoid using python lambdas, except in .sort(). never use multiple lambdas in one call
 - Prefer enums over constants
+- Do not ignore exceptions
 
 **Testing**
 
 - Do not attempt to run using Python -c, it will fail
-- Use pytest
+- Use `uv run python3 -m pytest`. Build tests using Pytest.
 - Factor out test-data creation from test assertions
 - Tests must have description strings like  "Proves <general system property>"
 - ux tests should just be added by me, on request. Normally, create tests in tests/
+- Tests emitting warnings are not considered passing
+
 
 **Tools & build**
 
