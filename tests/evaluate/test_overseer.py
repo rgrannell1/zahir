@@ -1,138 +1,122 @@
-from functools import partial
+from orbis import complete, handle
 
-from orbis import complete
-
-from zahir.core.backends.memory import MemoryBackend
-from zahir.core.constants import OverseerMessage as OM
+from zahir.core.backends.memory import make_memory_storage_handlers
+from zahir.core.effects import (
+    EStorageAcquire,
+    EStorageGetJob,
+    EStorageIsDone,
+    EStorageInitialize,
+    EStorageRelease,
+)
 from zahir.core.evaluate.overseer import _handle_call, _handle_cast, _init
-from zahir.core.evaluate.overseer_handlers import CALL_HANDLERS, CAST_HANDLERS
-
-# bind the unwrapped handler tables for unit tests
-_call = partial(_handle_call, CALL_HANDLERS)
-_cast = partial(_handle_cast, CAST_HANDLERS)
 
 
-def _make_backend() -> MemoryBackend:
-    backend = MemoryBackend()
-    complete(_init(backend, "start", (1, 2)))
-    return backend
+# _init
 
 
-# init
+def test_init_yields_storage_initialize():
+    """Proves _init yields EStorageInitialize with the correct fn_name and args."""
+
+    gen = _init("start", (1, 2))
+    effect = next(gen)
+    assert isinstance(effect, EStorageInitialize)
+    assert effect.fn_name == "start"
+    assert effect.args == (1, 2)
 
 
-def test_init_creates_initial_job_in_queue():
-    """Proves init enqueues the starting job."""
+def test_init_returns_none_as_state():
+    """Proves _init returns None as the initial gen_server state after the storage effect is handled."""
 
-    backend = _make_backend()
-    assert len(backend.queue) == 1
-    assert backend.queue[0].fn_name == "start"
-    assert backend.queue[0].args == (1, 2)
-
-
-def test_init_sets_pending_to_one():
-    """Proves init sets pending to 1 for the initial job."""
-
-    assert _make_backend().pending == 1
+    gen = _init("start", (1, 2))
+    next(gen)
+    try:
+        gen.send(None)
+    except StopIteration as exc:
+        assert exc.value is None
 
 
-def test_init_starts_with_empty_concurrency():
-    """Proves init starts with no concurrency slots registered."""
-
-    assert _make_backend().concurrency == {}
+# _handle_call
 
 
-def test_init_starts_with_empty_semaphores():
-    """Proves init starts with no semaphores registered."""
+def test_handle_call_yields_body_effect():
+    """Proves _handle_call yields the body unchanged for handle() to intercept."""
 
-    assert _make_backend().semaphores == {}
-
-
-# handle_call dispatch
-
-
-def test_handle_call_get_job_returns_job():
-    """Proves handle_call dispatches get_job and returns the queued job."""
-
-    backend = _make_backend()
-    _, job = complete(_call(backend, (OM.GET_JOB, b"worker-pid")))
-    assert job[1] == "start"
+    storage_effect = EStorageGetJob(b"worker")
+    gen = _handle_call(None, storage_effect)
+    yielded = next(gen)
+    assert yielded is storage_effect
 
 
-def test_handle_call_acquire_grants_slot():
-    """Proves handle_call dispatches acquire and grants an available slot."""
+def test_handle_call_returns_state_and_handler_result():
+    """Proves _handle_call returns (state, result) using the value sent back by handle()."""
 
-    backend = _make_backend()
-    _, result = complete(_call(backend, (OM.ACQUIRE, "workers", 4)))
-    assert result is True
-
-
-def test_handle_call_signal_returns_none_for_unknown_semaphore():
-    """Proves handle_call dispatches signal and returns None for an unregistered semaphore."""
-
-    _, result = complete(_call(_make_backend(), (OM.SIGNAL, "db")))
-    assert result is None
+    gen = _handle_call("sentinel_state", EStorageAcquire("workers", 4))
+    next(gen)
+    try:
+        gen.send(True)
+    except StopIteration as exc:
+        assert exc.value == ("sentinel_state", True)
 
 
-def test_handle_call_is_done_false_initially():
-    """Proves handle_call dispatches is_done and returns False when jobs are pending."""
+# _handle_cast
 
-    _, result = complete(_call(_make_backend(), OM.IS_DONE))
+
+def test_handle_cast_yields_body_effect():
+    """Proves _handle_cast yields the body unchanged for handle() to intercept."""
+
+    storage_effect = EStorageRelease("workers")
+    gen = _handle_cast(None, storage_effect)
+    yielded = next(gen)
+    assert yielded is storage_effect
+
+
+def test_handle_cast_returns_state_unchanged():
+    """Proves _handle_cast returns the original state after the storage effect is handled."""
+
+    gen = _handle_cast("sentinel_state", EStorageRelease("workers"))
+    next(gen)
+    try:
+        gen.send(None)
+    except StopIteration as exc:
+        assert exc.value == "sentinel_state"
+
+
+# round-trip via handle() + memory storage handlers
+
+
+def _make_handlers():
+    """Shared storage handler set for round-trip tests."""
+    return make_memory_storage_handlers()
+
+
+def test_init_seeds_backend_via_storage_handlers():
+    """Proves _init with memory storage handlers initialises the backend correctly."""
+
+    handlers = _make_handlers()
+    complete(handle(_init("start", (1, 2)), **handlers))
+    # if this completes without error the backend was seeded; is_done is verifiable via a subsequent call
+    _, result = complete(handle(_handle_call(None, EStorageIsDone()), **handlers))
     assert result is False
 
 
-# handle_cast dispatch
+def test_round_trip_enqueue_then_get_job():
+    """Proves a job enqueued via a cast storage effect is retrievable via a call storage effect."""
 
+    from collections import deque
+    from zahir.core.effects import EStorageEnqueue
+    from zahir.core.backends.memory import MemoryBackend
 
-def test_handle_cast_enqueue_adds_job():
-    """Proves handle_cast dispatches enqueue and adds a job to the queue."""
+    # build handlers over a shared backend with a pre-seeded job
+    backend = MemoryBackend(pending=1)
+    from functools import partial
+    from zahir.core.backends.memory import _handle_storage_get_job, _handle_storage_enqueue
+    handlers = _make_handlers()
 
-    backend = complete(_cast(_make_backend(), (OM.ENQUEUE, "child", (42,), None, None)))
-    assert any(job.fn_name == "child" for job in backend.queue)
-
-
-def test_handle_cast_job_done_decrements_pending():
-    """Proves handle_cast dispatches job_done and decrements pending."""
-
-    backend = complete(_cast(_make_backend(), (OM.JOB_DONE, None, None, "result")))
-    assert backend.pending == 0
-
-
-def test_handle_cast_release_decrements_slot():
-    """Proves handle_cast dispatches release and decrements the concurrency count."""
-
-    backend = _make_backend()
-    backend.concurrency["workers"] = (4, 2)
-    backend = complete(_cast(backend, (OM.RELEASE, "workers")))
-    assert backend.concurrency["workers"] == (4, 1)
-
-
-def test_handle_cast_set_semaphore_stores_state():
-    """Proves handle_cast dispatches set_semaphore and records the new state."""
-
-    backend = complete(_cast(_make_backend(), (OM.SET_SEMAPHORE, "db", "impossible")))
-    assert backend.semaphores["db"] == "impossible"
-
-
-# round-trip
-
-
-def test_enqueue_then_get_job_round_trips():
-    """Proves a job enqueued via handle_cast is retrievable via handle_call."""
-
-    backend = _make_backend()
-    backend = complete(_cast(backend, (OM.ENQUEUE, "child", (1,), None, 1000)))
-    backend, _ = complete(_call(backend, (OM.GET_JOB, b"worker-pid")))
-    _, job = complete(_call(backend, (OM.GET_JOB, b"worker-pid")))
-    assert job[1] == "child"
-    assert job[4] == 1000
-
-
-def test_is_done_true_after_all_jobs_complete():
-    """Proves is_done returns True once all jobs are dequeued and marked done."""
-
-    backend = _make_backend()
-    backend, _ = complete(_call(backend, (OM.GET_JOB, b"worker-pid")))
-    backend = complete(_cast(backend, (OM.JOB_DONE, None, None, "result")))
-    _, result = complete(_call(backend, OM.IS_DONE))
-    assert result is True
+    # initialise, enqueue a child job, then fetch it
+    complete(handle(_init("root", ()), **handlers))
+    complete(handle(_handle_cast(None, EStorageEnqueue("child", (42,), None, None, None)), **handlers))
+    # root job is first in queue; consume it
+    complete(handle(_handle_call(None, EStorageGetJob(b"worker")), **handlers))
+    # now child job should be available
+    _, work = complete(handle(_handle_call(None, EStorageGetJob(b"worker")), **handlers))
+    assert work[1] == "child"

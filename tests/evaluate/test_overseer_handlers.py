@@ -1,20 +1,7 @@
+# Tests for MemoryBackend methods — proves each storage operation behaves correctly in isolation.
 from collections import deque
 
-from orbis import complete
-
 from zahir.core.backends.memory import MemoryBackend
-from zahir.core.evaluate.overseer_handlers import (
-    _acquire,
-    _enqueue,
-    _get_error,
-    _get_job,
-    _is_done,
-    _job_done,
-    _job_failed,
-    _release,
-    _set_semaphore,
-    _signal,
-)
 from zahir.core.zahir_types import JobSpec
 
 WORKER = b"worker-pid"
@@ -24,260 +11,279 @@ def _backend(**kwargs) -> MemoryBackend:
     return MemoryBackend(**kwargs)
 
 
-# _get_job
+# get_job
 
 
 def test_get_job_returns_none_when_queue_empty_and_no_results():
-    """Proves _get_job returns None when no jobs are queued and no results are buffered."""
+    """Proves get_job returns None when no jobs are queued and no results are buffered."""
 
-    state, job = complete(_get_job(_backend(), WORKER))
-    assert job is None
+    assert _backend().get_job(WORKER) is None
 
 
 def test_get_job_returns_job_tuple_from_queue():
-    """Proves _get_job returns a ("job", ...) tuple from the queue when no results are pending."""
+    """Proves get_job returns a ("job", ...) tuple from the queue when no results are pending."""
 
-    spec = JobSpec(
-        fn_name="process", args=(1,), reply_to=None, timeout_ms=5000, sequence_number=3
-    )
-    state, job = complete(_get_job(_backend(queue=deque([spec])), WORKER))
-    assert job == ("job", "process", (1,), None, 5000, 3)
+    spec = JobSpec(fn_name="process", args=(1,), reply_to=None, timeout_ms=5000, sequence_number=3)
+    result = _backend(queue=deque([spec])).get_job(WORKER)
+    assert result == ("job", "process", (1,), None, 5000, 3)
 
 
 def test_get_job_removes_job_from_queue():
-    """Proves _get_job pops the job from the queue."""
+    """Proves get_job pops the job from the queue."""
 
     spec = JobSpec(fn_name="fn", args=(), reply_to=None)
-    state, _ = complete(_get_job(_backend(queue=deque([spec])), WORKER))
-    assert len(state.queue) == 0
+    backend = _backend(queue=deque([spec]))
+    backend.get_job(WORKER)
+    assert len(backend.queue) == 0
 
 
 def test_get_job_preserves_fifo_order():
-    """Proves _get_job dequeues jobs in FIFO order."""
+    """Proves get_job dequeues jobs in FIFO order."""
 
     specs = [JobSpec(fn_name=f"fn{idx}", args=(), reply_to=None) for idx in range(3)]
-    state = _backend(queue=deque(specs))
-    _, job = complete(_get_job(state, WORKER))
-    assert job[1] == "fn0"
+    result = _backend(queue=deque(specs)).get_job(WORKER)
+    assert result[1] == "fn0"
 
 
 def test_get_job_returns_buffered_result_before_queue():
-    """Proves _get_job returns a pending result for this worker before taking a new job from the queue."""
+    """Proves get_job returns a pending result for this worker before taking a new job from the queue."""
 
     pending = {WORKER: deque([(42, "result")])}
     spec = JobSpec(fn_name="fn", args=(), reply_to=None)
-    state, work = complete(_get_job(_backend(queue=deque([spec]), pending_results=pending), WORKER))
+    work = _backend(queue=deque([spec]), pending_results=pending).get_job(WORKER)
     assert work == ("result", 42, "result")
 
 
 def test_get_job_result_is_worker_specific():
-    """Proves _get_job only returns results addressed to the requesting worker."""
+    """Proves get_job only returns results addressed to the requesting worker."""
 
     other_worker = b"other-pid"
     pending = {other_worker: deque([(1, "result")])}
-    state, work = complete(_get_job(_backend(pending_results=pending), WORKER))
-    assert work is None
+    assert _backend(pending_results=pending).get_job(WORKER) is None
 
 
-# _enqueue
+# enqueue
 
 
 def test_enqueue_adds_job_to_queue():
-    """Proves _enqueue appends a new JobSpec to the queue."""
+    """Proves enqueue appends a new JobSpec to the queue."""
 
-    state = complete(_enqueue(_backend(), "process", (1,), None, None))
-    assert len(state.queue) == 1
-    assert state.queue[0].fn_name == "process"
+    backend = _backend()
+    backend.enqueue("process", (1,), None, None, None)
+    assert len(backend.queue) == 1
+    assert backend.queue[0].fn_name == "process"
 
 
 def test_enqueue_increments_pending():
-    """Proves _enqueue increments the pending job count."""
+    """Proves enqueue increments the pending job count."""
 
-    state = complete(_enqueue(_backend(pending=2), "fn", (), None, None))
-    assert state.pending == 3
+    backend = _backend(pending=2)
+    backend.enqueue("fn", (), None, None, None)
+    assert backend.pending == 3
 
 
 def test_enqueue_stores_timeout_ms():
-    """Proves _enqueue passes timeout_ms through to the JobSpec."""
+    """Proves enqueue passes timeout_ms through to the JobSpec."""
 
-    state = complete(_enqueue(_backend(), "fn", (), None, 3000))
-    assert state.queue[0].timeout_ms == 3000
+    backend = _backend()
+    backend.enqueue("fn", (), None, 3000, None)
+    assert backend.queue[0].timeout_ms == 3000
 
 
-# _job_done
+# job_done
 
 
 def test_job_done_decrements_pending():
-    """Proves _job_done decrements the pending count."""
+    """Proves job_done decrements the pending count."""
 
-    state = complete(_job_done(_backend(pending=3), WORKER, 1, "result"))
-    assert state.pending == 2
+    backend = _backend(pending=3)
+    backend.job_done(WORKER, 1, "result")
+    assert backend.pending == 2
 
 
 def test_job_done_buffers_result_for_worker():
-    """Proves _job_done stores (sequence_number, body) in pending_results for the given worker."""
+    """Proves job_done stores (sequence_number, body) in pending_results for the given worker."""
 
-    state = complete(_job_done(_backend(pending=1), WORKER, 7, "result"))
-    assert list(state.pending_results[WORKER]) == [(7, "result")]
-
-
-def test_job_done_with_none_reply_to_skips_buffering():
-    """Proves _job_done with reply_to=None (root job) only decrements pending without buffering."""
-
-    state = complete(_job_done(_backend(pending=1), None, None, "result"))
-    assert state.pending == 0
-    assert not state.pending_results
+    backend = _backend(pending=1)
+    backend.job_done(WORKER, 7, "result")
+    assert list(backend.pending_results[WORKER]) == [(7, "result")]
 
 
-# _job_failed
+def test_job_done_with_none_reply_to_stores_root_result():
+    """Proves job_done with reply_to=None stores the result as root_result."""
+
+    backend = _backend(pending=1)
+    backend.job_done(None, None, "final")
+    assert backend.pending == 0
+    assert backend.root_result == "final"
+
+
+# job_failed
 
 
 def test_job_failed_decrements_pending():
-    """Proves _job_failed decrements the pending count."""
+    """Proves job_failed decrements the pending count."""
 
-    state = complete(_job_failed(_backend(pending=2), ValueError("boom")))
-    assert state.pending == 1
+    backend = _backend(pending=2)
+    backend.job_failed(ValueError("boom"))
+    assert backend.pending == 1
 
 
 def test_job_failed_stores_root_error():
-    """Proves _job_failed records the error as root_error."""
+    """Proves job_failed records the error as root_error."""
 
-    error = ValueError("boom")
-    state = complete(_job_failed(_backend(pending=1), error))
-    assert state.root_error is error
+    err = ValueError("boom")
+    backend = _backend(pending=1)
+    backend.job_failed(err)
+    assert backend.root_error is err
 
 
 def test_job_failed_does_not_overwrite_existing_root_error():
-    """Proves _job_failed keeps the first error and ignores subsequent ones."""
+    """Proves job_failed keeps the first error and ignores subsequent ones."""
 
     first = ValueError("first")
     second = ValueError("second")
-    state = complete(_job_failed(_backend(pending=2, root_error=first), second))
-    assert state.root_error is first
+    backend = _backend(pending=2, root_error=first)
+    backend.job_failed(second)
+    assert backend.root_error is first
 
 
-# _get_error
-
-
-def test_get_error_returns_none_when_no_error():
-    """Proves _get_error returns None when the overseer has no stored error."""
-
-    _, error = complete(_get_error(_backend()))
-    assert error is None
-
-
-def test_get_error_returns_stored_root_error():
-    """Proves _get_error returns the stored root_error."""
-
-    exc = ValueError("crash")
-    _, error = complete(_get_error(_backend(root_error=exc)))
-    assert error is exc
-
-
-# _acquire
+# acquire
 
 
 def test_acquire_grants_slot_when_under_limit():
-    """Proves _acquire returns True and records the slot when under limit."""
+    """Proves acquire returns True and records the slot when under limit."""
 
-    state, result = complete(_acquire(_backend(), "workers", 4))
+    backend = _backend()
+    result = backend.acquire("workers", 4)
     assert result is True
-    assert state.concurrency["workers"] == (4, 1)
+    assert backend.concurrency["workers"] == (4, 1)
 
 
 def test_acquire_denies_slot_when_at_limit():
-    """Proves _acquire returns False when the concurrency limit is reached."""
+    """Proves acquire returns False when the concurrency limit is reached."""
 
-    state, result = complete(_acquire(_backend(concurrency={"workers": (2, 2)}), "workers", 2))
-    assert result is False
+    backend = _backend(concurrency={"workers": (2, 2)})
+    assert backend.acquire("workers", 2) is False
 
 
 def test_acquire_respects_existing_limit():
-    """Proves _acquire uses the stored limit rather than the requested one."""
+    """Proves acquire uses the stored limit rather than the requested one."""
 
-    state, result = complete(_acquire(_backend(concurrency={"workers": (2, 1)}), "workers", 99))
+    backend = _backend(concurrency={"workers": (2, 1)})
+    result = backend.acquire("workers", 99)
     assert result is True
-    assert state.concurrency["workers"] == (2, 2)
+    assert backend.concurrency["workers"] == (2, 2)
 
 
-# _release
+# release
 
 
 def test_release_decrements_active_count():
-    """Proves _release decrements the active count for a known slot."""
+    """Proves release decrements the active count for a known slot."""
 
-    state = complete(_release(_backend(concurrency={"workers": (4, 3)}), "workers"))
-    assert state.concurrency["workers"] == (4, 2)
+    backend = _backend(concurrency={"workers": (4, 3)})
+    backend.release("workers")
+    assert backend.concurrency["workers"] == (4, 2)
 
 
 def test_release_does_not_go_below_zero():
-    """Proves _release clamps the active count at zero."""
+    """Proves release clamps the active count at zero."""
 
-    state = complete(_release(_backend(concurrency={"workers": (4, 0)}), "workers"))
-    assert state.concurrency["workers"][1] == 0
+    backend = _backend(concurrency={"workers": (4, 0)})
+    backend.release("workers")
+    assert backend.concurrency["workers"][1] == 0
 
 
 def test_release_ignores_unknown_name():
-    """Proves _release is a no-op for an unregistered slot name."""
+    """Proves release is a no-op for an unregistered slot name."""
 
-    state = complete(_release(_backend(), "unknown"))
-    assert "unknown" not in state.concurrency
+    backend = _backend()
+    backend.release("unknown")
+    assert "unknown" not in backend.concurrency
 
 
-# _signal
+# signal
 
 
 def test_signal_returns_stored_state():
-    """Proves _signal returns the current semaphore state."""
+    """Proves signal returns the current semaphore state."""
 
-    state, result = complete(_signal(_backend(semaphores={"db": "satisfied"}), "db"))
-    assert result == "satisfied"
+    assert _backend(semaphores={"db": "satisfied"}).signal("db") == "satisfied"
 
 
 def test_signal_returns_none_for_unknown_name():
-    """Proves _signal returns None for a semaphore that has not been set."""
+    """Proves signal returns None for a semaphore that has not been set."""
 
-    _, result = complete(_signal(_backend(), "unknown"))
-    assert result is None
+    assert _backend().signal("unknown") is None
 
 
-# _set_semaphore
+# set_semaphore
 
 
 def test_set_semaphore_stores_state():
-    """Proves _set_semaphore records the semaphore state by name."""
+    """Proves set_semaphore records the semaphore state by name."""
 
-    state = complete(_set_semaphore(_backend(), "db", "impossible"))
-    assert state.semaphores["db"] == "impossible"
+    backend = _backend()
+    backend.set_semaphore("db", "impossible")
+    assert backend.semaphores["db"] == "impossible"
 
 
 def test_set_semaphore_overwrites_existing_state():
-    """Proves _set_semaphore replaces a previously stored semaphore state."""
+    """Proves set_semaphore replaces a previously stored semaphore state."""
 
-    state = complete(_set_semaphore(_backend(semaphores={"db": "unsatisfied"}), "db", "satisfied"))
-    assert state.semaphores["db"] == "satisfied"
+    backend = _backend(semaphores={"db": "unsatisfied"})
+    backend.set_semaphore("db", "satisfied")
+    assert backend.semaphores["db"] == "satisfied"
 
 
-# _is_done
+# is_done
 
 
 def test_is_done_true_when_no_pending_and_empty_queue():
-    """Proves _is_done returns True when pending is zero and queue is empty."""
+    """Proves is_done returns True when pending is zero and queue is empty."""
 
-    _, result = complete(_is_done(_backend(pending=0)))
-    assert result is True
+    assert _backend(pending=0).is_done() is True
 
 
 def test_is_done_false_when_pending_nonzero():
-    """Proves _is_done returns False when jobs are still pending."""
+    """Proves is_done returns False when jobs are still pending."""
 
-    _, result = complete(_is_done(_backend(pending=1)))
-    assert result is False
+    assert _backend(pending=1).is_done() is False
 
 
 def test_is_done_false_when_queue_nonempty():
-    """Proves _is_done returns False when jobs remain in the queue."""
+    """Proves is_done returns False when jobs remain in the queue."""
 
     spec = JobSpec(fn_name="fn", args=(), reply_to=None)
-    _, result = complete(_is_done(_backend(pending=0, queue=deque([spec]))))
-    assert result is False
+    assert _backend(pending=0, queue=deque([spec])).is_done() is False
+
+
+# get_error / get_result
+
+
+def test_get_error_returns_none_when_no_error():
+    """Proves get_error returns None when no error has been recorded."""
+
+    assert _backend().get_error() is None
+
+
+def test_get_error_returns_stored_root_error():
+    """Proves get_error returns the stored root_error."""
+
+    exc = ValueError("crash")
+    assert _backend(root_error=exc).get_error() is exc
+
+
+def test_get_result_returns_none_when_no_result():
+    """Proves get_result returns None before any root job completes."""
+
+    assert _backend().get_result() is None
+
+
+def test_get_result_returns_stored_root_result():
+    """Proves get_result returns the value stored by job_done for the root job."""
+
+    backend = _backend(pending=1)
+    backend.job_done(None, None, "final_result")
+    assert backend.get_result() == "final_result"

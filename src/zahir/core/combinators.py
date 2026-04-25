@@ -3,8 +3,6 @@ from collections.abc import Generator
 from functools import partial
 from typing import Any
 
-from zahir.core.zahir_types import OverseerEffect
-
 
 def _drive_setup(gen) -> Generator[Any, Any, None]:
     """Propagate fn setup yields to the caller until the seam (bare yield → None)."""
@@ -76,9 +74,6 @@ def wrap(fn):
                 if the handler raised. fn may optionally catch the thrown exception to emit
                 error telemetry — if it does not, the exception propagates normally.
 
-    Returns partial(_wrap_handler, fn). wrap_overseer extracts fn via wrapper.args[0]
-    so it can apply fn to overseer gen_server handlers.
-
     Example:
         def my_wrapper(effect):
             yield EEmit({"event": "start", "tag": effect.tag})  # setup
@@ -90,43 +85,3 @@ def wrap(fn):
     """
 
     return partial(_wrap_handler, fn)
-
-
-def _wrap_overseer_call(fn, key: str, handler, state, *args) -> Generator[Any, Any, Any]:
-    """Generator body: drive fn around one overseer handler call with a synthetic OverseerEffect."""
-
-    eff = OverseerEffect(tag=f"overseer:{key}")
-    gen = fn(eff)
-    yield from _drive_setup(gen)
-
-    exc_caught = None
-    result = None
-    try:
-        result = yield from handler(state, *args)
-    except Exception as exc:
-        exc_caught = exc
-
-    yield from _drive_teardown(gen, exc_caught, result)
-
-    if exc_caught is not None:
-        raise exc_caught
-    return result
-
-
-def _wrap_overseer_handler(fn, key: str, handler):
-    """Bind fn and key to a specific overseer handler, producing a (state, *args) callable."""
-
-    return partial(_wrap_overseer_call, fn, key, handler)
-
-
-def wrap_overseer(fn):
-    """Combinator that applies fn around overseer gen_server handler calls.
-
-    Parallel to wrap(), but for handlers with (state, *args) → (state, result) shape.
-    fn(effect) receives an OverseerEffect(tag=key) so make_telemetry() works unchanged.
-
-    Returns apply(key, handler) → wrapped_handler(state, *args).
-    Wrappers in handler_wrappers must be created with wrap(fn); fn is extracted via wrapper.args[0].
-    """
-
-    return partial(_wrap_overseer_handler, fn)

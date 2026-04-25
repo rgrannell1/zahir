@@ -30,8 +30,3 @@ class JobSpec:
     sequence_number: int | None = None
 
 
-@dataclass
-class OverseerEffect:
-    """Synthetic effect-like object passed to handler wrapper fns for overseer gen_server handlers."""
-
-    tag: str

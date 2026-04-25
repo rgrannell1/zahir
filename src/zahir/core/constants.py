@@ -36,20 +36,6 @@ class WorkItemTag(StrEnum):
     JOB = "job"
     RESULT = "result"
 
-# Messages exchanged between workers and the overseer GenServer
-class OverseerMessage(StrEnum):
-    GET_JOB = "get_job"
-    ENQUEUE = "enqueue"
-    JOB_DONE = "job_done"
-    JOB_FAILED = "job_failed"
-    IS_DONE = "is_done"
-    GET_ERROR = "get_error"
-    GET_RESULT = "get_result"
-    ACQUIRE = "acquire"
-    RELEASE = "release"
-    SIGNAL = "signal"
-    SET_SEMAPHORE = "set_semaphore"
-
 # Exceptions that evaluate_job throws back into the running job rather than propagating outward
 THROWABLE = (JobTimeout, JobError, InvalidEffect)
 
