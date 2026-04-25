@@ -110,6 +110,18 @@ def test_in_flight_clamps_to_zero_on_out_of_order_end():
     assert est.format_eta() == "--:--:--"
 
 
+def test_format_eta_uses_partial_data_when_some_types_have_no_history():
+    """Proves ETA renders using job types with history, skipping those without."""
+    est = TimeEstimator()
+    # job_a has completed samples
+    est.update(_start("job_a", job_id="j1"))
+    est.update(_end("job_a", 30_000.0, job_id="j1"))
+    est.update(_start("job_a", job_id="j2"))   # 1 in-flight × 30s = 30s
+    # job_b is in-flight but has no completed samples yet — should be skipped, not abort
+    est.update(_start("job_b", job_id="j3"))
+    assert est.format_eta() == "00:00:30"
+
+
 def test_event_without_fn_name_is_ignored():
     est = TimeEstimator()
     est.update(point({"tag": [JobTag.ENQUEUE], "id": ["s"]}, at=0.0))

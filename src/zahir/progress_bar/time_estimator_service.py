@@ -81,14 +81,17 @@ class TimeEstimator:
             return None
 
         total = 0.0
+        has_any_data = False
         # estimate mean for each function type, multiply by in-flight count, sum
+        # skip types with no completed history rather than aborting the whole estimate
         for fn, count in in_flight:
             mean = self.mean_duration_ms(fn)
             if mean is None:
-                return None
+                continue
+            has_any_data = True
             total += count * mean
 
-        return total
+        return total if has_any_data else None
 
     def format_eta(self) -> str:
         """Return a human-readable ETA string"""

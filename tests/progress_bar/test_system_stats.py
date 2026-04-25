@@ -28,12 +28,12 @@ def test_active_cores_increments_on_start():
     assert stats.active_cores == 1
 
 
-def test_active_cores_drops_to_zero_after_span_ends():
-    "Proves a completed span no longer contributes to active_cores"
+def test_active_cores_remains_after_span_ends():
+    "Proves a completed span does not remove the pid — recency window keeps it active"
     stats = SystemStats()
     stats.update(_start("span-1", pid=100))
     stats.update(_end("span-1", pid=100))
-    assert stats.active_cores == 0
+    assert stats.active_cores == 1
 
 
 def test_active_cores_counts_unique_pids():
@@ -52,30 +52,21 @@ def test_active_cores_counts_distinct_pids():
     assert stats.active_cores == 2
 
 
-def test_ending_one_span_keeps_pid_active_while_another_is_inflight():
-    "Proves a pid with two in-flight spans remains active after one ends"
+def test_end_event_also_refreshes_pid_recency():
+    "Proves an end event keeps the pid active — both point and span events count"
     stats = SystemStats()
-    stats.update(_start("span-1", pid=100))
-    stats.update(_start("span-2", pid=100))
     stats.update(_end("span-1", pid=100))
     assert stats.active_cores == 1
 
 
-def test_ending_all_spans_for_pid_removes_it():
-    "Proves a pid drops from active_cores once all its spans have ended"
+def test_active_cores_stable_across_multiple_events_same_pid():
+    "Proves multiple events from the same pid do not inflate the core count"
     stats = SystemStats()
     stats.update(_start("span-1", pid=100))
     stats.update(_start("span-2", pid=100))
     stats.update(_end("span-1", pid=100))
     stats.update(_end("span-2", pid=100))
-    assert stats.active_cores == 0
-
-
-def test_end_event_with_no_matching_start_is_ignored():
-    "Proves a stray end event does not cause errors or phantom cores"
-    stats = SystemStats()
-    stats.update(_end("span-unknown", pid=100))
-    assert stats.active_cores == 0
+    assert stats.active_cores == 1
 
 
 def test_event_without_pid_is_ignored():

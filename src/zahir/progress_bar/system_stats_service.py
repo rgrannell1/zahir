@@ -10,27 +10,25 @@ class SystemStats:
     """Tracks cpu%, ram%, and active worker cores from telemetry events.
 
     cpu/ram are rolling 5-second averages sampled on each poll() call.
-    Active cores are the number of unique worker pids with at least one
-    in-flight span — a span is in-flight from its start point until its
-    end span arrives.
+    Active cores are unique worker pids seen within the last _ACTIVE_WINDOW_S seconds.
+    Effect-level spans last microseconds so in-flight tracking is too short-lived;
+    recency-based tracking correctly reflects workers that are continuously emitting.
     """
 
     _CPU_WINDOW_S = 5.0
+    # A pid is considered active if it emitted an event within this window
+    _ACTIVE_WINDOW_S = 2.0
 
     def __init__(self):
         self._resource_history: deque[tuple[float, float, float]] = deque()
-        self._inflight: dict[str, int] = {}
+        self._pid_last_seen: dict[int, float] = {}
 
     def update(self, event: Event) -> None:
-        """Track in-flight spans to derive active core count."""
-
-        if event.kind == "span":
-            self._inflight.pop(event.dim("id"), None)
-            return
+        """Record the last-seen time for the worker pid that emitted this event."""
 
         pid_str = event.dim("pid")
         if pid_str:
-            self._inflight[event.dim("id")] = int(pid_str)
+            self._pid_last_seen[int(pid_str)] = time.time()
 
     def poll(self) -> None:
         """Sample cpu% and ram% and add to the rolling window. Call periodically from the main loop."""
@@ -46,9 +44,10 @@ class SystemStats:
 
     @property
     def active_cores(self) -> int:
-        """Unique worker pids with at least one in-flight span."""
+        """Unique worker pids seen within the last _ACTIVE_WINDOW_S seconds."""
 
-        return len(set(self._inflight.values()))
+        cutoff = time.time() - self._ACTIVE_WINDOW_S
+        return sum(1 for last_seen in self._pid_last_seen.values() if last_seen >= cutoff)
 
     @property
     def cpu_percent(self) -> float:
@@ -69,4 +68,3 @@ class SystemStats:
         return sum(ram for _, _, ram in self._resource_history) / len(
             self._resource_history
         )
-
