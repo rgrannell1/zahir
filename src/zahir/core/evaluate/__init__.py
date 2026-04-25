@@ -14,10 +14,7 @@ from zahir.core.evaluate.coordination_handlers import (
 )
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.worker import worker
-
-
-class JobContext:
-    """Context object passed as the first argument to every job function."""
+from zahir.core.zahir_types import JobContext  # re-exported; canonical definition is in zahir_types
 
 
 def _poll_completion() -> Generator[Any, Any, None]:
@@ -44,7 +41,7 @@ def _root(
     args: tuple,
     scope: Scope,
     n_workers: int,
-    context: type,
+    user_context,
     handler_wrappers: Sequence,
     handlers: HandlerDict,
     storage_handlers: HandlerDict,
@@ -52,9 +49,10 @@ def _root(
     overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(fn_name, args, storage_handlers))
 
     for _ in range(n_workers):
-        yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, context, handler_wrappers, handlers))
+        yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, user_context, handler_wrappers, handlers))
 
     ctx = CoordinationHandlerContext(overseer=overseer, handler_wrappers=handler_wrappers)
+    # user-provided handlers take precedence, allowing coordination handlers to be replaced
     root_handlers = {**make_coordination_handlers(ctx), **handlers}
     yield from handle(_poll_completion(), **root_handlers)
 
@@ -64,7 +62,7 @@ def evaluate(
     args: tuple,
     scope: Scope,
     n_workers: int = 4,
-    context: type = JobContext,
+    user_context=None,
     handler_wrappers: Sequence = [],
     handlers: HandlerDict = {},
     storage_handlers: HandlerDict = None,
@@ -73,13 +71,12 @@ def evaluate(
     if fn_name not in scope:
         raise KeyError(f"job {fn_name!r} not found in scope")
 
-    # and make sure we could actually instantiate the context class
-    try:
-        context()
-    except Exception as exc:
-        raise TypeError(
-            f"context class {context.__name__!r} failed to instantiate: {exc}"
-        ) from exc
+    # validate the user_context factory if provided
+    if user_context is not None:
+        try:
+            user_context()
+        except Exception as exc:
+            raise TypeError(f"user_context factory failed to call: {exc}") from exc
 
     # default to a fresh in-memory storage backend
     resolved_storage = storage_handlers if storage_handlers is not None else make_memory_storage_handlers()
@@ -90,7 +87,7 @@ def evaluate(
     # run the tertius workflow
     yield from run(
         _root,
-        fn_name, args, scope, n_workers, context,
+        fn_name, args, scope, n_workers, user_context,
         handler_wrappers, handlers, resolved_storage,
         scope=full_scope,
     )

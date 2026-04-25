@@ -73,20 +73,19 @@ def test_missing_fn_name_raises_before_spawn():
         list(evaluate("nonexistent", (), {}, n_workers=1))
 
 
-def test_bad_context_raises_before_spawn():
-    """Proves evaluate raises TypeError immediately when the context class fails to instantiate."""
+def test_bad_user_context_raises_before_spawn():
+    """Proves evaluate raises TypeError immediately when the user_context factory fails to call."""
 
-    class BrokenContext:
-        def __init__(self):
-            raise RuntimeError("init failed")
+    def broken_factory():
+        raise RuntimeError("init failed")
 
-    with pytest.raises(TypeError, match="failed to instantiate"):
+    with pytest.raises(TypeError, match="failed to call"):
         list(
             evaluate(
                 "job",
                 (),
                 {"job": job_yielding_non_effect},
-                context=BrokenContext,
+                user_context=broken_factory,
                 n_workers=1,
             )
         )

@@ -1,24 +1,26 @@
+from dataclasses import dataclass
+
 from tertius import EEmit
 
 from zahir.core.evaluate import evaluate, JobContext
 from tests.shared import user_events
 
 
-class CustomContext(JobContext):
-    def __init__(self):
-        self.tag = "ctx-value"
+@dataclass
+class CustomData:
+    tag: str = "ctx-value"
 
 
-def job_reading_context(ctx: CustomContext):
-    yield EEmit({"tag": ctx.tag, "has_scope": hasattr(ctx, "_scope")})
+def job_reading_context(ctx: JobContext[CustomData]):
+    yield EEmit({"tag": ctx.user_context.tag, "has_scope": hasattr(ctx, "_scope")})
 
 
 def job_with_default_context(ctx: JobContext):
-    yield EEmit({"has_scope": hasattr(ctx, "_scope")})
+    yield EEmit({"has_scope": hasattr(ctx, "_scope"), "user_context_is_none": ctx.user_context is None})
 
 
-def test_custom_context_is_passed_as_first_arg():
-    """Proves a custom context instance is created per worker and passed as the first job argument."""
+def test_custom_user_context_is_passed_to_jobs():
+    """Proves a custom user_context instance is created per worker and passed as the first job argument."""
 
     events = user_events(
         evaluate(
@@ -26,15 +28,15 @@ def test_custom_context_is_passed_as_first_arg():
             (),
             {"job_reading_context": job_reading_context},
             n_workers=1,
-            context=CustomContext,
+            user_context=CustomData,
         )
     )
 
     assert events == [{"tag": "ctx-value", "has_scope": True}]
 
 
-def test_default_context_is_used_when_none_provided():
-    """Proves the default JobContext is used when no context class is given."""
+def test_default_context_has_no_user_context():
+    """Proves the default JobContext has user_context=None when no factory is given."""
 
     events = user_events(
         evaluate(
@@ -45,4 +47,4 @@ def test_default_context_is_used_when_none_provided():
         )
     )
 
-    assert events == [{"has_scope": True}]
+    assert events == [{"has_scope": True, "user_context_is_none": True}]

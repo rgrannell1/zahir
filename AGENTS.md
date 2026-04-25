@@ -1,62 +1,16 @@
+@/home/rg/Agents/AGENTS.md
+@/home/rg/Agents/agents.python.md
 
-We use `../orbius` as an algebraic effects library
-We use `../tertius` (project name tertius) as a algebraic effects erlang runtime
-We use `../sand` (project name bookman) to structure our telemetry
-`../mirror` is our main dependent; we'll often debug it
+We use `../orbis` as an algebraic effects library.
+We use `../tertius` (project name tertius) as an algebraic effects erlang runtime.
+We use `../sand` (project name bookman) to structure our telemetry.
+`../mirror` is our main dependent; we'll often debug it.
 
-**Communication**
-- No sychophantic language please
-- Use British English
-- Do not remove my docstrings
-- Do not delete comments, it's annoying. I use them to make it obvious what a block of code is intended to do
+## Effects & Telemetry
 
-**Coding style**
-
-- Prefer assignments to complex nested expressions
-- Functional programming
-- Never use single-letter variables
-- I name exceptions `err` and indices `idx`, `jdx`, etc.
-- Functions must be short and single purpose.
-- No mid file imports
-- Avoid deeply nested lines
-- use the constants file for constants. document with a plain english line comment what the thing represents. group constants in a block of related terms.
-- Avoid deeply nested lines
-- Do not write large functions. Split into subfunctions
-- Do not write inner functions; use partial application instead
-- Avoid using optional, or `X | None = None` unless there's a direct need for it
-- Factor out complex type definitions into named type definitions.
-- Add short descriptions to each file of the intent of the contents
-- Factor out shared test setup code to a conftest.py
-- Factor out types to <module_name>_types.py
-- Avoid using python lambdas, except in .sort(). never use multiple lambdas in one call
-- Prefer enums over constants
-- Do not ignore exceptions
-
-**Testing**
-
-- Do not attempt to run using Python -c, it will fail
-- Use `uv run python3 -m pytest`. Build tests using Pytest.
-- Factor out test-data creation from test assertions
-- Tests must have description strings like  "Proves <general system property>"
-- ux tests should just be added by me, on request. Normally, create tests in tests/
-- Tests emitting warnings are not considered passing
-- When fixing a reported bug: write a failing test first, then apply the fix, then verify the test passes
-
-
-**Tools & build**
-
-- `rs` is my main build system
-- Set up `uv`, `ruff`
-- Always use `uv run python`, never `python` or `python3`
-- Use `sqlite` CLI command, not `sqlite3`
-
----
-
-**Effects & Telemetry**
-
-- We can only emit telemetry using EEmit( <inner_data> )
+- We can only emit telemetry using `EEmit( <inner_data> )`
 - We can only observe the system by looking at effects (zahir's or tertius's)
 - What does not have an effect / event, cannot be observed
-- Telemetry can only be added by decorating a handler. The handlers logic must be identical to before, including erroring, with the sole exception that more EEmit's are allowed
-- We may yield zahir effect internally that have handlers yielding their own zahir / tertius effects
-- Not all effects are sent by jobs themselves; most are not. We have subclasses denoting thie behaviour
+- Telemetry can only be added by decorating a handler. The handler's logic must be identical to before, including erroring, with the sole exception that more `EEmit`s are allowed
+- We may yield zahir effects internally that have handlers yielding their own zahir / tertius effects
+- Not all effects are sent by jobs themselves; most are not. We have subclasses denoting this behaviour

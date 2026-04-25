@@ -4,6 +4,16 @@ from typing import Any, Literal
 
 from zahir.core.constants import DependencyState
 
+
+class JobContext[T]:
+    """Context object passed as the first argument to every job function.
+
+    Runtime fields are injected by the worker process. User state lives in
+    user_context, populated by calling the user_context factory passed to evaluate().
+    """
+
+    __slots__ = ("_scope", "scope", "handler_wrappers", "user_context")
+
 # Result types for dependency combinators — the Left/Right of the dependency monad.
 type Satisfied = tuple[Literal["satisfied"], dict | None]
 type Impossible = tuple[Literal["impossible"], str]

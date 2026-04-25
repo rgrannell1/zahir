@@ -19,6 +19,7 @@ from zahir.core.dependencies import (
     Satisfied,
 )
 from zahir.core.effects import EAcquire, EAwait, EGetSemaphore, ESetSemaphore
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.evaluate import evaluate
+from zahir.core.zahir_types import JobContext
 from zahir.core.telemetry import make_telemetry
 from zahir.progress_bar.progress_bar import with_progress

@@ -27,6 +27,7 @@ from zahir.core.evaluate.job_handlers import (
 from zahir.core.evaluate.suspension import RunningJob, SuspensionTable
 from zahir.core.exceptions import JobError, ZahirException
 from zahir.core.scope_proxy import ScopeProxy
+from zahir.core.zahir_types import JobContext
 
 
 @dataclass
@@ -170,15 +171,16 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
 
 
 def worker(
-    overseer_pid_bytes: bytes, scope: Scope, context: type, handler_wrappers, handlers: dict
+    overseer_pid_bytes: bytes, scope: Scope, user_context, handler_wrappers, handlers: dict
 ) -> Generator[Any, Any, None]:
     """zahir worker main loop"""
 
     overseer = Pid.from_bytes(overseer_pid_bytes)
-    ctx = context()
+    ctx = JobContext()
     ctx._scope = scope
     ctx.scope = ScopeProxy(scope)
     ctx.handler_wrappers = handler_wrappers
+    ctx.user_context = user_context() if user_context is not None else None
 
     coordination_context = CoordinationHandlerContext(
         overseer=overseer, handler_wrappers=handler_wrappers
