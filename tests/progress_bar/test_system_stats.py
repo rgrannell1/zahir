@@ -1,6 +1,6 @@
 import time
 
-from bookman.create import point, span
+from bookman.events import point, span
 from zahir.progress_bar.system_stats_service import SystemStats
 
 

@@ -6,7 +6,7 @@ from typing import Any
 from zahir.core.zahir_types import OverseerEffect
 
 
-def _run_setup(gen) -> Generator[Any, Any, None]:
+def _drive_setup(gen) -> Generator[Any, Any, None]:
     """Propagate fn setup yields to the caller until the seam (bare yield → None)."""
 
     inner = next(gen)
@@ -15,7 +15,7 @@ def _run_setup(gen) -> Generator[Any, Any, None]:
         inner = gen.send(sent)
 
 
-def _run_teardown(gen, exc_caught, result) -> Generator[Any, Any, None]:
+def _drive_teardown(gen, exc_caught, result) -> Generator[Any, Any, None]:
     """Drive fn teardown after the seam, propagating yields and absorbing StopIteration.
 
     If exc_caught is set, throws it into gen so teardown can observe the error.
@@ -34,8 +34,8 @@ def _run_teardown(gen, exc_caught, result) -> Generator[Any, Any, None]:
         pass
 
 
-def _wrapped_handler(fn, handler, effect) -> Generator[Any, Any, Any]:
-    """Run fn's two-phase setup/teardown around a single handler call.
+def _wrap_call(fn, handler, effect) -> Generator[Any, Any, Any]:
+    """Generator body: run fn's two-phase setup/teardown around one handler call.
 
     fn(effect) is a generator with two phases separated by a bare yield (yields None):
     - setup:    yields effects (e.g. EEmit) propagated to the caller before the handler runs
@@ -45,7 +45,7 @@ def _wrapped_handler(fn, handler, effect) -> Generator[Any, Any, Any]:
     """
 
     gen = fn(effect)
-    yield from _run_setup(gen)
+    yield from _drive_setup(gen)
 
     exc_caught = None
     result = None
@@ -54,17 +54,17 @@ def _wrapped_handler(fn, handler, effect) -> Generator[Any, Any, Any]:
     except Exception as exc:
         exc_caught = exc
 
-    yield from _run_teardown(gen, exc_caught, result)
+    yield from _drive_teardown(gen, exc_caught, result)
 
     if exc_caught is not None:
         raise exc_caught
     return result
 
 
-def _make_handler_wrapper(fn, handler):
-    """Return a wrapped handler that drives fn around handler for each effect."""
+def _wrap_handler(fn, handler):
+    """Bind fn to a specific handler, producing an effect-level callable."""
 
-    return partial(_wrapped_handler, fn, handler)
+    return partial(_wrap_call, fn, handler)
 
 
 def wrap(fn):
@@ -76,7 +76,7 @@ def wrap(fn):
                 if the handler raised. fn may optionally catch the thrown exception to emit
                 error telemetry — if it does not, the exception propagates normally.
 
-    Returns partial(_make_handler_wrapper, fn). wrap_overseer extracts fn via wrapper.args[0]
+    Returns partial(_wrap_handler, fn). wrap_overseer extracts fn via wrapper.args[0]
     so it can apply fn to overseer gen_server handlers.
 
     Example:
@@ -89,15 +89,15 @@ def wrap(fn):
                 yield EEmit({"event": "end", "error": str(exc)}) # error teardown
     """
 
-    return partial(_make_handler_wrapper, fn)
+    return partial(_wrap_handler, fn)
 
 
-def _overseer_wrapped(fn, key: str, handler, state, *args) -> Generator[Any, Any, Any]:
-    """Wrapped overseer handler: drive fn around the inner handler with a synthetic OverseerEffect."""
+def _wrap_overseer_call(fn, key: str, handler, state, *args) -> Generator[Any, Any, Any]:
+    """Generator body: drive fn around one overseer handler call with a synthetic OverseerEffect."""
 
     eff = OverseerEffect(tag=f"overseer:{key}")
     gen = fn(eff)
-    yield from _run_setup(gen)
+    yield from _drive_setup(gen)
 
     exc_caught = None
     result = None
@@ -106,17 +106,17 @@ def _overseer_wrapped(fn, key: str, handler, state, *args) -> Generator[Any, Any
     except Exception as exc:
         exc_caught = exc
 
-    yield from _run_teardown(gen, exc_caught, result)
+    yield from _drive_teardown(gen, exc_caught, result)
 
     if exc_caught is not None:
         raise exc_caught
     return result
 
 
-def _overseer_apply(fn, key: str, handler):
-    """Return an overseer gen_server handler wrapped by fn."""
+def _wrap_overseer_handler(fn, key: str, handler):
+    """Bind fn and key to a specific overseer handler, producing a (state, *args) callable."""
 
-    return partial(_overseer_wrapped, fn, key, handler)
+    return partial(_wrap_overseer_call, fn, key, handler)
 
 
 def wrap_overseer(fn):
@@ -129,4 +129,4 @@ def wrap_overseer(fn):
     Wrappers in handler_wrappers must be created with wrap(fn); fn is extracted via wrapper.args[0].
     """
 
-    return partial(_overseer_apply, fn)
+    return partial(_wrap_overseer_handler, fn)

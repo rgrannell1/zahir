@@ -1,4 +1,4 @@
-from bookman.create import point, span
+from bookman.events import point, span
 from zahir.core.constants import JobTag, Phase
 from zahir.progress_bar.progress_bar_state_model import JobStats, ProgressBarState
 

@@ -1,9 +1,7 @@
 # Helpers that translate zahir effects into bookman Event objects
 import os
 
-from bookman.create import point, span
-from bookman.events import Event
-from bookman.primitives import Dims
+from bookman.events import point, span, Event, Dims
 
 from zahir.core.constants import Phase
 
