@@ -4,7 +4,7 @@ from functools import partial
 from typing import Any
 
 from zahir.core.constants import DependencyState as SS
-from zahir.core.dependencies.dependency import dependency
+from zahir.core.dependencies.dependency import check, dependency
 from zahir.core.zahir_types import DependencyResult
 from zahir.core.effects import EGetSemaphore
 from zahir.core.exceptions import ImpossibleError
@@ -21,6 +21,16 @@ def _semaphore_condition(name: str) -> Generator[Any, Any, Any]:
         return (True, {"name": name})
 
     return False
+
+
+def check_semaphore_dependency(
+    name: str,
+) -> Generator[Any, Any, DependencyResult]:
+    """Evaluate the semaphore state once; return satisfied or impossible without retrying."""
+    return check(
+        partial(_semaphore_condition, name),
+        label=f"semaphore '{name}'",
+    )
 
 
 def semaphore_dependency(

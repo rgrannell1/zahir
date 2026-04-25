@@ -3,6 +3,8 @@
 
 All telemetry comes from the effects system. System statistics (CPU, RAM, active cores) are the only exception.
 
+The public API exposes no zahir-defined classes other than errors, effects, and JobContext. Callers never subclass JobContext; it exists only as a type annotation for the context object passed to job functions.
+
 Jobs fan out work in parallel using EAwaitAll and receive results back in dispatch order regardless of which job finishes first. A crashing child job surfaces as a JobError to any job awaiting its result.
 
 Jobs communicate results to the caller by yielding EEmit. The evaluate function surfaces these events to the caller as a stream.

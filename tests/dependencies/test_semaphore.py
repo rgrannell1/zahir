@@ -5,7 +5,7 @@ import time_machine
 
 from tertius import EEmit, ESleep
 
-from zahir.core.dependencies.semaphore import semaphore_dependency
+from zahir.core.dependencies.semaphore import check_semaphore_dependency, semaphore_dependency
 from zahir.core.effects import EGetSemaphore
 from tests.shared import NOW
 
@@ -131,6 +131,54 @@ def test_impossible_state_returns_tuple_as_generator_value():
     with pytest.raises(StopIteration) as exc:
         next(gen)
     assert exc.value.value is emit.body
+
+
+# check_semaphore_dependency
+
+
+def test_check_semaphore_satisfied_emits_satisfied():
+    """Proves check_semaphore_dependency emits satisfied when the semaphore is satisfied."""
+
+    gen = check_semaphore_dependency("db")
+    next(gen)  # EGetSemaphore
+    emit = gen.send("satisfied")
+    assert emit.body[0] == "satisfied"
+
+
+def test_check_semaphore_impossible_emits_impossible():
+    """Proves check_semaphore_dependency emits impossible when the semaphore is impossible."""
+
+    gen = check_semaphore_dependency("db")
+    next(gen)
+    emit = gen.send("impossible")
+    assert emit.body[0] == "impossible"
+
+
+def test_check_semaphore_unsatisfied_emits_impossible():
+    """Proves check_semaphore_dependency emits impossible when the semaphore is unsatisfied."""
+
+    gen = check_semaphore_dependency("db")
+    next(gen)
+    emit = gen.send("unsatisfied")
+    assert emit.body[0] == "impossible"
+
+
+def test_check_semaphore_unsatisfied_does_not_sleep():
+    """Proves check_semaphore_dependency never yields ESleep on unsatisfied state."""
+
+    gen = check_semaphore_dependency("db")
+    next(gen)  # EGetSemaphore
+    effect = gen.send("unsatisfied")
+    assert isinstance(effect, EEmit)  # EEmit(impossible), not ESleep
+
+
+def test_check_semaphore_label_in_impossible_reason():
+    """Proves the semaphore name appears in the impossible reason."""
+
+    gen = check_semaphore_dependency("my-gate")
+    next(gen)
+    emit = gen.send("unsatisfied")
+    assert "my-gate" in emit.body[1]
 
 
 def test_impossible_timeout_returns_tuple_as_generator_value():

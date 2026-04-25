@@ -4,9 +4,7 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import Any
 
-from tertius import ESleep
-
-from zahir.core.dependencies.dependency import dependency
+from zahir.core.dependencies.dependency import check, dependency
 from zahir.core.zahir_types import DependencyResult
 from zahir.core.exceptions import ImpossibleError
 
@@ -15,7 +13,7 @@ def _time_condition(
     before: datetime | None,
     after: datetime | None,
 ) -> Generator[Any, Any, Any]:
-    """Returns True if now is within the time window, raises ImpossibleError if the window has passed."""
+    """Returns True if now is within the time window, False if after hasn't arrived, raises ImpossibleError if before has passed."""
     now = datetime.now(tz=UTC)
 
     if before is not None and now >= before:
@@ -24,11 +22,18 @@ def _time_condition(
         )
 
     if after is not None and now < after:
-        ms = int((after - now).total_seconds() * 1000)
-        yield ESleep(ms=ms)
+        return False
 
     return True
     yield
+
+
+def check_time_dependency(
+    before: datetime | None = None,
+    after: datetime | None = None,
+) -> Generator[Any, Any, DependencyResult]:
+    """Evaluate the time condition once; return satisfied or impossible without sleeping."""
+    return check(partial(_time_condition, before, after), label="time")
 
 
 def time_dependency(

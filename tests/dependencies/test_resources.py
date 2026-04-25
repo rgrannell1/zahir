@@ -6,7 +6,7 @@ import time_machine
 
 from tertius import EEmit, ESleep
 
-from zahir.core.dependencies.resources import resource_dependency
+from zahir.core.dependencies.resources import check_resource_dependency, resource_dependency
 from tests.shared import NOW
 
 
@@ -142,3 +142,47 @@ def test_impossible_returns_tuple_as_generator_value():
     with pytest.raises(StopIteration) as exc:
         next(gen)
     assert exc.value.value is emit.body
+
+
+# check_resource_dependency
+
+
+def test_check_resource_low_usage_emits_satisfied():
+    """Proves check_resource_dependency emits satisfied when usage is within limit."""
+
+    with patch("zahir.core.dependencies.resources._get_usage", _low_usage):
+        emit = next(check_resource_dependency("cpu", max_percent=50.0))
+    assert emit.body[0] == "satisfied"
+
+
+def test_check_resource_high_usage_emits_impossible():
+    """Proves check_resource_dependency emits impossible when usage exceeds the limit."""
+
+    with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
+        emit = next(check_resource_dependency("cpu", max_percent=50.0))
+    assert emit.body[0] == "impossible"
+
+
+def test_check_resource_high_usage_does_not_sleep():
+    """Proves check_resource_dependency never yields ESleep on high usage."""
+
+    calls = 0
+
+    def _counting_usage(_r):
+        nonlocal calls
+        calls += 1
+        return 90.0
+
+    with patch("zahir.core.dependencies.resources._get_usage", _counting_usage):
+        from tests.dependencies.test_dependency import _drive
+        _drive(check_resource_dependency("cpu", max_percent=50.0))
+
+    assert calls == 1
+
+
+def test_check_resource_label_in_impossible_reason():
+    """Proves the resource type appears in the impossible reason."""
+
+    with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
+        emit = next(check_resource_dependency("memory", max_percent=50.0))
+    assert "memory" in emit.body[1]

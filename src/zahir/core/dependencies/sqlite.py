@@ -7,7 +7,7 @@ from functools import partial
 from typing import Any
 
 from zahir.core.constants import DependencyState as SS
-from zahir.core.dependencies.dependency import dependency
+from zahir.core.dependencies.dependency import check, dependency
 from zahir.core.zahir_types import DependencyResult
 from zahir.core.exceptions import ImpossibleError
 
@@ -98,5 +98,20 @@ def sqlite_dependency(
 ) -> Generator[Any, Any, DependencyResult]:
     _validate_db_path(db_path)
     return dependency(
-        partial(_sqlite_condition, db_path, query, params, timeout_seconds)
+        partial(_sqlite_condition, db_path, query, params, timeout_seconds),
+        timeout_ms=int(timeout_seconds * 1000),
+    )
+
+
+def check_sqlite_dependency(
+    db_path: str,
+    query: str,
+    params: tuple[Any, ...] | None = None,
+    timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+) -> Generator[Any, Any, DependencyResult]:
+    """Evaluate the sqlite condition once; return satisfied or impossible without retrying."""
+    _validate_db_path(db_path)
+    return check(
+        partial(_sqlite_condition, db_path, query, params, timeout_seconds),
+        label="sqlite",
     )

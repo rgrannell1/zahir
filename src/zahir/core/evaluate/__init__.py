@@ -6,7 +6,6 @@ from tertius import EEmit, ESleep, ESpawn, Pid, Scope, run
 
 from zahir.core.constants import COMPLETION_POLL_MS
 from zahir.core.effects import EGetError, EGetResult, EIsDone
-from zahir.core.scope_proxy import ScopeProxy
 
 from zahir.core.evaluate.coordination_handlers import (
     CoordinationHandlerContext,
@@ -17,8 +16,7 @@ from zahir.core.evaluate.worker import worker
 
 
 class JobContext:
-    _scope: Scope
-    scope: ScopeProxy
+    """Context object passed as the first argument to every job function."""
 
 
 def _poll_completion() -> Generator[Any, Any, None]:

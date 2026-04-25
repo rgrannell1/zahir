@@ -10,6 +10,37 @@ from zahir.core.zahir_types import DependencyResult, Satisfied
 from zahir.core.exceptions import ImpossibleError
 
 
+def check(
+    condition_fn: Callable[[], Generator],
+    label: str = "check",
+) -> Generator[Any, Any, DependencyResult]:
+    """Evaluate condition_fn once; return satisfied or impossible without retrying.
+
+    condition_fn must return a generator that:
+    - yields any effects it needs
+    - returns True or (True, metadata) when the condition is met
+    - returns False when not met
+    - raises ImpossibleError when the condition can never be met
+    """
+    try:
+        outcome = yield from condition_fn()
+        satisfied, metadata = (
+            outcome if isinstance(outcome, tuple) else (outcome, None)
+        )
+        if satisfied:
+            result: DependencyResult = (SS.SATISFIED, metadata)
+            yield EEmit(result)
+            return result
+    except ImpossibleError as exc:
+        result = (SS.IMPOSSIBLE, str(exc))
+        yield EEmit(result)
+        return result
+
+    result = (SS.IMPOSSIBLE, f"{label} condition not met")
+    yield EEmit(result)
+    return result
+
+
 def dependency(
     condition_fn: Callable[[], Generator],
     timeout_ms: int | None = None,
