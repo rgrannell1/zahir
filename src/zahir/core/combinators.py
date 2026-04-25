@@ -65,6 +65,12 @@ def _wrap_handler(fn, handler):
     return partial(_wrap_call, fn, handler)
 
 
+def apply_to_tags(wrapper, tags: set, handler_map: dict) -> dict:
+    """Apply a handler wrapper to specific tags in a handler map, leaving others unchanged."""
+
+    return {tag: (wrapper(handler) if tag in tags else handler) for tag, handler in handler_map.items()}
+
+
 def wrap(fn):
     """Combinator that applies fn around each job-effect handler call.
 

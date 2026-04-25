@@ -67,3 +67,5 @@ def end_effect_error_telemetry(effect, span_id: str, start: float, end: float, e
 
     dims = base_dimensions(effect, span_id) | {"phase": [Phase.ERROR]}
     return span(dims, at=start, until=end, value=error)
+
+

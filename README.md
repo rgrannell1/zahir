@@ -93,6 +93,23 @@ These are internal effects used by the workflow engine; jobs cannot yield them d
 - `EGetError()`: retrieve the root error from the overseer, if any
 - `EGetResult()`: retrieve the root job's return value from the overseer
 
+**Storage effects**
+
+The overseer talks to the job queue through these effects rather than calling it directly. This means we can swap out storage implementations by swapping the handlers for these effects.
+
+- `EStorageInitialize(fn_name, args)`: set up the queue with the first job when the overseer starts
+- `EStorageGetJob(worker_pid_bytes)`: hand the next pending job to a worker that is ready for one
+- `EStorageEnqueue(fn_name, args, reply_to, timeout_ms, sequence_number)`: add a child job to the queue and note that one more result is expected
+- `EStorageJobDone(reply_to, sequence_number, body)`: mark one job finished, send its result back to whoever is waiting, or keep it as the final output if it was the root job
+- `EStorageJobFailed(error)`: mark one job finished with a failure and record it as the root-level error
+- `EStorageAcquire(name, limit)`: claim one of the available slots for a named concurrency limit, blocking further work if none are free
+- `EStorageRelease(name)`: give back a slot for a named concurrency limit
+- `EStorageSignal(name)`: check how many slots are currently in use for a named concurrency limit
+- `EStorageSetSemaphore(name, state)`: directly set the slot state for a named concurrency limit
+- `EStorageIsDone()`: ask whether every job has finished
+- `EStorageGetError()`: fetch the recorded failure, if the run went wrong
+- `EStorageGetResult()`: fetch the return value of the root job once it has finished
+
 ## Jobs: Do things, wait for things
 
 Jobs do something, based on an input, and return a value. Jobs can await other jobs by invoking functions registered in scope: `res = yield ctx.scope.my_subtask(input)`. Jobs are generators; they can fan out to other jobs (which run in parallel) or just call regular functions.

@@ -9,7 +9,7 @@ def job_status(stats: JobStats) -> str:
     return "running"
 
 
-_MEAN_WIDTH = 8  # width of the μXs prefix column, e.g. "μ1.23s  "
+_MEAN_WIDTH = 10  # width of the μXs prefix column, e.g. "μ1.23s    "
 
 
 def _format_mean(mean_ms: float | None) -> str:

@@ -4,15 +4,14 @@ from bookman.events import point, span
 from zahir.progress_bar.system_stats_service import SystemStats
 
 
-def _start(span_id: str, pid: int = 1234):
+def _job_event(span_id: str, pid: int = 1234, fn: str = "some_job"):
+    """Event with fn set — represents an active worker executing job logic."""
+    return point({"tag": ["t"], "id": [span_id], "pid": [str(pid)], "fn": [fn]}, at=time.time())
+
+
+def _idle_event(span_id: str, pid: int = 1234):
+    """Event without fn set — represents an idle worker polling for jobs."""
     return point({"tag": ["t"], "id": [span_id], "pid": [str(pid)]}, at=time.time())
-
-
-def _end(span_id: str, pid: int = 1234):
-    now = time.time()
-    return span(
-        {"tag": ["t"], "id": [span_id], "pid": [str(pid)]}, at=now, until=now + 0.1
-    )
 
 
 def test_active_cores_zero_with_no_events():
@@ -21,58 +20,55 @@ def test_active_cores_zero_with_no_events():
     assert stats.active_cores == 0
 
 
-def test_active_cores_increments_on_start():
-    "Proves a start event registers a core as active"
+def test_active_cores_increments_on_job_event():
+    "Proves a job-level event registers a core as active"
     stats = SystemStats()
-    stats.update(_start("span-1", pid=100))
+    stats.update(_job_event("span-1", pid=100))
     assert stats.active_cores == 1
 
 
-def test_active_cores_remains_after_span_ends():
-    "Proves a completed span does not remove the pid — recency window keeps it active"
+def test_idle_event_does_not_register_core():
+    "Proves an event without fn does not count as an active core"
     stats = SystemStats()
-    stats.update(_start("span-1", pid=100))
-    stats.update(_end("span-1", pid=100))
+    stats.update(_idle_event("span-1", pid=100))
+    assert stats.active_cores == 0
+
+
+def test_active_cores_remains_after_span_ends():
+    "Proves an active pid stays in the recency window after its event"
+    stats = SystemStats()
+    stats.update(_job_event("span-1", pid=100))
     assert stats.active_cores == 1
 
 
 def test_active_cores_counts_unique_pids():
-    "Proves two spans on the same pid count as one core"
+    "Proves two job events on the same pid count as one core"
     stats = SystemStats()
-    stats.update(_start("span-1", pid=100))
-    stats.update(_start("span-2", pid=100))
+    stats.update(_job_event("span-1", pid=100))
+    stats.update(_job_event("span-2", pid=100))
     assert stats.active_cores == 1
 
 
 def test_active_cores_counts_distinct_pids():
-    "Proves spans on distinct pids each contribute one core"
+    "Proves job events on distinct pids each contribute one core"
     stats = SystemStats()
-    stats.update(_start("span-1", pid=100))
-    stats.update(_start("span-2", pid=200))
+    stats.update(_job_event("span-1", pid=100))
+    stats.update(_job_event("span-2", pid=200))
     assert stats.active_cores == 2
 
 
-def test_end_event_also_refreshes_pid_recency():
-    "Proves an end event keeps the pid active — both point and span events count"
-    stats = SystemStats()
-    stats.update(_end("span-1", pid=100))
-    assert stats.active_cores == 1
-
-
 def test_active_cores_stable_across_multiple_events_same_pid():
-    "Proves multiple events from the same pid do not inflate the core count"
+    "Proves multiple job events from the same pid do not inflate the core count"
     stats = SystemStats()
-    stats.update(_start("span-1", pid=100))
-    stats.update(_start("span-2", pid=100))
-    stats.update(_end("span-1", pid=100))
-    stats.update(_end("span-2", pid=100))
+    stats.update(_job_event("span-1", pid=100))
+    stats.update(_job_event("span-2", pid=100))
     assert stats.active_cores == 1
 
 
 def test_event_without_pid_is_ignored():
-    "Proves a start event missing a pid dim is silently skipped"
+    "Proves an event missing a pid dim is silently skipped"
     stats = SystemStats()
-    stats.update(point({"tag": ["t"], "id": ["span-1"]}, at=time.time()))
+    stats.update(point({"tag": ["t"], "id": ["span-1"], "fn": ["job"]}, at=time.time()))
     assert stats.active_cores == 0
 
 
@@ -97,7 +93,7 @@ def test_format_contains_cores_cpu_ram():
 
     stats = SystemStats()
     stats.poll()
-    stats.update(_start("span-1", pid=42))
+    stats.update(_job_event("span-1", pid=42))
     result = system_description(stats.active_cores, stats.cpu_percent, stats.ram_percent)
     assert "cores" in result
     assert "cpu" in result

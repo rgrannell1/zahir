@@ -122,6 +122,24 @@ def test_format_eta_uses_partial_data_when_some_types_have_no_history():
     assert est.format_eta() == "00:00:30"
 
 
+def test_format_eta_divides_by_mean_cores():
+    """Proves ETA is halved when two cores are running in parallel."""
+    est = TimeEstimator()
+    est.update(_start("job_a", job_id="j1"))
+    est.update(_end("job_a", 60_000.0, job_id="j1"))
+    est.update(_start("job_a", job_id="j2"))  # 1 in-flight × 60s = 60s; ÷ 2 cores = 30s
+    assert est.format_eta(mean_cores=2.0) == "00:00:30"
+
+
+def test_format_eta_clamps_cores_to_one():
+    """Proves mean_cores=0 is treated as 1 to avoid division by zero."""
+    est = TimeEstimator()
+    est.update(_start("job_a", job_id="j1"))
+    est.update(_end("job_a", 30_000.0, job_id="j1"))
+    est.update(_start("job_a", job_id="j2"))
+    assert est.format_eta(mean_cores=0.0) == est.format_eta(mean_cores=1.0)
+
+
 def test_event_without_fn_name_is_ignored():
     est = TimeEstimator()
     est.update(point({"tag": [JobTag.ENQUEUE], "id": ["s"]}, at=0.0))

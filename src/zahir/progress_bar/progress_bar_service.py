@@ -42,4 +42,4 @@ class ProgressBarService:
         return self._estimator.mean_duration_ms(fn_name)
 
     def format_eta(self) -> str:
-        return self._estimator.format_eta()
+        return self._estimator.format_eta(self._system.mean_active_cores)

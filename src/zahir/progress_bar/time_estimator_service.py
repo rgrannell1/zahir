@@ -72,8 +72,8 @@ class TimeEstimator:
 
         return sum(durations) / len(durations)
 
-    def _estimated_remaining_ms(self) -> float | None:
-        """Sum (in-flight count × mean duration) across all job types."""
+    def _estimated_remaining_ms(self, mean_cores: float) -> float | None:
+        """Sum (in-flight count × mean duration) across all job types, divided by mean active cores."""
 
         in_flight = [(fn, count) for fn, count in self._in_flight.items() if count > 0]
 
@@ -91,10 +91,14 @@ class TimeEstimator:
             has_any_data = True
             total += count * mean
 
-        return total if has_any_data else None
+        if not has_any_data:
+            return None
 
-    def format_eta(self) -> str:
-        """Return a human-readable ETA string"""
+        effective_cores = max(1.0, mean_cores)
+        return total / effective_cores
 
-        ms = self._estimated_remaining_ms()
+    def format_eta(self, mean_cores: float = 1.0) -> str:
+        """Return a human-readable ETA string, adjusted for mean active parallelism."""
+
+        ms = self._estimated_remaining_ms(mean_cores)
         return "--:--:--" if ms is None else _format_ms(ms)
