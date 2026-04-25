@@ -40,6 +40,7 @@ We use `../sand` (project name bookman) to structure our telemetry
 - Tests must have description strings like  "Proves <general system property>"
 - ux tests should just be added by me, on request. Normally, create tests in tests/
 - Tests emitting warnings are not considered passing
+- When fixing a reported bug: write a failing test first, then apply the fix, then verify the test passes
 
 
 **Tools & build**

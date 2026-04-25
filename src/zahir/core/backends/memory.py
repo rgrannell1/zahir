@@ -104,9 +104,9 @@ class MemoryBackend:
         """Return the current semaphore state, or None if unset."""
         return self.semaphores.get(name)
 
-    def set_semaphore(self, name: str, sem_state: str) -> None:
+    def set_semaphore(self, name: str, state: str) -> None:
         """Set the semaphore state for the given name."""
-        self.semaphores[name] = sem_state
+        self.semaphores[name] = state
 
     def is_done(self) -> bool:
         """Return True when pending is zero and the queue is empty."""
@@ -179,7 +179,7 @@ def _handle_storage_signal(backend: MemoryBackend, effect: EStorageSignal) -> An
 
 def _handle_storage_set_semaphore(backend: MemoryBackend, effect: EStorageSetSemaphore) -> None:
     """Set the semaphore state."""
-    backend.set_semaphore(effect.name, effect.sem_state)
+    backend.set_semaphore(effect.name, effect.state)
     return
     yield
 

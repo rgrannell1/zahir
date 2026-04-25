@@ -290,7 +290,7 @@ class EStorageSetSemaphore(ZahirStorageEffect[None]):
 
     tag: ClassVar[str] = "storage:set_semaphore"
     name: str
-    sem_state: str
+    state: str
 
 
 @dataclass

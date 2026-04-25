@@ -125,7 +125,7 @@ def _handle_set_semaphore_state(
 ) -> Generator[Any, Any, None]:
     """Write a new semaphore state to the overseer."""
 
-    yield from mcast(context.overseer, EStorageSetSemaphore(name=effect.name, sem_state=effect.state))
+    yield from mcast(context.overseer, EStorageSetSemaphore(name=effect.name, state=effect.state))
 
 
 def _handle_is_done(

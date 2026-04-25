@@ -100,6 +100,7 @@ def sqlite_dependency(
     return dependency(
         partial(_sqlite_condition, db_path, query, params, timeout_seconds),
         timeout_ms=int(timeout_seconds * 1000),
+        label=f"sqlite '{db_path}'",
     )
 
 
@@ -113,5 +114,5 @@ def check_sqlite_dependency(
     _validate_db_path(db_path)
     return check(
         partial(_sqlite_condition, db_path, query, params, timeout_seconds),
-        label="sqlite",
+        label=f"sqlite '{db_path}'",
     )

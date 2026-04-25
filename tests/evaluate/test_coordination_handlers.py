@@ -292,7 +292,7 @@ def test_handle_set_semaphore_state_mcasts_storage_set_semaphore():
             )
         )
 
-    assert sent[0] == (OVERSEER, EStorageSetSemaphore(name="db", sem_state="impossible"))
+    assert sent[0] == (OVERSEER, EStorageSetSemaphore(name="db", state="impossible"))
 
 
 # make_coordination_handlers

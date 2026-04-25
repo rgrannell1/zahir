@@ -40,4 +40,4 @@ def time_dependency(
     before: datetime | None = None,
     after: datetime | None = None,
 ) -> Generator[Any, Any, DependencyResult]:
-    return dependency(partial(_time_condition, before, after))
+    return dependency(partial(_time_condition, before, after), label="time")
