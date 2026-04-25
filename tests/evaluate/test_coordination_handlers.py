@@ -26,7 +26,9 @@ from zahir.core.evaluate.coordination_handlers import (
     _handle_set_semaphore_state,
     _handle_signal,
     make_coordination_handlers,
+    make_root_handlers,
 )
+from zahir.core.effects import EGetError, EGetResult, EIsDone
 from zahir.core.exceptions import JobError, JobTimeout
 from bookman.events import Event
 from zahir.core.telemetry import make_telemetry
@@ -366,3 +368,73 @@ def test_job_fail_handler_emits_telemetry_with_fn_name():
         e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)
     ]
     assert any(e.dim("fn") == "chapter_processor" for e in telemetry)
+
+
+# make_root_handlers — handler_wrappers
+
+
+def test_make_root_handlers_applies_wrapper_to_is_done():
+    """Proves make_root_handlers wraps EIsDone handler when handler_wrappers is set."""
+
+    emitted = []
+
+    def recording_fn(effect):
+        emitted.append(effect.tag)
+        yield
+
+    from zahir.core.combinators import wrap
+
+    ctx = CoordinationHandlerContext(
+        overseer=OVERSEER, handler_wrappers=[wrap(recording_fn)]
+    )
+    handlers = make_root_handlers(ctx)
+
+    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
+        _collect(handlers[EIsDone.tag](EIsDone()))
+
+    assert EIsDone.tag in emitted
+
+
+def test_make_root_handlers_applies_wrapper_to_all_root_effects():
+    """Proves handler_wrappers covers all three root effect types."""
+
+    seen_tags = []
+
+    def recording_fn(effect):
+        seen_tags.append(effect.tag)
+        yield
+
+    from zahir.core.combinators import wrap
+
+    ctx = CoordinationHandlerContext(
+        overseer=OVERSEER, handler_wrappers=[wrap(recording_fn)]
+    )
+    handlers = make_root_handlers(ctx)
+
+    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
+        _collect(handlers[EIsDone.tag](EIsDone()))
+    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(None)):
+        _collect(handlers[EGetError.tag](EGetError()))
+    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(None)):
+        _collect(handlers[EGetResult.tag](EGetResult()))
+
+    assert EIsDone.tag in seen_tags
+    assert EGetError.tag in seen_tags
+    assert EGetResult.tag in seen_tags
+
+
+def test_make_root_handlers_emits_telemetry_events():
+    """Proves make_root_handlers emits bookman Events when make_telemetry is applied."""
+
+    ctx = CoordinationHandlerContext(
+        overseer=OVERSEER, handler_wrappers=[make_telemetry()]
+    )
+    handlers = make_root_handlers(ctx)
+
+    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
+        emitted = _collect(handlers[EIsDone.tag](EIsDone()))
+
+    telemetry = [
+        e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)
+    ]
+    assert len(telemetry) == 2  # start point + end span

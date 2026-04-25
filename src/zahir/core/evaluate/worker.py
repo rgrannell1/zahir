@@ -170,7 +170,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
 
 
 def worker(
-    overseer_pid_bytes: bytes, scope: Scope, context: type
+    overseer_pid_bytes: bytes, scope: Scope, context: type, handler_wrappers
 ) -> Generator[Any, Any, None]:
     """zahir worker main loop"""
 
@@ -178,9 +178,10 @@ def worker(
     ctx = context()
     ctx._scope = scope
     ctx.scope = ScopeProxy(scope)
+    ctx.handler_wrappers = handler_wrappers
 
     coordination_context = CoordinationHandlerContext(
-        overseer=overseer, handler_wrappers=ctx.handler_wrappers
+        overseer=overseer, handler_wrappers=handler_wrappers
     )
     yield from handle(
         _worker_body(overseer, ctx),

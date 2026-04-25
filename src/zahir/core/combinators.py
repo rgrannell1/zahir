@@ -1,6 +1,70 @@
 # Higher-order functions for composing effect handlers
 from collections.abc import Generator
+from functools import partial
 from typing import Any
+
+from zahir.core.zahir_types import OverseerEffect
+
+
+def _run_setup(gen) -> Generator[Any, Any, None]:
+    """Propagate fn setup yields to the caller until the seam (bare yield → None)."""
+
+    inner = next(gen)
+    while inner is not None:
+        sent = yield inner
+        inner = gen.send(sent)
+
+
+def _run_teardown(gen, exc_caught, result) -> Generator[Any, Any, None]:
+    """Drive fn teardown after the seam, propagating yields and absorbing StopIteration.
+
+    If exc_caught is set, throws it into gen so teardown can observe the error.
+    If the exception propagates out of gen (i.e. fn did not catch it), swallow it —
+    the caller will re-raise exc_caught itself.
+    """
+
+    try:
+        yielded = gen.throw(exc_caught) if exc_caught is not None else gen.send(result)
+        while True:
+            sent = yield yielded
+            yielded = gen.send(sent)
+    except StopIteration:
+        pass
+    except Exception:
+        pass
+
+
+def _wrapped_handler(fn, handler, effect) -> Generator[Any, Any, Any]:
+    """Run fn's two-phase setup/teardown around a single handler call.
+
+    fn(effect) is a generator with two phases separated by a bare yield (yields None):
+    - setup:    yields effects (e.g. EEmit) propagated to the caller before the handler runs
+    - teardown: runs after the handler; receives the result via send, or the exception via throw
+                if the handler raised. fn may optionally catch the thrown exception to emit
+                error telemetry — if it does not, the exception propagates normally.
+    """
+
+    gen = fn(effect)
+    yield from _run_setup(gen)
+
+    exc_caught = None
+    result = None
+    try:
+        result = yield from handler(effect)
+    except Exception as exc:
+        exc_caught = exc
+
+    yield from _run_teardown(gen, exc_caught, result)
+
+    if exc_caught is not None:
+        raise exc_caught
+    return result
+
+
+def _make_handler_wrapper(fn, handler):
+    """Return a wrapped handler that drives fn around handler for each effect."""
+
+    return partial(_wrapped_handler, fn, handler)
 
 
 def wrap(fn):
@@ -12,6 +76,9 @@ def wrap(fn):
                 if the handler raised. fn may optionally catch the thrown exception to emit
                 error telemetry — if it does not, the exception propagates normally.
 
+    Returns partial(_make_handler_wrapper, fn). wrap_overseer extracts fn via wrapper.args[0]
+    so it can apply fn to overseer gen_server handlers.
+
     Example:
         def my_wrapper(effect):
             yield EEmit({"event": "start", "tag": effect.tag})  # setup
@@ -22,41 +89,44 @@ def wrap(fn):
                 yield EEmit({"event": "end", "error": str(exc)}) # error teardown
     """
 
-    def wrapper(handler):
-        def wrapped(effect) -> Generator[Any, Any, Any]:
-            gen = fn(effect)
-            # propagate setup yields until the seam (bare yield produces None)
-            inner = next(gen)
-            while inner is not None:
-                sent = yield inner
-                inner = gen.send(sent)
+    return partial(_make_handler_wrapper, fn)
 
-            # run the handler, capturing any exception
-            exc_caught = None
-            result = None
-            try:
-                result = yield from handler(effect)
-            except Exception as exc:
-                exc_caught = exc
 
-            # teardown — throw exception into fn if one occurred, otherwise send result
-            try:
-                if exc_caught is not None:
-                    yielded = gen.throw(exc_caught)
-                else:
-                    yielded = gen.send(result)
-                while True:
-                    sent = yield yielded
-                    yielded = gen.send(sent)
-            except StopIteration:
-                pass
-            except Exception:
-                pass  # fn did not catch the thrown exception — that's fine
+def _overseer_wrapped(fn, key: str, handler, state, *args) -> Generator[Any, Any, Any]:
+    """Wrapped overseer handler: drive fn around the inner handler with a synthetic OverseerEffect."""
 
-            if exc_caught is not None:
-                raise exc_caught
-            return result
+    eff = OverseerEffect(tag=f"overseer:{key}")
+    gen = fn(eff)
+    yield from _run_setup(gen)
 
-        return wrapped
+    exc_caught = None
+    result = None
+    try:
+        result = yield from handler(state, *args)
+    except Exception as exc:
+        exc_caught = exc
 
-    return wrapper
+    yield from _run_teardown(gen, exc_caught, result)
+
+    if exc_caught is not None:
+        raise exc_caught
+    return result
+
+
+def _overseer_apply(fn, key: str, handler):
+    """Return an overseer gen_server handler wrapped by fn."""
+
+    return partial(_overseer_wrapped, fn, key, handler)
+
+
+def wrap_overseer(fn):
+    """Combinator that applies fn around overseer gen_server handler calls.
+
+    Parallel to wrap(), but for handlers with (state, *args) → (state, result) shape.
+    fn(effect) receives an OverseerEffect(tag=key) so make_telemetry() works unchanged.
+
+    Returns apply(key, handler) → wrapped_handler(state, *args).
+    Wrappers in handler_wrappers must be created with wrap(fn); fn is extracted via wrapper.args[0].
+    """
+
+    return partial(_overseer_apply, fn)

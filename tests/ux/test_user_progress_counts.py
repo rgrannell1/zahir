@@ -10,14 +10,10 @@ from zahir.core.telemetry import make_telemetry
 from tests.ux.test_user_mirror_workflow import BASE_SCOPE
 
 
-class TelemetryContext(JobContext):
-    handler_wrappers = [make_telemetry()]
-
-
 def _collect_state(fn_name, args, scope) -> ProgressBarState:
     """Run a workflow and return the accumulated progress bar state."""
     state = ProgressBarState()
-    for event in evaluate(fn_name, args, scope, n_workers=4, context=TelemetryContext):
+    for event in evaluate(fn_name, args, scope, n_workers=4, handler_wrappers=[make_telemetry()]):
         if isinstance(event, Event):
             state.update(event)
     return state

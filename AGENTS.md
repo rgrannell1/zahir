@@ -1,6 +1,7 @@
 
 We use `../orbius` as an algebraic effects library
-We use `../uqbar` (project name tertius) as a algebraic effects erlang runtime
+We use `../tertius` (project name tertius) as a algebraic effects erlang runtime
+We use `../sand` (project name bookman) to structure our telemetry
 `../mirror` is our main dependent; we'll often debug it
 
 **Communication**

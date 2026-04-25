@@ -24,10 +24,6 @@ def chain_and_sum(ctx: JobContext):
     yield EEmit(total)
 
 
-class IdentityContext(JobContext):
-    handler_wrappers = (wrap(identity),)
-
-
 def test_chained_awaits_across_ten_workers():
     """Proves a chain of ten sequential awaits completes correctly across ten worker processes."""
 
@@ -42,7 +38,7 @@ def test_chained_awaits_with_identity_telemetry():
 
     scope = {"chain_and_sum": chain_and_sum, "inc": inc}
     events = user_events(
-        evaluate("chain_and_sum", (), scope, n_workers=10, context=IdentityContext)
+        evaluate("chain_and_sum", (), scope, n_workers=10, handler_wrappers=(wrap(identity),))
     )
 
     assert events == [55]

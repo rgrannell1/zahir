@@ -6,15 +6,11 @@ from tertius import ESleep
 from bookman.events import Event
 
 from zahir.core.effects import EAwait
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.evaluate import evaluate, JobContext
 from zahir.core.telemetry import make_telemetry
 from zahir.progress_bar.time_estimator_service import TimeEstimator
 
 _HH_MM_SS = re.compile(r"\d{2}:\d{2}:\d{2}")
-
-
-class TelemetryContext(JobContext):
-    handler_wrappers = [make_telemetry()]
 
 
 def sleeping_job(ctx: JobContext):
@@ -42,7 +38,7 @@ _SLEEP_UPPER_BOUND_MS = 1_500.0
 def _collect_estimator(fn_name: str, args: tuple, scope: dict) -> TimeEstimator:
     """Run a workflow and return the accumulated time estimator state."""
     estimator = TimeEstimator()
-    for event in evaluate(fn_name, args, scope, n_workers=4, context=TelemetryContext):
+    for event in evaluate(fn_name, args, scope, n_workers=4, handler_wrappers=[make_telemetry()]):
         if isinstance(event, Event):
             estimator.update(event)
     return estimator
@@ -82,7 +78,7 @@ def test_ten_jobs_eta_renders_hh_mm_ss_during_execution():
     estimator = TimeEstimator()
     eta_snapshots = set()
 
-    for event in evaluate("ten_short_jobs", (), _TEN_SCOPE, n_workers=4, context=TelemetryContext):
+    for event in evaluate("ten_short_jobs", (), _TEN_SCOPE, n_workers=4, handler_wrappers=[make_telemetry()]):
         if isinstance(event, Event):
             estimator.update(event)
             eta_snapshots.add(estimator.format_eta())

@@ -138,10 +138,14 @@ def _handle_get_result(
 def make_root_handlers(context: CoordinationHandlerContext) -> HandlerMap:
     """Create handlers for the root polling loop — check completion, errors, and the return value."""
 
-    return {
+    handlers = {
         EIsDone.tag: partial(_handle_is_done, context),
         EGetError.tag: partial(_handle_get_error, context),
         EGetResult.tag: partial(_handle_get_result, context),
+    }
+    return {
+        tag: reduce(lambda h, w: w(h), context.handler_wrappers, h)
+        for tag, h in handlers.items()
     }
 
 
