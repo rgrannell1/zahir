@@ -1,7 +1,7 @@
 from collections.abc import Generator, Sequence
 from typing import Any
 
-from orbis import handle
+from orbis import handle, HandlerDict
 from tertius import EEmit, ESleep, ESpawn, Pid, Scope, run
 
 from zahir.core.constants import COMPLETION_POLL_MS
@@ -45,14 +45,16 @@ def _root(
     n_workers: int,
     context: type,
     handler_wrappers: Sequence,
+    handlers: HandlerDict,
 ) -> Generator[Any, Any, None]:
     overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(fn_name, args, handler_wrappers))
 
     for _ in range(n_workers):
-        yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, context, handler_wrappers))
+        yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, context, handler_wrappers, handlers))
 
     ctx = CoordinationHandlerContext(overseer=overseer, handler_wrappers=handler_wrappers)
-    yield from handle(_poll_completion(), **make_root_handlers(ctx))
+    root_handlers = {**make_root_handlers(ctx), **handlers}
+    yield from handle(_poll_completion(), **root_handlers)
 
 
 def evaluate(
@@ -62,6 +64,7 @@ def evaluate(
     n_workers: int = 4,
     context: type = JobContext,
     handler_wrappers: Sequence = [],
+    handlers: HandlerDict = {},
 ) -> Generator[Any, None, None]:
     # make sure we have the function in scope
     if fn_name not in scope:
@@ -79,4 +82,4 @@ def evaluate(
     full_scope: Scope = {"run_overseer": run_overseer, "worker": worker, **scope}
 
     # run the tertius workflow
-    yield from run(_root, fn_name, args, scope, n_workers, context, handler_wrappers, scope=full_scope)
+    yield from run(_root, fn_name, args, scope, n_workers, context, handler_wrappers, handlers, scope=full_scope)
