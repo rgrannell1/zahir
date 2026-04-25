@@ -152,27 +152,16 @@ def _handle_get_result(
     return (yield from mcall(context.overseer, EStorageGetResult()))
 
 
-def make_root_handlers(context: CoordinationHandlerContext) -> HandlerMap:
-    """Create handlers for the root polling loop — check completion, errors, and the return value."""
-
-    handlers = {
-        EIsDone.tag: partial(_handle_is_done, context),
-        EGetError.tag: partial(_handle_get_error, context),
-        EGetResult.tag: partial(_handle_get_result, context),
-    }
-    return {
-        tag: reduce(lambda h, w: w(h), context.handler_wrappers, h)
-        for tag, h in handlers.items()
-    }
-
-
 def make_coordination_handlers(context: CoordinationHandlerContext) -> HandlerMap:
-    """Create coordination handlers for the worker process — intercept job lifecycle effects."""
+    """Create handlers for all coordination effects — job lifecycle (worker) and completion polling (root)."""
 
     handlers = {
         EAcquireSlot.tag: partial(_handle_acquire_slot, context),
         EEnqueue.tag: partial(_handle_enqueue, context),
+        EGetError.tag: partial(_handle_get_error, context),
         EGetJob.tag: partial(_handle_get_job, context),
+        EGetResult.tag: partial(_handle_get_result, context),
+        EIsDone.tag: partial(_handle_is_done, context),
         EJobComplete.tag: partial(_handle_job_complete, context),
         EJobFail.tag: partial(_handle_job_fail, context),
         ERelease.tag: partial(_handle_release, context),

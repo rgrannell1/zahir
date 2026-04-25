@@ -10,7 +10,7 @@ from zahir.core.effects import EGetError, EGetResult, EIsDone
 
 from zahir.core.evaluate.coordination_handlers import (
     CoordinationHandlerContext,
-    make_root_handlers,
+    make_coordination_handlers,
 )
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.worker import worker
@@ -48,15 +48,14 @@ def _root(
     handler_wrappers: Sequence,
     handlers: HandlerDict,
     storage_handlers: HandlerDict,
-    overseer_handlers: HandlerDict,
 ) -> Generator[Any, Any, None]:
-    overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(fn_name, args, storage_handlers, overseer_handlers))
+    overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(fn_name, args, storage_handlers))
 
     for _ in range(n_workers):
         yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, context, handler_wrappers, handlers))
 
     ctx = CoordinationHandlerContext(overseer=overseer, handler_wrappers=handler_wrappers)
-    root_handlers = {**make_root_handlers(ctx), **handlers}
+    root_handlers = {**make_coordination_handlers(ctx), **handlers}
     yield from handle(_poll_completion(), **root_handlers)
 
 
@@ -69,7 +68,6 @@ def evaluate(
     handler_wrappers: Sequence = [],
     handlers: HandlerDict = {},
     storage_handlers: HandlerDict = None,
-    overseer_handlers: HandlerDict = {},
 ) -> Generator[Any, None, None]:
     # make sure we have the function in scope
     if fn_name not in scope:
@@ -93,6 +91,6 @@ def evaluate(
     yield from run(
         _root,
         fn_name, args, scope, n_workers, context,
-        handler_wrappers, handlers, resolved_storage, overseer_handlers,
+        handler_wrappers, handlers, resolved_storage,
         scope=full_scope,
     )

@@ -30,12 +30,10 @@ def run_overseer(
     initial_fn: str,
     initial_args: tuple,
     storage_handlers: dict,
-    overseer_handlers: dict,
 ) -> Generator[Any, Any, None]:
-    merged = {**storage_handlers, **overseer_handlers}
     overseer = gen_server(
         init=_init,
         handle_call=_handle_call,
         handle_cast=_handle_cast,
     )
-    yield from handle(overseer(initial_fn, initial_args), **merged)
+    yield from handle(overseer(initial_fn, initial_args), **storage_handlers)
