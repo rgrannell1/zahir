@@ -1,8 +1,9 @@
 """Aggregators for zahir-specific metrics derived from the telemetry event stream."""
 
+from collections.abc import Generator, Iterable
 from functools import partial
 
-from bookman.aggregators import count_distinct, filter_events, group_by
+from bookman.aggregators import count_distinct, filter_events, group_by, stream_group_by
 from bookman.events import Event
 
 
@@ -34,18 +35,24 @@ def bucket_key(bucket_s: float, ev: Event) -> float:
     return (ev.at // bucket_s) * bucket_s
 
 
-def active_cores_timeline(events: list, bucket_s: float = 1.0) -> dict[float, int]:
-    """Unique active worker pids per time bucket across the event stream.
+def active_cores_timeline(
+    events: Iterable, bucket_s: float = 1.0
+) -> Generator[dict[float, int], None, None]:
+    """Yield an updated per-bucket active core count after each event in the stream.
 
-    Returns a dict mapping bucket-start timestamps to the count of unique pids
+    Each yielded dict maps bucket-start timestamps to the count of unique worker pids
     that emitted at least one job-bearing event within that bucket.
+    Accepts any iterable — including a live evaluate() generator.
     """
 
-    return group_by(partial(bucket_key, bucket_s), active_pids_agg(), events)
+    return stream_group_by(partial(bucket_key, bucket_s), active_pids_agg(), events)
 
 
-def peak_active_cores(events: list, bucket_s: float = 1.0) -> int:
-    """Maximum number of simultaneously active workers across all time buckets."""
+def peak_active_cores(events: Iterable, bucket_s: float = 1.0) -> int:
+    """Maximum number of simultaneously active workers across all time buckets.
 
-    timeline = active_cores_timeline(events, bucket_s)
+    Consumes the full event stream. For a live stream, use active_cores_timeline instead.
+    """
+
+    timeline = group_by(partial(bucket_key, bucket_s), active_pids_agg(), events)
     return max(timeline.values(), default=0)
