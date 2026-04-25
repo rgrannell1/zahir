@@ -31,17 +31,6 @@ class JobSpec:
 
 
 @dataclass
-class OverseerState:
-    queue: deque[JobSpec]
-    concurrency: ConcurrencyMap
-    semaphores: dict[str, DependencyState]
-    pending: int
-    root_error: Exception | None = None
-    root_result: Any = None
-    pending_results: PendingResults = field(default_factory=dict)
-
-
-@dataclass
 class OverseerEffect:
     """Synthetic effect-like object passed to handler wrapper fns for overseer gen_server handlers."""
 

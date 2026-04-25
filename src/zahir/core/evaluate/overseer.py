@@ -1,4 +1,3 @@
-from collections import deque
 from collections.abc import Generator, Sequence
 from functools import partial, reduce
 from typing import Any
@@ -11,17 +10,12 @@ from zahir.core.evaluate.overseer_handlers import (
     CAST_HANDLERS,
     _dispatch,
 )
-from zahir.core.zahir_types import JobSpec, OverseerState
 
 
-def _init(initial_fn: str, initial_args: tuple) -> Generator[Any, Any, OverseerState]:
-    job = JobSpec(fn_name=initial_fn, args=initial_args, reply_to=None)
-    return OverseerState(
-        queue=deque([job]),
-        concurrency={},
-        semaphores={},
-        pending=1,
-    )
+def _init(backend, initial_fn: str, initial_args: tuple) -> Generator[Any, Any, Any]:
+    """Seed the backend with the root job and return it as the initial gen_server state."""
+    backend.initialize(initial_fn, initial_args)
+    return backend
     yield
 
 
@@ -51,12 +45,12 @@ def _wrap_overseer_handlers(handlers: dict, wrappers: Sequence) -> dict:
     return {key: _apply_overseer_wrappers(key, handler, wrappers) for key, handler in handlers.items()}
 
 
-def run_overseer(initial_fn: str, initial_args: tuple, handler_wrappers) -> Generator[Any, Any, None]:
+def run_overseer(initial_fn: str, initial_args: tuple, handler_wrappers, backend) -> Generator[Any, Any, None]:
     call_handlers = _wrap_overseer_handlers(CALL_HANDLERS, handler_wrappers)
     cast_handlers = _wrap_overseer_handlers(CAST_HANDLERS, handler_wrappers)
 
     overseer = gen_server(
-        init=_init,
+        init=partial(_init, backend),
         handle_call=partial(_handle_call, call_handlers),
         handle_cast=partial(_handle_cast, cast_handlers),
     )
