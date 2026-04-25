@@ -5,40 +5,46 @@ import psutil
 
 from bookman.events import Event
 
+from zahir.core.constants import JobTag, Phase
+
+# Tags that signal a job has finished, regardless of outcome
+_JOB_END_TAGS = {JobTag.JOB_COMPLETE, JobTag.JOB_FAIL}
+
 
 class SystemStats:
     """Tracks cpu%, ram%, and active worker cores from telemetry events.
 
     cpu/ram are rolling 5-second averages sampled on each poll() call.
-    Active cores are unique worker pids seen within the last _ACTIVE_WINDOW_S seconds.
+    Active cores are worker pids that have started a job but not yet completed it —
+    tracked by job lifecycle events rather than a recency window, so long-running jobs
+    don't fall out of the active set between their start and end events.
     Mean active cores are a rolling average of the active_cores snapshot taken on each poll().
-    Effect-level spans last microseconds so in-flight tracking is too short-lived;
-    recency-based tracking correctly reflects workers that are continuously emitting.
     """
 
     _CPU_WINDOW_S = 5.0
-    # A pid is considered active if it emitted an event within this window
-    _ACTIVE_WINDOW_S = 2.0
     # Window over which active_cores samples are averaged for ETA calculation
     _CORES_WINDOW_S = 30.0
 
     def __init__(self):
         self._resource_history: deque[tuple[float, float, float]] = deque()
-        self._pid_last_seen: dict[int, float] = {}
+        self._executing_pids: set[int] = set()
         self._cores_history: deque[tuple[float, int]] = deque()
 
     def update(self, event: Event) -> None:
-        """Record the last-seen time for worker pids executing job logic.
-
-        Only events with fn set are counted — idle workers emit EGetJob events
-        (no fn) continuously; active workers emit EEnqueue, EJobComplete, and
-        EJobFail events which all carry fn_name.
-        """
+        """Track pids that have started a job but not yet completed it."""
 
         pid_str = event.dim("pid")
-        fn = event.dim("fn")
-        if pid_str and fn:
-            self._pid_last_seen[int(pid_str)] = time.time()
+        if not pid_str:
+            return
+
+        tag = event.dim("tag")
+        phase = event.dim("phase")
+        pid = int(pid_str)
+
+        if tag == JobTag.ENQUEUE and phase == Phase.START:
+            self._executing_pids.add(pid)
+        elif tag in _JOB_END_TAGS and phase == Phase.END:
+            self._executing_pids.discard(pid)
 
     def poll(self) -> None:
         """Sample cpu%, ram%, and active_cores and add to their rolling windows."""
@@ -69,10 +75,9 @@ class SystemStats:
 
     @property
     def active_cores(self) -> int:
-        """Unique worker pids seen within the last _ACTIVE_WINDOW_S seconds."""
+        """Worker pids that have started a job but not yet completed it."""
 
-        cutoff = time.time() - self._ACTIVE_WINDOW_S
-        return sum(1 for last_seen in self._pid_last_seen.values() if last_seen >= cutoff)
+        return len(self._executing_pids)
 
     @property
     def cpu_percent(self) -> float:
