@@ -14,23 +14,13 @@ from zahir.core.evaluate.overseer import _handle_call, _handle_cast, _init
 # _init
 
 
-def test_init_yields_storage_initialize():
-    """Proves _init yields EStorageInitialize with the correct fn_name and args."""
+def test_init_returns_none_as_state_immediately():
+    """Proves _init is a no-op that returns None without yielding any effects."""
 
-    gen = _init("start", (1, 2))
-    effect = next(gen)
-    assert isinstance(effect, EStorageInitialize)
-    assert effect.fn_name == "start"
-    assert effect.args == (1, 2)
-
-
-def test_init_returns_none_as_state():
-    """Proves _init returns None as the initial gen_server state after the storage effect is handled."""
-
-    gen = _init("start", (1, 2))
-    next(gen)
+    gen = _init()
     try:
-        gen.send(None)
+        next(gen)
+        assert False, "expected StopIteration"
     except StopIteration as exc:
         assert exc.value is None
 
@@ -89,12 +79,11 @@ def _make_handlers():
     return make_memory_storage_handlers()
 
 
-def test_init_seeds_backend_via_storage_handlers():
-    """Proves _init with memory storage handlers initialises the backend correctly."""
+def test_init_cast_seeds_backend_via_storage_handlers():
+    """Proves EStorageInitialize sent as a cast seeds the backend correctly."""
 
     handlers = _make_handlers()
-    complete(handle(_init("start", (1, 2)), **handlers))
-    # if this completes without error the backend was seeded; is_done is verifiable via a subsequent call
+    complete(handle(_handle_cast(None, EStorageInitialize("start", (1, 2))), **handlers))
     _, result = complete(handle(_handle_call(None, EStorageIsDone()), **handlers))
     assert result is False
 
@@ -102,18 +91,12 @@ def test_init_seeds_backend_via_storage_handlers():
 def test_round_trip_enqueue_then_get_job():
     """Proves a job enqueued via a cast storage effect is retrievable via a call storage effect."""
 
-    from collections import deque
     from zahir.core.effects import EStorageEnqueue
-    from zahir.core.backends.memory import MemoryBackend
 
-    # build handlers over a shared backend with a pre-seeded job
-    backend = MemoryBackend(pending=1)
-    from functools import partial
-    from zahir.core.backends.memory import _handle_storage_get_job, _handle_storage_enqueue
     handlers = _make_handlers()
 
-    # initialise, enqueue a child job, then fetch it
-    complete(handle(_init("root", ()), **handlers))
+    # initialise via cast, enqueue a child job, then fetch it
+    complete(handle(_handle_cast(None, EStorageInitialize("root", ())), **handlers))
     complete(handle(_handle_cast(None, EStorageEnqueue("child", (42,), None, None, None)), **handlers))
     # root job is first in queue; consume it
     complete(handle(_handle_call(None, EStorageGetJob(b"worker")), **handlers))

@@ -2,11 +2,11 @@ from collections.abc import Generator, Sequence
 from typing import Any
 
 from orbis import handle, HandlerDict
-from tertius import EEmit, ESleep, ESpawn, Pid, Scope, run
+from tertius import EEmit, ESleep, ESpawn, Pid, Scope, mcast, run
 
 from zahir.core.backends.memory import make_memory_storage_handlers
 from zahir.core.constants import COMPLETION_POLL_MS
-from zahir.core.effects import EGetError, EGetResult, EIsDone
+from zahir.core.effects import EGetError, EGetResult, EIsDone, EStorageInitialize
 
 from zahir.core.evaluate.coordination_handlers import (
     CoordinationHandlerContext,
@@ -46,10 +46,14 @@ def _root(
     handlers: HandlerDict,
     storage_handlers: HandlerDict,
 ) -> Generator[Any, Any, None]:
-    overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(fn_name, args, storage_handlers))
+    overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(storage_handlers,))
 
     for _ in range(n_workers):
         yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, user_context, handler_wrappers, handlers))
+
+    # All workers are ready before the root job is enqueued, so the full pool
+    # is available to pick up child jobs immediately when they fan out.
+    yield from mcast(overseer, EStorageInitialize(fn_name=fn_name, args=args))
 
     ctx = CoordinationHandlerContext(overseer=overseer, handler_wrappers=handler_wrappers)
     # user-provided handlers take precedence, allowing coordination handlers to be replaced

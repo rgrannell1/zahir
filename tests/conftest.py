@@ -1,7 +1,22 @@
+import socket
 import pytest
 
 
 RESET = "\033[0m"
+
+
+def _is_local_machine() -> bool:
+    return "rg" in socket.gethostname()
+
+
+def pytest_collection_modifyitems(items):
+    """Skip tests marked local_only when not running on the local dev machine."""
+    if _is_local_machine():
+        return
+    skip = pytest.mark.skip(reason="local-only test, skipped in CI")
+    for item in items:
+        if item.get_closest_marker("local_only"):
+            item.add_marker(skip)
 GREEN = "\033[32m"
 RED = "\033[31m"
 
