@@ -17,6 +17,8 @@ class JobTag(StrEnum):
     ENQUEUE = "enqueue"
     JOB_COMPLETE = "job_complete"
     JOB_FAIL = "job_fail"
+    # emitted when a worker picks up a new job — carries the correct executing-worker pid
+    EXECUTE = "job:execute"
 
 DEPENDENCY_DELAY_MS = 5_000
 WORKER_POLL_MS = 100

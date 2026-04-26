@@ -9,6 +9,8 @@ from zahir.core.constants import JobTag, Phase
 
 # Tags that signal a job has finished, regardless of outcome
 _JOB_END_TAGS = {JobTag.JOB_COMPLETE, JobTag.JOB_FAIL}
+# Tags that signal a worker has picked up a job and is actively executing it
+_JOB_START_TAGS = {JobTag.EXECUTE, JobTag.ENQUEUE}
 
 
 class SystemStats:
@@ -41,7 +43,7 @@ class SystemStats:
         phase = event.dim("phase")
         pid = int(pid_str)
 
-        if tag == JobTag.ENQUEUE and phase == Phase.START:
+        if tag == JobTag.EXECUTE or (tag == JobTag.ENQUEUE and phase == Phase.START):
             self._executing_pids.add(pid)
         elif tag in _JOB_END_TAGS and phase == Phase.END:
             self._executing_pids.discard(pid)

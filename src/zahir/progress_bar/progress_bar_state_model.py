@@ -19,7 +19,11 @@ class JobStats:
 
 def record_pid_mapping(pid_fn: dict[int, str], pid: int, fn_name: str, tag: str, phase: str) -> None:
     """Update the pid→fn_name map when a worker starts a new job."""
-    if tag == JobTag.ENQUEUE and phase == Phase.START:
+    if tag == JobTag.EXECUTE:
+        # job:execute fires in the executing worker — the authoritative pid→fn mapping
+        pid_fn[pid] = fn_name
+    elif tag == JobTag.ENQUEUE and phase == Phase.START:
+        # fallback: enqueuer's pid, used when execute event is not present
         pid_fn[pid] = fn_name
 
 

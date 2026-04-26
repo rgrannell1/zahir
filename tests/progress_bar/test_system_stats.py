@@ -6,9 +6,9 @@ from zahir.progress_bar.system_stats_service import SystemStats
 
 
 def _job_start(span_id: str, pid: int = 1234, fn: str = "some_job"):
-    """ENQUEUE+START event — worker has taken a job."""
+    """job:execute event — executing worker has picked up a job."""
     return point(
-        {"tag": [JobTag.ENQUEUE], "phase": [Phase.START], "id": [span_id], "pid": [str(pid)], "fn": [fn]},
+        {"tag": [JobTag.EXECUTE], "id": [span_id], "pid": [str(pid)], "fn": [fn]},
         at=time.time(),
     )
 
@@ -114,7 +114,7 @@ def test_out_of_order_end_does_not_go_negative():
 def test_event_without_pid_is_ignored():
     "Proves an event missing a pid dim is silently skipped"
     stats = SystemStats()
-    stats.update(point({"tag": [JobTag.ENQUEUE], "phase": [Phase.START], "id": ["span-1"], "fn": ["job"]}, at=time.time()))
+    stats.update(point({"tag": [JobTag.EXECUTE], "id": ["span-1"], "fn": ["job"]}, at=time.time()))
     assert stats.active_cores == 0
 
 
