@@ -1,13 +1,24 @@
 # Polling combinator that drives condition generators, handling retries, timeouts, and Left/Right signalling.
+import os
+import time
 from collections.abc import Callable, Generator
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from bookman.events import point
 from tertius import EEmit, ESleep
 
-from zahir.core.constants import DEPENDENCY_DELAY_MS, DependencyState as SS
+from zahir.core.constants import DEPENDENCY_DELAY_MS, DependencyState as SS, DependencyTag
 from zahir.core.zahir_types import DependencyResult, Satisfied
 from zahir.core.exceptions import ImpossibleError
+
+
+def _waiting_event(label: str) -> object:
+    return point({"tag": [DependencyTag.WAITING], "pid": [str(os.getpid())], "dep": [label]}, at=time.time())
+
+
+def _satisfied_event(label: str) -> object:
+    return point({"tag": [DependencyTag.SATISFIED], "pid": [str(os.getpid())], "dep": [label]}, at=time.time())
 
 
 def check(
@@ -68,6 +79,7 @@ def dependency(
                 f"{label} timed out after {timeout_ms}ms",
             )
             yield EEmit(result)
+            yield EEmit(_satisfied_event(label))
             return result
 
         try:
@@ -78,10 +90,13 @@ def dependency(
             if satisfied:
                 result = (SS.SATISFIED, metadata)
                 yield EEmit(result)
+                yield EEmit(_satisfied_event(label))
                 return result
         except ImpossibleError as exc:
             result = (SS.IMPOSSIBLE, str(exc))
             yield EEmit(result)
+            yield EEmit(_satisfied_event(label))
             return result
 
+        yield EEmit(_waiting_event(label))
         yield ESleep(ms=poll_ms)

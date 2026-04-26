@@ -41,5 +41,8 @@ class ProgressBarService:
     def mean_duration_ms(self, fn_name: str) -> float | None:
         return self._estimator.mean_duration_ms(fn_name)
 
+    def waiting_deps(self, fn_name: str) -> dict[str, int]:
+        return self._state.waiting_deps(fn_name)
+
     def format_eta(self) -> str:
         return self._estimator.format_eta(self._system.mean_active_cores)

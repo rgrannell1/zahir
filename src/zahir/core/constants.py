@@ -31,6 +31,11 @@ class DependencyState(StrEnum):
 # How long to wait between CPU usage samples when checking resource availability
 CPU_SAMPLE_INTERVAL_S = 0.1
 
+# Tags on telemetry events emitted by the dependency polling loop
+class DependencyTag(StrEnum):
+    WAITING = "dep:waiting"     # emitted on each poll that returns unsatisfied
+    SATISFIED = "dep:satisfied"  # emitted when the dependency is finally met or abandoned
+
 # Tags on work items returned by the overseer to workers
 class WorkItemTag(StrEnum):
     JOB = "job"

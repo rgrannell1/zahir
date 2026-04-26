@@ -1,3 +1,4 @@
+from zahir.progress_bar.dep_labels import short_label
 from zahir.progress_bar.progress_bar_state_model import JobStats
 
 
@@ -21,12 +22,20 @@ def _format_mean(mean_ms: float | None) -> str:
     return f"μ{seconds:.2f}s".ljust(_MEAN_WIDTH)
 
 
-def job_description(fn_name: str, stats: JobStats, mean_ms: float | None = None) -> str:
+def _format_waiting(waiting: dict[str, int]) -> str:
+    entries = ", ".join(f"{count} {short_label(dep)}" for dep, count in waiting.items())
+    return f"[yellow](w: {entries})[/]"
+
+
+def job_description(fn_name: str, stats: JobStats, mean_ms: float | None = None, waiting: dict[str, int] | None = None) -> str:
     in_flight = stats.started - stats.processed
     parts = []
 
     if in_flight > 0:
-        parts.append(f"{in_flight} running")
+        running = f"{in_flight} running"
+        if waiting:
+            running = f"{running} {_format_waiting(waiting)}"
+        parts.append(running)
 
     if stats.completed > 0:
         parts.append(f"{stats.completed} done")

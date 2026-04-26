@@ -84,10 +84,11 @@ class RichDisplayService:
                 continue
             task_id = self._ensure_job_task(fn_name)
             mean_ms = service.mean_duration_ms(fn_name)
+            waiting = service.waiting_deps(fn_name)
 
             self._progress.update(
                 task_id,
-                description=job_description(fn_name, stats, mean_ms),
+                description=job_description(fn_name, stats, mean_ms, waiting),
                 completed=stats.processed,
                 total=stats.total,
                 status=job_status(stats),
