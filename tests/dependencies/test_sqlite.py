@@ -1,6 +1,6 @@
 import sqlite3
 import tempfile
-import pathlib
+from itertools import islice
 
 import pytest
 
@@ -8,6 +8,7 @@ from tertius import EEmit, ESleep
 
 from zahir.core.dependencies.dependency import ImpossibleError
 from zahir.core.dependencies.sqlite import _sqlite_condition, sqlite_dependency
+from tests.shared import drain_to
 
 
 def _make_db(rows: list[tuple]) -> str:
@@ -56,18 +57,16 @@ def test_status_unsatisfied_yields_sleep():
     """Proves a status=unsatisfied row yields ESleep."""
 
     db = _make_db([("unsatisfied",)])
-    assert isinstance(
-        next(sqlite_dependency(db, "SELECT status FROM state", ())), ESleep
-    )
+    effects = list(islice(sqlite_dependency(db, "SELECT status FROM state", ()), 5))
+    assert any(isinstance(e, ESleep) for e in effects)
 
 
 def test_no_rows_yields_sleep():
     """Proves an empty result set yields ESleep."""
 
     db = _make_db([])
-    assert isinstance(
-        next(sqlite_dependency(db, "SELECT status FROM state", ())), ESleep
-    )
+    effects = list(islice(sqlite_dependency(db, "SELECT status FROM state", ()), 5))
+    assert any(isinstance(e, ESleep) for e in effects)
 
 
 def test_satisfied_metadata_includes_query_and_path():
@@ -126,22 +125,16 @@ def test_satisfied_status_returns_tuple_as_generator_value():
     """Proves the generator returns the satisfied tuple as its StopIteration value."""
 
     db = _make_db([("satisfied",)])
-    gen = sqlite_dependency(db, "SELECT status FROM state", ())
-    emit = next(gen)
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    emits, return_value = drain_to(sqlite_dependency(db, "SELECT status FROM state", ()), EEmit)
+    assert return_value is emits[0].body
 
 
 def test_impossible_status_returns_tuple_as_generator_value():
     """Proves the generator returns the impossible tuple as its StopIteration value."""
 
     db = _make_db([("impossible",)])
-    gen = sqlite_dependency(db, "SELECT status FROM state", ())
-    emit = next(gen)
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    emits, return_value = drain_to(sqlite_dependency(db, "SELECT status FROM state", ()), EEmit)
+    assert return_value is emits[0].body
 
 
 def test_non_status_column_returns_tuple_as_generator_value():
@@ -154,11 +147,8 @@ def test_non_status_column_returns_tuple_as_generator_value():
     conn.commit()
     conn.close()
 
-    gen = sqlite_dependency(db, "SELECT value FROM items", ())
-    emit = next(gen)
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    emits, return_value = drain_to(sqlite_dependency(db, "SELECT value FROM items", ()), EEmit)
+    assert return_value is emits[0].body
 
 
 def test_unsatisfied_then_satisfied_loops_correctly():
@@ -166,15 +156,16 @@ def test_unsatisfied_then_satisfied_loops_correctly():
 
     db = _make_db([("unsatisfied",)])
     gen = sqlite_dependency(db, "SELECT status FROM state", ())
-    assert isinstance(next(gen), ESleep)
+    next(gen)  # advance through one retry: EEmit(waiting)
+    next(gen)  # advance through one retry: ESleep
 
     conn = sqlite3.connect(db)
     conn.execute("UPDATE state SET status = 'satisfied'")
     conn.commit()
     conn.close()
 
-    emit = next(gen)
-    assert emit.body[0] == "satisfied"
+    emits, _ = drain_to(gen, EEmit)
+    assert emits[0].body[0] == "satisfied"
 
 
 def test_no_rows_loops_and_retries_when_row_appears():
@@ -182,15 +173,16 @@ def test_no_rows_loops_and_retries_when_row_appears():
 
     db = _make_db([])
     gen = sqlite_dependency(db, "SELECT status FROM state", ())
-    assert isinstance(next(gen), ESleep)
+    next(gen)  # advance through one retry: EEmit(waiting)
+    next(gen)  # advance through one retry: ESleep
 
     conn = sqlite3.connect(db)
     conn.execute("INSERT INTO state VALUES ('satisfied')")
     conn.commit()
     conn.close()
 
-    emit = next(gen)
-    assert emit.body[0] == "satisfied"
+    emits, _ = drain_to(gen, EEmit)
+    assert emits[0].body[0] == "satisfied"
 
 
 # _sqlite_condition — unsatisfied / impossible branches

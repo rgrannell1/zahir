@@ -9,18 +9,7 @@ from zahir.core.evaluate.job_handlers import JobHandlerContext
 from zahir.core.evaluate.job_handlers import evaluate_job
 from zahir.core.exceptions import JobError, JobTimeout
 from tests.evaluate.mocks import OVERSEER
-from tests.shared import NOW
-
-
-def _drive(gen):
-    effects, value = [], None
-    try:
-        effect = next(gen)
-        while True:
-            effects.append(effect)
-            effect = gen.send(None)
-    except StopIteration as exc:
-        return effects, exc.value
+from tests.shared import NOW, drain_to
 
 
 # evaluate_job — return value
@@ -33,7 +22,7 @@ def test_evaluate_job_returns_job_result():
         return 42
         yield
 
-    _, result = _drive(evaluate_job(job(), JobHandlerContext(), None))
+    _, result = drain_to(evaluate_job(job(), JobHandlerContext(), None))
     assert result == 42
 
 
@@ -45,7 +34,7 @@ def test_evaluate_job_passes_through_unknown_effects():
     def job():
         yield unknown
 
-    effects, _ = _drive(evaluate_job(job(), JobHandlerContext(), None))
+    effects, _ = drain_to(evaluate_job(job(), JobHandlerContext(), None))
     assert unknown in effects
 
 
@@ -62,7 +51,7 @@ def test_evaluate_job_throws_job_timeout_when_deadline_exceeded():
     with time_machine.travel(NOW, tick=False):
         past_deadline = NOW - timedelta(seconds=1)
         with pytest.raises(JobTimeout):
-            _drive(evaluate_job(job(), JobHandlerContext(), past_deadline))
+            drain_to(evaluate_job(job(), JobHandlerContext(), past_deadline))
 
 
 def test_evaluate_job_job_can_catch_job_timeout():
@@ -78,7 +67,7 @@ def test_evaluate_job_job_can_catch_job_timeout():
 
     with time_machine.travel(NOW, tick=False):
         past_deadline = NOW - timedelta(seconds=1)
-        _drive(evaluate_job(job(), JobHandlerContext(), past_deadline))
+        drain_to(evaluate_job(job(), JobHandlerContext(), past_deadline))
 
     assert results == ["caught"]
 
@@ -90,7 +79,7 @@ def test_evaluate_job_no_deadline_never_times_out():
         for _ in range(5):
             yield ESleep(ms=100)
 
-    effects, _ = _drive(evaluate_job(job(), JobHandlerContext(), None))
+    effects, _ = drain_to(evaluate_job(job(), JobHandlerContext(), None))
     assert len(effects) == 5
 
 
@@ -149,4 +138,4 @@ def test_evaluate_job_propagates_unhandled_exception():
         yield
 
     with pytest.raises(ValueError, match="unexpected"):
-        _drive(evaluate_job(job(), JobHandlerContext(), None))
+        drain_to(evaluate_job(job(), JobHandlerContext(), None))

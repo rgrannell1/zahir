@@ -7,7 +7,7 @@ import time_machine
 from tertius import EEmit, ESleep
 
 from zahir.core.dependencies.resources import check_resource_dependency, resource_dependency
-from tests.shared import NOW
+from tests.shared import NOW, drain_to
 
 
 def _low_usage(_resource):
@@ -41,8 +41,10 @@ def test_memory_below_limit_emits_satisfied():
 def test_usage_above_limit_yields_sleep():
     """Proves usage exceeding max_percent yields ESleep."""
 
-    with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
-        assert isinstance(next(resource_dependency("cpu", max_percent=50.0)), ESleep)
+    calls = iter([_high_usage, _low_usage])
+    with patch("zahir.core.dependencies.resources._get_usage", lambda r: next(calls)(r)):
+        effects, _ = drain_to(resource_dependency("cpu", max_percent=50.0))
+    assert any(isinstance(e, ESleep) for e in effects)
 
 
 @time_machine.travel(NOW, tick=False)
@@ -72,14 +74,14 @@ def test_timeout_emits_impossible():
     with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
         with time_machine.travel(NOW, tick=False):
             gen = resource_dependency("cpu", max_percent=50.0, timeout=1.0)
-            next(gen)  # ESleep
+            next(gen)  # advance through one retry: EEmit(waiting)
+            next(gen)  # advance through one retry: ESleep
 
         with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-            emit = next(gen)
+            emits, _ = drain_to(gen, EEmit)
 
-    assert isinstance(emit, EEmit)
-    assert emit.body[0] == "impossible"
-    assert "cpu" in emit.body[1]
+    assert emits[0].body[0] == "impossible"
+    assert "cpu" in emits[0].body[1]
 
 
 def test_timeout_reason_includes_resource_and_duration():
@@ -88,14 +90,15 @@ def test_timeout_reason_includes_resource_and_duration():
     with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
         with time_machine.travel(NOW, tick=False):
             gen = resource_dependency("memory", max_percent=50.0, timeout=30.0)
-            next(gen)
+            next(gen)  # advance through one retry: EEmit(waiting)
+            next(gen)  # advance through one retry: ESleep
 
         with time_machine.travel(NOW + timedelta(seconds=60), tick=False):
-            emit = next(gen)
+            emits, _ = drain_to(gen, EEmit)
 
-    assert emit.body[0] == "impossible"
-    assert "memory" in emit.body[1]
-    assert "30" in emit.body[1]
+    assert emits[0].body[0] == "impossible"
+    assert "memory" in emits[0].body[1]
+    assert "30" in emits[0].body[1]
 
 
 def test_high_then_low_usage_emits_satisfied():
@@ -107,10 +110,11 @@ def test_high_then_low_usage_emits_satisfied():
         "zahir.core.dependencies.resources._get_usage", lambda r: next(calls)(r)
     ):
         with time_machine.travel(NOW, tick=False):
-            gen = resource_dependency("cpu", max_percent=50.0)
-            assert isinstance(next(gen), ESleep)
-            emit = next(gen)
-            assert emit.body[0] == "satisfied"
+            effects, _ = drain_to(resource_dependency("cpu", max_percent=50.0))
+
+    assert any(isinstance(e, ESleep) for e in effects)
+    emits = [e for e in effects if isinstance(e, EEmit)]
+    assert any(e.body[0] == "satisfied" for e in emits)
 
 
 # return values
@@ -121,11 +125,8 @@ def test_satisfied_returns_tuple_as_generator_value():
     """Proves the generator returns the satisfied tuple as its StopIteration value."""
 
     with patch("zahir.core.dependencies.resources._get_usage", _low_usage):
-        gen = resource_dependency("cpu", max_percent=50.0)
-        emit = next(gen)
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+        emits, return_value = drain_to(resource_dependency("cpu", max_percent=50.0), EEmit)
+    assert return_value is emits[0].body
 
 
 def test_impossible_returns_tuple_as_generator_value():
@@ -134,14 +135,13 @@ def test_impossible_returns_tuple_as_generator_value():
     with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
         with time_machine.travel(NOW, tick=False):
             gen = resource_dependency("cpu", max_percent=50.0, timeout=1.0)
-            next(gen)
+            next(gen)  # advance through one retry: EEmit(waiting)
+            next(gen)  # advance through one retry: ESleep
 
         with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-            emit = next(gen)
+            emits, return_value = drain_to(gen, EEmit)
 
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    assert return_value is emits[0].body
 
 
 # check_resource_dependency
@@ -174,8 +174,7 @@ def test_check_resource_high_usage_does_not_sleep():
         return 90.0
 
     with patch("zahir.core.dependencies.resources._get_usage", _counting_usage):
-        from tests.dependencies.test_dependency import _drive
-        _drive(check_resource_dependency("cpu", max_percent=50.0))
+        drain_to(check_resource_dependency("cpu", max_percent=50.0))
 
     assert calls == 1
 

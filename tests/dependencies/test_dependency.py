@@ -6,18 +6,7 @@ import time_machine
 from tertius import EEmit, ESleep
 
 from zahir.core.dependencies.dependency import ImpossibleError, check, dependency
-from tests.shared import NOW
-
-
-def _drive(gen, responses=None):
-    """Drive a generator, sending None for all yields, and return the StopIteration value."""
-    responses = responses or {}
-    try:
-        effect = next(gen)
-        while True:
-            effect = gen.send(responses.get(type(effect)))
-    except StopIteration as exc:
-        return exc.value
+from tests.shared import NOW, drain_to
 
 
 # condition returns True immediately
@@ -42,7 +31,7 @@ def test_immediate_true_returns_satisfied_tuple():
         return True
         yield
 
-    result = _drive(dependency(_cond))
+    _, result = drain_to(dependency(_cond))
     assert result[0] == "satisfied"
 
 
@@ -67,10 +56,10 @@ def test_false_then_true_polls_and_satisfies():
         return next(calls)
         yield
 
-    gen = dependency(_cond)
-    assert isinstance(next(gen), ESleep)  # False → sleep
-    emit = next(gen)
-    assert emit.body[0] == "satisfied"  # True → satisfied
+    effects, _ = drain_to(dependency(_cond))
+    assert any(isinstance(e, ESleep) for e in effects)
+    emits = [e for e in effects if isinstance(e, EEmit)]
+    assert any(e.body[0] == "satisfied" for e in emits)
 
 
 # ImpossibleError
@@ -106,7 +95,7 @@ def test_impossible_error_returns_impossible_tuple():
         raise ImpossibleError("never")
         yield
 
-    result = _drive(dependency(_cond))
+    _, result = drain_to(dependency(_cond))
     assert result[0] == "impossible"
 
 
@@ -122,14 +111,15 @@ def test_timeout_emits_impossible():
         yield
 
     gen = dependency(_cond, timeout_ms=1000)
-    next(gen)  # False → ESleep
+    next(gen)  # advance through one retry: EEmit(waiting)
+    next(gen)  # advance through one retry: ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        emit = next(gen)
+        emits, _ = drain_to(gen, EEmit)
 
-    assert emit.body[0] == "impossible"
-    assert "timed out" in emit.body[1]
-    assert "1000" in emit.body[1]
+    assert emits[0].body[0] == "impossible"
+    assert "timed out" in emits[0].body[1]
+    assert "1000" in emits[0].body[1]
 
 
 @time_machine.travel(NOW, tick=False)
@@ -141,12 +131,13 @@ def test_timeout_label_appears_in_reason():
         yield
 
     gen = dependency(_cond, timeout_ms=500, label="my-condition")
-    next(gen)
+    next(gen)  # advance through one retry: EEmit(waiting)
+    next(gen)  # advance through one retry: ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        emit = next(gen)
+        emits, _ = drain_to(gen, EEmit)
 
-    assert "my-condition" in emit.body[1]
+    assert "my-condition" in emits[0].body[1]
 
 
 @time_machine.travel(NOW, tick=False)
@@ -159,8 +150,9 @@ def test_no_timeout_never_expires():
 
     gen = dependency(_cond)
     for _ in range(10):
-        assert isinstance(next(gen), ESleep)
-        next(gen)
+        # drive through one retry cycle and verify no impossible is emitted
+        retry = [next(gen), next(gen)]
+        assert not any(isinstance(e, EEmit) and e.body[0] == "impossible" for e in retry)
 
 
 # poll_ms
@@ -169,14 +161,16 @@ def test_no_timeout_never_expires():
 def test_custom_poll_ms_used_in_sleep():
     """Proves poll_ms controls the ESleep duration between retries."""
 
+    calls = iter([False, True])
+
     def _cond():
-        return False
+        return next(calls)
         yield
 
-    gen = dependency(_cond, poll_ms=999)
-    effect = next(gen)
-    assert isinstance(effect, ESleep)
-    assert effect.ms == 999
+    effects, _ = drain_to(dependency(_cond, poll_ms=999))
+    sleeps = [e for e in effects if isinstance(e, ESleep)]
+    assert sleeps
+    assert all(e.ms == 999 for e in sleeps)
 
 
 # condition that yields effects
@@ -189,10 +183,10 @@ def test_condition_effects_pass_through():
         yield ESleep(ms=42)
         return True
 
-    gen = dependency(_cond)
-    assert isinstance(next(gen), ESleep)  # from condition
-    emit = next(gen)
-    assert emit.body[0] == "satisfied"  # from dependency()
+    effects, _ = drain_to(dependency(_cond))
+    assert any(isinstance(e, ESleep) and e.ms == 42 for e in effects)
+    emits = [e for e in effects if isinstance(e, EEmit)]
+    assert any(e.body[0] == "satisfied" for e in emits)
 
 
 # emit/return parity
@@ -205,11 +199,8 @@ def test_emitted_and_returned_body_are_same_object():
         return True
         yield
 
-    gen = dependency(_cond)
-    emit = next(gen)
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    emits, return_value = drain_to(dependency(_cond), EEmit)
+    assert return_value is emits[0].body
 
 
 # check — single-shot evaluation
@@ -234,7 +225,7 @@ def test_check_true_returns_satisfied_tuple():
         return True
         yield
 
-    result = _drive(check(_cond))
+    _, result = drain_to(check(_cond))
     assert result[0] == "satisfied"
 
 
@@ -257,7 +248,7 @@ def test_check_false_returns_impossible_tuple():
         return False
         yield
 
-    result = _drive(check(_cond))
+    _, result = drain_to(check(_cond))
     assert result[0] == "impossible"
 
 
@@ -305,7 +296,7 @@ def test_check_does_not_retry_on_false():
         return False
         yield
 
-    _drive(check(_cond))
+    drain_to(check(_cond))
     assert calls == 1
 
 
@@ -327,7 +318,7 @@ def test_check_condition_effects_pass_through():
         yield ESleep(ms=7)
         return True
 
-    gen = check(_cond)
-    assert isinstance(next(gen), ESleep)
-    emit = next(gen)
-    assert emit.body[0] == "satisfied"
+    effects, _ = drain_to(check(_cond))
+    assert any(isinstance(e, ESleep) and e.ms == 7 for e in effects)
+    emits = [e for e in effects if isinstance(e, EEmit)]
+    assert any(e.body[0] == "satisfied" for e in emits)

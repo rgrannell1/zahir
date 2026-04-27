@@ -6,6 +6,7 @@ import pytest
 from tertius import EEmit, ESleep
 
 from zahir.core.dependencies.file import _file_condition, check_file_dependency, file_dependency
+from tests.shared import drain_to
 
 
 def test_existing_file_emits_satisfied():
@@ -56,12 +57,8 @@ def test_satisfied_returns_tuple_as_generator_value():
     """Proves the generator returns the satisfied tuple as its StopIteration value."""
 
     with tempfile.NamedTemporaryFile() as tmp:
-        gen = file_dependency(tmp.name)
-        emit = next(gen)           # EEmit(("satisfied", metadata))
-        next(gen)                  # EEmit(_satisfied_event)
-        with pytest.raises(StopIteration) as exc:
-            next(gen)
-        assert exc.value.value is emit.body
+        emits, return_value = drain_to(file_dependency(tmp.name), EEmit)
+    assert return_value is emits[0].body
 
 
 def test_file_appears_after_check_satisfies_dependency():
@@ -70,13 +67,13 @@ def test_file_appears_after_check_satisfies_dependency():
     with tempfile.TemporaryDirectory() as tmpdir:
         fpath = str(pathlib.Path(tmpdir) / "output.json")
         gen = file_dependency(fpath)
-        next(gen)  # EEmit(_waiting_event)
-        next(gen)  # ESleep
+        next(gen)  # advance through one retry: EEmit(waiting)
+        next(gen)  # advance through one retry: ESleep
 
         pathlib.Path(fpath).write_text("{}")
 
-        emit = next(gen)
-        assert emit.body[0] == "satisfied"
+        emits, _ = drain_to(gen, EEmit)
+        assert emits[0].body[0] == "satisfied"
 
 
 def test_file_condition_returns_false_for_missing_file():

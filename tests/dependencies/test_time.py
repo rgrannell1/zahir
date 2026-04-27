@@ -1,10 +1,12 @@
+from itertools import islice
+
 import pytest
 import time_machine
 
 from tertius import EEmit, ESleep
 
 from zahir.core.dependencies.time import check_time_dependency, time_dependency
-from tests.shared import FUTURE, NOW, PAST
+from tests.shared import FUTURE, NOW, PAST, drain_to
 
 
 @time_machine.travel(NOW, tick=False)
@@ -36,8 +38,8 @@ def test_before_passed_emits_impossible():
 def test_after_not_yet_reached_yields_sleep():
     """Proves a future after constraint yields ESleep via the polling loop."""
 
-    gen = time_dependency(before=None, after=FUTURE)
-    assert isinstance(next(gen), ESleep)
+    effects = list(islice(time_dependency(before=None, after=FUTURE), 5))
+    assert any(isinstance(e, ESleep) for e in effects)
 
 
 def test_after_not_yet_reached_satisfies_once_time_arrives():
@@ -45,12 +47,13 @@ def test_after_not_yet_reached_satisfies_once_time_arrives():
 
     with time_machine.travel(NOW, tick=False):
         gen = time_dependency(before=None, after=FUTURE)
-        next(gen)  # ESleep from poll loop
+        next(gen)  # advance through one retry: EEmit(waiting)
+        next(gen)  # advance through one retry: ESleep
 
     with time_machine.travel(FUTURE, tick=False):
-        emit = next(gen)
+        emits, _ = drain_to(gen, EEmit)
 
-    assert emit.body[0] == "satisfied"
+    assert emits[0].body[0] == "satisfied"
 
 
 @time_machine.travel(NOW, tick=False)
@@ -85,22 +88,16 @@ def test_impossible_includes_timestamps():
 def test_impossible_returns_tuple_as_generator_value():
     """Proves the generator returns the impossible tuple as its StopIteration value."""
 
-    gen = time_dependency(before=PAST)
-    emit = next(gen)
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    emits, return_value = drain_to(time_dependency(before=PAST), EEmit)
+    assert return_value is emits[0].body
 
 
 @time_machine.travel(NOW, tick=False)
 def test_satisfied_returns_tuple_as_generator_value():
     """Proves the generator returns the satisfied tuple as its StopIteration value."""
 
-    gen = time_dependency(before=FUTURE)
-    emit = next(gen)
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    emits, return_value = drain_to(time_dependency(before=FUTURE), EEmit)
+    assert return_value is emits[0].body
 
 
 # check_time_dependency

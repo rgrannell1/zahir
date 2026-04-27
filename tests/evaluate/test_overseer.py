@@ -9,6 +9,7 @@ from zahir.core.effects import (
     EStorageRelease,
 )
 from zahir.core.evaluate.overseer import _handle_call, _handle_cast, _init
+from tests.shared import drain_to
 
 
 # _init
@@ -17,12 +18,8 @@ from zahir.core.evaluate.overseer import _handle_call, _handle_cast, _init
 def test_init_returns_none_as_state_immediately():
     """Proves _init is a no-op that returns None without yielding any effects."""
 
-    gen = _init()
-    try:
-        next(gen)
-        assert False, "expected StopIteration"
-    except StopIteration as exc:
-        assert exc.value is None
+    _, return_value = drain_to(_init())
+    assert return_value is None
 
 
 # _handle_call
@@ -41,11 +38,8 @@ def test_handle_call_returns_state_and_handler_result():
     """Proves _handle_call returns (state, result) using the value sent back by handle()."""
 
     gen = _handle_call("sentinel_state", EStorageAcquire("workers", 4))
-    next(gen)
-    try:
-        gen.send(True)
-    except StopIteration as exc:
-        assert exc.value == ("sentinel_state", True)
+    _, return_value = drain_to(gen, responses={EStorageAcquire: True})
+    assert return_value == ("sentinel_state", True)
 
 
 # _handle_cast
@@ -64,11 +58,8 @@ def test_handle_cast_returns_state_unchanged():
     """Proves _handle_cast returns the original state after the storage effect is handled."""
 
     gen = _handle_cast("sentinel_state", EStorageRelease("workers"))
-    next(gen)
-    try:
-        gen.send(None)
-    except StopIteration as exc:
-        assert exc.value == "sentinel_state"
+    _, return_value = drain_to(gen)
+    assert return_value == "sentinel_state"
 
 
 # round-trip via handle() + memory storage handlers

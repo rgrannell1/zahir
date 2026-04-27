@@ -5,18 +5,7 @@ from bookman.events import Event
 from zahir.core.effects import EAwait
 from zahir.core.zahir_types import JobSpec
 from zahir.core.telemetry import make_telemetry
-
-
-def _drive(gen):
-    """Collect all yielded effects and return value from a generator."""
-    effects = []
-    try:
-        value = next(gen)
-        while True:
-            effects.append(value)
-            value = gen.send(None)
-    except StopIteration as exc:
-        return effects, exc.value
+from tests.shared import drain_to
 
 
 def _make_handler(return_value):
@@ -46,7 +35,7 @@ def test_emits_start_event_before_handler():
     "Proves the first emitted event is a point event"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
-    effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
+    effects, _ = drain_to(handler(EAwait(jobs=[JobSpec("job_a")])))
     events = _emitted(effects)
     assert events[0].kind == "point"
 
@@ -55,7 +44,7 @@ def test_emits_span_end_after_handler():
     "Proves the last emitted event is a span event"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
-    effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
+    effects, _ = drain_to(handler(EAwait(jobs=[JobSpec("job_a")])))
     events = _emitted(effects)
     assert events[-1].kind == "span"
 
@@ -64,7 +53,7 @@ def test_emits_exactly_two_events_on_success():
     "Proves exactly one start and one end event are emitted per handler invocation"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
-    effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
+    effects, _ = drain_to(handler(EAwait(jobs=[JobSpec("job_a")])))
     assert len(_emitted(effects)) == 2
 
 
@@ -72,7 +61,7 @@ def test_start_and_end_share_span_id():
     "Proves start and end events carry the same id dimension for correlation"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
-    effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
+    effects, _ = drain_to(handler(EAwait(jobs=[JobSpec("job_a")])))
     events = _emitted(effects)
     assert events[0].dim("id") == events[1].dim("id")
 
@@ -81,7 +70,7 @@ def test_start_event_carries_fn_name():
     "Proves the fn dimension on the start event reflects the job function name"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
-    effects, _ = _drive(handler(EAwait(jobs=[JobSpec("my_job")])))
+    effects, _ = drain_to(handler(EAwait(jobs=[JobSpec("my_job")])))
     start = next(e for e in _emitted(effects) if e.kind == "point")
     assert start.dim("fn") == "my_job"
 
@@ -90,7 +79,7 @@ def test_end_event_has_non_negative_duration():
     "Proves the span end event records a non-negative duration"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler("result"))
-    effects, _ = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
+    effects, _ = drain_to(handler(EAwait(jobs=[JobSpec("job_a")])))
     end = next(e for e in _emitted(effects) if e.kind == "span")
     assert end.duration("ms") >= 0.0
 
@@ -115,5 +104,5 @@ def test_handler_return_value_preserved_through_telemetry():
     "Proves the telemetry wrapper does not swallow or alter the handler return value"
     wrapper = make_telemetry()
     handler = wrapper(_make_handler(42))
-    _, value = _drive(handler(EAwait(jobs=[JobSpec("job_a")])))
+    _, value = drain_to(handler(EAwait(jobs=[JobSpec("job_a")])))
     assert value == 42

@@ -3,6 +3,7 @@ import os
 import time
 import uuid
 
+from bookman.bookman_types import Message
 from bookman.events import point
 from tertius import EEmit
 
@@ -64,7 +65,9 @@ def _setup_phase(effect, span_id: str, start: float, job_id: str | None):
 def _success_teardown(effect, span_id: str, start: float, end: float, job_id: str | None, result):
     """Emit handler-end event and any lifecycle or execute events that apply."""
 
-    yield EEmit(end_effect_success_telemetry(effect, span_id, start, end))
+    err = getattr(effect, "error", None)
+    value = Message(str(err)) if err is not None else None
+    yield EEmit(end_effect_success_telemetry(effect, span_id, start, end, value=value))
     lifecycle = _resolve_lifecycle(effect, job_id, end)
     if lifecycle:
         yield EEmit(lifecycle)

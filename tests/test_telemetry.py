@@ -4,18 +4,7 @@ from tertius import EEmit
 from zahir.core.effects import EAwait
 from zahir.core.zahir_types import JobSpec
 from zahir.core.combinators import wrap
-
-
-def _drive(gen):
-    """Collect all yielded effects and return value from a generator."""
-    effects = []
-    try:
-        value = next(gen)
-        while True:
-            effects.append(value)
-            value = gen.send(None)
-    except StopIteration as exc:
-        return effects, exc.value
+from tests.shared import drain_to
 
 
 def _make_handler(return_value):
@@ -44,7 +33,7 @@ def test_wrap_runs_setup_before_handler():
     handler = _make_handler("result")
     wrapped = wrap(f)(handler)
 
-    list(_drive(wrapped(EAwait(jobs=[JobSpec("job")]))))
+    drain_to(wrapped(EAwait(jobs=[JobSpec("job")])))
     assert order == ["setup", "teardown"]
 
 
@@ -58,7 +47,7 @@ def test_wrap_passes_handler_return_value_to_f():
         received.append(result)
 
     wrapped = wrap(f)(_make_handler("my_result"))
-    _drive(wrapped(EAwait(jobs=[JobSpec("job")])))
+    drain_to(wrapped(EAwait(jobs=[JobSpec("job")])))
 
     assert received == ["my_result"]
 
@@ -70,8 +59,7 @@ def test_wrap_preserves_handler_return_value():
         yield
 
     wrapped = wrap(f)(_make_handler(42))
-    _, value = _drive(wrapped(EAwait(jobs=[JobSpec("job")])))
-
+    _, value = drain_to(wrapped(EAwait(jobs=[JobSpec("job")])))
     assert value == 42
 
 
@@ -86,7 +74,7 @@ def test_wrap_f_receives_effect():
 
     effect = EAwait(jobs=[JobSpec("job")])
     wrapped = wrap(f)(_make_handler(None))
-    _drive(wrapped(effect))
+    drain_to(wrapped(effect))
 
     assert received == [effect]
 
@@ -102,7 +90,7 @@ def test_wrap_propagates_teardown_yields():
         yield EEmit("done")
 
     wrapped = wrap(f)(_make_handler(None))
-    effects, _ = _drive(wrapped(EAwait(jobs=[JobSpec("job")])))
+    effects, _ = drain_to(wrapped(EAwait(jobs=[JobSpec("job")])))
 
     assert EEmit("done") in effects
 
@@ -116,7 +104,7 @@ def test_wrap_propagates_multiple_teardown_yields():
         yield EEmit("second")
 
     wrapped = wrap(f)(_make_handler(None))
-    effects, _ = _drive(wrapped(EAwait(jobs=[JobSpec("job")])))
+    effects, _ = drain_to(wrapped(EAwait(jobs=[JobSpec("job")])))
 
     assert effects == [EEmit("first"), EEmit("second")]
 
@@ -129,7 +117,7 @@ def test_wrap_teardown_with_no_yields_does_not_error():
         _ = 1 + 1  # teardown with no yields
 
     wrapped = wrap(f)(_make_handler("ok"))
-    _, value = _drive(wrapped(EAwait(jobs=[JobSpec("job")])))
+    _, value = drain_to(wrapped(EAwait(jobs=[JobSpec("job")])))
 
     assert value == "ok"
 
@@ -156,7 +144,7 @@ def test_wrap_stacks_correctly_via_reduce():
 
     handler = _make_handler("result")
     wrapped = reduce(lambda h, w: w(h), [wrap(first), wrap(second)], handler)
-    _drive(wrapped(EAwait(jobs=[JobSpec("job")])))
+    drain_to(wrapped(EAwait(jobs=[JobSpec("job")])))
 
     assert order == ["second_setup", "first_setup", "first_teardown", "second_teardown"]
 
@@ -182,7 +170,7 @@ def test_wrap_reraises_handler_exception():
 
     wrapped = wrap(fn)(_make_raising_handler(ValueError("boom")))
     with pytest.raises(ValueError, match="boom"):
-        _drive(wrapped(EAwait(jobs=[JobSpec("job")])))
+        drain_to(wrapped(EAwait(jobs=[JobSpec("job")])))
 
 
 def test_wrap_throws_exception_into_fn_teardown():
@@ -198,7 +186,7 @@ def test_wrap_throws_exception_into_fn_teardown():
 
     wrapped = wrap(fn)(_make_raising_handler(ValueError("boom")))
     with pytest.raises(ValueError):
-        _drive(wrapped(EAwait(jobs=[JobSpec("job")])))
+        drain_to(wrapped(EAwait(jobs=[JobSpec("job")])))
 
     assert errors == ["boom"]
 

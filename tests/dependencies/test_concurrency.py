@@ -7,7 +7,7 @@ from tertius import EEmit, ESleep
 
 from zahir.core.dependencies.concurrency import concurrency_dependency
 from zahir.core.effects import EAcquire
-from tests.shared import NOW
+from tests.shared import NOW, drain_to
 
 
 # concurrency_dependency — first yield
@@ -28,7 +28,8 @@ def test_slot_unavailable_yields_esleep():
 
     gen = concurrency_dependency("workers", limit=4)
     assert isinstance(next(gen), EAcquire)
-    assert isinstance(gen.send(False), ESleep)
+    gen.send(False)  # EEmit(waiting) telemetry before sleep
+    assert isinstance(next(gen), ESleep)
 
 
 def test_acquire_effect_carries_name_and_limit():
@@ -46,7 +47,8 @@ def test_retry_after_denied_yields_eacquire_again():
 
     gen = concurrency_dependency("workers", limit=4)
     next(gen)  # EAcquire
-    gen.send(False)  # ESleep
+    gen.send(False)  # EEmit(waiting)
+    next(gen)  # ESleep
     assert isinstance(next(gen), EAcquire)
 
 
@@ -73,13 +75,13 @@ def test_timeout_yields_eimpossible():
 
     gen = concurrency_dependency("workers", limit=4, timeout_ms=1000)
     next(gen)  # EAcquire
-    gen.send(False)  # ESleep
+    gen.send(False)  # EEmit(waiting)
+    next(gen)  # ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        emit = next(gen)
+        emits, _ = drain_to(gen, EEmit)
 
-    assert isinstance(emit, EEmit)
-    assert emit.body[0] == "impossible"
+    assert emits[0].body[0] == "impossible"
 
 
 @time_machine.travel(NOW, tick=False)
@@ -88,14 +90,15 @@ def test_timeout_reason_includes_name_and_duration():
 
     gen = concurrency_dependency("workers", limit=4, timeout_ms=5000)
     next(gen)
-    gen.send(False)
+    gen.send(False)  # EEmit(waiting)
+    next(gen)  # ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=10), tick=False):
-        emit = next(gen)
+        emits, _ = drain_to(gen, EEmit)
 
-    assert emit.body[0] == "impossible"
-    assert "workers" in emit.body[1]
-    assert "5000" in emit.body[1]
+    assert emits[0].body[0] == "impossible"
+    assert "workers" in emits[0].body[1]
+    assert "5000" in emits[0].body[1]
 
 
 # concurrency_dependency — return values
@@ -107,9 +110,8 @@ def test_satisfied_returns_tuple_as_generator_value():
     gen = concurrency_dependency("workers", limit=4)
     next(gen)
     emit = gen.send(True)
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    _, return_value = drain_to(gen)
+    assert return_value is emit.body
 
 
 @time_machine.travel(NOW, tick=False)
@@ -118,11 +120,10 @@ def test_impossible_returns_tuple_as_generator_value():
 
     gen = concurrency_dependency("workers", limit=4, timeout_ms=1000)
     next(gen)
-    gen.send(False)
+    gen.send(False)  # EEmit(waiting)
+    next(gen)  # ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        emit = next(gen)
+        emits, return_value = drain_to(gen, EEmit)
 
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    assert return_value is emits[0].body

@@ -24,51 +24,73 @@ class JobHandlerContext:
     handler_wrappers: Sequence = field(default_factory=list)
 
 
-def evaluate_job(
-    job_gen: Generator[Any, Any, Any],
-    context: JobHandlerContext,
-    deadline: datetime | None,
-) -> Generator[Any, Any, Any]:
-    handlers = make_job_handlers(context)
-    handler_value: Any = None
+def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
+    """Drive gen: reject disallowed effects with InvalidEffect, dispatch job-level effects to handlers, bubble the rest."""
+
+    send_value: Any = None
     pending_throw: Exception | None = None
 
     while True:
         try:
-            # Throw if pending back into the job
-            effect = (
-                job_gen.throw(pending_throw)
-                if pending_throw
-                else job_gen.send(handler_value)
-            )
+            effect = gen.throw(pending_throw) if pending_throw else gen.send(send_value)
             pending_throw = None
-        except StopIteration as exc:
-            # Job is done, return the value
-            return exc.value
+        except StopIteration as stop:
+            return stop.value
 
-        # Check for timeout before processing the effect
+        if not hasattr(effect, "tag"):
+            pending_throw = InvalidEffect(f"job yielded non-Effect value: {effect!r}")
+            continue
+        if isinstance(effect, ZahirCoordinationEffect):
+            pending_throw = InvalidEffect(
+                f"{type(effect).__name__} cannot be yielded directly in a job"
+            )
+            continue
+        if isinstance(effect, BLOCKED_EFFECTS):
+            pending_throw = InvalidEffect(
+                f"{type(effect).__name__} cannot be yielded directly in a job"
+            )
+            continue
+
+        try:
+            if effect.tag in handlers:
+                send_value = yield from handlers[effect.tag](effect)
+            else:
+                send_value = yield effect
+        except THROWABLE as exc:
+            pending_throw = exc
+
+
+def timeout_guard(gen: Generator, deadline: datetime | None) -> Generator:
+    """Wrap gen, injecting JobTimeout into the job if the deadline passes between effects."""
+
+    send_value: Any = None
+    pending_throw: Exception | None = None
+
+    while True:
+        try:
+            effect = gen.throw(pending_throw) if pending_throw else gen.send(send_value)
+            pending_throw = None
+        except StopIteration as stop:
+            return stop.value
+
         if deadline and datetime.now(UTC) >= deadline:
             pending_throw = JobTimeout()
             continue
 
         try:
-            if not hasattr(effect, "tag"):
-                raise InvalidEffect(f"job yielded non-Effect value: {effect!r}")
-            elif effect.tag in handlers:
-                handler_value = yield from handlers[effect.tag](effect)
-            elif isinstance(effect, ZahirCoordinationEffect):
-                raise InvalidEffect(
-                    f"{type(effect).__name__} cannot be yielded directly in a job"
-                )
-            elif isinstance(effect, BLOCKED_EFFECTS):
-                raise InvalidEffect(
-                    f"{type(effect).__name__} cannot be yielded directly in a job"
-                )
-            else:
-                # Unknown effects (including EAwait) fall through to the worker's suspension_handlers
-                handler_value = yield effect
-        except THROWABLE as exc:
-            pending_throw = exc
+            send_value = yield effect
+        except Exception as err:
+            send_value = None
+            pending_throw = err
+
+
+def evaluate_job(
+    job_gen: Generator[Any, Any, Any],
+    context: JobHandlerContext,
+    deadline: datetime | None,
+) -> Generator[Any, Any, Any]:
+    guarded = job_guard(job_gen, make_job_handlers(context))
+    return timeout_guard(guarded, deadline)
 
 
 def _unwrap_reply(body: Any) -> Any:

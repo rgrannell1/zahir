@@ -1,4 +1,5 @@
 # Rich-backed display service: owns the Progress widget and per-row TaskID handles
+from rich.live import Live
 from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
 
 from zahir.progress_bar.columns_view import JobBarColumn, NofMColumn
@@ -27,6 +28,7 @@ class RichDisplayService:
 
     def __init__(self):
         self._progress = _make_progress()
+        self._live = Live(self._progress, screen=True)
         self._job_tasks: dict[str, TaskID] = {}
         self._system_task: TaskID | None = None
         self._workflow_task: TaskID | None = None
@@ -34,7 +36,7 @@ class RichDisplayService:
     def __enter__(self):
         """Add the system and workflow tasks to the progress widget."""
 
-        self._progress.__enter__()
+        self._live.__enter__()
         self._system_task = self._progress.add_task(
             system_description(0, 0.0, 0.0),
             total=1,
@@ -53,7 +55,7 @@ class RichDisplayService:
         if self._system_task is not None:
             self._progress.remove_task(self._system_task)
 
-        return self._progress.__exit__(*args)
+        return self._live.__exit__(*args)
 
     def refresh(self, service: ProgressBarService) -> None:
         """Refresh all the rows with the current stats from the ProgressBarService."""
@@ -107,6 +109,11 @@ class RichDisplayService:
         self._progress.update(
             self._workflow_task, description=desc, completed=processed, total=total
         )
+
+    def show_error(self, source: str, msg: str) -> None:
+        """Print a persistent error line below the live progress bar."""
+
+        self._live.console.print(f"[bold red][{source}][/] {msg}")
 
     def _ensure_job_task(self, fn_name: str) -> TaskID:
         """Ensure a task exists for this function name."""

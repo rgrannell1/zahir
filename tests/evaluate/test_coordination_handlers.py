@@ -42,6 +42,7 @@ from zahir.core.exceptions import JobError, JobTimeout
 from bookman.events import Event
 from zahir.core.telemetry import make_telemetry
 from tests.evaluate.mocks import ME, OVERSEER, mock_mcall, mock_mcast
+from tests.shared import drain_to
 
 CTX = CoordinationHandlerContext(overseer=OVERSEER)
 
@@ -49,17 +50,6 @@ REPLY_TO = bytes(ME)
 WORKER_PID = b"worker-pid"
 
 
-def _drive(gen):
-    """Collect all yielded effects from a generator, returning them as a list."""
-    effects = []
-    try:
-        effect = next(gen)
-        while True:
-            effects.append(effect)
-            effect = gen.send(None)
-    except StopIteration:
-        pass
-    return effects
 
 
 # _handle_enqueue
@@ -76,7 +66,7 @@ def test_handle_enqueue_sends_correct_message_to_overseer():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        _drive(
+        drain_to(
             _handle_enqueue(
                 CTX,
                 EEnqueue(
@@ -133,7 +123,7 @@ def test_handle_job_complete_mcasts_storage_job_done_with_result():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        _drive(
+        drain_to(
             _handle_job_complete(
                 CTX, EJobComplete(result="done", reply_to=REPLY_TO, sequence_number=7)
             )
@@ -153,7 +143,7 @@ def test_handle_job_complete_with_none_reply_to():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        _drive(
+        drain_to(
             _handle_job_complete(
                 CTX, EJobComplete(result="done", reply_to=None, sequence_number=None)
             )
@@ -177,7 +167,7 @@ def test_handle_job_fail_routes_error_to_parent_via_overseer():
 
     err = JobError(ValueError("boom"))
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        _drive(
+        drain_to(
             _handle_job_fail(
                 CTX, EJobFail(error=err, reply_to=REPLY_TO, sequence_number=5)
             )
@@ -198,7 +188,7 @@ def test_handle_job_fail_sends_storage_job_failed_for_root_job():
 
     err = JobError(ValueError("boom"))
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        _drive(
+        drain_to(
             _handle_job_fail(
                 CTX, EJobFail(error=err, reply_to=None, sequence_number=None)
             )
@@ -286,7 +276,7 @@ def test_handle_set_semaphore_state_mcasts_storage_set_semaphore():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        _drive(
+        drain_to(
             _handle_set_semaphore_state(
                 CTX, ESetSemaphoreState(name="db", state="impossible")
             )
@@ -327,17 +317,6 @@ def test_make_coordination_handlers_returns_callables():
 # handler_wrappers
 
 
-def _collect(gen):
-    """Drive a generator to completion, collecting yielded values."""
-    values = []
-    try:
-        value = next(gen)
-        while True:
-            values.append(value)
-            value = gen.send(None)
-    except StopIteration:
-        pass
-    return values
 
 
 def test_job_complete_handler_emits_telemetry_with_fn_name():
@@ -353,7 +332,7 @@ def test_job_complete_handler_emits_telemetry_with_fn_name():
     )
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
-        emitted = _collect(handlers[EJobComplete.tag](effect))
+        emitted, _ = drain_to(handlers[EJobComplete.tag](effect))
 
     telemetry = [
         e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)
@@ -377,7 +356,7 @@ def test_job_fail_handler_emits_telemetry_with_fn_name():
     )
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
-        emitted = _collect(handlers[EJobFail.tag](effect))
+        emitted, _ = drain_to(handlers[EJobFail.tag](effect))
 
     telemetry = [
         e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)
@@ -405,7 +384,7 @@ def test_make_coordination_handlers_applies_wrapper_to_is_done():
     handlers = make_coordination_handlers(ctx)
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
-        _collect(handlers[EIsDone.tag](EIsDone()))
+        drain_to(handlers[EIsDone.tag](EIsDone()))
 
     assert EIsDone.tag in emitted
 
@@ -427,11 +406,11 @@ def test_make_coordination_handlers_applies_wrapper_to_all_root_effects():
     handlers = make_coordination_handlers(ctx)
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
-        _collect(handlers[EIsDone.tag](EIsDone()))
+        drain_to(handlers[EIsDone.tag](EIsDone()))
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(None)):
-        _collect(handlers[EGetError.tag](EGetError()))
+        drain_to(handlers[EGetError.tag](EGetError()))
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(None)):
-        _collect(handlers[EGetResult.tag](EGetResult()))
+        drain_to(handlers[EGetResult.tag](EGetResult()))
 
     assert EIsDone.tag in seen_tags
     assert EGetError.tag in seen_tags
@@ -447,7 +426,7 @@ def test_make_coordination_handlers_emits_telemetry_events_for_is_done():
     handlers = make_coordination_handlers(ctx)
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
-        emitted = _collect(handlers[EIsDone.tag](EIsDone()))
+        emitted, _ = drain_to(handlers[EIsDone.tag](EIsDone()))
 
     telemetry = [
         e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)

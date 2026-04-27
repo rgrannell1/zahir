@@ -1,4 +1,4 @@
-from collections.abc import Iterable
+from collections.abc import Generator, Iterable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -52,6 +52,31 @@ def peak_concurrent(intervals: list[Interval]) -> int:
         current += change
         peak = max(peak, current)
     return peak
+
+
+def drain_to(gen: Generator, *types: type, responses: dict | None = None) -> tuple[list, Any]:
+    """Drive gen to StopIteration and return (effects, return_value).
+
+    Sends responses[type(effect)] back into the generator for each yielded effect;
+    sends None for unmapped types. If *types are given, effects is filtered to only
+    those types; otherwise all yielded effects are returned.
+
+    Use this instead of positional next(gen) chains — those break silently when
+    implementation adds or removes intermediate effects.
+    """
+    send_map = responses or {}
+    effects = []
+    return_value = None
+    try:
+        effect = next(gen)
+        while True:
+            effects.append(effect)
+            effect = gen.send(send_map.get(type(effect)))
+    except StopIteration as exc:
+        return_value = exc.value
+    if types:
+        return [e for e in effects if isinstance(e, types)], return_value
+    return effects, return_value
 
 
 def user_events(events_iter: Iterable[Any]) -> list[Any]:

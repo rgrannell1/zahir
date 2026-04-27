@@ -17,6 +17,7 @@ from zahir.core.evaluate.job_handlers import (
 )
 from zahir.core.exceptions import JobError, JobTimeout
 from tests.evaluate.mocks import OVERSEER
+from tests.shared import drain_to
 
 CTX = JobHandlerContext()
 
@@ -39,10 +40,8 @@ def test_handle_acquire_returns_true_and_tracks_name():
     gen = _handle_acquire(
         JobHandlerContext(acquired=acquired), EAcquire(name="workers", limit=4)
     )
-    next(gen)  # EAcquireSlot
-    with pytest.raises(StopIteration) as exc:
-        gen.send(True)
-    assert exc.value.value is True
+    _, return_value = drain_to(gen, responses={EAcquireSlot: True})
+    assert return_value is True
     assert acquired == ["workers"]
 
 
@@ -53,10 +52,8 @@ def test_handle_acquire_returns_false_and_does_not_track():
     gen = _handle_acquire(
         JobHandlerContext(acquired=acquired), EAcquire(name="workers", limit=4)
     )
-    next(gen)  # EAcquireSlot
-    with pytest.raises(StopIteration) as exc:
-        gen.send(False)
-    assert exc.value.value is False
+    _, return_value = drain_to(gen, responses={EAcquireSlot: False})
+    assert return_value is False
     assert acquired == []
 
 
@@ -74,10 +71,8 @@ def test_handle_signal_returns_semaphore_state():
     """Proves _handle_signal returns whatever state the overseer sends back."""
 
     gen = _handle_signal(CTX, EGetSemaphore(name="db"))
-    next(gen)  # ESignal
-    with pytest.raises(StopIteration) as exc:
-        gen.send("satisfied")
-    assert exc.value.value == "satisfied"
+    _, return_value = drain_to(gen, responses={ESignal: "satisfied"})
+    assert return_value == "satisfied"
 
 
 # _handle_set_semaphore

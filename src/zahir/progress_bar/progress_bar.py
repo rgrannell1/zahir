@@ -3,6 +3,7 @@ from collections.abc import Generator, Iterable
 from typing import Any
 
 from bookman.events import Event
+from zahir.core.constants import Phase
 from zahir.progress_bar.progress_bar_service import ProgressBarService
 from zahir.progress_bar.rich_display_service import RichDisplayService
 
@@ -53,7 +54,14 @@ class ZahirProgressBar:
         self._display.refresh(self._service)
 
     def update(self, event: Event) -> None:
-        """Feed a telemetry event into all state components and refresh the display."""
+        """Feed a telemetry event into all state components."""
 
         self._service.update(event)
-        self._display.refresh(self._service)
+        if event.dim("phase") == Phase.ERROR:
+            source = event.dim("fn") or "workflow"
+            self._display.show_error(source, str(event.value))
+
+    def show_error(self, source: str, msg: str) -> None:
+        """Print a persistent error line below the live progress bar."""
+
+        self._display.show_error(source, msg)

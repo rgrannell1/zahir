@@ -7,7 +7,7 @@ from tertius import EEmit, ESleep
 
 from zahir.core.dependencies.semaphore import check_semaphore_dependency, semaphore_dependency
 from zahir.core.effects import EGetSemaphore
-from tests.shared import NOW
+from tests.shared import NOW, drain_to
 
 
 @time_machine.travel(NOW, tick=False)
@@ -48,7 +48,8 @@ def test_unsatisfied_state_yields_sleep():
 
     gen = semaphore_dependency("db")
     next(gen)
-    assert isinstance(gen.send("unsatisfied"), ESleep)
+    gen.send("unsatisfied")  # EEmit(waiting) telemetry before sleep
+    assert isinstance(next(gen), ESleep)
 
 
 @time_machine.travel(NOW, tick=False)
@@ -57,7 +58,8 @@ def test_unsatisfied_then_satisfied_emits_satisfied():
 
     gen = semaphore_dependency("db")
     next(gen)  # EGetSemaphore
-    gen.send("unsatisfied")  # ESleep
+    gen.send("unsatisfied")  # EEmit(waiting)
+    next(gen)  # ESleep
     signal = next(gen)  # next EGetSemaphore
     assert isinstance(signal, EGetSemaphore)
     emit = gen.send("satisfied")
@@ -70,14 +72,14 @@ def test_timeout_emits_impossible():
     with time_machine.travel(NOW, tick=False):
         gen = semaphore_dependency("db", timeout_ms=1000)
         next(gen)  # EGetSemaphore
-        gen.send("unsatisfied")  # ESleep
+        gen.send("unsatisfied")  # EEmit(waiting)
+        next(gen)  # ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        emit = next(gen)
+        emits, _ = drain_to(gen, EEmit)
 
-    assert isinstance(emit, EEmit)
-    assert emit.body[0] == "impossible"
-    assert "db" in emit.body[1]
+    assert emits[0].body[0] == "impossible"
+    assert "db" in emits[0].body[1]
 
 
 def test_timeout_reason_includes_name_and_duration():
@@ -86,14 +88,15 @@ def test_timeout_reason_includes_name_and_duration():
     with time_machine.travel(NOW, tick=False):
         gen = semaphore_dependency("my-semaphore", timeout_ms=5000)
         next(gen)
-        gen.send("unsatisfied")
+        gen.send("unsatisfied")  # EEmit(waiting)
+        next(gen)  # ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=10), tick=False):
-        emit = next(gen)
+        emits, _ = drain_to(gen, EEmit)
 
-    assert emit.body[0] == "impossible"
-    assert "my-semaphore" in emit.body[1]
-    assert "5000" in emit.body[1]
+    assert emits[0].body[0] == "impossible"
+    assert "my-semaphore" in emits[0].body[1]
+    assert "5000" in emits[0].body[1]
 
 
 @time_machine.travel(NOW, tick=False)
@@ -116,9 +119,8 @@ def test_satisfied_returns_tuple_as_generator_value():
     gen = semaphore_dependency("db")
     next(gen)
     emit = gen.send("satisfied")
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    _, return_value = drain_to(gen)
+    assert return_value is emit.body
 
 
 @time_machine.travel(NOW, tick=False)
@@ -128,9 +130,8 @@ def test_impossible_state_returns_tuple_as_generator_value():
     gen = semaphore_dependency("db")
     next(gen)
     emit = gen.send("impossible")
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    _, return_value = drain_to(gen)
+    assert return_value is emit.body
 
 
 # check_semaphore_dependency
@@ -187,11 +188,10 @@ def test_impossible_timeout_returns_tuple_as_generator_value():
     with time_machine.travel(NOW, tick=False):
         gen = semaphore_dependency("db", timeout_ms=1000)
         next(gen)
-        gen.send("unsatisfied")
+        gen.send("unsatisfied")  # EEmit(waiting)
+        next(gen)  # ESleep
 
     with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
-        emit = next(gen)
+        emits, return_value = drain_to(gen, EEmit)
 
-    with pytest.raises(StopIteration) as exc:
-        next(gen)
-    assert exc.value.value is emit.body
+    assert return_value is emits[0].body
