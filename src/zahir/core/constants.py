@@ -2,7 +2,7 @@ from enum import StrEnum
 
 from tertius import EReceive
 
-from zahir.core.exceptions import InvalidEffect, JobError, JobTimeout
+from zahir.core.exceptions import InvalidEffectError, JobError, JobTimeoutError
 
 
 # Lifecycle phase attached to every telemetry event
@@ -46,7 +46,7 @@ class WorkItemTag(StrEnum):
     RESULT = "result"
 
 # Exceptions that evaluate_job throws back into the running job rather than propagating outward
-THROWABLE = (JobTimeout, JobError, InvalidEffect)
+THROWABLE = (JobTimeoutError, JobError, InvalidEffectError)
 
 # Tertius effects that must not be yielded directly by a zahir job — they block the worker process indefinitely
 BLOCKED_EFFECTS = (EReceive,)

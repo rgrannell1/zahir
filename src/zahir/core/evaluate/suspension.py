@@ -7,7 +7,7 @@ from typing import Any
 
 from zahir.core.effects import EAwait, EEnqueue
 from zahir.core.evaluate.job_handlers import JobHandlerContext, _unwrap_reply
-from zahir.core.exceptions import JobError, JobTimeout
+from zahir.core.exceptions import JobError, JobTimeoutError
 
 
 @dataclass
@@ -52,7 +52,7 @@ def _collect_scalar_result(body: Any) -> tuple[Any, Exception | None]:
 
     try:
         return _unwrap_reply(body), None
-    except (JobError, JobTimeout) as exc:
+    except (JobError, JobTimeoutError) as exc:
         return None, exc
 
 
@@ -64,7 +64,7 @@ def _collect_multi_results(job: SuspendedJob) -> tuple[list | None, Exception | 
     for sequence_number in job.result_order:
         try:
             results.append(_unwrap_reply(job.results[sequence_number]))
-        except (JobError, JobTimeout) as exc:
+        except (JobError, JobTimeoutError) as exc:
             if first_error is None:
                 first_error = exc
 

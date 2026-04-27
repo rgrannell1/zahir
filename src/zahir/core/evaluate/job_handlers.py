@@ -14,7 +14,7 @@ from zahir.core.effects import (
     ESignal,
     ZahirCoordinationEffect,
 )
-from zahir.core.exceptions import InvalidEffect, JobError, JobTimeout
+from zahir.core.exceptions import InvalidEffectError, JobError, JobTimeoutError
 from zahir.core.zahir_types import HandlerMap
 
 
@@ -25,7 +25,7 @@ class JobHandlerContext:
 
 
 def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
-    """Drive gen: reject disallowed effects with InvalidEffect, dispatch job-level effects to handlers, bubble the rest."""
+    """Drive gen: reject disallowed effects with InvalidEffectError, dispatch job-level effects to handlers, bubble the rest."""
 
     send_value: Any = None
     pending_throw: Exception | None = None
@@ -38,15 +38,15 @@ def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
             return stop.value
 
         if not hasattr(effect, "tag"):
-            pending_throw = InvalidEffect(f"job yielded non-Effect value: {effect!r}")
+            pending_throw = InvalidEffectError(f"job yielded non-Effect value: {effect!r}")
             continue
         if isinstance(effect, ZahirCoordinationEffect):
-            pending_throw = InvalidEffect(
+            pending_throw = InvalidEffectError(
                 f"{type(effect).__name__} cannot be yielded directly in a job"
             )
             continue
         if isinstance(effect, BLOCKED_EFFECTS):
-            pending_throw = InvalidEffect(
+            pending_throw = InvalidEffectError(
                 f"{type(effect).__name__} cannot be yielded directly in a job"
             )
             continue
@@ -61,7 +61,7 @@ def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
 
 
 def timeout_guard(gen: Generator, deadline: datetime | None) -> Generator:
-    """Wrap gen, injecting JobTimeout into the job if the deadline passes between effects."""
+    """Wrap gen, injecting JobTimeoutError into the job if the deadline passes between effects."""
 
     send_value: Any = None
     pending_throw: Exception | None = None
@@ -74,7 +74,7 @@ def timeout_guard(gen: Generator, deadline: datetime | None) -> Generator:
             return stop.value
 
         if deadline and datetime.now(UTC) >= deadline:
-            pending_throw = JobTimeout()
+            pending_throw = JobTimeoutError()
             continue
 
         try:
@@ -96,7 +96,7 @@ def evaluate_job(
 def _unwrap_reply(body: Any) -> Any:
     """Unwrap the reply from a job, raising appropriate exceptions for timeouts or errors."""
 
-    if isinstance(body, JobTimeout):
+    if isinstance(body, JobTimeoutError):
         raise body
 
     if isinstance(body, JobError):

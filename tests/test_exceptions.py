@@ -1,6 +1,6 @@
 import pytest
 
-from zahir.core.exceptions import JobError, JobTimeout, ZahirError
+from zahir.core.exceptions import JobError, JobTimeoutError, ZahirError
 
 
 def test_zahir_exception_is_exception():
@@ -10,29 +10,29 @@ def test_zahir_exception_is_exception():
 
 
 def test_job_timeout_is_zahir_exception():
-    """Proves JobTimeout is a subclass of ZahirError."""
+    """Proves JobTimeoutError is a subclass of ZahirError."""
 
-    assert issubclass(JobTimeout, ZahirError)
+    assert issubclass(JobTimeoutError, ZahirError)
 
 
 def test_job_timeout_is_catchable_as_zahir_exception():
-    """Proves JobTimeout can be caught via ZahirError."""
+    """Proves JobTimeoutError can be caught via ZahirError."""
 
     with pytest.raises(ZahirError):
-        raise JobTimeout()
+        raise JobTimeoutError()
 
 
 def test_job_timeout_is_catchable_as_exception():
-    """Proves JobTimeout can be caught via the base Exception type."""
+    """Proves JobTimeoutError can be caught via the base Exception type."""
 
     with pytest.raises(Exception):  # noqa: B017
-        raise JobTimeout()
+        raise JobTimeoutError()
 
 
 def test_job_timeout_accepts_message():
-    """Proves JobTimeout preserves a message string."""
+    """Proves JobTimeoutError preserves a message string."""
 
-    exc = JobTimeout("timed out after 5000ms")
+    exc = JobTimeoutError("timed out after 5000ms")
     assert "5000ms" in str(exc)
 
 

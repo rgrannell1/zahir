@@ -7,7 +7,7 @@ from tertius import ESleep
 from tests.shared import NOW, drain_to
 from zahir.core.effects import EAcquire, EAcquireSlot
 from zahir.core.evaluate.job_handlers import JobHandlerContext, evaluate_job
-from zahir.core.exceptions import JobTimeout
+from zahir.core.exceptions import JobTimeoutError
 
 # evaluate_job — return value
 
@@ -39,7 +39,7 @@ def test_evaluate_job_passes_through_unknown_effects():
 
 
 def test_evaluate_job_throws_job_timeout_when_deadline_exceeded():
-    """Proves evaluate_job throws JobTimeout into the job when the deadline passes."""
+    """Proves evaluate_job throws JobTimeoutError into the job when the deadline passes."""
 
     def job():
         yield ESleep(ms=100)
@@ -47,19 +47,19 @@ def test_evaluate_job_throws_job_timeout_when_deadline_exceeded():
 
     with time_machine.travel(NOW, tick=False):
         past_deadline = NOW - timedelta(seconds=1)
-        with pytest.raises(JobTimeout):
+        with pytest.raises(JobTimeoutError):
             drain_to(evaluate_job(job(), JobHandlerContext(), past_deadline))
 
 
 def test_evaluate_job_job_can_catch_job_timeout():
-    """Proves a job that catches JobTimeout can continue executing."""
+    """Proves a job that catches JobTimeoutError can continue executing."""
 
     results = []
 
     def job():
         try:
             yield ESleep(ms=100)
-        except JobTimeout:
+        except JobTimeoutError:
             results.append("caught")
 
     with time_machine.travel(NOW, tick=False):
@@ -70,7 +70,7 @@ def test_evaluate_job_job_can_catch_job_timeout():
 
 
 def test_evaluate_job_no_deadline_never_times_out():
-    """Proves evaluate_job with no deadline never raises JobTimeout."""
+    """Proves evaluate_job with no deadline never raises JobTimeoutError."""
 
     def job():
         for _ in range(5):
@@ -128,7 +128,7 @@ def test_evaluate_job_does_not_track_denied_slots():
 
 
 def test_evaluate_job_propagates_unhandled_exception():
-    """Proves evaluate_job lets non-JobTimeout exceptions propagate to the caller."""
+    """Proves evaluate_job lets non-JobTimeoutError exceptions propagate to the caller."""
 
     def job():
         raise ValueError("unexpected")

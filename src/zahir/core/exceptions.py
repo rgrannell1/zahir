@@ -3,7 +3,7 @@ class ZahirError(Exception):
     pass
 
 
-class JobTimeout(ZahirError):
+class JobTimeoutError(ZahirError):
     pass
 
 
@@ -13,7 +13,7 @@ class JobError(ZahirError):
         super().__init__(str(cause))
 
 
-class InvalidEffect(ZahirError):
+class InvalidEffectError(ZahirError):
     pass
 
 

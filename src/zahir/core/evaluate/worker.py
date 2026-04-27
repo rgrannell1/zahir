@@ -167,7 +167,7 @@ def _handle_running(
     return _Running(job=job, handler_value=handler_value, pending_throw=None)
 
 
-def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
+def _worker_body(_overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
     """Worker main loop — drives jobs step by step, suspending onto a local stack on EAwait."""
 
     me: Pid = yield ESelf()
