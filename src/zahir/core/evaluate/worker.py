@@ -3,6 +3,7 @@
 from collections.abc import Generator
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from functools import partial
 from typing import Any
 
 from orbis import handle
@@ -127,8 +128,26 @@ def _handle_idle(
             return _Idle()
 
 
+def _handle_eawait(
+    suspension: SuspensionTable, me_bytes: bytes, effect: EAwait, job: RunningJob
+) -> Generator[Any, Any, None]:
+    """Suspend the running job and enqueue its child jobs."""
+
+    yield from suspension.suspend(effect, job, me_bytes)
+
+
+def _make_suspension_handlers(suspension: SuspensionTable, me_bytes: bytes) -> dict:
+    """Handler map for effects that suspend the current job, keyed by effect tag.
+
+    Parallels make_coordination_handlers: adding a new suspending effect means
+    registering it here rather than adding an isinstance branch in _handle_running.
+    """
+
+    return {EAwait.tag: partial(_handle_eawait, suspension, me_bytes)}
+
+
 def _handle_running(
-    state: _Running, suspension: SuspensionTable, me_bytes: bytes
+    state: _Running, suspension_handlers: dict
 ) -> Generator[Any, Any, WorkerState]:
     """Advance the current job one step and transition based on the outcome."""
 
@@ -145,8 +164,9 @@ def _handle_running(
         yield from _fail_job(job, exc)
         return _Idle()
 
-    if isinstance(effect, EAwait):
-        yield from suspension.suspend(effect, job, me_bytes)
+    suspend = suspension_handlers.get(effect.tag)
+    if suspend:
+        yield from suspend(effect, job)
         return _Idle()
 
     handler_value = yield effect
@@ -160,6 +180,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
     me_bytes = bytes(me)
 
     suspension = SuspensionTable()
+    suspension_handlers = _make_suspension_handlers(suspension, me_bytes)
     state: WorkerState = _Idle()
 
     while True:
@@ -167,7 +188,7 @@ def _worker_body(overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
             case _Idle():
                 state = yield from _handle_idle(suspension, ctx, me_bytes)
             case _Running():
-                state = yield from _handle_running(state, suspension, me_bytes)
+                state = yield from _handle_running(state, suspension_handlers)
 
 
 def worker(
