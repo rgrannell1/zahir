@@ -5,7 +5,6 @@ from tertius import EEmit
 from zahir.core.dependencies.time import time_dependency
 from zahir.core.evaluate import evaluate
 
-
 PAST = datetime(2000, 1, 1, tzinfo=UTC)
 FUTURE = datetime(2100, 1, 1, tzinfo=UTC)
 

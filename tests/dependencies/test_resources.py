@@ -1,13 +1,14 @@
 from datetime import timedelta
 from unittest.mock import patch
 
-import pytest
 import time_machine
-
 from tertius import EEmit, ESleep
 
-from zahir.core.dependencies.resources import check_resource_dependency, resource_dependency
 from tests.shared import NOW, drain_to
+from zahir.core.dependencies.resources import (
+    check_resource_dependency,
+    resource_dependency,
+)
 
 
 def _low_usage(_resource):
@@ -108,9 +109,8 @@ def test_high_then_low_usage_emits_satisfied():
 
     with patch(
         "zahir.core.dependencies.resources._get_usage", lambda r: next(calls)(r)
-    ):
-        with time_machine.travel(NOW, tick=False):
-            effects, _ = drain_to(resource_dependency("cpu", max_percent=50.0))
+    ), time_machine.travel(NOW, tick=False):
+        effects, _ = drain_to(resource_dependency("cpu", max_percent=50.0))
 
     assert any(isinstance(e, ESleep) for e in effects)
     emits = [e for e in effects if isinstance(e, EEmit)]

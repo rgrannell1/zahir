@@ -1,8 +1,8 @@
 from tertius import EEmit
 
-from zahir.core.evaluate import JobContext, evaluate
-from zahir.core.combinators import wrap
 from tests.shared import user_events
+from zahir.core.combinators import wrap
+from zahir.core.evaluate import JobContext, evaluate
 
 
 def identity(effect):

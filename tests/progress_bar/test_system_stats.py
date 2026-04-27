@@ -1,6 +1,7 @@
 import time
 
-from bookman.events import point, span
+from bookman.events import point
+
 from zahir.core.constants import JobTag, Phase
 from zahir.progress_bar.system_stats_service import SystemStats
 

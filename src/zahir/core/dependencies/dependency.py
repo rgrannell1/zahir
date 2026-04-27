@@ -8,9 +8,9 @@ from typing import Any
 from bookman.events import point
 from tertius import EEmit, ESleep
 
-from zahir.core.constants import DEPENDENCY_DELAY_MS, DependencyState as SS, DependencyTag
-from zahir.core.zahir_types import DependencyResult, Satisfied
+from zahir.core.constants import DEPENDENCY_DELAY_MS, DependencyState, DependencyTag
 from zahir.core.exceptions import ImpossibleError
+from zahir.core.zahir_types import DependencyResult
 
 
 def _waiting_event(label: str) -> object:
@@ -39,15 +39,15 @@ def check(
             outcome if isinstance(outcome, tuple) else (outcome, None)
         )
         if satisfied:
-            result: DependencyResult = (SS.SATISFIED, metadata)
+            result: DependencyResult = (DependencyState.SATISFIED, metadata)
             yield EEmit(result)
             return result
     except ImpossibleError as exc:
-        result = (SS.IMPOSSIBLE, str(exc))
+        result = (DependencyState.IMPOSSIBLE, str(exc))
         yield EEmit(result)
         return result
 
-    result = (SS.IMPOSSIBLE, f"{label} condition not met")
+    result = (DependencyState.IMPOSSIBLE, f"{label} condition not met")
     yield EEmit(result)
     return result
 
@@ -75,7 +75,7 @@ def dependency(
     while True:
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
             result: DependencyResult = (
-                SS.IMPOSSIBLE,
+                DependencyState.IMPOSSIBLE,
                 f"{label} timed out after {timeout_ms}ms",
             )
             yield EEmit(result)
@@ -88,12 +88,12 @@ def dependency(
                 outcome if isinstance(outcome, tuple) else (outcome, None)
             )
             if satisfied:
-                result = (SS.SATISFIED, metadata)
+                result = (DependencyState.SATISFIED, metadata)
                 yield EEmit(result)
                 yield EEmit(_satisfied_event(label))
                 return result
         except ImpossibleError as exc:
-            result = (SS.IMPOSSIBLE, str(exc))
+            result = (DependencyState.IMPOSSIBLE, str(exc))
             yield EEmit(result)
             yield EEmit(_satisfied_event(label))
             return result

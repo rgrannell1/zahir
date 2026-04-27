@@ -3,7 +3,7 @@ from dataclasses import dataclass, field
 from functools import partial, reduce
 from typing import Any
 
-from tertius import ESleep, Pid, mcall, mcast
+from tertius import Pid, mcall, mcast
 
 from zahir.core.effects import (
     EAcquireSlot,

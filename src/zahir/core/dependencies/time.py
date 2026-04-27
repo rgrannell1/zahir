@@ -5,15 +5,15 @@ from functools import partial
 from typing import Any
 
 from zahir.core.dependencies.dependency import check, dependency
-from zahir.core.zahir_types import DependencyResult
 from zahir.core.exceptions import ImpossibleError
+from zahir.core.zahir_types import DependencyResult
 
 
 def _time_condition(
     before: datetime | None,
     after: datetime | None,
 ) -> Generator[Any, Any, Any]:
-    """Returns True if now is within the time window, False if after hasn't arrived, raises ImpossibleError if before has passed."""
+    """Returns True if now is within the time window, False if after hasn't arrived, raises ImpossibleError if before has passed."""  # noqa: E501
     now = datetime.now(tz=UTC)
 
     if before is not None and now >= before:
@@ -21,10 +21,7 @@ def _time_condition(
             f"too late: now={now.isoformat()}, before={before.isoformat()}"
         )
 
-    if after is not None and now < after:
-        return False
-
-    return True
+    return not (after is not None and now < after)
     yield
 
 

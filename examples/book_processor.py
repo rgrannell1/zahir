@@ -1,13 +1,12 @@
 import pathlib
 from collections.abc import Generator
-from typing import Any
+from typing import Any, ClassVar
 
 from tertius import EEmit
 
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.progress_bar.progress_bar import with_progress
 from zahir.progress_bar.telemetry import make_telemetry
-
 
 FILE_PATH = pathlib.Path(__file__).parent / "warandpeace.txt"
 CHUNK_SIZE = 200  # lines per chapter
@@ -62,7 +61,7 @@ _SCOPE = {
 
 
 class BookContext(JobContext):
-    handler_wrappers = [make_telemetry()]
+    handler_wrappers: ClassVar[list] = [make_telemetry()]
 
 
 if __name__ == "__main__":

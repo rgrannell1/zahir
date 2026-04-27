@@ -3,8 +3,8 @@ from orbis import Effect, Event
 from zahir.core.effects import (
     EAcquire,
     EAwait,
-    ESetSemaphore,
     EGetSemaphore,
+    ESetSemaphore,
     JobSpec,
 )
 

@@ -2,7 +2,7 @@
 import os
 
 from bookman.bookman_types import Message
-from bookman.events import point, span, Event, Dims
+from bookman.events import Dims, Event, point, span
 
 from zahir.core.constants import JobTag, Phase
 

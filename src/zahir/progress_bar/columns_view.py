@@ -1,7 +1,6 @@
 from rich.progress import ProgressColumn
 from rich.text import Text
 
-
 _BAR_WIDTH = 28
 
 _STATUS_STYLES = {

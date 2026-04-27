@@ -4,13 +4,12 @@ import os
 import time
 
 import pytest
-
 from tertius import EEmit, ESleep
 
+from tests.shared import peak_concurrent, user_events
 from zahir.core.dependencies.resources import check_resource_dependency
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
-from tests.shared import peak_concurrent, user_events
 
 _N_WORKERS = 10
 _N_JOBS = 10

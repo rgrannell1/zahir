@@ -1,6 +1,6 @@
 import socket
-import pytest
 
+import pytest
 
 RESET = "\033[0m"
 

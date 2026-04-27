@@ -1,5 +1,5 @@
-import pytest
 
+from tests.shared import drain_to
 from zahir.core.effects import (
     EAcquire,
     EAcquireSlot,
@@ -15,9 +15,6 @@ from zahir.core.evaluate.job_handlers import (
     _handle_signal,
     make_job_handlers,
 )
-from zahir.core.exceptions import JobError, JobTimeout
-from tests.evaluate.mocks import OVERSEER
-from tests.shared import drain_to
 
 CTX = JobHandlerContext()
 
@@ -89,7 +86,7 @@ def test_handle_set_semaphore_yields_eset_semaphore_state():
 
 
 def test_make_handlers_contains_all_effect_types():
-    """Proves make_handlers returns entries for all handled effect types. EAwait/EAwaitAll are handled by the worker body, not here."""
+    """Proves make_handlers returns entries for all handled effect types. EAwait/EAwaitAll are handled by the worker body, not here."""  # noqa: E501
 
     handlers = make_job_handlers(JobHandlerContext())
     assert set(handlers.keys()) == {

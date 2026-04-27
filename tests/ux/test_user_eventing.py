@@ -1,7 +1,7 @@
 from tertius import EEmit
 
-from zahir.core.evaluate import evaluate
 from tests.shared import user_events
+from zahir.core.evaluate import evaluate
 
 
 def emitting_job(ctx):

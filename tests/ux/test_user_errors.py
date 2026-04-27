@@ -1,10 +1,9 @@
+import pytest
 from tertius import EEmit
 
-import pytest
-
+from tests.shared import user_events
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import JobError
-from tests.shared import user_events
 
 
 def crashing_job(ctx: JobContext):

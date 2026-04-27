@@ -2,7 +2,6 @@ import time
 from collections import deque
 
 import psutil
-
 from bookman.events import Event
 
 from zahir.core.constants import JobTag, Phase

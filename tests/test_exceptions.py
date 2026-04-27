@@ -1,31 +1,31 @@
 import pytest
 
-from zahir.core.exceptions import JobError, JobTimeout, ZahirException
+from zahir.core.exceptions import JobError, JobTimeout, ZahirError
 
 
 def test_zahir_exception_is_exception():
-    """Proves ZahirException is a subclass of Exception."""
+    """Proves ZahirError is a subclass of Exception."""
 
-    assert issubclass(ZahirException, Exception)
+    assert issubclass(ZahirError, Exception)
 
 
 def test_job_timeout_is_zahir_exception():
-    """Proves JobTimeout is a subclass of ZahirException."""
+    """Proves JobTimeout is a subclass of ZahirError."""
 
-    assert issubclass(JobTimeout, ZahirException)
+    assert issubclass(JobTimeout, ZahirError)
 
 
 def test_job_timeout_is_catchable_as_zahir_exception():
-    """Proves JobTimeout can be caught via ZahirException."""
+    """Proves JobTimeout can be caught via ZahirError."""
 
-    with pytest.raises(ZahirException):
+    with pytest.raises(ZahirError):
         raise JobTimeout()
 
 
 def test_job_timeout_is_catchable_as_exception():
     """Proves JobTimeout can be caught via the base Exception type."""
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017
         raise JobTimeout()
 
 
@@ -37,9 +37,9 @@ def test_job_timeout_accepts_message():
 
 
 def test_job_error_is_zahir_exception():
-    """Proves JobError is a subclass of ZahirException."""
+    """Proves JobError is a subclass of ZahirError."""
 
-    assert issubclass(JobError, ZahirException)
+    assert issubclass(JobError, ZahirError)
 
 
 def test_job_error_wraps_cause():
@@ -58,7 +58,7 @@ def test_job_error_str_reflects_cause():
 
 
 def test_job_error_is_catchable_as_zahir_exception():
-    """Proves JobError can be caught via ZahirException."""
+    """Proves JobError can be caught via ZahirError."""
 
-    with pytest.raises(ZahirException):
+    with pytest.raises(ZahirError):
         raise JobError(RuntimeError("boom"))

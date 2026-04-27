@@ -4,8 +4,8 @@ from functools import partial
 from typing import Any
 
 from zahir.core.dependencies.dependency import dependency
-from zahir.core.zahir_types import DependencyResult
 from zahir.core.effects import EAcquire
+from zahir.core.zahir_types import DependencyResult
 
 
 def _concurrency_condition(name: str, limit: int) -> Generator[Any, Any, Any]:

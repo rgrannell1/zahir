@@ -91,7 +91,7 @@ def _telemetry_fn(effect):
         result = yield
         end = time.time()
         yield from _success_teardown(effect, span_id, start, end, job_id, result)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         yield from _error_teardown(effect, span_id, start, exc)
 
 

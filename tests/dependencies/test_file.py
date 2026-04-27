@@ -1,12 +1,15 @@
-import tempfile
 import pathlib
+import tempfile
 
 import pytest
-
 from tertius import EEmit, ESleep
 
-from zahir.core.dependencies.file import _file_condition, check_file_dependency, file_dependency
 from tests.shared import drain_to
+from zahir.core.dependencies.file import (
+    _file_condition,
+    check_file_dependency,
+    file_dependency,
+)
 
 
 def test_existing_file_emits_satisfied():

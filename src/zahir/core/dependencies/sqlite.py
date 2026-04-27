@@ -6,10 +6,10 @@ from contextlib import closing
 from functools import partial
 from typing import Any
 
-from zahir.core.constants import DependencyState as SS
+from zahir.core.constants import DependencyState
 from zahir.core.dependencies.dependency import check, dependency
-from zahir.core.zahir_types import DependencyResult
 from zahir.core.exceptions import ImpossibleError
+from zahir.core.zahir_types import DependencyResult
 
 _DEFAULT_TIMEOUT_SECONDS = 5.0
 _BUSY_TIMEOUT_MS = 5000
@@ -55,7 +55,7 @@ def _query(
 
 def _parse_status(raw: str) -> str:
     status = raw.lower().strip()
-    if status not in {SS.SATISFIED, SS.UNSATISFIED, SS.IMPOSSIBLE}:
+    if status not in {DependencyState.SATISFIED, DependencyState.UNSATISFIED, DependencyState.IMPOSSIBLE}:
         raise ValueError(f"invalid status value: {status!r}")
     return status
 
@@ -66,7 +66,7 @@ def _sqlite_condition(
     params: tuple[Any, ...] | None,
     timeout_seconds: float,
 ) -> Generator[Any, Any, Any]:
-    """Returns (True, metadata) if the query returns rows (or a satisfied status), False if not yet, raises ImpossibleError if impossible."""
+    """Returns (True, metadata) if the query returns rows (or a satisfied status), False if not yet, raises ImpossibleError if impossible."""  # noqa: E501
     metadata = {
         "db_path": db_path,
         "query": query,
@@ -80,10 +80,10 @@ def _sqlite_condition(
 
     if len(row) == 1 and column_names == ["status"]:
         status = _parse_status(row[0])
-        if status == SS.UNSATISFIED:
+        if status == DependencyState.UNSATISFIED:
             return False
 
-        if status == SS.IMPOSSIBLE:
+        if status == DependencyState.IMPOSSIBLE:
             raise ImpossibleError(f"status=impossible for query against {db_path}")
 
     return (True, metadata)

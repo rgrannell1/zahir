@@ -1,9 +1,9 @@
 from tertius import EEmit, ESleep
 
+from tests.shared import user_events
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import JobError
-from tests.shared import user_events
 
 
 def double(ctx: JobContext, value: int):

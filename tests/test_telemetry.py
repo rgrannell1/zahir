@@ -1,10 +1,10 @@
 import pytest
 from tertius import EEmit
 
+from tests.shared import drain_to
+from zahir.core.combinators import wrap
 from zahir.core.effects import EAwait
 from zahir.core.zahir_types import JobSpec
-from zahir.core.combinators import wrap
-from tests.shared import drain_to
 
 
 def _make_handler(return_value):
@@ -181,7 +181,7 @@ def test_wrap_throws_exception_into_fn_teardown():
     def fn(effect):
         try:
             yield  # seam — throw lands here on handler exception
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             errors.append(str(exc))
 
     wrapped = wrap(fn)(_make_raising_handler(ValueError("boom")))
@@ -199,7 +199,7 @@ def test_wrap_propagates_teardown_yields_on_exception():
     def fn(effect):
         try:
             yield  # seam — throw lands here
-        except Exception:
+        except Exception:  # noqa: BLE001
             yield EEmit("error_event")
 
     gen = wrap(fn)(_make_raising_handler(ValueError("boom")))(

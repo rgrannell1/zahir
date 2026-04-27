@@ -79,7 +79,7 @@ def timeout_guard(gen: Generator, deadline: datetime | None) -> Generator:
 
         try:
             send_value = yield effect
-        except Exception as err:
+        except Exception as err:  # noqa: BLE001
             send_value = None
             pending_throw = err
 

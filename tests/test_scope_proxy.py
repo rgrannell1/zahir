@@ -1,8 +1,8 @@
 from tertius import EEmit
 
-from zahir.core.evaluate import evaluate, JobContext
-from zahir.core.scope_proxy import ScopeProxy
 from tests.shared import user_events
+from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.scope_proxy import ScopeProxy
 
 
 def child_job(ctx: JobContext, value: int):
@@ -50,7 +50,7 @@ def test_scope_proxy_raises_attribute_error_for_unknown_job():
 
     proxy = ScopeProxy({})
     with pytest.raises(AttributeError, match="no job named"):
-        proxy.missing_job
+        proxy.missing_job  # noqa: B018
 
 
 def test_scope_proxy_dispatches_typed_await():

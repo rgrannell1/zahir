@@ -3,12 +3,11 @@ import tempfile
 from itertools import islice
 
 import pytest
-
 from tertius import EEmit, ESleep
 
+from tests.shared import drain_to
 from zahir.core.dependencies.dependency import ImpossibleError
 from zahir.core.dependencies.sqlite import _sqlite_condition, sqlite_dependency
-from tests.shared import drain_to
 
 
 def _make_db(rows: list[tuple]) -> str:

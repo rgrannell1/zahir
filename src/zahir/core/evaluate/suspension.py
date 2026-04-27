@@ -105,7 +105,7 @@ class SuspensionTable:
         self.waiting[parent_key] = SuspendedJob.from_job(job, child_sequence_numbers, effect)
 
     def resume(self, work: tuple) -> tuple[RunningJob, Any, Exception | None] | None:
-        """Record a child result. Returns (job, handler_value, pending_throw) when all children are done, None if still waiting."""
+        """Record a child result. Returns (job, handler_value, pending_throw) when all children are done, None if still waiting."""  # noqa: E501
 
         _, child_sequence_number, body = work
         parent_key = self.child_to_parent.pop(child_sequence_number)

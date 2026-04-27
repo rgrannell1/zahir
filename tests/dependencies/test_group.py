@@ -1,8 +1,8 @@
 from tertius import EEmit, ESleep
 
+from tests.shared import drain_to
 from zahir.core.dependencies.dependency import ImpossibleError, dependency
 from zahir.core.dependencies.group import group_dependency
-from tests.shared import drain_to
 
 
 def _always_satisfied():

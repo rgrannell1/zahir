@@ -9,7 +9,6 @@ from zahir.progress_bar.dep_labels import short_label
 from zahir.progress_bar.descriptions_view import job_description
 from zahir.progress_bar.progress_bar_state_model import JobStats, ProgressBarState
 
-
 # --- event factories ---
 
 

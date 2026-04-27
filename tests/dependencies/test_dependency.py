@@ -1,13 +1,10 @@
 from datetime import timedelta
 
-import pytest
 import time_machine
-
 from tertius import EEmit, ESleep
 
-from zahir.core.dependencies.dependency import ImpossibleError, check, dependency
 from tests.shared import NOW, drain_to
-
+from zahir.core.dependencies.dependency import ImpossibleError, check, dependency
 
 # condition returns True immediately
 

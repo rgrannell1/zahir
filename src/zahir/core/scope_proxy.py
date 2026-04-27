@@ -22,7 +22,7 @@ class ScopeProxy:
         try:
             fn = self._scope[name]
         except KeyError:
-            raise AttributeError(f"no job named {name!r} in scope")
+            raise AttributeError(f"no job named {name!r} in scope") from None
 
         # the function signature, minus context
         params = list(inspect.signature(fn).parameters.values())[1:]  # strip ctx

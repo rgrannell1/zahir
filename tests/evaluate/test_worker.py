@@ -1,16 +1,13 @@
 from datetime import timedelta
+
 import pytest
 import time_machine
-
 from tertius import ESleep
 
-from zahir.core.effects import EAcquire, EAcquireSlot
-from zahir.core.evaluate.job_handlers import JobHandlerContext
-from zahir.core.evaluate.job_handlers import evaluate_job
-from zahir.core.exceptions import JobError, JobTimeout
-from tests.evaluate.mocks import OVERSEER
 from tests.shared import NOW, drain_to
-
+from zahir.core.effects import EAcquire, EAcquireSlot
+from zahir.core.evaluate.job_handlers import JobHandlerContext, evaluate_job
+from zahir.core.exceptions import JobTimeout
 
 # evaluate_job — return value
 
@@ -88,7 +85,7 @@ def test_evaluate_job_no_deadline_never_times_out():
 
 def _drive_with_acquire_result(gen, granted: bool):
     """Drive evaluate_job, intercepting EAcquireSlot and feeding back the granted value."""
-    effects, value = [], None
+    effects, _value = [], None
     try:
         effect = next(gen)
         while True:

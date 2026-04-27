@@ -1,10 +1,9 @@
 import pytest
-
 from tertius import EEmit, EReceive
 
+from tests.shared import user_events
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import InvalidEffect
-from tests.shared import user_events
 
 
 def job_yielding_non_effect(ctx: JobContext):

@@ -1,13 +1,15 @@
 """UX tests proving the progress bar counts jobs correctly via telemetry."""
 
+import contextlib
+
+from bookman.events import Event
+
+from tests.ux.test_user_mirror_workflow import BASE_SCOPE
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import JobError
-from bookman.events import Event
-from zahir.progress_bar.progress_bar_state_model import ProgressBarState
 from zahir.core.telemetry import make_telemetry
-
-from tests.ux.test_user_mirror_workflow import BASE_SCOPE
+from zahir.progress_bar.progress_bar_state_model import ProgressBarState
 
 
 def _collect_state(fn_name, args, scope) -> ProgressBarState:
@@ -71,7 +73,7 @@ def bomb_job(ctx: JobContext):
 
 def mixed_root(ctx: JobContext):
     """Fan out to 2 ok jobs and 1 failing job, swallow the error."""
-    try:
+    with contextlib.suppress(JobError):
         yield EAwait(
             [
                 ctx.scope.ok_job(1),
@@ -79,8 +81,6 @@ def mixed_root(ctx: JobContext):
                 ctx.scope.ok_job(2),
             ]
         )
-    except JobError:
-        pass
 
 
 MIXED_SCOPE = {

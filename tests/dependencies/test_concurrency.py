@@ -1,14 +1,11 @@
 from datetime import timedelta
 
-import pytest
 import time_machine
-
 from tertius import EEmit, ESleep
 
+from tests.shared import NOW, drain_to
 from zahir.core.dependencies.concurrency import concurrency_dependency
 from zahir.core.effects import EAcquire
-from tests.shared import NOW, drain_to
-
 
 # concurrency_dependency — first yield
 

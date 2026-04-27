@@ -1,20 +1,21 @@
 from collections.abc import Generator, Sequence
 from typing import Any
 
-from orbis import handle, HandlerDict
+from orbis import HandlerDict, handle
 from tertius import EEmit, ESleep, ESpawn, Pid, Scope, mcast, run
 
 from zahir.core.backends.memory import make_memory_storage_handlers
 from zahir.core.constants import COMPLETION_POLL_MS
 from zahir.core.effects import EGetError, EGetResult, EIsDone, EStorageInitialize
-
 from zahir.core.evaluate.coordination_handlers import (
     CoordinationHandlerContext,
     make_coordination_handlers,
 )
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.worker import worker
-from zahir.core.zahir_types import JobContext  # re-exported; canonical definition is in zahir_types
+from zahir.core.zahir_types import (
+    JobContext as JobContext,  # re-exported; canonical definition is in zahir_types
+)
 
 
 def _poll_completion() -> Generator[Any, Any, None]:
@@ -68,10 +69,12 @@ def evaluate(
     n_workers: int = 4,
     user_context=None,
     handler_wrappers: Sequence = [],
-    handlers: HandlerDict = {},
+    handlers: HandlerDict = None,
     storage_handlers: HandlerDict = None,
 ) -> Generator[Any, None, None]:
     # make sure we have the function in scope
+    if handlers is None:
+        handlers = {}
     if fn_name not in scope:
         raise KeyError(f"job {fn_name!r} not found in scope")
 

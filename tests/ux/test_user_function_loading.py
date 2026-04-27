@@ -1,9 +1,8 @@
 import pytest
-
 from tertius import EEmit
 
-from zahir.core.evaluate import evaluate
 from tests.shared import user_events
+from zahir.core.evaluate import evaluate
 
 
 def module_level_job(ctx):
@@ -23,5 +22,5 @@ def test_locally_defined_job_raises_not_hangs():
     def local_job():
         yield EEmit("ok")
 
-    with pytest.raises(Exception):
+    with pytest.raises(Exception):  # noqa: B017
         list(evaluate("job", (), {"job": local_job}, n_workers=1))

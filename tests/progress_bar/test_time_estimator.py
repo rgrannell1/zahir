@@ -1,6 +1,11 @@
 from bookman.events import point, span
+
 from zahir.core.constants import JobTag, Phase
-from zahir.progress_bar.progress_bar_service import ProgressBarService, eta_remaining_ms, format_ms
+from zahir.progress_bar.progress_bar_service import (
+    ProgressBarService,
+    eta_remaining_ms,
+    format_ms,
+)
 from zahir.progress_bar.progress_bar_state_model import JobStats
 
 
@@ -70,7 +75,7 @@ def test_format_eta_multiplies_count_by_mean():
         _lifecycle("job_a", 10_000.0),
         _start("job_a", job_id="j1"),
         _start("job_a", job_id="j2"),
-        _start("job_a", job_id="j3"),   # 3 in-flight × 10s = 30s
+        _start("job_a", job_id="j3"),   # 3 in-flight x 10s = 30s
     )
     assert svc.format_eta() == "00:00:30"
 
@@ -116,7 +121,7 @@ def test_format_eta_uses_partial_data_when_some_types_have_no_history():
     """Proves ETA renders using job types with history, skipping those without."""
     svc = _service(
         _lifecycle("job_a", 30_000.0),
-        _start("job_a", job_id="j1"),   # 1 in-flight × 30s = 30s
+        _start("job_a", job_id="j1"),   # 1 in-flight x 30s = 30s
         _start("job_b", job_id="j2"),   # no lifecycle data yet — skipped
     )
     assert svc.format_eta() == "00:00:30"

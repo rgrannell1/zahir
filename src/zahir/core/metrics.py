@@ -3,7 +3,16 @@
 from collections.abc import Generator, Iterable
 from functools import partial
 
-from bookman.aggregators import Aggregator, count_distinct, filter_events, group_by, map_extract, mean, stream_group_by, zip_all
+from bookman.aggregators import (
+    Aggregator,
+    count_distinct,
+    filter_events,
+    group_by,
+    map_extract,
+    mean,
+    stream_group_by,
+    zip_all,
+)
 from bookman.events import Event
 
 from zahir.core.constants import JobTag, Phase

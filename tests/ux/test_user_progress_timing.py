@@ -2,11 +2,11 @@
 
 import re
 
-from tertius import ESleep
 from bookman.events import Event
+from tertius import ESleep
 
 from zahir.core.effects import EAwait
-from zahir.core.evaluate import evaluate, JobContext
+from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.telemetry import make_telemetry
 from zahir.progress_bar.progress_bar_service import ProgressBarService
 

@@ -7,10 +7,9 @@ gracefully, and conditionally dispatches a final step.
 
 from tertius import EEmit
 
+from tests.shared import user_events
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
-from tests.shared import user_events
-
 
 # --- mock leaf jobs (no-ops that mirror real job signatures) ---
 
@@ -129,7 +128,7 @@ def mirror_workflow(ctx: JobContext, input: dict):
                 "photos_markdown_path": input.get("photos_markdown_path"),
             }
         )
-    except Exception as err:
+    except Exception as err:  # noqa: BLE001
         print(f"WARNING: scan_media failed, continuing to publish: {err}")
 
     yield ctx.scope.upload_media(

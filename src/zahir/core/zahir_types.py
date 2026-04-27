@@ -2,8 +2,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from zahir.core.constants import DependencyState
-
 
 class JobContext[T]:
     """Context object passed as the first argument to every job function.

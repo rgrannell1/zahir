@@ -2,8 +2,8 @@ from dataclasses import dataclass
 
 from tertius import EEmit
 
-from zahir.core.evaluate import evaluate, JobContext
 from tests.shared import user_events
+from zahir.core.evaluate import JobContext, evaluate
 
 
 @dataclass

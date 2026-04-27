@@ -28,7 +28,7 @@ def _drive_teardown(gen, exc_caught, result) -> Generator[Any, Any, None]:
             yielded = gen.send(sent)
     except StopIteration:
         pass
-    except Exception:
+    except Exception:  # noqa: BLE001
         pass
 
 
@@ -49,7 +49,7 @@ def _wrap_call(fn, handler, effect) -> Generator[Any, Any, Any]:
     result = None
     try:
         result = yield from handler(effect)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         exc_caught = exc
 
     yield from _drive_teardown(gen, exc_caught, result)

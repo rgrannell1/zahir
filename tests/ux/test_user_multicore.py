@@ -2,14 +2,14 @@
 
 import os
 
-from tertius import EEmit, ESleep
 from bookman.events import Event
+from tertius import EEmit, ESleep
 
+from tests.shared import user_events
+from zahir.core.constants import JobTag, Phase
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.telemetry import make_telemetry
-from zahir.core.constants import JobTag, Phase
-from tests.shared import user_events
 
 _N_WORKERS = 4
 _N_JOBS = 8  # more jobs than workers so at least two workers must be used

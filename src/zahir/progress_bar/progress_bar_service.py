@@ -13,7 +13,7 @@ def format_ms(ms: float) -> str:
 
 
 def eta_remaining_ms(jobs: dict[str, JobStats], mean_cores: float) -> float | None:
-    """Sum (in-flight count × mean duration) across all job types, divided by mean active cores."""
+    """Sum (in-flight count x mean duration) across all job types, divided by mean active cores."""
 
     candidates = [
         (in_flight, stats.mean_ms)

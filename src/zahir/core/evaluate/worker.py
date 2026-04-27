@@ -26,7 +26,7 @@ from zahir.core.evaluate.job_handlers import (
     evaluate_job,
 )
 from zahir.core.evaluate.suspension import RunningJob, SuspensionTable
-from zahir.core.exceptions import JobError, ZahirException
+from zahir.core.exceptions import JobError, ZahirError
 from zahir.core.scope_proxy import ScopeProxy
 from zahir.core.zahir_types import JobContext
 
@@ -52,10 +52,7 @@ def _build_job(work: tuple, ctx: Any) -> RunningJob:
     """Construct a RunningJob from a dequeued job work item."""
 
     _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
-    if timeout_ms:
-        deadline = datetime.now(UTC) + timedelta(milliseconds=timeout_ms)
-    else:
-        deadline = None
+    deadline = datetime.now(UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms else None
     job_context = JobHandlerContext(handler_wrappers=ctx.handler_wrappers)
     eval_gen = evaluate_job(ctx._scope[fn_name](ctx, *args), job_context, deadline)
 
@@ -86,7 +83,7 @@ def _fail_job(job: RunningJob, exc: Exception) -> Generator[Any, Any, None]:
 
     for name in job.context.acquired:
         yield ERelease(name=name)
-    error = exc if isinstance(exc, ZahirException) else JobError(exc)
+    error = exc if isinstance(exc, ZahirError) else JobError(exc)
     yield EJobFail(
         error=error,
         reply_to=job.reply_to,
@@ -153,14 +150,11 @@ def _handle_running(
 
     job = state.job
     try:
-        if state.pending_throw:
-            effect = job.eval_gen.throw(state.pending_throw)
-        else:
-            effect = job.eval_gen.send(state.handler_value)
+        effect = job.eval_gen.throw(state.pending_throw) if state.pending_throw else job.eval_gen.send(state.handler_value)
     except StopIteration as exc:
         yield from _complete_job(job, exc.value)
         return _Idle()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001
         yield from _fail_job(job, exc)
         return _Idle()
 

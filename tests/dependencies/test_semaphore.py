@@ -1,13 +1,14 @@
 from datetime import timedelta
 
-import pytest
 import time_machine
-
 from tertius import EEmit, ESleep
 
-from zahir.core.dependencies.semaphore import check_semaphore_dependency, semaphore_dependency
-from zahir.core.effects import EGetSemaphore
 from tests.shared import NOW, drain_to
+from zahir.core.dependencies.semaphore import (
+    check_semaphore_dependency,
+    semaphore_dependency,
+)
+from zahir.core.effects import EGetSemaphore
 
 
 @time_machine.travel(NOW, tick=False)

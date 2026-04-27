@@ -1,12 +1,10 @@
 from itertools import islice
 
-import pytest
 import time_machine
-
 from tertius import EEmit, ESleep
 
-from zahir.core.dependencies.time import check_time_dependency, time_dependency
 from tests.shared import FUTURE, NOW, PAST, drain_to
+from zahir.core.dependencies.time import check_time_dependency, time_dependency
 
 
 @time_machine.travel(NOW, tick=False)
