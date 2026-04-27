@@ -19,6 +19,8 @@ class JobTag(StrEnum):
     JOB_FAIL = "job_fail"
     # emitted when a worker picks up a new job — carries the correct executing-worker pid
     EXECUTE = "job:execute"
+    # span event covering full job lifetime from enqueue to completion, for duration aggregation
+    JOB_LIFECYCLE = "job_lifecycle"
 
 DEPENDENCY_DELAY_MS = 5_000
 WORKER_POLL_MS = 100

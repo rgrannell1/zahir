@@ -12,3 +12,4 @@ events.md
 .claude/commands/*
 .claude/commands
 build/*
+logs/

@@ -3,7 +3,7 @@ import os
 
 from bookman.events import point, span, Event, Dims
 
-from zahir.core.constants import Phase
+from zahir.core.constants import JobTag, Phase
 
 
 def get_fn_name(effect) -> str | None:
@@ -67,5 +67,12 @@ def end_effect_error_telemetry(effect, span_id: str, start: float, end: float, e
 
     dims = base_dimensions(effect, span_id) | {"phase": [Phase.ERROR]}
     return span(dims, at=start, until=end, value=error)
+
+
+def job_lifecycle_span(effect, job_id: str, enqueued_at: float, completed_at: float) -> Event:
+    """Span event covering the full job lifetime from enqueue to completion."""
+
+    dims = base_dimensions(effect, job_id) | {"tag": [JobTag.JOB_LIFECYCLE]}
+    return span(dims, at=enqueued_at, until=completed_at)
 
 

@@ -3,8 +3,10 @@
 from collections.abc import Generator, Iterable
 from functools import partial
 
-from bookman.aggregators import count_distinct, filter_events, group_by, stream_group_by
+from bookman.aggregators import Aggregator, count_distinct, filter_events, group_by, mean, stream_group_by, zip_all
 from bookman.events import Event
+
+from zahir.core.constants import JobTag, Phase
 
 
 def has_fn(ev: Event) -> bool:
@@ -21,6 +23,77 @@ def get_pid(ev: Event) -> str:
     """Extract the worker pid dimension from an event."""
 
     return ev.dim("pid")
+
+
+def get_fn(ev: Event) -> str:
+    """Extract the fn_name dimension from an event."""
+
+    return ev.dim("fn")
+
+
+def get_job_id(ev: Event) -> str:
+    """Extract the job_id dimension from an event."""
+
+    return ev.dim("job_id")
+
+
+def is_enqueue_start(ev: Event) -> bool:
+    """True when a job has been enqueued and is about to start."""
+
+    return ev.dim("tag") == JobTag.ENQUEUE and ev.dim("phase") == Phase.START
+
+
+def is_job_complete(ev: Event) -> bool:
+    """True when a job has completed successfully."""
+
+    return ev.dim("tag") == JobTag.JOB_COMPLETE and ev.dim("phase") == Phase.END
+
+
+def is_job_fail(ev: Event) -> bool:
+    """True when a job has failed."""
+
+    return ev.dim("tag") == JobTag.JOB_FAIL and ev.dim("phase") == Phase.END
+
+
+def job_stats_agg() -> Aggregator:
+    """Aggregator producing [total, completed, failed] counts for a single fn_name.
+
+    Use with stream_group_by(get_fn, job_stats_agg(), events) to get per-fn counts.
+    total counts enqueue:start events; completed and failed count their respective end events.
+    """
+
+    return zip_all([
+        filter_events(is_enqueue_start, count_distinct(get_job_id)),
+        filter_events(is_job_complete, count_distinct(get_job_id)),
+        filter_events(is_job_fail, count_distinct(get_job_id)),
+    ])
+
+
+def is_job_lifecycle(ev: Event) -> bool:
+    """True for job_lifecycle span events, which carry the full enqueue-to-completion duration."""
+
+    return ev.dim("tag") == JobTag.JOB_LIFECYCLE
+
+
+def get_duration_ms(ev: Event) -> float:
+    """Extract event duration in milliseconds."""
+
+    return ev.duration("ms")
+
+
+def job_duration_mean_agg() -> Aggregator:
+    """Mean job duration (ms) per fn, from the job_lifecycle span events emitted by telemetry."""
+
+    return filter_events(is_job_lifecycle, mean(get_duration_ms))
+
+
+def per_fn_progress_agg() -> Aggregator:
+    """Combined per-fn aggregator producing [[total, completed, failed], mean_ms].
+
+    Use with stream_group_by(get_fn, per_fn_progress_agg(), events).
+    """
+
+    return zip_all([job_stats_agg(), job_duration_mean_agg()])
 
 
 def active_pids_agg():

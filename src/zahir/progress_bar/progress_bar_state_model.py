@@ -1,8 +1,10 @@
 from dataclasses import dataclass
+from typing import Any
 
 from bookman.events import Event
 
 from zahir.core.constants import DependencyTag, JobTag, Phase
+from zahir.core.metrics import job_stats_agg
 
 
 @dataclass
@@ -35,25 +37,22 @@ def record_waiting_state(pid_waiting: dict[int, str], pid: int, tag: str, dep: s
         pid_waiting.pop(pid, None)
 
 
-def record_job_stats(stats: JobStats, tag: str, phase: str) -> None:
-    """Increment the appropriate counter on the job stats struct."""
-    if tag == JobTag.JOB_COMPLETE and phase == Phase.END:
-        stats.completed += 1
-    elif tag == JobTag.JOB_FAIL and phase == Phase.END:
-        stats.failed += 1
-    elif tag == JobTag.ENQUEUE and phase == Phase.START:
-        stats.total += 1
-        stats.started += 1
+def extract_job_stats(agg, acc: Any) -> JobStats:
+    """Extract a JobStats from a job_stats_agg accumulator."""
+    total, completed, failed = agg.extract(acc)
+    return JobStats(total=total, started=total, completed=completed, failed=failed)
 
 
 class ProgressBarState:
     def __init__(self):
-        self.jobs: dict[str, JobStats] = {}
+        self._agg = job_stats_agg()
+        self._acc: dict[str, Any] = {}
         self._pid_fn: dict[int, str] = {}
         self._pid_waiting: dict[int, str] = {}
 
-    def _stats(self, fn_name: str) -> JobStats:
-        return self.jobs.setdefault(fn_name, JobStats())
+    @property
+    def jobs(self) -> dict[str, JobStats]:
+        return {fn: extract_job_stats(self._agg, acc) for fn, acc in self._acc.items()}
 
     def waiting_deps(self, fn_name: str) -> dict[str, int]:
         """Return {dep_label: count} for jobs of this fn_name currently blocked on a dependency."""
@@ -62,6 +61,11 @@ class ProgressBarState:
             if self._pid_fn.get(pid) == fn_name:
                 result[dep] = result.get(dep, 0) + 1
         return result
+
+    def update_job_counts(self, fn_name: str, event: Event) -> None:
+        """Fold one event into the per-fn job-count accumulator."""
+        acc = self._acc.get(fn_name, self._agg.empty())
+        self._acc[fn_name] = self._agg.combine(acc, self._agg.insert(event))
 
     def update(self, event: Event) -> None:
         """Ingest one bookman event, updating job stats and dependency wait state."""
@@ -77,4 +81,4 @@ class ProgressBarState:
             record_waiting_state(self._pid_waiting, pid, tag, event.dim("dep"))
 
         if fn_name:
-            record_job_stats(self._stats(fn_name), tag, phase)
+            self.update_job_counts(fn_name, event)

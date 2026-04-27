@@ -22,3 +22,5 @@ The root job's return value is surfaced by evaluate as the final item in the eve
 The tertius primitives mcall and mcast are never used directly outside of effect handler functions. All communication with the overseer goes through the effects system; a raw mcall or mcast is a sign that a coordination effect is missing.
 
 The progress bar displays the mean execution time for each job type, shown as μXs ahead of the function name. The column is fixed-width so function names remain aligned across all rows. The mean is derived from completed job spans only, not coordination effects.
+
+The per-function job counts (total enqueued, completed, failed) tracked by the progress bar are defined as bookman aggregators in the metrics module, composed with zip_all, filter_events, and count_distinct. The progress bar state model applies these aggregators incrementally as events arrive rather than maintaining bespoke imperative counters.
