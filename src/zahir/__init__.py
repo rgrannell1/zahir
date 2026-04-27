@@ -2,12 +2,14 @@
 from zahir.core.backends.memory import make_memory_storage_handlers
 from zahir.core.dependencies import (
     check,
+    check_file_dependency,
     check_resource_dependency,
     check_semaphore_dependency,
     check_sqlite_dependency,
     check_time_dependency,
     concurrency_dependency,
     dependency,
+    file_dependency,
     group_dependency,
     resource_dependency,
     semaphore_dependency,

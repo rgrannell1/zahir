@@ -1,5 +1,6 @@
 from zahir.core.dependencies.concurrency import concurrency_dependency
 from zahir.core.dependencies.dependency import check, dependency
+from zahir.core.dependencies.file import check_file_dependency, file_dependency
 from zahir.core.dependencies.group import group_dependency
 from zahir.core.dependencies.resources import check_resource_dependency, resource_dependency
 from zahir.core.dependencies.semaphore import check_semaphore_dependency, semaphore_dependency
