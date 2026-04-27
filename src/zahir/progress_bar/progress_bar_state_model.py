@@ -4,7 +4,7 @@ from typing import Any
 from bookman.events import Event
 
 from zahir.core.constants import DependencyTag, JobTag, Phase
-from zahir.core.metrics import job_stats_agg
+from zahir.core.metrics import per_fn_progress_agg
 
 
 @dataclass
@@ -13,6 +13,7 @@ class JobStats:
     started: int = 0
     completed: int = 0
     failed: int = 0
+    mean_ms: float | None = None
 
     @property
     def processed(self) -> int:
@@ -38,14 +39,14 @@ def record_waiting_state(pid_waiting: dict[int, str], pid: int, tag: str, dep: s
 
 
 def extract_job_stats(agg, acc: Any) -> JobStats:
-    """Extract a JobStats from a job_stats_agg accumulator."""
-    total, completed, failed = agg.extract(acc)
-    return JobStats(total=total, started=total, completed=completed, failed=failed)
+    """Extract a JobStats from a per_fn_progress_agg accumulator."""
+    (total, completed, failed), mean_ms = agg.extract(acc)
+    return JobStats(total=total, started=total, completed=completed, failed=failed, mean_ms=mean_ms)
 
 
 class ProgressBarState:
     def __init__(self):
-        self._agg = job_stats_agg()
+        self._agg = per_fn_progress_agg()
         self._acc: dict[str, Any] = {}
         self._pid_fn: dict[int, str] = {}
         self._pid_waiting: dict[int, str] = {}

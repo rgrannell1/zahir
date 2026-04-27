@@ -3,7 +3,7 @@
 from collections.abc import Generator, Iterable
 from functools import partial
 
-from bookman.aggregators import Aggregator, count_distinct, filter_events, group_by, mean, stream_group_by, zip_all
+from bookman.aggregators import Aggregator, count_distinct, filter_events, group_by, map_extract, mean, stream_group_by, zip_all
 from bookman.events import Event
 
 from zahir.core.constants import JobTag, Phase
@@ -81,10 +81,20 @@ def get_duration_ms(ev: Event) -> float:
     return ev.duration("ms")
 
 
-def job_duration_mean_agg() -> Aggregator:
-    """Mean job duration (ms) per fn, from the job_lifecycle span events emitted by telemetry."""
+def none_if_zero(value: float) -> float | None:
+    """Map 0.0 to None; bookman mean() uses 0.0 as its empty sentinel."""
 
-    return filter_events(is_job_lifecycle, mean(get_duration_ms))
+    return value if value > 0.0 else None
+
+
+def job_duration_mean_agg() -> Aggregator:
+    """Mean job duration (ms) per fn, from the job_lifecycle span events emitted by telemetry.
+
+    Returns None when no lifecycle events have been seen.
+    """
+
+    raw = filter_events(is_job_lifecycle, mean(get_duration_ms))
+    return map_extract(none_if_zero, raw)
 
 
 def per_fn_progress_agg() -> Aggregator:

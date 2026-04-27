@@ -3,13 +3,13 @@ from zahir.core.constants import JobTag, Phase
 from zahir.progress_bar.progress_bar_state_model import JobStats, ProgressBarState
 
 
-def _start(fn_name):
-    return point({"tag": [JobTag.ENQUEUE], "fn": [fn_name], "id": ["s"], "phase": [Phase.START]}, at=0.0)
+def _start(fn_name, job_id="j1"):
+    return point({"tag": [JobTag.ENQUEUE], "fn": [fn_name], "id": ["s"], "job_id": [job_id], "phase": [Phase.START]}, at=0.0)
 
 
-def _end(fn_name, error=None):
+def _end(fn_name, error=None, job_id="j1"):
     tag = JobTag.JOB_FAIL if error else JobTag.JOB_COMPLETE
-    dims = {"tag": [tag], "fn": [fn_name], "id": ["s"], "phase": [Phase.END]}
+    dims = {"tag": [tag], "fn": [fn_name], "id": ["s"], "job_id": [job_id], "phase": [Phase.END]}
     return span(dims, at=0.0, until=1.0)
 
 
@@ -39,18 +39,18 @@ def test_failed_end_does_not_increment_completed():
 
 def test_multiple_events_accumulate():
     state = ProgressBarState()
-    state.update(_start("job_a"))
-    state.update(_start("job_a"))
-    state.update(_end("job_a"))
+    state.update(_start("job_a", job_id="j1"))
+    state.update(_start("job_a", job_id="j2"))
+    state.update(_end("job_a", job_id="j1"))
     assert state.jobs["job_a"].started == 2
     assert state.jobs["job_a"].completed == 1
 
 
 def test_events_for_different_fn_names_are_isolated():
     state = ProgressBarState()
-    state.update(_start("job_a"))
-    state.update(_start("job_b"))
-    state.update(_end("job_b"))
+    state.update(_start("job_a", job_id="j1"))
+    state.update(_start("job_b", job_id="j2"))
+    state.update(_end("job_b", job_id="j2"))
     assert state.jobs["job_a"].started == 1
     assert state.jobs["job_a"].completed == 0
     assert state.jobs["job_b"].started == 1
@@ -65,13 +65,13 @@ def test_event_without_fn_name_is_ignored():
 
 def test_start_increments_total():
     state = ProgressBarState()
-    state.update(_start("job_a"))
-    state.update(_start("job_a"))
+    state.update(_start("job_a", job_id="j1"))
+    state.update(_start("job_a", job_id="j2"))
     assert state.jobs["job_a"].total == 2
 
 
 def test_processed_is_completed_plus_failed():
     state = ProgressBarState()
-    state.update(_end("job_a"))
-    state.update(_end("job_a", error="boom"))
+    state.update(_end("job_a", job_id="j1"))
+    state.update(_end("job_a", error="boom", job_id="j2"))
     assert state.jobs["job_a"].processed == 2
