@@ -166,6 +166,10 @@ def _handle_get_result(
     return (yield from mcall(context.overseer, EStorageGetResult()))
 
 
+# EGetJob fires on every worker poll tick — wrapping it generates high-volume noise with no signal.
+_SKIP_WRAP = {EGetJob.tag}
+
+
 def make_coordination_handlers(context: CoordinationHandlerContext) -> HandlerMap:
     """Create handlers for all coordination effects — job lifecycle (worker) and completion polling (root)."""
 
@@ -183,6 +187,6 @@ def make_coordination_handlers(context: CoordinationHandlerContext) -> HandlerMa
         ESignal.tag: partial(_handle_signal, context),
     }
     return {
-        tag: reduce(apply_wrapper, context.handler_wrappers, handler)
+        tag: handler if tag in _SKIP_WRAP else reduce(apply_wrapper, context.handler_wrappers, handler)
         for tag, handler in handlers.items()
     }

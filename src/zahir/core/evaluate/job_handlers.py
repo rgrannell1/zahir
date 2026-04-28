@@ -1,9 +1,11 @@
+"""Per-job effect handlers: acquire, semaphore read/write, and the job/timeout guard stack."""
+
 from collections.abc import Generator, Sequence
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from functools import partial, reduce
 from typing import Any
 
+from zahir.core.combinators import apply_wrapper
 from zahir.core.constants import BLOCKED_EFFECTS, THROWABLE
 from zahir.core.effects import (
     EAcquire,
@@ -14,15 +16,9 @@ from zahir.core.effects import (
     ESignal,
     ZahirCoordinationEffect,
 )
-from zahir.core.combinators import apply_wrapper
-from zahir.core.exceptions import InvalidEffectError, JobError, JobTimeoutError
+from zahir.core.evaluate.suspension import _WorkerLocals
+from zahir.core.exceptions import InvalidEffectError, JobTimeoutError
 from zahir.core.zahir_types import HandlerMap
-
-
-@dataclass
-class JobHandlerContext:
-    acquired: list[str] = field(default_factory=list)
-    handler_wrappers: Sequence = field(default_factory=list)
 
 
 def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
@@ -87,62 +83,47 @@ def timeout_guard(gen: Generator, deadline: datetime | None) -> Generator:
 
 def evaluate_job(
     job_gen: Generator[Any, Any, Any],
-    context: JobHandlerContext,
+    handlers: HandlerMap,
     deadline: datetime | None,
 ) -> Generator[Any, Any, Any]:
-    guarded = job_guard(job_gen, make_job_handlers(context))
+    """Wrap job_gen in job_guard and timeout_guard using pre-built handlers."""
+    guarded = job_guard(job_gen, handlers)
     return timeout_guard(guarded, deadline)
 
 
-def _unwrap_reply(body: Any) -> Any:
-    """Unwrap the reply from a job, raising appropriate exceptions for timeouts or errors."""
-
-    if isinstance(body, JobTimeoutError):
-        raise body
-
-    if isinstance(body, JobError):
-        raise body
-
-    return body
-
-
 def _handle_acquire(
-    context: JobHandlerContext, effect: EAcquire
+    locals_: _WorkerLocals, effect: EAcquire
 ) -> Generator[Any, Any, bool]:
     """Attempt to acquire a concurrency slot, returning True on success and False on failure."""
 
     result = yield EAcquireSlot(name=effect.name, limit=effect.limit)
 
     if result:
-        context.acquired.append(effect.name)
+        locals_.current_job.acquired.append(effect.name)
     return result
 
 
-def _handle_signal(
-    context: JobHandlerContext, effect: EGetSemaphore
-) -> Generator[Any, Any, str]:
+def _handle_signal(effect: EGetSemaphore) -> Generator[Any, Any, str]:
     """Get the current state of a named semaphore."""
 
     return (yield ESignal(name=effect.name))
 
 
-def _handle_set_semaphore(
-    context: JobHandlerContext, effect: ESetSemaphore
-) -> Generator[Any, Any, None]:
+def _handle_set_semaphore(effect: ESetSemaphore) -> Generator[Any, Any, None]:
     """Set the state of a semaphore and release all waiting workers."""
 
     yield ESetSemaphoreState(name=effect.name, state=effect.state)
 
 
-def make_job_handlers(context: JobHandlerContext) -> HandlerMap:
+def make_job_handlers(locals_: _WorkerLocals, handler_wrappers: Sequence) -> HandlerMap:
     """Create job-effect handlers keyed by effect tag, with any user-supplied wrappers applied."""
 
     handlers = {
-        EAcquire.tag: partial(_handle_acquire, context),
-        EGetSemaphore.tag: partial(_handle_signal, context),
-        ESetSemaphore.tag: partial(_handle_set_semaphore, context),
+        EAcquire.tag: partial(_handle_acquire, locals_),
+        EGetSemaphore.tag: _handle_signal,
+        ESetSemaphore.tag: _handle_set_semaphore,
     }
     return {
-        tag: reduce(apply_wrapper, context.handler_wrappers, handler)
+        tag: reduce(apply_wrapper, handler_wrappers, handler)
         for tag, handler in handlers.items()
     }

@@ -12,8 +12,7 @@ from tertius import ESelf, ESleep, Pid, Scope
 from zahir.core.combinators import apply_wrapper
 from zahir.core.constants import WORKER_POLL_MS, WorkItemTag
 from zahir.core.effects import (
-    EAwait,EAwait through handle() — The _make_suspension_handlers dict and its special-dispatch branch in _handle_running are gone. Instead:
-  - _WorkerLocals holds me_bytes and current_job — a mutable cell populated by _worker_body/_handle_running before each step
+    EAwait,
     EGetJob,
     EJobComplete,
     EJobFail,
@@ -21,10 +20,10 @@ from zahir.core.effects import (
 )
 from zahir.core.evaluate.coordination_handlers import make_merged_coordination_handlers
 from zahir.core.evaluate.job_handlers import (
-    JobHandlerContext,
     evaluate_job,
+    make_job_handlers,
 )
-from zahir.core.evaluate.suspension import RunningJob, SuspensionTable
+from zahir.core.evaluate.suspension import RunningJob, SuspensionTable, _WorkerLocals
 from zahir.core.exceptions import JobError, ZahirError
 from zahir.core.scope_proxy import ScopeProxy
 from zahir.core.zahir_types import HandlerMap, JobContext
@@ -51,26 +50,16 @@ class _Running:
 type WorkerState = _Idle | _Running
 
 
-@dataclass
-class _WorkerLocals:
-    """Mutable per-worker references written by the worker loop and read by the EAwait handler."""
-
-    me_bytes: bytes = b""
-    current_job: RunningJob | None = None
-
-
-def _build_job(work: tuple, ctx: Any) -> RunningJob:
+def _build_job(work: tuple, ctx: Any, job_handlers: HandlerMap) -> RunningJob:
     """Construct a RunningJob from a dequeued job work item."""
 
     _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
     deadline = datetime.now(UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms else None
-    job_context = JobHandlerContext(handler_wrappers=ctx.handler_wrappers)
-    eval_gen = evaluate_job(ctx._scope[fn_name](ctx, *args), job_context, deadline)
+    eval_gen = evaluate_job(ctx._scope[fn_name](ctx, *args), job_handlers, deadline)
 
     return RunningJob(
         fn_name=fn_name,
         eval_gen=eval_gen,
-        context=job_context,
         reply_to=reply_to,
         parent_sequence_number=parent_sequence_number,
     )
@@ -79,7 +68,7 @@ def _build_job(work: tuple, ctx: Any) -> RunningJob:
 def _complete_job(job: RunningJob, value: Any) -> Generator[Any, Any, None]:
     """Release concurrency slots and report successful completion to the overseer."""
 
-    for name in job.context.acquired:
+    for name in job.acquired:
         yield ERelease(name=name)
     yield EJobComplete(
         result=value,
@@ -92,7 +81,7 @@ def _complete_job(job: RunningJob, value: Any) -> Generator[Any, Any, None]:
 def _fail_job(job: RunningJob, exc: Exception) -> Generator[Any, Any, None]:
     """Release concurrency slots and report job failure to the overseer."""
 
-    for name in job.context.acquired:
+    for name in job.acquired:
         yield ERelease(name=name)
     error = exc if isinstance(exc, ZahirError) else JobError(exc)
     yield EJobFail(
@@ -104,7 +93,7 @@ def _fail_job(job: RunningJob, exc: Exception) -> Generator[Any, Any, None]:
 
 
 def _handle_idle(
-    suspension: SuspensionTable, ctx: Any, me_bytes: bytes
+    suspension: SuspensionTable, ctx: Any, me_bytes: bytes, job_handlers: HandlerMap
 ) -> Generator[Any, Any, WorkerState]:
     """Fetch the next work item and transition to the appropriate state."""
 
@@ -130,7 +119,7 @@ def _handle_idle(
                 err = JobError(KeyError(f"job {fn_name!r} not found in scope"))
                 yield EJobFail(error=err, reply_to=reply_to, sequence_number=parent_sequence_number)
                 return _Idle()
-            return _Running(job=_build_job(work, ctx))
+            return _Running(job=_build_job(work, ctx, job_handlers))
 
         case _:
             return _Idle()
@@ -178,7 +167,7 @@ def _handle_running(
 
 
 def _worker_body(
-    suspension: SuspensionTable, locals_: _WorkerLocals, _overseer_pid: Pid, ctx: Any
+    suspension: SuspensionTable, locals_: _WorkerLocals, job_handlers: HandlerMap, _overseer_pid: Pid, ctx: Any
 ) -> Generator[Any, Any, None]:
     """Worker main loop — drives jobs step by step, suspending onto a local stack on EAwait."""
 
@@ -189,7 +178,7 @@ def _worker_body(
     while True:
         match state:
             case _Idle():
-                state = yield from _handle_idle(suspension, ctx, locals_.me_bytes)
+                state = yield from _handle_idle(suspension, ctx, locals_.me_bytes, job_handlers)
             case _Running():
                 state = yield from _handle_running(state, locals_)
 
@@ -203,15 +192,15 @@ def worker(
     ctx = JobContext(
         _scope=scope,
         scope=ScopeProxy(scope),
-        handler_wrappers=handler_wrappers,
         user_context=user_context() if user_context is not None else None,
     )
     suspension = SuspensionTable()
     locals_ = _WorkerLocals()
+    job_handlers = make_job_handlers(locals_, handler_wrappers)
     base_handlers = make_merged_coordination_handlers(overseer, handler_wrappers, handlers)
     worker_handlers = make_worker_handlers(suspension, locals_, handler_wrappers)
     yield from handle(
-        _worker_body(suspension, locals_, overseer, ctx),
+        _worker_body(suspension, locals_, job_handlers, overseer, ctx),
         **base_handlers,
         **worker_handlers,
     )

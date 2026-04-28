@@ -6,7 +6,6 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from zahir.core.effects import EAwait, EEnqueue
-from zahir.core.evaluate.job_handlers import JobHandlerContext, _unwrap_reply
 from zahir.core.exceptions import JobError, JobTimeoutError
 
 
@@ -16,20 +15,38 @@ class RunningJob:
 
     fn_name: str  # the name of the function being executed
     eval_gen: Any  # the evaluate_job generator
-    context: JobHandlerContext
     reply_to: bytes | None  # where to send our result when we finish
     parent_sequence_number: Any  # the sequence_number our parent assigned us
+    acquired: list[str] = field(default_factory=list)  # concurrency slots held by this job
+
+
+@dataclass
+class _WorkerLocals:
+    """Mutable per-worker references written by the worker loop and read by the EAwait handler."""
+
+    me_bytes: bytes = b""
+    current_job: RunningJob | None = None
+
+
+def _unwrap_reply(body: Any) -> Any:
+    """Unwrap the reply from a job, raising appropriate exceptions for timeouts or errors."""
+
+    if isinstance(body, JobTimeoutError):
+        raise body
+
+    if isinstance(body, JobError):
+        raise body
+
+    return body
 
 
 @dataclass
 class SuspendedJob(RunningJob):
     """A running job that has yielded EAwait and is waiting on one or more child jobs."""
 
-    awaiting: set[int]  # child local sequence_numbers still outstanding
-    results: dict[int, Any]  # local sequence_number -> body (result or error)
-    result_order: (
-        list[int] | None
-    )  # None for scalar dispatch; ordered sequence_number list for multi-job dispatch
+    awaiting: set[int] = field(default_factory=set)  # child local sequence_numbers still outstanding
+    results: dict[int, Any] = field(default_factory=dict)  # local sequence_number -> body (result or error)
+    result_order: list[int] | None = None  # None for scalar dispatch; ordered sequence_number list for multi-job dispatch
 
     @classmethod
     def from_job(cls, job: RunningJob, child_sequence_numbers: list[int], effect: EAwait) -> "SuspendedJob":
@@ -38,9 +55,9 @@ class SuspendedJob(RunningJob):
         return cls(
             fn_name=job.fn_name,
             eval_gen=job.eval_gen,
-            context=job.context,
             reply_to=job.reply_to,
             parent_sequence_number=job.parent_sequence_number,
+            acquired=job.acquired,
             awaiting=set(child_sequence_numbers),
             results={},
             result_order=result_order,

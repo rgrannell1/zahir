@@ -10,12 +10,11 @@ class JobContext[T]:
     user_context, populated by calling the user_context factory passed to evaluate().
     """
 
-    __slots__ = ("_scope", "scope", "handler_wrappers", "user_context")
+    __slots__ = ("_scope", "scope", "user_context")
 
-    def __init__(self, _scope, scope, handler_wrappers, user_context) -> None:
+    def __init__(self, _scope, scope, user_context) -> None:
         self._scope = _scope
         self.scope = scope
-        self.handler_wrappers = handler_wrappers
         self.user_context = user_context
 
 # Result types for dependency combinators — the Left/Right of the dependency monad.

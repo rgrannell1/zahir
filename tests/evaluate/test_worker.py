@@ -6,8 +6,21 @@ from tertius import ESleep
 
 from tests.shared import NOW, drain_to
 from zahir.core.effects import EAcquire, EAcquireSlot
-from zahir.core.evaluate.job_handlers import JobHandlerContext, evaluate_job
+from zahir.core.evaluate.job_handlers import evaluate_job, make_job_handlers
+from zahir.core.evaluate.suspension import RunningJob, _WorkerLocals
 from zahir.core.exceptions import JobTimeoutError
+
+
+def _make_locals(acquired: list | None = None) -> _WorkerLocals:
+    """Build a _WorkerLocals with a minimal RunningJob for evaluate_job tests."""
+    job = RunningJob(fn_name="test", eval_gen=None, reply_to=None, parent_sequence_number=None, acquired=[] if acquired is None else acquired)
+    return _WorkerLocals(current_job=job)
+
+
+def _handlers(locals_: _WorkerLocals | None = None) -> dict:
+    """Return pre-built job handlers for use with evaluate_job."""
+    return make_job_handlers(locals_ or _make_locals(), [])
+
 
 # evaluate_job — return value
 
@@ -19,7 +32,7 @@ def test_evaluate_job_returns_job_result():
         return 42
         yield
 
-    _, result = drain_to(evaluate_job(job(), JobHandlerContext(), None))
+    _, result = drain_to(evaluate_job(job(), _handlers(), None))
     assert result == 42
 
 
@@ -31,7 +44,7 @@ def test_evaluate_job_passes_through_unknown_effects():
     def job():
         yield unknown
 
-    effects, _ = drain_to(evaluate_job(job(), JobHandlerContext(), None))
+    effects, _ = drain_to(evaluate_job(job(), _handlers(), None))
     assert unknown in effects
 
 
@@ -48,7 +61,7 @@ def test_evaluate_job_throws_job_timeout_when_deadline_exceeded():
     with time_machine.travel(NOW, tick=False):
         past_deadline = NOW - timedelta(seconds=1)
         with pytest.raises(JobTimeoutError):
-            drain_to(evaluate_job(job(), JobHandlerContext(), past_deadline))
+            drain_to(evaluate_job(job(), _handlers(), past_deadline))
 
 
 def test_evaluate_job_job_can_catch_job_timeout():
@@ -64,7 +77,7 @@ def test_evaluate_job_job_can_catch_job_timeout():
 
     with time_machine.travel(NOW, tick=False):
         past_deadline = NOW - timedelta(seconds=1)
-        drain_to(evaluate_job(job(), JobHandlerContext(), past_deadline))
+        drain_to(evaluate_job(job(), _handlers(), past_deadline))
 
     assert results == ["caught"]
 
@@ -76,7 +89,7 @@ def test_evaluate_job_no_deadline_never_times_out():
         for _ in range(5):
             yield ESleep(ms=100)
 
-    effects, _ = drain_to(evaluate_job(job(), JobHandlerContext(), None))
+    effects, _ = drain_to(evaluate_job(job(), _handlers(), None))
     assert len(effects) == 5
 
 
@@ -102,12 +115,12 @@ def test_evaluate_job_tracks_acquired_slots():
     """Proves evaluate_job populates acquired list via the acquire handler."""
 
     acquired = []
-    ctx = JobHandlerContext(acquired=acquired)
+    locals_ = _make_locals(acquired)
 
     def job():
         yield EAcquire(name="workers", limit=4)
 
-    _drive_with_acquire_result(evaluate_job(job(), ctx, None), granted=True)
+    _drive_with_acquire_result(evaluate_job(job(), make_job_handlers(locals_, []), None), granted=True)
     assert acquired == ["workers"]
 
 
@@ -115,12 +128,12 @@ def test_evaluate_job_does_not_track_denied_slots():
     """Proves evaluate_job does not add to acquired when the slot is denied."""
 
     acquired = []
-    ctx = JobHandlerContext(acquired=acquired)
+    locals_ = _make_locals(acquired)
 
     def job():
         yield EAcquire(name="workers", limit=4)
 
-    _drive_with_acquire_result(evaluate_job(job(), ctx, None), granted=False)
+    _drive_with_acquire_result(evaluate_job(job(), make_job_handlers(locals_, []), None), granted=False)
     assert acquired == []
 
 
@@ -135,4 +148,4 @@ def test_evaluate_job_propagates_unhandled_exception():
         yield
 
     with pytest.raises(ValueError, match="unexpected"):
-        drain_to(evaluate_job(job(), JobHandlerContext(), None))
+        drain_to(evaluate_job(job(), _handlers(), None))
