@@ -8,7 +8,7 @@ from tertius import EEmit, ESleep
 
 from tests.shared import peak_concurrent, user_events
 from zahir.core.dependencies.resources import check_resource_dependency
-from zahir.core.effects import EAwait
+from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate
 
 _N_WORKERS = 10
@@ -39,7 +39,7 @@ def ram_limited_job(ctx: JobContext, max_percent: float):
 
 def ram_fanout_root(ctx: JobContext, max_percent: float):
     """Root that fans out ten RAM-gated jobs and emits the resulting records."""
-    records = yield EAwait([ctx.scope.ram_limited_job(max_percent) for _ in range(_N_JOBS)])
+    records = yield await_all([ctx.scope.ram_limited_job(max_percent) for _ in range(_N_JOBS)])
     yield EEmit(records)
 
 

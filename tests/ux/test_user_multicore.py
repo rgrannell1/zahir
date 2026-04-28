@@ -7,7 +7,7 @@ from tertius import EEmit, ESleep
 
 from tests.shared import user_events
 from zahir.core.constants import JobTag, Phase
-from zahir.core.effects import EAwait
+from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.telemetry import make_telemetry
 
@@ -23,7 +23,7 @@ def report_pid(ctx: JobContext) -> int:
 
 
 def collect_pids(ctx: JobContext):
-    pids = yield EAwait([ctx.scope.report_pid() for _ in range(_N_JOBS)])
+    pids = yield await_all([ctx.scope.report_pid() for _ in range(_N_JOBS)])
     yield EEmit(pids)
 
 

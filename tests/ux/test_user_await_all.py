@@ -1,7 +1,7 @@
 from tertius import EEmit, ESleep
 
 from tests.shared import user_events
-from zahir.core.effects import EAwait
+from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import JobError
 
@@ -18,7 +18,7 @@ def slow_double(ctx: JobContext, value: int):
 
 
 def fan_out(ctx: JobContext):
-    results = yield EAwait(
+    results = yield await_all(
         [
             ctx.scope.double(1),
             ctx.scope.double(2),
@@ -35,7 +35,7 @@ def failing_job(ctx: JobContext):
 
 def fan_out_with_failure(ctx: JobContext):
     try:
-        yield EAwait(
+        yield await_all(
             [
                 ctx.scope.double(1),
                 ctx.scope.failing_job(),
@@ -47,7 +47,7 @@ def fan_out_with_failure(ctx: JobContext):
 
 
 def fan_out_mixed(ctx: JobContext):
-    results = yield EAwait(
+    results = yield await_all(
         [
             ctx.scope.slow_double(1),
             ctx.scope.double(2),

@@ -5,7 +5,7 @@ import re
 from bookman.events import Event
 from tertius import ESleep
 
-from zahir.core.effects import EAwait
+from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.telemetry import make_telemetry
 from zahir.progress_bar.progress_bar_service import ProgressBarService
@@ -21,7 +21,7 @@ def sleeping_job(ctx: JobContext):
 
 def sleep_workflow(ctx: JobContext):
     """Root workflow that dispatches a single sleeping job."""
-    result = yield EAwait(ctx.scope.sleeping_job())
+    result = yield ctx.scope.sleeping_job()
     return result
 
 
@@ -63,7 +63,7 @@ def short_job(ctx: JobContext):
 
 def ten_short_jobs(ctx: JobContext):
     """Root workflow that fans out ten short jobs concurrently."""
-    yield EAwait([ctx.scope.short_job() for _ in range(10)])
+    yield await_all([ctx.scope.short_job() for _ in range(10)])
 
 
 _TEN_SCOPE = {

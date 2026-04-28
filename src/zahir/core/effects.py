@@ -18,16 +18,11 @@ class ZahirCoordinationEffect[ReturnT](Effect[ReturnT], abstract=True):
     """Base class for effects yielded by the runtime layer, never by jobs directly."""
 
 
-_MISSING = object()
-
-
 class EAwait(ZahirJobEffect[Any]):
     """Dispatch one or more jobs concurrently.
 
-    Accepts three forms:
-      EAwait(ctx.scope.myjob())          — single job, wraps an existing EAwait
-      EAwait([ctx.scope.a(), ctx.scope.b()]) — multiple jobs in parallel
-      EAwait(jobs=[...], scalar=...)     — internal construction form
+    Constructed by ScopeProxy (single job, scalar=True) and await_all (multiple
+    jobs, scalar=False). User code yields ctx.scope.myjob() or await_all([...]).
 
     For a single-job dispatch (scalar=True), returns the result directly.
     For a multi-job dispatch (scalar=False), returns results as a list in input order.
@@ -37,34 +32,9 @@ class EAwait(ZahirJobEffect[Any]):
     jobs: list[JobSpec]
     scalar: bool
 
-    @staticmethod
-    def _fields_from_passthrough(spec: "EAwait") -> tuple[list[JobSpec], bool]:
-        # EAwait(single_eawait) — copy fields from an existing scalar EAwait
-
-        return spec.jobs, spec.scalar
-
-    @staticmethod
-    def _fields_from_list(specs: list["EAwait"]) -> tuple[list[JobSpec], bool]:
-        # EAwait([eawait, ...]) — extract the single JobSpec from each scalar EAwait
-
-        jobs = [spec.jobs[0] for spec in specs]
-        return jobs, False
-
-    def __init__(self, spec_or_list=_MISSING, *, jobs=None, scalar=True):
-        if spec_or_list is _MISSING:
-            # EAwait(jobs=[...], scalar=...) — internal form
-            self.jobs = jobs
-            self.scalar = scalar
-        elif isinstance(spec_or_list, EAwait):
-            # EAwait(single_eawait) — copy fields from an existing scalar EAwait
-            self.jobs, self.scalar = EAwait._fields_from_passthrough(spec_or_list)
-        elif isinstance(spec_or_list, list):
-            # EAwait([eawait, ...]) — extract the single JobSpec from each scalar EAwait
-            self.jobs, self.scalar = EAwait._fields_from_list(spec_or_list)
-        else:
-            raise TypeError(
-                f"EAwait expects an EAwait or list of EAwait, got {type(spec_or_list).__name__}"
-            )
+    def __init__(self, *, jobs: list[JobSpec], scalar: bool = True):
+        self.jobs = jobs
+        self.scalar = scalar
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, EAwait):
@@ -73,6 +43,11 @@ class EAwait(ZahirJobEffect[Any]):
 
     def __repr__(self) -> str:
         return f"EAwait(jobs={self.jobs!r}, scalar={self.scalar!r})"
+
+
+def await_all(specs: list[EAwait]) -> EAwait:
+    """Dispatch multiple jobs concurrently; returns results as a list in input order."""
+    return EAwait(jobs=[spec.jobs[0] for spec in specs], scalar=False)
 
 
 @dataclass

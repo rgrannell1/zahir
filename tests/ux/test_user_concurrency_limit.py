@@ -5,7 +5,7 @@ import time
 from tertius import EEmit, ESleep
 
 from zahir.core.dependencies.concurrency import concurrency_dependency
-from zahir.core.effects import EAwait
+from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate
 
 _SLOT_NAME = "bounded"
@@ -23,7 +23,7 @@ def bounded_job(ctx: JobContext, job_id: int):
 
 
 def fan_out(ctx: JobContext):
-    yield EAwait([ctx.scope.bounded_job(idx) for idx in range(_N_JOBS)])
+    yield await_all([ctx.scope.bounded_job(idx) for idx in range(_N_JOBS)])
 
 
 _SCOPE = {"fan_out": fan_out, "bounded_job": bounded_job}

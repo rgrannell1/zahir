@@ -8,7 +8,7 @@ gracefully, and conditionally dispatches a final step.
 from tertius import EEmit
 
 from tests.shared import user_events
-from zahir.core.effects import EAwait
+from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate
 
 # --- mock leaf jobs (no-ops that mirror real job signatures) ---
@@ -74,7 +74,7 @@ def scan_media(ctx: JobContext, input: dict):
     """Mirrors scan.scan_media: sequential scan then parallel reads then wikidata."""
     yield ctx.scope.media_scan({})
 
-    yield EAwait(
+    yield await_all(
         [
             ctx.scope.read_albums({"markdown_path": input.get("albums_markdown_path")}),
             ctx.scope.read_photos({"markdown_path": input.get("photos_markdown_path")}),
@@ -98,13 +98,13 @@ def upload_media(ctx: JobContext, input: dict):
         for f in input.get("fpaths", [])
     ]
     if grey_effects:
-        yield EAwait(grey_effects)
+        yield await_all(grey_effects)
 
     mosaic_effects = [
         ctx.scope.compute_image_mosaic({"fpath": f}) for f in input.get("fpaths", [])
     ]
     if mosaic_effects:
-        yield EAwait(mosaic_effects)
+        yield await_all(mosaic_effects)
 
     if input.get("upload_images"):
         photo_effects = [
@@ -112,7 +112,7 @@ def upload_media(ctx: JobContext, input: dict):
             for f in input.get("fpaths", [])
         ]
         if photo_effects:
-            yield EAwait(photo_effects)
+            yield await_all(photo_effects)
 
     if input.get("upload_videos"):
         for fpath in input.get("fpaths", []):

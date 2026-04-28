@@ -5,7 +5,7 @@ import contextlib
 from bookman.events import Event
 
 from tests.ux.test_user_mirror_workflow import BASE_SCOPE
-from zahir.core.effects import EAwait
+from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.core.exceptions import JobError
 from zahir.core.telemetry import make_telemetry
@@ -74,7 +74,7 @@ def bomb_job(ctx: JobContext):
 def mixed_root(ctx: JobContext):
     """Fan out to 2 ok jobs and 1 failing job, swallow the error."""
     with contextlib.suppress(JobError):
-        yield EAwait(
+        yield await_all(
             [
                 ctx.scope.ok_job(1),
                 ctx.scope.bomb_job(),
