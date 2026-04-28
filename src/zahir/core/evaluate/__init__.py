@@ -7,10 +7,7 @@ from tertius import EEmit, ESleep, ESpawn, Pid, Scope, mcast, run
 from zahir.core.backends.memory import make_memory_storage_handlers
 from zahir.core.constants import COMPLETION_POLL_MS
 from zahir.core.effects import EGetError, EGetResult, EIsDone, EStorageInitialize
-from zahir.core.evaluate.coordination_handlers import (
-    CoordinationHandlerContext,
-    make_coordination_handlers,
-)
+from zahir.core.evaluate.coordination_handlers import make_merged_coordination_handlers
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.worker import worker
 from zahir.core.zahir_types import (
@@ -56,9 +53,7 @@ def _root(
     # is available to pick up child jobs immediately when they fan out.
     yield from mcast(overseer, EStorageInitialize(fn_name=fn_name, args=args))
 
-    ctx = CoordinationHandlerContext(overseer=overseer, handler_wrappers=handler_wrappers)
-    # user-provided handlers take precedence, allowing coordination handlers to be replaced
-    root_handlers = {**make_coordination_handlers(ctx), **handlers}
+    root_handlers = make_merged_coordination_handlers(overseer, handler_wrappers, handlers)
     yield from handle(_poll_completion(), **root_handlers)
 
 

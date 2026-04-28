@@ -1,26 +1,25 @@
 """Worker process: fetches jobs from the overseer, drives them step by step, suspends on EAwait."""
 
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from functools import partial
+from functools import partial, reduce
 from typing import Any
 
 from orbis import handle
 from tertius import ESelf, ESleep, Pid, Scope
 
+from zahir.core.combinators import apply_wrapper
 from zahir.core.constants import WORKER_POLL_MS, WorkItemTag
 from zahir.core.effects import (
-    EAwait,
+    EAwait,EAwait through handle() — The _make_suspension_handlers dict and its special-dispatch branch in _handle_running are gone. Instead:
+  - _WorkerLocals holds me_bytes and current_job — a mutable cell populated by _worker_body/_handle_running before each step
     EGetJob,
     EJobComplete,
     EJobFail,
     ERelease,
 )
-from zahir.core.evaluate.coordination_handlers import (
-    CoordinationHandlerContext,
-    make_coordination_handlers,
-)
+from zahir.core.evaluate.coordination_handlers import make_merged_coordination_handlers
 from zahir.core.evaluate.job_handlers import (
     JobHandlerContext,
     evaluate_job,
@@ -28,7 +27,11 @@ from zahir.core.evaluate.job_handlers import (
 from zahir.core.evaluate.suspension import RunningJob, SuspensionTable
 from zahir.core.exceptions import JobError, ZahirError
 from zahir.core.scope_proxy import ScopeProxy
-from zahir.core.zahir_types import JobContext
+from zahir.core.zahir_types import HandlerMap, JobContext
+
+# Sentinel returned by the EAwait handler to signal that the job was suspended.
+# _handle_running checks for this to transition to _Idle rather than _Running.
+_SUSPENDED = object()
 
 
 @dataclass
@@ -46,6 +49,14 @@ class _Running:
 
 
 type WorkerState = _Idle | _Running
+
+
+@dataclass
+class _WorkerLocals:
+    """Mutable per-worker references written by the worker loop and read by the EAwait handler."""
+
+    me_bytes: bytes = b""
+    current_job: RunningJob | None = None
 
 
 def _build_job(work: tuple, ctx: Any) -> RunningJob:
@@ -126,29 +137,31 @@ def _handle_idle(
 
 
 def _handle_eawait(
-    suspension: SuspensionTable, me_bytes: bytes, effect: EAwait, job: RunningJob
-) -> Generator[Any, Any, None]:
+    suspension: SuspensionTable, locals_: _WorkerLocals, effect: EAwait
+) -> Generator[Any, Any, Any]:
     """Suspend the running job and enqueue its child jobs."""
 
-    yield from suspension.suspend(effect, job, me_bytes)
+    yield from suspension.suspend(effect, locals_.current_job, locals_.me_bytes)
+    return _SUSPENDED
 
 
-def _make_suspension_handlers(suspension: SuspensionTable, me_bytes: bytes) -> dict:
-    """Handler map for effects that suspend the current job, keyed by effect tag.
+def make_worker_handlers(
+    suspension: SuspensionTable, locals_: _WorkerLocals, handler_wrappers: Sequence
+) -> HandlerMap:
+    """EAwait handler with wrappers applied — merged last so it cannot be overridden."""
 
-    Parallels make_coordination_handlers: adding a new suspending effect means
-    registering it here rather than adding an isinstance branch in _handle_running.
-    """
-
-    return {EAwait.tag: partial(_handle_eawait, suspension, me_bytes)}
+    handler = partial(_handle_eawait, suspension, locals_)
+    wrapped = reduce(apply_wrapper, handler_wrappers, handler)
+    return {EAwait.tag: wrapped}
 
 
 def _handle_running(
-    state: _Running, suspension_handlers: dict
+    state: _Running, locals_: _WorkerLocals
 ) -> Generator[Any, Any, WorkerState]:
     """Advance the current job one step and transition based on the outcome."""
 
     job = state.job
+    locals_.current_job = job
     try:
         effect = job.eval_gen.throw(state.pending_throw) if state.pending_throw else job.eval_gen.send(state.handler_value)
     except StopIteration as exc:
@@ -158,31 +171,27 @@ def _handle_running(
         yield from _fail_job(job, exc)
         return _Idle()
 
-    suspend = suspension_handlers.get(effect.tag)
-    if suspend:
-        yield from suspend(effect, job)
-        return _Idle()
-
     handler_value = yield effect
+    if handler_value is _SUSPENDED:
+        return _Idle()
     return _Running(job=job, handler_value=handler_value, pending_throw=None)
 
 
-def _worker_body(_overseer_pid: Pid, ctx: Any) -> Generator[Any, Any, None]:
+def _worker_body(
+    suspension: SuspensionTable, locals_: _WorkerLocals, _overseer_pid: Pid, ctx: Any
+) -> Generator[Any, Any, None]:
     """Worker main loop — drives jobs step by step, suspending onto a local stack on EAwait."""
 
     me: Pid = yield ESelf()
-    me_bytes = bytes(me)
-
-    suspension = SuspensionTable()
-    suspension_handlers = _make_suspension_handlers(suspension, me_bytes)
+    locals_.me_bytes = bytes(me)
     state: WorkerState = _Idle()
 
     while True:
         match state:
             case _Idle():
-                state = yield from _handle_idle(suspension, ctx, me_bytes)
+                state = yield from _handle_idle(suspension, ctx, locals_.me_bytes)
             case _Running():
-                state = yield from _handle_running(state, suspension_handlers)
+                state = yield from _handle_running(state, locals_)
 
 
 def worker(
@@ -197,13 +206,12 @@ def worker(
         handler_wrappers=handler_wrappers,
         user_context=user_context() if user_context is not None else None,
     )
-
-    coordination_context = CoordinationHandlerContext(
-        overseer=overseer, handler_wrappers=handler_wrappers
-    )
-    # user-provided handlers take precedence, allowing coordination handlers to be replaced
-    merged_handlers = {**make_coordination_handlers(coordination_context), **handlers}
+    suspension = SuspensionTable()
+    locals_ = _WorkerLocals()
+    base_handlers = make_merged_coordination_handlers(overseer, handler_wrappers, handlers)
+    worker_handlers = make_worker_handlers(suspension, locals_, handler_wrappers)
     yield from handle(
-        _worker_body(overseer, ctx),
-        **merged_handlers,
+        _worker_body(suspension, locals_, overseer, ctx),
+        **base_handlers,
+        **worker_handlers,
     )

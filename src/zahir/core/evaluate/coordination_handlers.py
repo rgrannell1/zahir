@@ -33,6 +33,19 @@ from zahir.core.combinators import apply_wrapper
 from zahir.core.zahir_types import HandlerMap
 
 
+def make_merged_coordination_handlers(
+    overseer: Pid,
+    handler_wrappers: Sequence,
+    user_handlers: HandlerMap,
+) -> HandlerMap:
+    """Coordination handlers merged with user overrides.
+
+    User-provided handlers take precedence, allowing any coordination handler to be replaced.
+    """
+    ctx = CoordinationHandlerContext(overseer=overseer, handler_wrappers=handler_wrappers)
+    return {**make_coordination_handlers(ctx), **user_handlers}
+
+
 @dataclass
 class CoordinationHandlerContext:
     overseer: Pid
