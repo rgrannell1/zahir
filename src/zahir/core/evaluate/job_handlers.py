@@ -14,6 +14,7 @@ from zahir.core.effects import (
     ESignal,
     ZahirCoordinationEffect,
 )
+from zahir.core.combinators import apply_wrapper
 from zahir.core.exceptions import InvalidEffectError, JobError, JobTimeoutError
 from zahir.core.zahir_types import HandlerMap
 
@@ -131,11 +132,6 @@ def _handle_set_semaphore(
     """Set the state of a semaphore and release all waiting workers."""
 
     yield ESetSemaphoreState(name=effect.name, state=effect.state)
-
-
-def apply_wrapper(handler: Any, wrapper: Any) -> Any:
-    """Apply a single handler wrapper to a handler."""
-    return wrapper(handler)
 
 
 def make_job_handlers(context: JobHandlerContext) -> HandlerMap:

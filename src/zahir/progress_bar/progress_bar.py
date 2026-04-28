@@ -19,19 +19,28 @@ def with_progress(events: Iterable[Any]) -> Generator[Any, None, None]:
     """
     bar = ZahirProgressBar()
     last_poll = time.monotonic()
+    crash: BaseException | None = None
 
     with bar:
-        for event in events:
-            now = time.monotonic()
+        try:
+            for event in events:
+                now = time.monotonic()
 
-            if now - last_poll >= _POLL_INTERVAL_S:
-                bar.poll()
-                last_poll = now
+                if now - last_poll >= _POLL_INTERVAL_S:
+                    bar.poll()
+                    last_poll = now
 
-            if isinstance(event, Event):
-                bar.update(event)
+                if isinstance(event, Event):
+                    bar.update(event)
 
-            yield event
+                yield event
+        except BaseException as err:
+            # Capture the exception so the with block exits cleanly, restoring
+            # the alternate screen before Python prints the traceback.
+            crash = err
+
+    if crash is not None:
+        raise crash
 
 
 class ZahirProgressBar:

@@ -29,6 +29,7 @@ from zahir.core.effects import (
     EStorageSetSemaphore,
     EStorageSignal,
 )
+from zahir.core.combinators import apply_wrapper
 from zahir.core.zahir_types import HandlerMap
 
 
@@ -150,11 +151,6 @@ def _handle_get_result(
     """Retrieve the root job's return value from the overseer."""
 
     return (yield from mcall(context.overseer, EStorageGetResult()))
-
-
-def apply_wrapper(handler: Any, wrapper: Any) -> Any:
-    """Apply a single handler wrapper to a handler."""
-    return wrapper(handler)
 
 
 def make_coordination_handlers(context: CoordinationHandlerContext) -> HandlerMap:

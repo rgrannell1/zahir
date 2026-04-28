@@ -4,6 +4,11 @@ from functools import partial
 from typing import Any
 
 
+def apply_wrapper(handler: Any, wrapper: Any) -> Any:
+    """Apply a single handler wrapper to a handler."""
+    return wrapper(handler)
+
+
 def _drive_setup(gen) -> Generator[Any, Any, None]:
     """Propagate fn setup yields to the caller until the seam (bare yield → None)."""
 

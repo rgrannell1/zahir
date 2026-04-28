@@ -17,7 +17,7 @@ def _waiting_event(label: str) -> object:
     return point({"tag": [DependencyTag.WAITING], "pid": [str(os.getpid())], "dep": [label]}, at=time.time())
 
 
-def _satisfied_event(label: str) -> object:
+def _done_event(label: str) -> object:
     return point({"tag": [DependencyTag.SATISFIED], "pid": [str(os.getpid())], "dep": [label]}, at=time.time())
 
 
@@ -79,7 +79,7 @@ def dependency(
                 f"{label} timed out after {timeout_ms}ms",
             )
             yield EEmit(result)
-            yield EEmit(_satisfied_event(label))
+            yield EEmit(_done_event(label))
             return result
 
         try:
@@ -90,12 +90,12 @@ def dependency(
             if satisfied:
                 result = (DependencyState.SATISFIED, metadata)
                 yield EEmit(result)
-                yield EEmit(_satisfied_event(label))
+                yield EEmit(_done_event(label))
                 return result
         except ImpossibleError as exc:
             result = (DependencyState.IMPOSSIBLE, str(exc))
             yield EEmit(result)
-            yield EEmit(_satisfied_event(label))
+            yield EEmit(_done_event(label))
             return result
 
         yield EEmit(_waiting_event(label))

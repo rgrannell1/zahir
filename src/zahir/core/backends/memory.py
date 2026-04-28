@@ -1,5 +1,6 @@
 # In-memory coordination backend — the default storage backend for the overseer gen_server.
 from collections import deque
+from dataclasses import dataclass, field
 from functools import partial
 from typing import Any
 
@@ -21,6 +22,7 @@ from zahir.core.effects import (
 from zahir.core.zahir_types import ConcurrencyMap, HandlerMap, JobSpec, PendingResults
 
 
+@dataclass
 class MemoryBackend:
     """Stores all coordination state in-process. Requires no external dependencies.
 
@@ -28,23 +30,13 @@ class MemoryBackend:
     single-threaded message loop.
     """
 
-    def __init__(
-        self,
-        queue: deque | None = None,
-        concurrency: ConcurrencyMap | None = None,
-        semaphores: dict | None = None,
-        pending: int = 0,
-        root_error: Exception | None = None,
-        root_result: Any = None,
-        pending_results: PendingResults | None = None,
-    ) -> None:
-        self.queue = queue if queue is not None else deque()
-        self.concurrency = concurrency if concurrency is not None else {}
-        self.semaphores = semaphores if semaphores is not None else {}
-        self.pending = pending
-        self.root_error = root_error
-        self.root_result = root_result
-        self.pending_results = pending_results if pending_results is not None else {}
+    queue: deque = field(default_factory=deque)
+    concurrency: ConcurrencyMap = field(default_factory=dict)
+    semaphores: dict = field(default_factory=dict)
+    pending: int = 0
+    root_error: Exception | None = None
+    root_result: Any = None
+    pending_results: PendingResults = field(default_factory=dict)
 
     def initialize(self, fn_name: str, args: tuple) -> None:
         """Seed the queue with the root job and set pending to 1."""

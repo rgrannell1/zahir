@@ -44,6 +44,6 @@ max-complexity = 15
 package = true
 
 [tool.uv.sources]
-bookman = { path = "../sand", editable = true }
+bookman = { path = "../bookman", editable = true }
 orbis = { path = "../orbis", editable = true }
 tertius = { path = "../tertius", editable = true }
