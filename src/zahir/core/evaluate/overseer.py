@@ -1,4 +1,7 @@
-# Overseer gen_server — serialises all coordination state access across workers.
+"""Our overseer genserver delegates all work to storage handlers & further downstreams.
+"""
+
+
 from collections.abc import Generator
 from typing import Any
 

@@ -194,11 +194,17 @@ def worker(
         scope=ScopeProxy(scope),
         user_context=user_context() if user_context is not None else None,
     )
+
     suspension = SuspensionTable()
     locals_ = _WorkerLocals()
+
+    # acquire & similar
     job_handlers = make_job_handlers(locals_, handler_wrappers)
+    # general coordination handlers
     base_handlers = make_merged_coordination_handlers(overseer, handler_wrappers, handlers)
+    # eawait handler, which uses locals_
     worker_handlers = make_worker_handlers(suspension, locals_, handler_wrappers)
+
     yield from handle(
         _worker_body(suspension, locals_, job_handlers, overseer, ctx),
         **base_handlers,

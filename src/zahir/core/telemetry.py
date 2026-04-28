@@ -83,10 +83,13 @@ def _error_teardown(effect, span_id: str, start: float, exc: Exception):
 
 
 def _telemetry_fn(effect):
+    """Emit telemetry events around the handler call."""
+
     span_id = str(uuid.uuid4())
     start = time.time()
     job_id = get_job_id(effect)
     yield from _setup_phase(effect, span_id, start, job_id)
+
     try:
         result = yield
         end = time.time()

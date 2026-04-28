@@ -8,6 +8,8 @@ from zahir.core.constants import JobTag, Phase
 
 
 def get_fn_name(effect) -> str | None:
+    """Get the function name from the effect."""
+
     if hasattr(effect, "jobs") and effect.scalar and len(effect.jobs) == 1:
         return effect.jobs[0].fn_name
 
@@ -75,5 +77,3 @@ def job_lifecycle_span(effect, job_id: str, enqueued_at: float, completed_at: fl
 
     dims = base_dimensions(effect, job_id) | {"tag": [JobTag.JOB_LIFECYCLE]}
     return span(dims, at=enqueued_at, until=completed_at)
-
-
