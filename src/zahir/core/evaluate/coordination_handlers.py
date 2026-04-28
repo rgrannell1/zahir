@@ -152,6 +152,11 @@ def _handle_get_result(
     return (yield from mcall(context.overseer, EStorageGetResult()))
 
 
+def apply_wrapper(handler: Any, wrapper: Any) -> Any:
+    """Apply a single handler wrapper to a handler."""
+    return wrapper(handler)
+
+
 def make_coordination_handlers(context: CoordinationHandlerContext) -> HandlerMap:
     """Create handlers for all coordination effects — job lifecycle (worker) and completion polling (root)."""
 
@@ -169,6 +174,6 @@ def make_coordination_handlers(context: CoordinationHandlerContext) -> HandlerMa
         ESignal.tag: partial(_handle_signal, context),
     }
     return {
-        tag: reduce(lambda h, w: w(h), context.handler_wrappers, h)
-        for tag, h in handlers.items()
+        tag: reduce(apply_wrapper, context.handler_wrappers, handler)
+        for tag, handler in handlers.items()
     }

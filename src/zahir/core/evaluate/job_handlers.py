@@ -133,6 +133,11 @@ def _handle_set_semaphore(
     yield ESetSemaphoreState(name=effect.name, state=effect.state)
 
 
+def apply_wrapper(handler: Any, wrapper: Any) -> Any:
+    """Apply a single handler wrapper to a handler."""
+    return wrapper(handler)
+
+
 def make_job_handlers(context: JobHandlerContext) -> HandlerMap:
     """Create job-effect handlers keyed by effect tag, with any user-supplied wrappers applied."""
 
@@ -142,6 +147,6 @@ def make_job_handlers(context: JobHandlerContext) -> HandlerMap:
         ESetSemaphore.tag: partial(_handle_set_semaphore, context),
     }
     return {
-        tag: reduce(lambda h, w: w(h), context.handler_wrappers, h)
-        for tag, h in handlers.items()
+        tag: reduce(apply_wrapper, context.handler_wrappers, handler)
+        for tag, handler in handlers.items()
     }

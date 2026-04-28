@@ -102,9 +102,9 @@ class RichDisplayService:
         if self._workflow_task is None:
             return
 
-        enqueued = [s for s in service.jobs.values() if s.total > 0]
-        total = sum(s.total for s in enqueued)
-        processed = sum(s.processed for s in enqueued)
+        enqueued = [stat for stat in service.jobs.values() if stat.total > 0]
+        total = sum(stat.total for stat in enqueued)
+        processed = sum(stat.processed for stat in enqueued)
         desc = workflow_description(total, processed, service.format_eta())
         self._progress.update(
             self._workflow_task, description=desc, completed=processed, total=total
