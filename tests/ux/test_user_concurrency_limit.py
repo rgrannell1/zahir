@@ -31,11 +31,7 @@ _SCOPE = {"fan_out": fan_out, "bounded_job": bounded_job}
 
 def _span_events(events: list) -> list[tuple[float, str]]:
     """Extract (timestamp, event) pairs from acquired/released emit events, sorted by time."""
-    spans = [
-        (e["ts"], e["event"])
-        for e in events
-        if isinstance(e, dict) and "event" in e and "ts" in e
-    ]
+    spans = [(e["ts"], e["event"]) for e in events if isinstance(e, dict) and "event" in e and "ts" in e]
     spans.sort()
     return spans
 
@@ -60,9 +56,7 @@ def test_concurrency_limit_is_never_exceeded():
     events = list(evaluate("fan_out", (), _SCOPE, n_workers=8))
 
     spans = _span_events(events)
-    assert (
-        len(spans) == _N_JOBS * 2
-    ), f"expected {_N_JOBS * 2} bracket events, got {len(spans)}"
+    assert len(spans) == _N_JOBS * 2, f"expected {_N_JOBS * 2} bracket events, got {len(spans)}"
 
     peak = _peak_concurrent(spans)
     assert peak > 0, "no jobs ever acquired the slot"

@@ -21,9 +21,7 @@ def _get_usage(resource: ResourceType) -> float:
             return psutil.virtual_memory().percent
 
 
-def _resource_condition(
-    resource: ResourceType, max_percent: float
-) -> Generator[Any, Any, Any]:
+def _resource_condition(resource: ResourceType, max_percent: float) -> Generator[Any, Any, Any]:
     """Returns (True, metadata) if resource usage is within the limit, False otherwise."""
 
     if _get_usage(resource) <= max_percent:
@@ -55,5 +53,3 @@ def resource_dependency(
         timeout_ms=timeout_ms,
         label=f"{resource} resource",
     )
-
-

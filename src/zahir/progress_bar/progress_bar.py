@@ -34,7 +34,7 @@ def with_progress(events: Iterable[Any]) -> Generator[Any, None, None]:
                     bar.update(event)
 
                 yield event
-        except BaseException as err:
+        except BaseException as err:  # noqa: BLE001
             # Capture the exception so the with block exits cleanly, restoring
             # the alternate screen before Python prints the traceback.
             crash = err

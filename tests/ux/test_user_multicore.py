@@ -46,7 +46,8 @@ def test_job_ids_are_unique_across_workers():
     raw_events = list(evaluate("collect_pids", (), _SCOPE, n_workers=_N_WORKERS, handler_wrappers=[make_telemetry()]))
 
     enqueue_starts = [
-        e for e in raw_events
+        e
+        for e in raw_events
         if isinstance(e, Event)
         and e.dim("tag") == JobTag.ENQUEUE
         and e.dim("phase") == Phase.START

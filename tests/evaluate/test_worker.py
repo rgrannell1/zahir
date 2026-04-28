@@ -13,7 +13,8 @@ from zahir.core.exceptions import JobTimeoutError
 
 def _make_locals(acquired: list | None = None) -> _WorkerLocals:
     """Build a _WorkerLocals with a minimal RunningJob for evaluate_job tests."""
-    job = RunningJob(fn_name="test", eval_gen=None, reply_to=None, parent_sequence_number=None, acquired=[] if acquired is None else acquired)
+    acquired_slots = [] if acquired is None else acquired
+    job = RunningJob(fn_name="test", eval_gen=None, reply_to=None, parent_sequence_number=None, acquired=acquired_slots)
     return _WorkerLocals(current_job=job)
 
 

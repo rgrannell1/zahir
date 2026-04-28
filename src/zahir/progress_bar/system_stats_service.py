@@ -86,9 +86,7 @@ class SystemStats:
 
         if not self._resource_history:
             return 0.0
-        return sum(cpu for _, cpu, _ in self._resource_history) / len(
-            self._resource_history
-        )
+        return sum(cpu for _, cpu, _ in self._resource_history) / len(self._resource_history)
 
     @property
     def ram_percent(self) -> float:
@@ -96,6 +94,4 @@ class SystemStats:
 
         if not self._resource_history:
             return 0.0
-        return sum(ram for _, _, ram in self._resource_history) / len(
-            self._resource_history
-        )
+        return sum(ram for _, _, ram in self._resource_history) / len(self._resource_history)

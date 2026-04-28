@@ -26,9 +26,7 @@ def _make_raising_handler(exc):
 
 def _emitted(effects):
     """Extract bookman Events from EEmit effects."""
-    return [
-        e.body for e in effects if isinstance(e, EEmit) and isinstance(e.body, Event)
-    ]
+    return [e.body for e in effects if isinstance(e, EEmit) and isinstance(e.body, Event)]
 
 
 def test_emits_start_event_before_handler():

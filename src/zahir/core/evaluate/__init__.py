@@ -89,7 +89,13 @@ def evaluate(
     # run the tertius workflow
     yield from run(
         _root,
-        fn_name, args, scope, n_workers, user_context,
-        handler_wrappers, handlers, resolved_storage,
+        fn_name,
+        args,
+        scope,
+        n_workers,
+        user_context,
+        handler_wrappers,
+        handlers,
+        resolved_storage,
         scope=full_scope,
     )

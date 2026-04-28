@@ -35,9 +35,7 @@ def check(
     """
     try:
         outcome = yield from condition_fn()
-        satisfied, metadata = (
-            outcome if isinstance(outcome, tuple) else (outcome, None)
-        )
+        satisfied, metadata = outcome if isinstance(outcome, tuple) else (outcome, None)
         if satisfied:
             result: DependencyResult = (DependencyState.SATISFIED, metadata)
             yield EEmit(result)
@@ -66,11 +64,7 @@ def dependency(
     - returns False when not yet met (will retry after poll_ms)
     - raises ImpossibleError when the condition can never be met
     """
-    timeout_at = (
-        datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms)
-        if timeout_ms is not None
-        else None
-    )
+    timeout_at = datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms is not None else None
 
     while True:
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
@@ -84,9 +78,7 @@ def dependency(
 
         try:
             outcome = yield from condition_fn()
-            satisfied, metadata = (
-                outcome if isinstance(outcome, tuple) else (outcome, None)
-            )
+            satisfied, metadata = outcome if isinstance(outcome, tuple) else (outcome, None)
             if satisfied:
                 result = (DependencyState.SATISFIED, metadata)
                 yield EEmit(result)

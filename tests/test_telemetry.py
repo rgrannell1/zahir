@@ -202,9 +202,7 @@ def test_wrap_propagates_teardown_yields_on_exception():
         except Exception:  # noqa: BLE001
             yield EEmit("error_event")
 
-    gen = wrap(fn)(_make_raising_handler(ValueError("boom")))(
-        EAwait(jobs=[JobSpec("job")])
-    )
+    gen = wrap(fn)(_make_raising_handler(ValueError("boom")))(EAwait(jobs=[JobSpec("job")]))
     with pytest.raises(ValueError):
         value = next(gen)
         while True:

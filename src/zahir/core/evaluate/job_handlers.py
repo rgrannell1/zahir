@@ -38,14 +38,10 @@ def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
             pending_throw = InvalidEffectError(f"job yielded non-Effect value: {effect!r}")
             continue
         if isinstance(effect, ZahirCoordinationEffect):
-            pending_throw = InvalidEffectError(
-                f"{type(effect).__name__} cannot be yielded directly in a job"
-            )
+            pending_throw = InvalidEffectError(f"{type(effect).__name__} cannot be yielded directly in a job")
             continue
         if isinstance(effect, BLOCKED_EFFECTS):
-            pending_throw = InvalidEffectError(
-                f"{type(effect).__name__} cannot be yielded directly in a job"
-            )
+            pending_throw = InvalidEffectError(f"{type(effect).__name__} cannot be yielded directly in a job")
             continue
 
         try:
@@ -91,9 +87,7 @@ def evaluate_job(
     return timeout_guard(guarded, deadline)
 
 
-def _handle_acquire(
-    locals_: _WorkerLocals, effect: EAcquire
-) -> Generator[Any, Any, bool]:
+def _handle_acquire(locals_: _WorkerLocals, effect: EAcquire) -> Generator[Any, Any, bool]:
     """Attempt to acquire a concurrency slot, returning True on success and False on failure."""
 
     result = yield EAcquireSlot(name=effect.name, limit=effect.limit)
@@ -123,7 +117,4 @@ def make_job_handlers(locals_: _WorkerLocals, handler_wrappers: Sequence) -> Han
         EGetSemaphore.tag: _handle_signal,
         ESetSemaphore.tag: _handle_set_semaphore,
     }
-    return {
-        tag: reduce(apply_wrapper, handler_wrappers, handler)
-        for tag, handler in handlers.items()
-    }
+    return {tag: reduce(apply_wrapper, handler_wrappers, handler) for tag, handler in handlers.items()}

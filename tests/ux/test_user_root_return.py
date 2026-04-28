@@ -25,9 +25,7 @@ def returning_none_root(ctx: JobContext):
 def test_root_return_value_is_yielded_by_evaluate():
     """Proves evaluate yields the root job's return value as the final event."""
 
-    events = user_events(
-        evaluate("returning_root", (), {"returning_root": returning_root}, n_workers=1)
-    )
+    events = user_events(evaluate("returning_root", (), {"returning_root": returning_root}, n_workers=1))
 
     assert events == [{"result": 42}]
 

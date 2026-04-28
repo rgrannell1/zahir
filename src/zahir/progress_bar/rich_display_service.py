@@ -106,9 +106,7 @@ class RichDisplayService:
         total = sum(stat.total for stat in enqueued)
         processed = sum(stat.processed for stat in enqueued)
         desc = workflow_description(total, processed, service.format_eta())
-        self._progress.update(
-            self._workflow_task, description=desc, completed=processed, total=total
-        )
+        self._progress.update(self._workflow_task, description=desc, completed=processed, total=total)
 
     def show_error(self, source: str, msg: str) -> None:
         """Print a persistent error line below the live progress bar."""

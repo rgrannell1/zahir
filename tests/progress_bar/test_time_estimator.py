@@ -65,7 +65,7 @@ def test_format_eta_returns_placeholder_when_no_duration_data():
 def test_format_eta_computes_from_in_flight_and_mean():
     svc = _service(
         _lifecycle("job_a", 60_000.0),
-        _start("job_a", job_id="j1"),   # 1 in-flight
+        _start("job_a", job_id="j1"),  # 1 in-flight
     )
     assert svc.format_eta() == "00:01:00"
 
@@ -75,7 +75,7 @@ def test_format_eta_multiplies_count_by_mean():
         _lifecycle("job_a", 10_000.0),
         _start("job_a", job_id="j1"),
         _start("job_a", job_id="j2"),
-        _start("job_a", job_id="j3"),   # 3 in-flight x 10s = 30s
+        _start("job_a", job_id="j3"),  # 3 in-flight x 10s = 30s
     )
     assert svc.format_eta() == "00:00:30"
 
@@ -84,8 +84,8 @@ def test_format_eta_sums_across_fn_names():
     svc = _service(
         _lifecycle("job_a", 30_000.0),
         _lifecycle("job_b", 30_000.0),
-        _start("job_a", job_id="j1"),   # 30s
-        _start("job_b", job_id="j2"),   # 30s → total 60s
+        _start("job_a", job_id="j1"),  # 30s
+        _start("job_b", job_id="j2"),  # 30s → total 60s
     )
     assert svc.format_eta() == "00:01:00"
 
@@ -102,7 +102,7 @@ def test_in_flight_clears_when_end_arrives():
     svc = _service(
         _lifecycle("job_a", 1_000.0),
         _start("job_a", job_id="j1"),
-        _end("job_a", job_id="j1"),   # clears in-flight
+        _end("job_a", job_id="j1"),  # clears in-flight
     )
     assert svc.format_eta() == "--:--:--"
 
@@ -121,8 +121,8 @@ def test_format_eta_uses_partial_data_when_some_types_have_no_history():
     """Proves ETA renders using job types with history, skipping those without."""
     svc = _service(
         _lifecycle("job_a", 30_000.0),
-        _start("job_a", job_id="j1"),   # 1 in-flight x 30s = 30s
-        _start("job_b", job_id="j2"),   # no lifecycle data yet — skipped
+        _start("job_a", job_id="j1"),  # 1 in-flight x 30s = 30s
+        _start("job_b", job_id="j2"),  # no lifecycle data yet — skipped
     )
     assert svc.format_eta() == "00:00:30"
 

@@ -111,9 +111,7 @@ def test_query_params_are_passed_through():
     conn.commit()
     conn.close()
 
-    emit = next(
-        sqlite_dependency(db, "SELECT status FROM items WHERE name = ?", ("a",))
-    )
+    emit = next(sqlite_dependency(db, "SELECT status FROM items WHERE name = ?", ("a",)))
     assert emit.body[0] == "satisfied"
 
 

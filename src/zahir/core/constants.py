@@ -22,9 +22,11 @@ class JobTag(StrEnum):
     # span event covering full job lifetime from enqueue to completion, for duration aggregation
     JOB_LIFECYCLE = "job_lifecycle"
 
+
 DEPENDENCY_DELAY_MS = 5_000
 WORKER_POLL_MS = 100
 COMPLETION_POLL_MS = 200
+
 
 # Semaphore and dependency status values — the three states a dependency or semaphore can be in
 class DependencyState(StrEnum):
@@ -32,18 +34,22 @@ class DependencyState(StrEnum):
     UNSATISFIED = "unsatisfied"
     IMPOSSIBLE = "impossible"
 
+
 # How long to wait between CPU usage samples when checking resource availability
 CPU_SAMPLE_INTERVAL_S = 0.1
 
+
 # Tags on telemetry events emitted by the dependency polling loop
 class DependencyTag(StrEnum):
-    WAITING = "dep:waiting"     # emitted on each poll that returns unsatisfied
+    WAITING = "dep:waiting"  # emitted on each poll that returns unsatisfied
     SATISFIED = "dep:satisfied"  # emitted when the dependency is finally met or abandoned
+
 
 # Tags on work items returned by the overseer to workers
 class WorkItemTag(StrEnum):
     JOB = "job"
     RESULT = "result"
+
 
 # Exceptions that evaluate_job throws back into the running job rather than propagating outward
 THROWABLE = (JobTimeoutError, JobError, InvalidEffectError)

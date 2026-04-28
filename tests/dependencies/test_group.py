@@ -74,9 +74,7 @@ def test_impossible_after_satisfied_short_circuits():
     effects, _ = drain_to(group_dependency([_satisfied(), _impossible(), _satisfied()]))
     user_emits = [e for e in effects if isinstance(e, EEmit) and type(e.body) is tuple]
     assert user_emits[-1].body[0] == "impossible"
-    assert not any(
-        e.body[0] == "satisfied" for e in user_emits[user_emits.index(user_emits[-1]):]
-    )
+    assert not any(e.body[0] == "satisfied" for e in user_emits[user_emits.index(user_emits[-1]) :])
 
 
 def test_sleep_effects_are_passed_through():

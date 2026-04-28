@@ -17,9 +17,7 @@ def _time_condition(
     now = datetime.now(tz=UTC)
 
     if before is not None and now >= before:
-        raise ImpossibleError(
-            f"too late: now={now.isoformat()}, before={before.isoformat()}"
-        )
+        raise ImpossibleError(f"too late: now={now.isoformat()}, before={before.isoformat()}")
 
     return not (after is not None and now < after)
     yield

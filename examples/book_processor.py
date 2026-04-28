@@ -31,9 +31,7 @@ def chapter_processor(ctx: JobContext, lines: list[str]) -> Generator[Any, Any, 
     yield
 
 
-def uppercase_words(
-    ctx: JobContext, words: list[str]
-) -> Generator[Any, Any, list[str]]:
+def uppercase_words(ctx: JobContext, words: list[str]) -> Generator[Any, Any, list[str]]:
     """Return the uppercased words."""
     return [word.upper() for word in words]
     yield

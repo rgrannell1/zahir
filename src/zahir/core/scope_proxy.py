@@ -1,3 +1,5 @@
+"""Wraps the job scope so attribute access returns typed EAwait factories."""
+
 import functools
 import inspect
 from collections.abc import Callable

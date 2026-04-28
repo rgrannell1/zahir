@@ -17,6 +17,8 @@ def pytest_collection_modifyitems(items):
     for item in items:
         if item.get_closest_marker("local_only"):
             item.add_marker(skip)
+
+
 GREEN = "\033[32m"
 RED = "\033[31m"
 
@@ -33,9 +35,7 @@ def pytest_runtest_logreport(report):
         return
 
     doc = getattr(report, "_docstring", report.nodeid)
-    indicator, colour = (
-        (f"{GREEN}✓{RESET}", GREEN) if report.passed else (f"{RED}✗{RESET}", RED)
-    )
+    indicator, colour = (f"{GREEN}✓{RESET}", GREEN) if report.passed else (f"{RED}✗{RESET}", RED)
     lines = [line.strip() for line in doc.splitlines() if line.strip()]
     print(f"\n  {indicator}  {colour}{lines[0]}{RESET}")
 

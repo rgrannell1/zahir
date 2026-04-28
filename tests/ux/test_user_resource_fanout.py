@@ -53,14 +53,10 @@ _SCOPE = {
 def test_resource_dependency_blocks_all_jobs_when_threshold_is_zero():
     """Proves that jobs behind a memory dependency all return None when the threshold is impossible to meet."""
 
-    events = user_events(
-        evaluate("ram_fanout_root", (_ALWAYS_BLOCKED,), _SCOPE, n_workers=_N_WORKERS)
-    )
+    events = user_events(evaluate("ram_fanout_root", (_ALWAYS_BLOCKED,), _SCOPE, n_workers=_N_WORKERS))
 
     records = events[-1]
-    assert all(record is None for record in records), (
-        f"expected all jobs to be blocked, got: {records}"
-    )
+    assert all(record is None for record in records), f"expected all jobs to be blocked, got: {records}"
 
 
 @pytest.mark.local_only
@@ -71,18 +67,14 @@ def test_resource_dependency_fans_out_to_multiple_cores_when_threshold_is_always
     unaffected by the event-emission gap during ESleep.
     """
 
-    events = user_events(
-        evaluate("ram_fanout_root", (_ALWAYS_SATISFIED,), _SCOPE, n_workers=_N_WORKERS)
-    )
+    events = user_events(evaluate("ram_fanout_root", (_ALWAYS_SATISFIED,), _SCOPE, n_workers=_N_WORKERS))
 
     records = events[-1]
-    assert all(record is not None for record in records), (
-        f"some jobs were blocked unexpectedly: {records}"
-    )
+    assert all(record is not None for record in records), f"some jobs were blocked unexpectedly: {records}"
 
     intervals = [(start, end) for _, start, end in records]
     peak = peak_concurrent(intervals)
     min_expected = int(_N_WORKERS * _MIN_FANOUT_FRACTION)
-    assert peak >= min_expected, (
-        f"peak concurrent jobs {peak} below {min_expected} ({_MIN_FANOUT_FRACTION:.0%} of {_N_WORKERS} workers)"
-    )
+    assert (
+        peak >= min_expected
+    ), f"peak concurrent jobs {peak} below {min_expected} ({_MIN_FANOUT_FRACTION:.0%} of {_N_WORKERS} workers)"

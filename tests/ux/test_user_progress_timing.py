@@ -51,9 +51,9 @@ def test_sleeping_job_duration_measured_by_progress_bar():
 
     duration = service.mean_duration_ms("sleeping_job")
     assert duration is not None, "no duration recorded for sleeping_job"
-    assert _SLEEP_LOWER_BOUND_MS <= duration <= _SLEEP_UPPER_BOUND_MS, (
-        f"expected duration in [{_SLEEP_LOWER_BOUND_MS:.0f}, {_SLEEP_UPPER_BOUND_MS:.0f}] ms, got {duration:.1f} ms"
-    )
+    assert (
+        _SLEEP_LOWER_BOUND_MS <= duration <= _SLEEP_UPPER_BOUND_MS
+    ), f"expected duration in [{_SLEEP_LOWER_BOUND_MS:.0f}, {_SLEEP_UPPER_BOUND_MS:.0f}] ms, got {duration:.1f} ms"
 
 
 def short_job(ctx: JobContext):

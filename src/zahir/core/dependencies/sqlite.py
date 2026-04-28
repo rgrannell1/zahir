@@ -47,9 +47,7 @@ def _query(
     with closing(_connect(db_path, timeout_seconds)) as conn:
         cursor = conn.cursor()
         cursor.execute(query, params)
-        column_names = (
-            [name for name, *_ in cursor.description] if cursor.description else []
-        )
+        column_names = [name for name, *_ in cursor.description] if cursor.description else []
         return column_names, cursor.fetchone()
 
 

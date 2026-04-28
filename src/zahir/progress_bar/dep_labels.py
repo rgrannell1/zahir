@@ -5,13 +5,13 @@ from typing import Final
 # Prefix matching is used so labels like "memory resource" or "sqlite './foo.db'" both resolve.
 DEP_SHORT_LABELS: Final[list[tuple[str, str]]] = [
     ("memory resource", "MEM"),
-    ("cpu resource",    "CPU"),
+    ("cpu resource", "CPU"),
     ("concurrency slot", "LCK"),
-    ("concurrency:",    "LCK"),
-    ("semaphore:",      "SEM"),
-    ("semaphore '",     "SEM"),
-    ("sqlite '",        "SQL"),
-    ("time",            "TIME"),
+    ("concurrency:", "LCK"),
+    ("semaphore:", "SEM"),
+    ("semaphore '", "SEM"),
+    ("sqlite '", "SQL"),
+    ("time", "TIME"),
 ]
 
 

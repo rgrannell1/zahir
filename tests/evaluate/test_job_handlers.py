@@ -1,4 +1,3 @@
-
 from tests.shared import drain_to
 from zahir.core.effects import (
     EAcquire,
@@ -19,7 +18,8 @@ from zahir.core.evaluate.suspension import RunningJob, _WorkerLocals
 
 def _make_locals(acquired: list | None = None) -> _WorkerLocals:
     """Build a _WorkerLocals with a minimal RunningJob for handler tests."""
-    job = RunningJob(fn_name="test", eval_gen=None, reply_to=None, parent_sequence_number=None, acquired=[] if acquired is None else acquired)
+    acquired_slots = [] if acquired is None else acquired
+    job = RunningJob(fn_name="test", eval_gen=None, reply_to=None, parent_sequence_number=None, acquired=acquired_slots)
     return _WorkerLocals(current_job=job)
 
 

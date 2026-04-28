@@ -19,9 +19,7 @@ class EEnqueue(ZahirCoordinationEffect[None]):
     args: tuple[Any, ...]
     reply_to: bytes  # the requesting worker's PID bytes
     timeout_ms: int | None
-    sequence_number: (
-        int  # allocated sequence_number for routing the reply back to the parent
-    )
+    sequence_number: int  # allocated sequence_number for routing the reply back to the parent
 
 
 @dataclass

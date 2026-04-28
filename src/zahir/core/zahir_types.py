@@ -17,6 +17,7 @@ class JobContext[T]:
         self.scope = scope
         self.user_context = user_context
 
+
 # Result types for dependency combinators — the Left/Right of the dependency monad.
 type Satisfied = tuple[Literal["satisfied"], dict | None]
 type Impossible = tuple[Literal["impossible"], str]
@@ -41,5 +42,3 @@ class JobSpec:
     timeout_ms: int | None = None
     reply_to: bytes | None = None
     sequence_number: int | None = None
-
-

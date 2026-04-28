@@ -16,7 +16,6 @@ from bookman.aggregators import (
 
 from zahir.core.metrics.selectors import (
     get_duration_ms,
-    get_fn,
     get_job_id,
     get_pid,
     has_fn,
@@ -40,11 +39,13 @@ def job_stats_agg() -> Aggregator:
     total counts enqueue:start events; completed and failed count their respective end events.
     """
 
-    return zip_all([
-        filter_events(is_enqueue_start, count_distinct(get_job_id)),
-        filter_events(is_job_complete, count_distinct(get_job_id)),
-        filter_events(is_job_fail, count_distinct(get_job_id)),
-    ])
+    return zip_all(
+        [
+            filter_events(is_enqueue_start, count_distinct(get_job_id)),
+            filter_events(is_job_complete, count_distinct(get_job_id)),
+            filter_events(is_job_fail, count_distinct(get_job_id)),
+        ]
+    )
 
 
 def job_duration_mean_agg() -> Aggregator:
@@ -78,9 +79,7 @@ def bucket_key(bucket_s: float, ev) -> float:
     return (ev.at // bucket_s) * bucket_s
 
 
-def active_cores_timeline(
-    events: Iterable, bucket_s: float = 1.0
-) -> Generator[dict[float, int], None, None]:
+def active_cores_timeline(events: Iterable, bucket_s: float = 1.0) -> Generator[dict[float, int], None, None]:
     """Yield an updated per-bucket active core count after each event in the stream.
 
     Each yielded dict maps bucket-start timestamps to the count of unique worker pids

@@ -56,7 +56,9 @@ class MemoryBackend:
 
         return None
 
-    def enqueue(self, fn_name: str, args: tuple, reply_to: bytes | None, timeout_ms: int | None, sequence_number: int | None) -> None:  # noqa: E501
+    def enqueue(
+        self, fn_name: str, args: tuple, reply_to: bytes | None, timeout_ms: int | None, sequence_number: int | None
+    ) -> None:  # noqa: E501
         """Add a child job to the queue and increment pending."""
         spec = JobSpec(fn_name=fn_name, args=args, reply_to=reply_to, timeout_ms=timeout_ms, sequence_number=sequence_number)
         self.queue.append(spec)
@@ -198,16 +200,16 @@ def make_memory_storage_handlers() -> HandlerMap:
     """Create a complete set of storage handlers backed by a fresh in-memory backend."""
     backend = MemoryBackend()
     return {
-        EStorageInitialize.tag:  partial(_handle_storage_initialize, backend),
-        EStorageGetJob.tag:      partial(_handle_storage_get_job, backend),
-        EStorageEnqueue.tag:     partial(_handle_storage_enqueue, backend),
-        EStorageJobDone.tag:     partial(_handle_storage_job_done, backend),
-        EStorageJobFailed.tag:   partial(_handle_storage_job_failed, backend),
-        EStorageAcquire.tag:     partial(_handle_storage_acquire, backend),
-        EStorageRelease.tag:     partial(_handle_storage_release, backend),
-        EStorageSignal.tag:      partial(_handle_storage_signal, backend),
+        EStorageInitialize.tag: partial(_handle_storage_initialize, backend),
+        EStorageGetJob.tag: partial(_handle_storage_get_job, backend),
+        EStorageEnqueue.tag: partial(_handle_storage_enqueue, backend),
+        EStorageJobDone.tag: partial(_handle_storage_job_done, backend),
+        EStorageJobFailed.tag: partial(_handle_storage_job_failed, backend),
+        EStorageAcquire.tag: partial(_handle_storage_acquire, backend),
+        EStorageRelease.tag: partial(_handle_storage_release, backend),
+        EStorageSignal.tag: partial(_handle_storage_signal, backend),
         EStorageSetSemaphore.tag: partial(_handle_storage_set_semaphore, backend),
-        EStorageIsDone.tag:      partial(_handle_storage_is_done, backend),
-        EStorageGetError.tag:    partial(_handle_storage_get_error, backend),
-        EStorageGetResult.tag:   partial(_handle_storage_get_result, backend),
+        EStorageIsDone.tag: partial(_handle_storage_is_done, backend),
+        EStorageGetError.tag: partial(_handle_storage_get_error, backend),
+        EStorageGetResult.tag: partial(_handle_storage_get_result, backend),
     }

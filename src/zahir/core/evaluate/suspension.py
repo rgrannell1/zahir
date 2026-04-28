@@ -101,9 +101,7 @@ class SuspensionTable:
     def __post_init__(self) -> None:
         self._alloc = itertools.count().__next__
 
-    def suspend(
-        self, effect: EAwait, job: RunningJob, me_bytes: bytes
-    ) -> Generator[Any, Any, None]:
+    def suspend(self, effect: EAwait, job: RunningJob, me_bytes: bytes) -> Generator[Any, Any, None]:
         """Suspend job, enqueue all child jobs, and record the fan-out in the table."""
 
         child_sequence_numbers = [self._alloc() for _ in effect.jobs]

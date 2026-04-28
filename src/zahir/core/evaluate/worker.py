@@ -125,18 +125,14 @@ def _handle_idle(
             return _Idle()
 
 
-def _handle_eawait(
-    suspension: SuspensionTable, locals_: _WorkerLocals, effect: EAwait
-) -> Generator[Any, Any, Any]:
+def _handle_eawait(suspension: SuspensionTable, locals_: _WorkerLocals, effect: EAwait) -> Generator[Any, Any, Any]:
     """Suspend the running job and enqueue its child jobs."""
 
     yield from suspension.suspend(effect, locals_.current_job, locals_.me_bytes)
     return _SUSPENDED
 
 
-def make_worker_handlers(
-    suspension: SuspensionTable, locals_: _WorkerLocals, handler_wrappers: Sequence
-) -> HandlerMap:
+def make_worker_handlers(suspension: SuspensionTable, locals_: _WorkerLocals, handler_wrappers: Sequence) -> HandlerMap:
     """EAwait handler with wrappers applied — merged last so it cannot be overridden."""
 
     handler = partial(_handle_eawait, suspension, locals_)
@@ -144,9 +140,7 @@ def make_worker_handlers(
     return {EAwait.tag: wrapped}
 
 
-def _handle_running(
-    state: _Running, locals_: _WorkerLocals
-) -> Generator[Any, Any, WorkerState]:
+def _handle_running(state: _Running, locals_: _WorkerLocals) -> Generator[Any, Any, WorkerState]:
     """Advance the current job one step and transition based on the outcome."""
 
     job = state.job
@@ -183,9 +177,7 @@ def _worker_body(
                 state = yield from _handle_running(state, locals_)
 
 
-def worker(
-    overseer_pid_bytes: bytes, scope: Scope, user_context, handler_wrappers, handlers: dict
-) -> Generator[Any, Any, None]:
+def worker(overseer_pid_bytes: bytes, scope: Scope, user_context, handler_wrappers, handlers: dict) -> Generator[Any, Any, None]:
     """zahir worker main loop"""
 
     overseer = Pid.from_bytes(overseer_pid_bytes)
