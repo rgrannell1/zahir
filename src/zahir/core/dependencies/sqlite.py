@@ -94,12 +94,13 @@ def sqlite_dependency(
     db_path: str,
     query: str,
     params: tuple[Any, ...] | None = None,
-    timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+    connection_timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+    poll_timeout_ms: int | None = None,
 ) -> Generator[Any, Any, DependencyResult]:
     _validate_db_path(db_path)
     return dependency(
-        partial(_sqlite_condition, db_path, query, params, timeout_seconds),
-        timeout_ms=int(timeout_seconds * 1000),
+        partial(_sqlite_condition, db_path, query, params, connection_timeout_seconds),
+        timeout_ms=poll_timeout_ms,
         label=f"sqlite '{db_path}'",
     )
 
@@ -108,11 +109,11 @@ def check_sqlite_dependency(
     db_path: str,
     query: str,
     params: tuple[Any, ...] | None = None,
-    timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+    connection_timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
 ) -> Generator[Any, Any, DependencyResult]:
     """Evaluate the sqlite condition once; return satisfied or impossible without retrying."""
     _validate_db_path(db_path)
     return check(
-        partial(_sqlite_condition, db_path, query, params, timeout_seconds),
+        partial(_sqlite_condition, db_path, query, params, connection_timeout_seconds),
         label=f"sqlite '{db_path}'",
     )

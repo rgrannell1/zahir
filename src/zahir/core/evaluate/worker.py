@@ -191,11 +191,12 @@ def worker(
     """zahir worker main loop"""
 
     overseer = Pid.from_bytes(overseer_pid_bytes)
-    ctx = JobContext()
-    ctx._scope = scope
-    ctx.scope = ScopeProxy(scope)
-    ctx.handler_wrappers = handler_wrappers
-    ctx.user_context = user_context() if user_context is not None else None
+    ctx = JobContext(
+        _scope=scope,
+        scope=ScopeProxy(scope),
+        handler_wrappers=handler_wrappers,
+        user_context=user_context() if user_context is not None else None,
+    )
 
     coordination_context = CoordinationHandlerContext(
         overseer=overseer, handler_wrappers=handler_wrappers

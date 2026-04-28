@@ -12,6 +12,12 @@ class JobContext[T]:
 
     __slots__ = ("_scope", "scope", "handler_wrappers", "user_context")
 
+    def __init__(self, _scope, scope, handler_wrappers, user_context) -> None:
+        self._scope = _scope
+        self.scope = scope
+        self.handler_wrappers = handler_wrappers
+        self.user_context = user_context
+
 # Result types for dependency combinators — the Left/Right of the dependency monad.
 type Satisfied = tuple[Literal["satisfied"], dict | None]
 type Impossible = tuple[Literal["impossible"], str]
