@@ -14,7 +14,7 @@ from bookman.aggregators import (
     zip_all,
 )
 
-from zahir.core.metrics.selectors import (
+from zahir.progress_bar.metrics.selectors import (
     get_duration_ms,
     get_job_id,
     get_pid,

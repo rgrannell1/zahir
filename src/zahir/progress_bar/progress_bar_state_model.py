@@ -4,7 +4,7 @@ from typing import Any
 from bookman.events import Event
 
 from zahir.core.constants import DependencyTag, JobTag, Phase
-from zahir.core.metrics import per_fn_progress_agg
+from zahir.progress_bar.metrics import per_fn_progress_agg
 
 
 @dataclass
