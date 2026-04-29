@@ -5,11 +5,9 @@
 
 > Perhaps I shall conclude by wearing away the Zahir simply through thinking of it again and again.
 
-Zahir is (re)built on the algebraic effects multiprocessing runtime [tertius](https://github.com/rgrannell1/tertius), which itself is based on the algebraic effect library [orbis](https://github.com/rgrannell1/tertius).
+Zahir is (re)built on the algebraic effects multiprocessing runtime [tertius](https://github.com/rgrannell1/tertius), which itself is based on the algebraic effect library [orbis](https://github.com/rgrannell1/orbis).
 
-It is the simplest workflow engine I could build. It is not a DAG workflow engine or a traditional state-machine workflow engine. It is a dynamically expanding effect-driven state-machine where state transitions are defined at runtime by running jobs. It does not statically define a workflow; the workflow unfolds from the starting step's execution. It looks like normal code, it just happens to run on different processes automatically.
-
-Dependencies, schedules, signals, and jobs themselves use the same generator system: read an input, do computation, wait on other tasks, return a result. Jobs use effects - approximately speaking events that get responses back - to communicate with the workflow engine. This allows for concurrency control or interjob signalling.
+It is the simplest workflow engine I could build. It runs a job (a python generator) that can yield further jobs to run sequentially or in parallel. These jobs are distributed across processes automatically. We schedule by waiting for the time to arrive. We avoid memory exhaustion by waiting for it to be free, if we choose. We maintain idempotency with if-then checks. We roll back with try-catch. We pass state with input parameters and returns.
 
 ## A Simple Workflow
 
@@ -60,63 +58,13 @@ The overseer process is a GenServer that manages mutable state (the job queue, c
 
 ## Constructs
 
-### Effects: Request & Respond
-
-Effects are generally abstracted away from jobs in Zahir, but ultimately both the zahir workflow engine & underlying multiprocess runtime are stacked effect systems. For every effect there's a handler; they're handled internally by Zahir, with telemetry simply being another generator composed on top to watch the information flows. The user too can compose on top of the effect system, to facilitate debugging.
-
-**Job-emittable effects**
-
-These effects can be yielded by a job.
-
-- `yield EAwait(job | job[])`: pause, wait for one or more jobs in parallel, resume with the result or a list of results in dispatch order. Raises `JobError` if any job failed. `yield ctx.scope.myjob()` is shorthand for the single-job form.
-- `yield EAcquire(name, limit)`: acquire a named concurrency slot
-- `yield EGetSemaphore(name)`: get a semaphore's state
-- `yield ESetSemaphore(name, state)`: set a semaphore's state
-- `yield EEmit(msg)`: emit an event to the `evaluate` caller
-
-**Coordination effects**
-
-These are internal effects used by the workflow engine; jobs cannot yield them directly.
-
-*Job lifecycle*
-- `EGetJob(worker_pid_bytes)`: request work from the overseer — returns a new job, a buffered child result, or None
-- `EEnqueue(fn_name, args, reply_to, timeout_ms, sequence_number)`: queue a child job and route its result back to this worker
-- `EJobComplete(result, reply_to, sequence_number)`: report successful job completion to the overseer
-- `EJobFail(error, reply_to, sequence_number)`: report job failure (error or timeout) to the overseer
-- `ERelease(name)`: release a named concurrency slot back to the overseer
-
-*Overseer queries*
-- `EAcquireSlot(name, limit)`: request a named concurrency slot from the overseer
-- `ESignal(name)`: query the current state of a named semaphore from the overseer
-- `ESetSemaphoreState(name, state)`: write a new state for a named semaphore to the overseer
-- `EIsDone()`: ask the overseer whether all pending jobs have completed
-- `EGetError()`: retrieve the root error from the overseer, if any
-- `EGetResult()`: retrieve the root job's return value from the overseer
-
-**Storage effects**
-
-The overseer talks to the job queue through these effects rather than calling it directly. This means we can swap out storage implementations by swapping the handlers for these effects.
-
-- `EStorageInitialize(fn_name, args)`: set up the queue with the first job when the overseer starts
-- `EStorageGetJob(worker_pid_bytes)`: hand the next pending job to a worker that is ready for one
-- `EStorageEnqueue(fn_name, args, reply_to, timeout_ms, sequence_number)`: add a child job to the queue and note that one more result is expected
-- `EStorageJobDone(reply_to, sequence_number, body)`: mark one job finished, send its result back to whoever is waiting, or keep it as the final output if it was the root job
-- `EStorageJobFailed(error)`: mark one job finished with a failure and record it as the root-level error
-- `EStorageAcquire(name, limit)`: claim one of the available slots for a named concurrency limit, blocking further work if none are free
-- `EStorageRelease(name)`: give back a slot for a named concurrency limit
-- `EStorageSignal(name)`: check how many slots are currently in use for a named concurrency limit
-- `EStorageSetSemaphore(name, state)`: directly set the slot state for a named concurrency limit
-- `EStorageIsDone()`: ask whether every job has finished
-- `EStorageGetError()`: fetch the recorded failure, if the run went wrong
-- `EStorageGetResult()`: fetch the return value of the root job once it has finished
-
 ## Jobs: Do things, wait for things
 
 Jobs do something, based on an input, and return a value. Jobs can await other jobs by invoking functions registered in scope: `res = yield ctx.scope.my_subtask(input)`. Jobs are generators; they can fan out to other jobs (which run in parallel) or just call regular functions.
 
 There's no rollbacks; if something goes wrong, detect it with a try-catch or by inspecting returrn values, and run corrective actions yourself. Job-level rollbacks do not compose into workflow rollbacks; crouching, stepping backwards, and taking off your parachute will not get you back on your plane.
 
-Dependencies are jobs that wait for a condition, and yield `ESatisfied` when it's met, sleep with `ESleep` until then, and when the dependency can never be met yields `EImpossible`. We can construct them with a combinator function that takes a function yielding those dependency results; it handles sleeping until a result is returned.
+Dependencies are jobs that wait for a condition. They return a `DependencyResult` tuple — `(DependencyState.SATISFIED, metadata)` when met, `(DependencyState.IMPOSSIBLE, reason)` when the condition can never be met. A combinator function handles the polling and sleeping until a result is returned.
 
 Jobs should await suitable conditions to run using dependency-jobs, and post-check with the same mechanism. Zahir ships a few built-in dependency jobs.
 
@@ -125,11 +73,22 @@ Jobs should await suitable conditions to run using dependency-jobs, and post-che
 - `resource_dependency(resource, max_percent, timeout?)`: wait until memory or CPU usage is acceptable low.
 - `sqlite_dependency(db_path, query, params?, timeout_seconds?)`: wait until a query returns rows (or alternatively, a1x1 query says `satisfied` or `impossible`)
 - `time_dependency(before?, after?)`: wait until a time window; return `impossible` if it's passed
+- `file_dependency(fpath)`: wait until a file exists
 - `group_dependency([...])`: sequence a list of dependencies
+
+### Effects: Request & Respond
+
+Effects are generally abstracted away from jobs in Zahir, but ultimately both the zahir workflow engine & underlying multiprocess runtime are stacked effect systems. For every effect there's a handler; they're handled internally by Zahir, with telemetry simply being another generator composed on top to watch the information flows. The user too can compose on top of the effect system, to facilitate debugging. Most are internal; these can be yielded by a job
+
+- `yield EAwait(job | job[])`: pause, wait for one or more jobs in parallel, resume with the result or a list of results in dispatch order. Raises `JobError` if any job failed. `yield ctx.scope.myjob()` is shorthand for the single-job form.
+- `yield EAcquire(name, limit)`: acquire a named concurrency slot
+- `yield EGetSemaphore(name)`: get a semaphore's state
+- `yield ESetSemaphore(name, state)`: set a semaphore's state
+- `yield EEmit(msg)`: emit an event to the `evaluate` caller (from `tertius`)
 
 ## Context: Job-accessible internals
 
-We need to pre-agree on what names map to what functions; scope is a dictionary of names to functions. Jobs can be called using `ctx.scope.name(...args)`; of course, normal functions are accessible in the usual way.
+We need to pre-agree on what names map to what functions across processes; scope is a dictionary of names to functions. Jobs can be called using `ctx.scope.name(...args)`; of course, normal functions are accessible in the usual way.
 
 ## Modules
 
