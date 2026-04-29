@@ -54,7 +54,7 @@ for event in evaluate("book_workflow", ("war-and-peace.txt",), scope, n_workers=
 
 ## How Zahir Works
 
-Zahir builds on [tertius](https://github.com/rgrannell1/tertius), which provides a way of setting up processes and communicating between them. It is a supervisor - worker model.
+Zahir builds on [tertius](https://github.com/rgrannell1/tertius), which provides a way of setting up processes and communicating between them. It is a supervisor - worker model. We use [bookman](https://github.com/rgrannell1/bookman) for the metric aggregation and reporting step.
 
 The overseer process is a GenServer that manages mutable state (the job queue, concurrency limits, etc). Workers too are GenServers, which ask for jobs to run, evaluates them, and enqueues new jobs. They communicate results to the overseer, or awaited job statuses.
 
@@ -130,6 +130,14 @@ Jobs should await suitable conditions to run using dependency-jobs, and post-che
 ## Context: Job-accessible internals
 
 We need to pre-agree on what names map to what functions; scope is a dictionary of names to functions. Jobs can be called using `ctx.scope.name(...args)`; of course, normal functions are accessible in the usual way.
+
+## Modules
+
+- [Effects](src/zahir/core/effects/README.md) - our event-response signals
+- [Evaluate](src/zahir/core/evaluate/README.md) - the bit that runs
+- [Dependencies](src/zahir/core/dependencies/README.md) - built-in world-state checks & pollers
+- [Backends](src/zahir/core/backends/README.md) - swappable storage backend implementations
+- [Metrics](src/zahir/progress_bar/metrics/README.md) - progress bar aggregators built on bookman
 
 ## License
 
