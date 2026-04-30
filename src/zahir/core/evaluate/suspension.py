@@ -31,7 +31,7 @@ class RunningJob:
 
 
 @dataclass
-class _WorkerLocals:
+class WorkerLocals:
     """Mutable per-worker references written by the worker loop and read by the EAwait handler."""
 
     me_bytes: bytes = b""
@@ -72,7 +72,7 @@ class SuspendedJob(RunningJob):
 # (tag, sequence_number, body) — the raw work item delivered to a waiting parent
 type WorkItem = tuple[str, int | None, Any]
 
-# Return type of SuspensionTable.resume — None when children are still outstanding
+# Return type of SuspensionTable.resume. None when children are still outstanding
 type ResumeResult = tuple[RunningJob, Result[Any, Exception]] | None
 
 
@@ -142,6 +142,7 @@ class SuspensionTable:
         assert child_sequence_number is not None
 
         parent_key = self.child_to_parent.pop(child_sequence_number)
+
         job = self.waiting[parent_key]
         job.results[child_sequence_number] = body
         job.awaiting.remove(child_sequence_number)
@@ -151,4 +152,5 @@ class SuspensionTable:
 
         current = self.waiting.pop(parent_key)
         result = _collect_await_many(current) if current.result_order is not None else _unwrap_reply(body)
+
         return current, result

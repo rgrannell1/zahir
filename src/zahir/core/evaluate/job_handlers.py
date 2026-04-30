@@ -16,7 +16,7 @@ from zahir.core.effects import (
     ESignal,
     ZahirCoordinationEffect,
 )
-from zahir.core.evaluate.suspension import _WorkerLocals
+from zahir.core.evaluate.suspension import WorkerLocals
 from zahir.core.exceptions import InvalidEffectError, JobTimeoutError
 from zahir.core.zahir_types import HandlerMap
 
@@ -87,7 +87,7 @@ def evaluate_job(
     return timeout_guard(guarded, deadline)
 
 
-def _handle_acquire(locals_: _WorkerLocals, effect: EAcquire) -> Generator[Any, Any, bool]:
+def _handle_acquire(locals_: WorkerLocals, effect: EAcquire) -> Generator[Any, Any, bool]:
     """Attempt to acquire a concurrency slot, returning True on success and False on failure."""
 
     result = yield EAcquireSlot(name=effect.name, limit=effect.limit)
@@ -109,7 +109,7 @@ def _handle_set_semaphore(effect: ESetSemaphore) -> Generator[Any, Any, None]:
     yield ESetSemaphoreState(name=effect.name, state=effect.state)
 
 
-def make_job_handlers(locals_: _WorkerLocals, handler_wrappers: Sequence) -> HandlerMap:
+def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> HandlerMap:
     """Create job-effect handlers keyed by effect tag, with any user-supplied wrappers applied."""
 
     handlers = {

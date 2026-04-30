@@ -7,18 +7,18 @@ from tertius import ESleep
 from tests.shared import NOW, drain_to
 from zahir.core.effects import EAcquire, EAcquireSlot
 from zahir.core.evaluate.job_handlers import evaluate_job, make_job_handlers
-from zahir.core.evaluate.suspension import RunningJob, _WorkerLocals
+from zahir.core.evaluate.suspension import RunningJob, WorkerLocals
 from zahir.core.exceptions import JobTimeoutError
 
 
-def _make_locals(acquired: list | None = None) -> _WorkerLocals:
-    """Build a _WorkerLocals with a minimal RunningJob for evaluate_job tests."""
+def _make_locals(acquired: list | None = None) -> WorkerLocals:
+    """Build a WorkerLocals with a minimal RunningJob for evaluate_job tests."""
     acquired_slots = [] if acquired is None else acquired
     job = RunningJob(fn_name="test", eval_gen=None, reply_to=None, parent_sequence_number=None, acquired=acquired_slots)
-    return _WorkerLocals(current_job=job)
+    return WorkerLocals(current_job=job)
 
 
-def _handlers(locals_: _WorkerLocals | None = None) -> dict:
+def _handlers(locals_: WorkerLocals | None = None) -> dict:
     """Return pre-built job handlers for use with evaluate_job."""
     return make_job_handlers(locals_ or _make_locals(), [])
 

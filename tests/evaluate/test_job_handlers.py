@@ -13,14 +13,14 @@ from zahir.core.evaluate.job_handlers import (
     _handle_signal,
     make_job_handlers,
 )
-from zahir.core.evaluate.suspension import RunningJob, _WorkerLocals
+from zahir.core.evaluate.suspension import RunningJob, WorkerLocals
 
 
-def _make_locals(acquired: list | None = None) -> _WorkerLocals:
-    """Build a _WorkerLocals with a minimal RunningJob for handler tests."""
+def _make_locals(acquired: list | None = None) -> WorkerLocals:
+    """Build a WorkerLocals with a minimal RunningJob for handler tests."""
     acquired_slots = [] if acquired is None else acquired
     job = RunningJob(fn_name="test", eval_gen=None, reply_to=None, parent_sequence_number=None, acquired=acquired_slots)
-    return _WorkerLocals(current_job=job)
+    return WorkerLocals(current_job=job)
 
 
 # _handle_acquire
