@@ -22,3 +22,5 @@ The progress bar shows mean execution time for each job type
 All statistics must be computed through bookman.
 
 Root-job seeding uses EEnqueue rather than a dedicated EStorageInitialize effect, so the root job enters the queue the same way child jobs do. EEnqueue allows its reply_to and sequence_number fields to be absent for the root-job case. No mcast call appears outside a handler function.
+
+evaluate takes fn_name, args, and scope as positional arguments, and n_workers, user_context, handler_wrappers, and handlers as keyword-only arguments. There is no separate storage_handlers parameter; evaluate merges the default in-memory storage handlers with any user-supplied handlers and passes the result to all processes.
