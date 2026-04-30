@@ -84,7 +84,7 @@ def evaluate(
         args,
         scope,
         n_workers,
-
+        handler_wrappers,
         merged_handlers,
         scope=full_scope,
     )
