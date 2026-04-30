@@ -68,14 +68,14 @@ def evaluate(
     *,
     n_workers: int = 4,
     handler_wrappers: Sequence = (),
-    handlers: HandlerDict = {},
+    handlers: HandlerDict | None = None,
 ) -> Generator[Any, None, None]:
     """Entry point. Run a job and wait for completion."""
 
     if fn_name not in scope:
         raise KeyError(f"job {fn_name!r} not found in scope")
 
-    merged_handlers = {**make_memory_storage_handlers(), **handlers}
+    merged_handlers = {**make_memory_storage_handlers(), **(handlers or {})}
     full_scope: Scope = {"run_overseer": run_overseer, "worker": worker, **scope}
 
     yield from run(

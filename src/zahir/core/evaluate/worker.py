@@ -51,7 +51,11 @@ class _Running:
 type WorkerState = _Idle | _Running
 
 
-def _build_job(work: tuple[str, str, tuple, bytes | None, int | None, int | None], ctx: Any, job_handlers: HandlerMap) -> RunningJob:
+def _build_job(
+    work: tuple[str, str, tuple, bytes | None, int | None, int | None],
+    ctx: Any,
+    job_handlers: HandlerMap,
+) -> RunningJob:
     """Construct a RunningJob from a dequeued job work item."""
 
     _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work

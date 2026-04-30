@@ -53,7 +53,7 @@ class MemoryBackend:
 
     def enqueue(
         self, fn_name: str, args: tuple, reply_to: bytes | None, timeout_ms: int | None, sequence_number: int | None
-    ) -> None:  # noqa: E501
+    ) -> None:
         """Add a child job to the queue and increment pending."""
         spec = JobSpec(fn_name=fn_name, args=args, reply_to=reply_to, timeout_ms=timeout_ms, sequence_number=sequence_number)
         self.queue.append(spec)
