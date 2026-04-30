@@ -14,7 +14,7 @@ class ZahirStorageEffect[ReturnT](Effect[ReturnT], abstract=True):
 class EStorageGetJob(ZahirStorageEffect[Any]):
     """Return the next work item for a worker from the backend."""
 
-    tag: ClassVar[str] = "storage:get_job"
+    tag: ClassVar[str] = "storage_get_job"
     worker_pid_bytes: bytes
 
 
@@ -22,7 +22,7 @@ class EStorageGetJob(ZahirStorageEffect[Any]):
 class EStorageEnqueue(ZahirStorageEffect[None]):
     """Enqueue a child job and increment pending."""
 
-    tag: ClassVar[str] = "storage:enqueue"
+    tag: ClassVar[str] = "storage_enqueue"
     fn_name: str
     args: tuple[Any, ...]
     reply_to: bytes | None
@@ -34,7 +34,7 @@ class EStorageEnqueue(ZahirStorageEffect[None]):
 class EStorageJobDone(ZahirStorageEffect[None]):
     """Decrement pending and route a result or error to the parent worker, or store as root result."""
 
-    tag: ClassVar[str] = "storage:job_done"
+    tag: ClassVar[str] = "storage_job_done"
     reply_to: bytes | None
     sequence_number: Any
     body: Any
@@ -44,7 +44,7 @@ class EStorageJobDone(ZahirStorageEffect[None]):
 class EStorageJobFailed(ZahirStorageEffect[None]):
     """Decrement pending and record a root-level failure."""
 
-    tag: ClassVar[str] = "storage:job_failed"
+    tag: ClassVar[str] = "storage_job_failed"
     error: Exception
 
 
@@ -52,7 +52,7 @@ class EStorageJobFailed(ZahirStorageEffect[None]):
 class EStorageAcquire(ZahirStorageEffect[bool]):
     """Try to acquire a named concurrency slot."""
 
-    tag: ClassVar[str] = "storage:acquire"
+    tag: ClassVar[str] = "storage_acquire"
     name: str
     limit: int
 
@@ -61,7 +61,7 @@ class EStorageAcquire(ZahirStorageEffect[bool]):
 class EStorageRelease(ZahirStorageEffect[None]):
     """Release a named concurrency slot."""
 
-    tag: ClassVar[str] = "storage:release"
+    tag: ClassVar[str] = "storage_release"
     name: str
 
 
@@ -69,7 +69,7 @@ class EStorageRelease(ZahirStorageEffect[None]):
 class EStorageSignal(ZahirStorageEffect[Any]):
     """Return the current semaphore state for a name."""
 
-    tag: ClassVar[str] = "storage:signal"
+    tag: ClassVar[str] = "storage_signal"
     name: str
 
 
@@ -77,7 +77,7 @@ class EStorageSignal(ZahirStorageEffect[Any]):
 class EStorageSetSemaphore(ZahirStorageEffect[None]):
     """Set the semaphore state for a name."""
 
-    tag: ClassVar[str] = "storage:set_semaphore"
+    tag: ClassVar[str] = "storage_set_semaphore"
     name: str
     state: str
 
@@ -86,18 +86,18 @@ class EStorageSetSemaphore(ZahirStorageEffect[None]):
 class EStorageIsDone(ZahirStorageEffect[bool]):
     """Return True when all pending jobs have completed."""
 
-    tag: ClassVar[str] = "storage:is_done"
+    tag: ClassVar[str] = "storage_is_done"
 
 
 @dataclass
 class EStorageGetError(ZahirStorageEffect[Any]):
     """Return the root error, if any."""
 
-    tag: ClassVar[str] = "storage:get_error"
+    tag: ClassVar[str] = "storage_get_error"
 
 
 @dataclass
 class EStorageGetResult(ZahirStorageEffect[Any]):
     """Return the root job's return value."""
 
-    tag: ClassVar[str] = "storage:get_result"
+    tag: ClassVar[str] = "storage_get_result"

@@ -1,4 +1,5 @@
-# In-memory coordination backend — the default storage backend for the overseer gen_server.
+"""In-memory coordination backend — the default storage backend for the overseer gen_server."""
+
 from collections import deque
 from dataclasses import dataclass, field
 from functools import partial
@@ -18,7 +19,7 @@ from zahir.core.effects import (
     EStorageSetSemaphore,
     EStorageSignal,
 )
-from zahir.core.zahir_types import ConcurrencyMap, HandlerMap, JobSpec, PendingResults
+from zahir.core.zahir_types import ConcurrencyMap, JobSpec, PendingResults, StorageHandlerMap
 
 
 @dataclass
@@ -183,7 +184,7 @@ def _handle_storage_get_result(backend: MemoryBackend, effect: EStorageGetResult
     yield
 
 
-def make_memory_storage_handlers() -> HandlerMap:
+def make_memory_storage_handlers() -> StorageHandlerMap:
     """Create a complete set of storage handlers backed by a fresh in-memory backend."""
     backend = MemoryBackend()
     return {

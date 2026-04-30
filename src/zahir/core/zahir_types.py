@@ -1,6 +1,6 @@
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Literal
+from typing import Any, Callable, Generator, Literal, TypedDict
 
 
 class JobContext[T]:
@@ -24,8 +24,28 @@ type ConcurrencyMap = dict[str, tuple[int, int]]
 # Per-worker buffered results: worker_pid_bytes -> deque of (sequence_number, body)
 type PendingResults = dict[bytes, deque[tuple[int, Any]]]
 
+# A handler: takes an effect, optionally yields further effects, returns a value
+type HandlerCallable = Callable[..., Generator[Any, Any, Any]]
+
 # Effect tag -> handler callable, as returned by handler factory functions
-type HandlerMap = dict[str, Any]
+type HandlerMap = dict[str, HandlerCallable]
+
+
+class StorageHandlerMap(TypedDict):
+    """Handler map for storage effects. All listed keys are required; extra keys are allowed for custom backends."""
+
+    __extra_items__: HandlerCallable
+    storage_get_job: HandlerCallable
+    storage_enqueue: HandlerCallable
+    storage_job_done: HandlerCallable
+    storage_job_failed: HandlerCallable
+    storage_acquire: HandlerCallable
+    storage_release: HandlerCallable
+    storage_signal: HandlerCallable
+    storage_set_semaphore: HandlerCallable
+    storage_is_done: HandlerCallable
+    storage_get_error: HandlerCallable
+    storage_get_result: HandlerCallable
 
 
 @dataclass
