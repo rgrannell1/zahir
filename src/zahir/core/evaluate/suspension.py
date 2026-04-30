@@ -7,17 +7,27 @@ from typing import Any
 
 from zahir.core.effects import EAwait, EEnqueue
 from zahir.core.exceptions import JobError, JobTimeoutError
+from zahir.core.fp_types import Err, Ok, Result
 
 
 @dataclass
 class RunningJob:
     """A job currently being stepped through by the worker."""
 
-    fn_name: str  # the name of the function being executed
-    eval_gen: Any  # the evaluate_job generator
-    reply_to: bytes | None  # where to send our result when we finish
-    parent_sequence_number: Any  # the sequence_number our parent assigned us
-    acquired: list[str] = field(default_factory=list)  # concurrency slots held by this job
+    # the name of the function being executed
+    fn_name: str
+
+    # the evaluate_job generator
+    eval_gen: Any
+
+    # where to send our result when we finish
+    reply_to: bytes | None
+
+    # the sequence_number our parent assigned us
+    parent_sequence_number: Any
+
+    # concurrency slots held by this job
+    acquired: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -28,29 +38,24 @@ class _WorkerLocals:
     current_job: RunningJob | None = None
 
 
-def _unwrap_reply(body: Any) -> Any:
-    """Unwrap the reply from a job, raising appropriate exceptions for timeouts or errors."""
-
-    if isinstance(body, JobTimeoutError):
-        raise body
-
-    if isinstance(body, JobError):
-        raise body
-
-    return body
-
-
 @dataclass
 class SuspendedJob(RunningJob):
     """A running job that has yielded EAwait and is waiting on one or more child jobs."""
 
-    awaiting: set[int] = field(default_factory=set)  # child local sequence_numbers still outstanding
-    results: dict[int, Any] = field(default_factory=dict)  # local sequence_number -> body (result or error)
-    result_order: list[int] | None = None  # None for scalar dispatch; ordered sequence_number list for multi-job dispatch
+    # child local sequence_numbers still outstanding
+    awaiting: set[int] = field(default_factory=set)
+
+    # local sequence_number -> body (result or error)
+    results: dict[int, Any] = field(default_factory=dict)
+
+    # None for scalar dispatch; ordered sequence_number list for multi-job dispatch
+    result_order: list[int] | None = None
 
     @classmethod
     def from_job(cls, job: RunningJob, child_sequence_numbers: list[int], effect: EAwait) -> "SuspendedJob":
         """Promote a running job to suspended, recording the fan-out from an EAwait."""
+
+        # we only care about ordering for multi-job dispatch
         result_order = None if effect.scalar else child_sequence_numbers
         return cls(
             fn_name=job.fn_name,
@@ -64,31 +69,41 @@ class SuspendedJob(RunningJob):
         )
 
 
-def _collect_scalar_result(body: Any) -> tuple[Any, Exception | None]:
-    """Unwrap a single child result into (value, error)."""
+# (tag, sequence_number, body) — the raw work item delivered to a waiting parent
+type WorkItem = tuple[str, int | None, Any]
 
-    try:
-        return _unwrap_reply(body), None
-    except (JobError, JobTimeoutError) as exc:
-        return None, exc
+# Return type of SuspensionTable.resume — None when children are still outstanding
+type ResumeResult = tuple[RunningJob, Result[Any, Exception]] | None
 
 
-def _collect_multi_results(job: SuspendedJob) -> tuple[list | None, Exception | None]:
+def _unwrap_reply(body: Any) -> Result[Any, Exception]:
+    """Unwrap the reply from a job, returning Ok(value) or Err(error)."""
+
+    if isinstance(body, (JobTimeoutError, JobError)):
+        return Err(body)
+
+    return Ok(body)
+
+
+def _collect_await_many(job: SuspendedJob) -> Result[list, Exception]:
     """Collect ordered multi-job results, surfacing the first error if any."""
 
-    first_error: Exception | None = None
+    assert job.result_order is not None
+
     results = []
+    first_error: Exception | None = None
+
     for sequence_number in job.result_order:
-        try:
-            results.append(_unwrap_reply(job.results[sequence_number]))
-        except (JobError, JobTimeoutError) as exc:
-            if first_error is None:
-                first_error = exc
+        match _unwrap_reply(job.results[sequence_number]):
+            case Ok(value):
+                results.append(value)
+            case Err(error) if first_error is None:
+                first_error = error
 
     if first_error is not None:
-        return None, first_error
+        return Err(first_error)
 
-    return results, None
+    return Ok(results)
 
 
 @dataclass
@@ -119,10 +134,13 @@ class SuspensionTable:
 
         self.waiting[parent_key] = SuspendedJob.from_job(job, child_sequence_numbers, effect)
 
-    def resume(self, work: tuple) -> tuple[RunningJob, Any, Exception | None] | None:
-        """Record a child result. Returns (job, handler_value, pending_throw) when all children are done, None if still waiting."""  # noqa: E501
+    def resume(self, work: WorkItem) -> ResumeResult:
+        """Record a child result. Returns (job, result) when all children are done, None if still waiting."""
 
         _, child_sequence_number, body = work
+
+        assert child_sequence_number is not None
+
         parent_key = self.child_to_parent.pop(child_sequence_number)
         job = self.waiting[parent_key]
         job.results[child_sequence_number] = body
@@ -132,8 +150,5 @@ class SuspensionTable:
             return None
 
         current = self.waiting.pop(parent_key)
-        if current.result_order is not None:
-            handler_value, pending_throw = _collect_multi_results(current)
-        else:
-            handler_value, pending_throw = _collect_scalar_result(body)
-        return current, handler_value, pending_throw
+        result = _collect_await_many(current) if current.result_order is not None else _unwrap_reply(body)
+        return current, result

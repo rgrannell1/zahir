@@ -25,6 +25,7 @@ from zahir.core.evaluate.job_handlers import (
 )
 from zahir.core.evaluate.suspension import RunningJob, SuspensionTable, _WorkerLocals
 from zahir.core.exceptions import JobError, ZahirError
+from zahir.core.fp_types import Err, Ok
 from zahir.core.scope_proxy import ScopeProxy
 from zahir.core.zahir_types import HandlerMap, JobContext
 
@@ -50,7 +51,7 @@ class _Running:
 type WorkerState = _Idle | _Running
 
 
-def _build_job(work: tuple, ctx: Any, job_handlers: HandlerMap) -> RunningJob:
+def _build_job(work: tuple[str, str, tuple, bytes | None, int | None, int | None], ctx: Any, job_handlers: HandlerMap) -> RunningJob:
     """Construct a RunningJob from a dequeued job work item."""
 
     _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
@@ -109,8 +110,12 @@ def _handle_idle(
             if resumed is None:
                 return _Idle()
 
-            job, handler_value, pending_throw = resumed
-            return _Running(job=job, handler_value=handler_value, pending_throw=pending_throw)
+            job, result = resumed
+            match result:
+                case Ok(value):
+                    return _Running(job=job, handler_value=value)
+                case Err(error):
+                    return _Running(job=job, pending_throw=error)
 
         case WorkItemTag.JOB:
             _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
