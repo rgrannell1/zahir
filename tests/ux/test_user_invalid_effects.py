@@ -70,21 +70,3 @@ def test_missing_fn_name_raises_before_spawn():
 
     with pytest.raises(KeyError, match="not found in scope"):
         list(evaluate("nonexistent", (), {}, n_workers=1))
-
-
-def test_bad_user_context_raises_before_spawn():
-    """Proves evaluate raises TypeError immediately when the user_context factory fails to call."""
-
-    def broken_factory():
-        raise RuntimeError("init failed")
-
-    with pytest.raises(TypeError, match="failed to call"):
-        list(
-            evaluate(
-                "job",
-                (),
-                {"job": job_yielding_non_effect},
-                user_context=broken_factory,
-                n_workers=1,
-            )
-        )

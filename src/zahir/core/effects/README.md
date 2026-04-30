@@ -19,7 +19,7 @@ Effects used by the workers to communicate with the overseer process. Not yielde
 Effects a job may yield.
 
 - `EGetJob(worker_pid_bytes)`: request work from the overseer — returns a new job, a buffered child result, or None
-- `EEnqueue(fn_name, args, reply_to, timeout_ms, sequence_number)`: queue a child job and route its result back to this worker
+- `EEnqueue(fn_name, args, reply_to, timeout_ms, sequence_number)`: queue a job; reply_to and sequence_number are None for the root job, set for child jobs
 - `EJobComplete(result, reply_to, sequence_number)`: report successful job completion to the overseer
 - `EJobFail(error, reply_to, sequence_number)`: report job failure (error or timeout) to the overseer
 - `ERelease(name)`: release a named concurrency slot back to the overseer
@@ -30,7 +30,6 @@ Storage effects are yielded to the backend to handle stateful storage.
 
 The overseer talks to the job queue through these effects rather than calling it directly. This means we can swap out storage implementations by swapping the handlers for these effects.
 
-- `EStorageInitialize(fn_name, args)`: set up the queue with the first job when the overseer starts
 - `EStorageGetJob(worker_pid_bytes)`: hand the next pending job to a worker that is ready for one
 - `EStorageEnqueue(fn_name, args, reply_to, timeout_ms, sequence_number)`: add a child job to the queue and note that one more result is expected
 - `EStorageJobDone(reply_to, sequence_number, body)`: mark one job finished, send its result back to whoever is waiting, or keep it as the final output if it was the root job

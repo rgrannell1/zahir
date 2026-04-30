@@ -4,11 +4,11 @@ from collections.abc import Generator, Sequence
 from typing import Any
 
 from orbis import HandlerDict, handle
-from tertius import EEmit, ESleep, ESpawn, Pid, Scope, mcast, run
+from tertius import EEmit, ESleep, ESpawn, Pid, Scope, run
 
 from zahir.core.backends.memory import make_memory_storage_handlers
 from zahir.core.constants import COMPLETION_POLL_MS
-from zahir.core.effects import EGetError, EGetResult, EIsDone, EStorageInitialize
+from zahir.core.effects import EEnqueue, EGetError, EGetResult, EIsDone
 from zahir.core.evaluate.coordination_handlers import make_merged_coordination_handlers
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.worker import worker
@@ -19,6 +19,7 @@ def _poll_completion() -> Generator[Any, Any, None]:
 
     while True:
         done = yield EIsDone()
+
         if not done:
             yield ESleep(ms=COMPLETION_POLL_MS)
             continue
@@ -33,7 +34,13 @@ def _poll_completion() -> Generator[Any, Any, None]:
         return
 
 
-def _root(
+def _seed_and_poll(fn_name: str, args: tuple) -> Generator[Any, Any, None]:
+    """Enqueue the root job then poll for completion."""
+    yield EEnqueue(fn_name=fn_name, args=args, reply_to=None, timeout_ms=None, sequence_number=None)
+    yield from _poll_completion()
+
+
+def _runner(
     fn_name: str,
     args: tuple,
     scope: Scope,
@@ -43,17 +50,20 @@ def _root(
     handlers: HandlerDict,
     storage_handlers: HandlerDict,
 ) -> Generator[Any, Any, None]:
+    """Run the root job and wait for completion."""
+
+    # A supervisor process, which accepts storage handlers
     overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(storage_handlers,))
 
+    # Each worker process
     for _ in range(n_workers):
         yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, user_context, handler_wrappers, handlers))
 
-    # All workers are ready before the root job is enqueued, so the full pool
-    # is available to pick up child jobs immediately when they fan out.
-    yield from mcast(overseer, EStorageInitialize(fn_name=fn_name, args=args))
-
+    # Bind coordination handlers and additional handlers
     root_handlers = make_merged_coordination_handlers(overseer, handler_wrappers, handlers)
-    yield from handle(_poll_completion(), **root_handlers)
+
+    # Seed the root job and wait for everything to complete
+    yield from handle(_seed_and_poll(fn_name, args), **root_handlers)
 
 
 def evaluate(
@@ -63,31 +73,23 @@ def evaluate(
     n_workers: int = 4,
     user_context=None,
     handler_wrappers: Sequence = [],
-    handlers: HandlerDict = None,
-    storage_handlers: HandlerDict = None,
+    handlers: HandlerDict | None = None,
+    storage_handlers: HandlerDict | None = None,
 ) -> Generator[Any, None, None]:
-    # make sure we have the function in scope
-    if handlers is None:
-        handlers = {}
+    """Entry point. Run a start job and wait for completion"""
+
     if fn_name not in scope:
         raise KeyError(f"job {fn_name!r} not found in scope")
 
-    # validate the user_context factory if provided
-    if user_context is not None:
-        try:
-            user_context()
-        except Exception as exc:
-            raise TypeError(f"user_context factory failed to call: {exc}") from exc
+    if handlers is None:
+        handlers = {}
 
-    # default to a fresh in-memory storage backend
-    resolved_storage = storage_handlers if storage_handlers is not None else make_memory_storage_handlers()
-
-    # merge the provided scope with the internal functions
+    actual_storage_handlers = storage_handlers if storage_handlers is not None else make_memory_storage_handlers()
     full_scope: Scope = {"run_overseer": run_overseer, "worker": worker, **scope}
 
     # run the tertius workflow
     yield from run(
-        _root,
+        _runner,
         fn_name,
         args,
         scope,
@@ -95,6 +97,6 @@ def evaluate(
         user_context,
         handler_wrappers,
         handlers,
-        resolved_storage,
+        actual_storage_handlers,
         scope=full_scope,
     )

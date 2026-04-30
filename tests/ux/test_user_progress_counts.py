@@ -46,14 +46,14 @@ def test_mirror_workflow_counts_each_job_once():
         assert stats.failed == 0, f"{fn_name!r}: expected failed=0, got {stats.failed}"
 
 
-def test_mirror_workflow_root_job_never_enqueued():
-    """Proves the root job has total=0 since it is dispatched directly, not via EEnqueue."""
+def test_mirror_workflow_root_job_is_counted():
+    """Proves the root job appears in stats like any other enqueued job."""
 
     state = _collect_state("mirror_workflow", ({"publish_d1": False},), BASE_SCOPE)
 
     root_stats = state.jobs.get("mirror_workflow")
     assert root_stats is not None
-    assert root_stats.total == 0
+    assert root_stats.total == 1
 
 
 # --- mixed ok and failing jobs ---

@@ -13,3 +13,4 @@ events.md
 .claude/commands
 build/*
 logs/
+.chainlit/

@@ -11,7 +11,6 @@ from zahir.core.effects import (
     EStorageGetError,
     EStorageGetJob,
     EStorageGetResult,
-    EStorageInitialize,
     EStorageIsDone,
     EStorageJobDone,
     EStorageJobFailed,
@@ -37,11 +36,6 @@ class MemoryBackend:
     root_error: Exception | None = None
     root_result: Any = None
     pending_results: PendingResults = field(default_factory=dict)
-
-    def initialize(self, fn_name: str, args: tuple) -> None:
-        """Seed the queue with the root job and set pending to 1."""
-        self.queue.append(JobSpec(fn_name=fn_name, args=args, reply_to=None))
-        self.pending = 1
 
     def get_job(self, worker_pid_bytes: bytes) -> Any:
         """Return a buffered result for this worker, the next queued job, or None."""
@@ -116,13 +110,6 @@ class MemoryBackend:
 
 
 # Storage effect handler functions — each takes a MemoryBackend instance and a storage effect.
-
-
-def _handle_storage_initialize(backend: MemoryBackend, effect: EStorageInitialize) -> None:
-    """Seed the backend with the root job."""
-    backend.initialize(effect.fn_name, effect.args)
-    return
-    yield
 
 
 def _handle_storage_get_job(backend: MemoryBackend, effect: EStorageGetJob) -> Any:
@@ -200,7 +187,6 @@ def make_memory_storage_handlers() -> HandlerMap:
     """Create a complete set of storage handlers backed by a fresh in-memory backend."""
     backend = MemoryBackend()
     return {
-        EStorageInitialize.tag: partial(_handle_storage_initialize, backend),
         EStorageGetJob.tag: partial(_handle_storage_get_job, backend),
         EStorageEnqueue.tag: partial(_handle_storage_enqueue, backend),
         EStorageJobDone.tag: partial(_handle_storage_job_done, backend),

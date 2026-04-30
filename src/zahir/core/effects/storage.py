@@ -11,15 +11,6 @@ class ZahirStorageEffect[ReturnT](Effect[ReturnT], abstract=True):
 
 
 @dataclass
-class EStorageInitialize(ZahirStorageEffect[None]):
-    """Seed the backend with the root job on overseer startup."""
-
-    tag: ClassVar[str] = "storage:initialize"
-    fn_name: str
-    args: tuple[Any, ...]
-
-
-@dataclass
 class EStorageGetJob(ZahirStorageEffect[Any]):
     """Return the next work item for a worker from the backend."""
 

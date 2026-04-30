@@ -4,8 +4,8 @@ from tests.shared import drain_to
 from zahir.core.backends.memory import make_memory_storage_handlers
 from zahir.core.effects import (
     EStorageAcquire,
+    EStorageEnqueue,
     EStorageGetJob,
-    EStorageInitialize,
     EStorageIsDone,
     EStorageRelease,
 )
@@ -70,10 +70,10 @@ def _make_handlers():
 
 
 def test_init_cast_seeds_backend_via_storage_handlers():
-    """Proves EStorageInitialize sent as a cast seeds the backend correctly."""
+    """Proves EStorageEnqueue sent as a cast seeds the backend correctly."""
 
     handlers = _make_handlers()
-    complete(handle(_handle_cast(None, EStorageInitialize("start", (1, 2))), **handlers))
+    complete(handle(_handle_cast(None, EStorageEnqueue("start", (1, 2), None, None, None)), **handlers))
     _, result = complete(handle(_handle_call(None, EStorageIsDone()), **handlers))
     assert result is False
 
@@ -81,12 +81,10 @@ def test_init_cast_seeds_backend_via_storage_handlers():
 def test_round_trip_enqueue_then_get_job():
     """Proves a job enqueued via a cast storage effect is retrievable via a call storage effect."""
 
-    from zahir.core.effects import EStorageEnqueue
-
     handlers = _make_handlers()
 
-    # initialise via cast, enqueue a child job, then fetch it
-    complete(handle(_handle_cast(None, EStorageInitialize("root", ())), **handlers))
+    # enqueue root job, enqueue a child job, then fetch them
+    complete(handle(_handle_cast(None, EStorageEnqueue("root", (), None, None, None)), **handlers))
     complete(handle(_handle_cast(None, EStorageEnqueue("child", (42,), None, None, None)), **handlers))
     # root job is first in queue; consume it
     complete(handle(_handle_call(None, EStorageGetJob(b"worker")), **handlers))

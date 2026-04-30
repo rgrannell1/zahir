@@ -71,9 +71,6 @@ from zahir.core.effects.storage import (
     EStorageGetResult as EStorageGetResult,
 )
 from zahir.core.effects.storage import (
-    EStorageInitialize as EStorageInitialize,
-)
-from zahir.core.effects.storage import (
     EStorageIsDone as EStorageIsDone,
 )
 from zahir.core.effects.storage import (
