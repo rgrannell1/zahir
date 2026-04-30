@@ -46,7 +46,6 @@ def _evaluate_runner(
     args: tuple,
     scope: Scope,
     n_workers: int,
-    user_context,
     handler_wrappers: Sequence,
     handlers: HandlerDict,
 ) -> Generator[Any, Any, None]:
@@ -55,8 +54,8 @@ def _evaluate_runner(
     overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(handlers,))
 
     for _ in range(n_workers):
-        yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, user_context, handler_wrappers, handlers))
-
+        yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, handler_wrappers, handlers))
+removed
     root_handlers = make_merged_coordination_handlers(overseer, handler_wrappers, handlers)
 
     yield from handle(_kickoff(fn_name, args), **root_handlers)
@@ -68,7 +67,6 @@ def evaluate(
     scope: Scope,
     *,
     n_workers: int = 4,
-    user_context=None,
     handler_wrappers: Sequence = (),
     handlers: HandlerDict = {},
 ) -> Generator[Any, None, None]:
@@ -86,8 +84,7 @@ def evaluate(
         args,
         scope,
         n_workers,
-        user_context,
-        handler_wrappers,
+removed         handler_wrappers,
         merged_handlers,
         scope=full_scope,
     )

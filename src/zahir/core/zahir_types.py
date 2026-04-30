@@ -4,18 +4,13 @@ from typing import Any, Literal
 
 
 class JobContext[T]:
-    """Context object passed as the first argument to every job function.
+    """Context object passed as the first argument to every job function."""
 
-    Runtime fields are injected by the worker process. User state lives in
-    user_context, populated by calling the user_context factory passed to evaluate().
-    """
+    __slots__ = ("_scope", "scope")
 
-    __slots__ = ("_scope", "scope", "user_context")
-
-    def __init__(self, _scope, scope, user_context) -> None:
+    def __init__(self, _scope, scope) -> None:
         self._scope = _scope
         self.scope = scope
-        self.user_context = user_context
 
 
 # Result types for dependency combinators — the Left/Right of the dependency monad.

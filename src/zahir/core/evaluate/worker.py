@@ -177,14 +177,13 @@ def _worker_body(
                 state = yield from _handle_running(state, locals_)
 
 
-def worker(overseer_pid_bytes: bytes, scope: Scope, user_context, handler_wrappers, handlers: dict) -> Generator[Any, Any, None]:
+def worker(overseer_pid_bytes: bytes, scope: Scope, handler_wrappers, handlers: dict) -> Generator[Any, Any, None]:
     """zahir worker main loop"""
 
     overseer = Pid.from_bytes(overseer_pid_bytes)
     ctx = JobContext(
         _scope=scope,
         scope=ScopeProxy(scope),
-        user_context=user_context() if user_context is not None else None,
     )
 
     suspension = SuspensionTable()
