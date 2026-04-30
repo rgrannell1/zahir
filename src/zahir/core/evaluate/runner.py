@@ -55,7 +55,7 @@ def _evaluate_runner(
 
     for _ in range(n_workers):
         yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, handler_wrappers, handlers))
-removed
+
     root_handlers = make_merged_coordination_handlers(overseer, handler_wrappers, handlers)
 
     yield from handle(_kickoff(fn_name, args), **root_handlers)
@@ -84,7 +84,7 @@ def evaluate(
         args,
         scope,
         n_workers,
-removed         handler_wrappers,
+
         merged_handlers,
         scope=full_scope,
     )
