@@ -1,6 +1,6 @@
 import pathlib
 from collections.abc import Generator
-from typing import Any, ClassVar
+from typing import Any
 
 from tertius import EEmit
 
@@ -58,10 +58,6 @@ _SCOPE = {
 }
 
 
-class BookContext(JobContext):
-    handler_wrappers: ClassVar[list] = [make_telemetry()]
-
-
 if __name__ == "__main__":
     for _ in with_progress(
         evaluate(
@@ -69,7 +65,7 @@ if __name__ == "__main__":
             (str(FILE_PATH),),
             scope=_SCOPE,
             n_workers=4,
-            context=BookContext,
+            handler_wrappers=[make_telemetry()],
         )
     ):
         pass

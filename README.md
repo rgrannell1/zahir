@@ -9,12 +9,32 @@ Zahir is (re)built on the algebraic effects multiprocessing runtime [tertius](ht
 
 It is the simplest workflow engine I could build. It runs a job (a python generator) that can yield further jobs to run sequentially or in parallel. These jobs are distributed across processes automatically. We schedule by waiting for the time to arrive. We avoid memory exhaustion by waiting for it to be free, if we choose. We maintain idempotency with if-then checks. We roll back with try-catch. We pass state with input parameters and returns.
 
+## Architecture
+
+Zahir composes a few single-purpose libraries together to construct its workflow engine.
+
+**Orbis**
+
+Defines the algebraic effect system; requests yielded from generators, intercepted by handlers (which might yield more effects), and responded to. Separates out what we do from how we do it, and helps split concerns like logging and core logic.
+
+**Tertius**
+
+The concurrency layer, built on Orbis. Uses ZMQ for interprocess communication. Defines effects for interprocess messaging, spawning, and telemetry. Defines an Erlang-like genserver interface for using these intercommunicating processes.
+
+**Zahir**
+
+Defines a workflow runtime on top of Tertius's concurrent-process model. Defines effects for modelling workflows like `EAwait`. We spawn workers that poll for jobs, advance them, and communicate results to the overseer which delegates to the storage layer. In practice; we define jobs (fairly straightforward python generators), and zahir spreads the requested workload out across multiple processes.
+
+**Bookman**
+
+Telemetry is composed onto the effect handler layer; the events emited are envelopes for bookman events that capture data about what executed when, for how long. Metric aggregation (e.g in progress bars) is implemented using bookman.
+
 ## A Simple Workflow
 
 The following example workflow reads the text of a book, splits it into chapters, and `chapter_processor` computes the longest word in each chapter. `longest_word_assembly` fans them out in parallel and returns the results. The root job `book_workflow` returns the final result, which `evaluate` surfaces as the last event in the stream.
 
 ```python
-from zahir.core.effects import EAwait
+from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate
 
 
@@ -25,7 +45,7 @@ def chapter_processor(ctx: JobContext, chapter: str):
 
 
 def longest_word_assembly(ctx: JobContext, chapters: list[str]):
-    results = yield EAwait([
+    results = yield await_all([
         ctx.scope.chapter_processor(chapter)
         for chapter in chapters
     ])
@@ -49,12 +69,6 @@ scope = {
 for event in evaluate("book_workflow", ("war-and-peace.txt",), scope, n_workers=4):
     print(event)  # {"longest_words": [...]}
 ```
-
-## How Zahir Works
-
-Zahir builds on [tertius](https://github.com/rgrannell1/tertius), which provides a way of setting up processes and communicating between them. It is a supervisor - worker model. We use [bookman](https://github.com/rgrannell1/bookman) for the metric aggregation and reporting step.
-
-The overseer process is a GenServer that manages mutable state (the job queue, concurrency limits, etc). Workers too are GenServers, which ask for jobs to run, evaluates them, and enqueues new jobs. They communicate results to the overseer, or awaited job statuses.
 
 ## Constructs
 
