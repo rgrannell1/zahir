@@ -128,7 +128,7 @@ def process_image(ctx: JobContext, path: str):
 
 ## Checkpointing & Retries
 
-Retries can be modelled at the job-level. Checkpointing and rollbacks are simply `try-catch` usage.
+Retries can be modelled at the job-level. Rollbacks are simply `try-catch` usage; if one code-path fails, proceed along another. For checkpointing, externalise state in persistent storage.
 
 ```python
 def fetch_with_retry(ctx: JobContext, url: str):
@@ -144,7 +144,7 @@ def fetch_with_retry(ctx: JobContext, url: str):
 
 ## State Passing
 
-Pass parameters between jobs, or externalise state into SQLite or a similar store.s
+Pass parameters between jobs, or externalise state into SQLite or a similar store
 
 ## License
 
