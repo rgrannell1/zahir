@@ -52,6 +52,7 @@ type WorkerState = _Idle | _Running
 
 
 def _build_job(
+    # TODO: this should be lifted to an actual type
     work: tuple[str, str, tuple, bytes | None, int | None, int | None],
     ctx: Any,
     job_handlers: HandlerMap,
@@ -60,7 +61,8 @@ def _build_job(
 
     _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
     deadline = datetime.now(UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms else None
-    eval_gen = evaluate_job(ctx._scope[fn_name](ctx, *args), job_handlers, deadline)
+    job_call: Generator = ctx._scope[fn_name](ctx, *args)
+    eval_gen: Generator = evaluate_job(job_call, job_handlers, deadline)
 
     return RunningJob(
         fn_name=fn_name,
@@ -70,11 +72,14 @@ def _build_job(
     )
 
 
-def _complete_job(job: RunningJob, value: Any) -> Generator[Any, Any, None]:
+def _successful_job(job: RunningJob, value: Any) -> Generator[Any, Any, None]:
     """Release concurrency slots and report successful completion to the overseer."""
 
+    # Release concurrency slots; we're done
     for name in job.acquired:
         yield ERelease(name=name)
+
+    # Report successful completion to the overseer
     yield EJobComplete(
         result=value,
         reply_to=job.reply_to,
@@ -83,11 +88,12 @@ def _complete_job(job: RunningJob, value: Any) -> Generator[Any, Any, None]:
     )
 
 
-def _fail_job(job: RunningJob, exc: Exception) -> Generator[Any, Any, None]:
+def _failed_job(job: RunningJob, exc: Exception) -> Generator[Any, Any, None]:
     """Release concurrency slots and report job failure to the overseer."""
 
     for name in job.acquired:
         yield ERelease(name=name)
+
     error = exc if isinstance(exc, ZahirError) else JobError(exc)
     yield EJobFail(
         error=error,
@@ -124,10 +130,12 @@ def _handle_idle(
         case WorkItemTag.JOB:
             _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
 
+            # TODO handle this in a subfunction.
             if fn_name not in ctx._scope:
                 err = JobError(KeyError(f"job {fn_name!r} not found in scope"))
                 yield EJobFail(error=err, reply_to=reply_to, sequence_number=parent_sequence_number)
                 return _Idle()
+
             return _Running(job=_build_job(work, ctx, job_handlers))
 
         case _:
@@ -157,10 +165,10 @@ def _handle_running(state: _Running, locals_: WorkerLocals) -> Generator[Any, An
     try:
         effect = job.eval_gen.throw(state.pending_throw) if state.pending_throw else job.eval_gen.send(state.handler_value)
     except StopIteration as exc:
-        yield from _complete_job(job, exc.value)
+        yield from _successful_job(job, exc.value)
         return _Idle()
     except Exception as exc:  # noqa: BLE001
-        yield from _fail_job(job, exc)
+        yield from _failed_job(job, exc)
         return _Idle()
 
     handler_value = yield effect
@@ -202,7 +210,7 @@ def worker(overseer_pid_bytes: bytes, scope: Scope, handler_wrappers, handlers: 
     job_handlers = make_job_handlers(locals_, handler_wrappers)
     # general coordination handlers
     base_handlers = make_merged_coordination_handlers(overseer, handler_wrappers, handlers)
-    # eawait handler, which uses locals_
+    # eawait handler, which uses locals_ for local state
     worker_handlers = make_worker_handlers(suspension, locals_, handler_wrappers)
 
     yield from handle(

@@ -1,6 +1,7 @@
 # Handler wrapper that emits bookman telemetry events around effect handler calls
 import os
 import time
+import traceback
 import uuid
 
 from bookman.bookman_types import Message
@@ -62,11 +63,18 @@ def _setup_phase(effect, span_id: str, start: float, job_id: str | None):
     yield EEmit(start_effect_telemetry(effect, span_id, start))
 
 
+def _format_effect_error(err: Exception) -> str:
+    """Format an effect's error field as a full traceback, unwrapping JobError.cause if present."""
+
+    cause = getattr(err, "cause", err)
+    return "".join(traceback.format_exception(cause))
+
+
 def _success_teardown(effect, span_id: str, start: float, end: float, job_id: str | None, result):
     """Emit handler-end event and any lifecycle or execute events that apply."""
 
     err = getattr(effect, "error", None)
-    value = Message(str(err)) if err is not None else None
+    value = Message(_format_effect_error(err)) if err is not None else None
     yield EEmit(end_effect_success_telemetry(effect, span_id, start, end, value=value))
     lifecycle = _resolve_lifecycle(effect, job_id, end)
     if lifecycle:
@@ -79,7 +87,8 @@ def _success_teardown(effect, span_id: str, start: float, end: float, job_id: st
 def _error_teardown(effect, span_id: str, start: float, exc: Exception):
     """Emit a handler-error span event."""
 
-    yield EEmit(end_effect_error_telemetry(effect, span_id, start, time.time(), str(exc)))
+    trace = "".join(traceback.format_exception(exc))
+    yield EEmit(end_effect_error_telemetry(effect, span_id, start, time.time(), trace))
 
 
 def _telemetry_fn(effect):

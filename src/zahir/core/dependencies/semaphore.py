@@ -6,21 +6,17 @@ from typing import Any
 from zahir.core.constants import DependencyState
 from zahir.core.dependencies.dependency import check, dependency
 from zahir.core.effects import EGetSemaphore
-from zahir.core.exceptions import ImpossibleError
-from zahir.core.zahir_types import DependencyResult
+from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 
-def _semaphore_condition(name: str) -> Generator[Any, Any, Any]:
-    """Returns (True, metadata) if satisfied, False if unsatisfied, raises ImpossibleError if impossible."""
-
+def semaphore_condition(name: str) -> Generator[Any, Any, ConditionResult]:
+    """Returns satisfied, unsatisfied, or impossible based on the semaphore state."""
     state = yield EGetSemaphore(name=name)
     if state == DependencyState.IMPOSSIBLE:
-        raise ImpossibleError(f"semaphore '{name}' aborted")
-
+        return (DependencyState.IMPOSSIBLE, {"name": name})
     if state == DependencyState.SATISFIED:
-        return (True, {"name": name})
-
-    return False
+        return (DependencyState.SATISFIED, {"name": name})
+    return (DependencyState.UNSATISFIED, {"name": name})
 
 
 def check_semaphore_dependency(
@@ -28,7 +24,7 @@ def check_semaphore_dependency(
 ) -> Generator[Any, Any, DependencyResult]:
     """Evaluate the semaphore state once; return satisfied or impossible without retrying."""
     return check(
-        partial(_semaphore_condition, name),
+        partial(semaphore_condition, name),
         label=f"semaphore '{name}'",
     )
 
@@ -38,7 +34,7 @@ def semaphore_dependency(
     timeout_ms: int | None = None,
 ) -> Generator[Any, Any, DependencyResult]:
     return dependency(
-        partial(_semaphore_condition, name),
+        partial(semaphore_condition, name),
         timeout_ms=timeout_ms,
         label=f"semaphore '{name}'",
     )

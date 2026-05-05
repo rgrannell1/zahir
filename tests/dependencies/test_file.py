@@ -6,7 +6,7 @@ from tertius import EEmit, ESleep
 
 from tests.shared import drain_to
 from zahir.core.dependencies.file import (
-    _file_condition,
+    file_condition,
     check_file_dependency,
     file_dependency,
 )
@@ -79,20 +79,20 @@ def test_file_appears_after_check_satisfies_dependency():
         assert emits[0].body[0] == "satisfied"
 
 
-def test_file_condition_returns_false_for_missing_file():
-    """Proves _file_condition returns False when file does not exist."""
+def testfile_condition_returns_unsatisfied_for_missing_file():
+    """Proves file_condition returns unsatisfied when file does not exist."""
 
     with pytest.raises(StopIteration) as exc:
-        next(_file_condition("/tmp/zahir_no_such_file.json"))
-    assert exc.value.value is False
+        next(file_condition("/tmp/zahir_no_such_file.json"))
+    assert exc.value.value[0] == "unsatisfied"
 
 
-def test_file_condition_returns_satisfied_tuple_for_existing_file():
-    """Proves _file_condition returns (True, metadata) when file exists."""
+def testfile_condition_returns_satisfied_tuple_for_existing_file():
+    """Proves file_condition returns a satisfied ConditionResult when file exists."""
 
     with tempfile.NamedTemporaryFile() as tmp:
         with pytest.raises(StopIteration) as exc:
-            next(_file_condition(tmp.name))
+            next(file_condition(tmp.name))
         result = exc.value.value
-        assert result[0] is True
+        assert result[0] == "satisfied"
         assert result[1]["path"] == tmp.name

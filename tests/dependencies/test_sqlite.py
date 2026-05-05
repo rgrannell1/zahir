@@ -6,8 +6,8 @@ import pytest
 from tertius import EEmit, ESleep
 
 from tests.shared import drain_to
-from zahir.core.dependencies.dependency import ImpossibleError
-from zahir.core.dependencies.sqlite import _sqlite_condition, sqlite_dependency
+from zahir.core.constants import DependencyState
+from zahir.core.dependencies.sqlite import sqlite_condition, sqlite_dependency
 
 
 def _make_db(rows: list[tuple]) -> str:
@@ -182,21 +182,22 @@ def test_no_rows_loops_and_retries_when_row_appears():
     assert emits[0].body[0] == "satisfied"
 
 
-# _sqlite_condition — unsatisfied / impossible branches
+# sqlite_condition — unsatisfied / impossible branches
 
 
-def test_sqlite_condition_unsatisfied_returns_false():
-    """Proves _sqlite_condition returns False for a status=unsatisfied row."""
+def testsqlite_condition_unsatisfied_returns_unsatisfied():
+    """Proves sqlite_condition returns an unsatisfied ConditionResult for a status=unsatisfied row."""
 
     db = _make_db([("unsatisfied",)])
     with pytest.raises(StopIteration) as exc:
-        next(_sqlite_condition(db, "SELECT status FROM state", None, 5.0))
-    assert exc.value.value is False
+        next(sqlite_condition(db, "SELECT status FROM state", None, 5.0))
+    assert exc.value.value[0] == DependencyState.UNSATISFIED
 
 
-def test_sqlite_condition_impossible_raises():
-    """Proves _sqlite_condition raises ImpossibleError for a status=impossible row."""
+def testsqlite_condition_impossible_returns_impossible():
+    """Proves sqlite_condition returns an impossible ConditionResult for a status=impossible row."""
 
     db = _make_db([("impossible",)])
-    with pytest.raises(ImpossibleError):
-        next(_sqlite_condition(db, "SELECT status FROM state", None, 5.0))
+    with pytest.raises(StopIteration) as exc:
+        next(sqlite_condition(db, "SELECT status FROM state", None, 5.0))
+    assert exc.value.value[0] == DependencyState.IMPOSSIBLE

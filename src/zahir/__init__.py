@@ -1,6 +1,9 @@
 # Public API surface for zahir.
 from zahir.core.backends.memory import make_memory_storage_handlers as make_memory_storage_handlers
 from zahir.core.dependencies import (
+    ConditionResult as ConditionResult,
+)
+from zahir.core.dependencies import (
     DependencyResult as DependencyResult,
 )
 from zahir.core.dependencies import (
@@ -11,6 +14,9 @@ from zahir.core.dependencies import (
 )
 from zahir.core.dependencies import (
     Satisfied as Satisfied,
+)
+from zahir.core.dependencies import (
+    Unsatisfied as Unsatisfied,
 )
 from zahir.core.dependencies import (
     check as check,
@@ -31,10 +37,16 @@ from zahir.core.dependencies import (
     check_time_dependency as check_time_dependency,
 )
 from zahir.core.dependencies import (
+    concurrency_condition as concurrency_condition,
+)
+from zahir.core.dependencies import (
     concurrency_dependency as concurrency_dependency,
 )
 from zahir.core.dependencies import (
     dependency as dependency,
+)
+from zahir.core.dependencies import (
+    file_condition as file_condition,
 )
 from zahir.core.dependencies import (
     file_dependency as file_dependency,
@@ -43,13 +55,25 @@ from zahir.core.dependencies import (
     group_dependency as group_dependency,
 )
 from zahir.core.dependencies import (
+    resource_condition as resource_condition,
+)
+from zahir.core.dependencies import (
     resource_dependency as resource_dependency,
+)
+from zahir.core.dependencies import (
+    semaphore_condition as semaphore_condition,
 )
 from zahir.core.dependencies import (
     semaphore_dependency as semaphore_dependency,
 )
 from zahir.core.dependencies import (
+    sqlite_condition as sqlite_condition,
+)
+from zahir.core.dependencies import (
     sqlite_dependency as sqlite_dependency,
+)
+from zahir.core.dependencies import (
+    time_condition as time_condition,
 )
 from zahir.core.dependencies import (
     time_dependency as time_dependency,

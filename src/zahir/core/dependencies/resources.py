@@ -6,9 +6,9 @@ from typing import Any, Literal
 
 import psutil
 
-from zahir.core.constants import CPU_SAMPLE_INTERVAL_S
+from zahir.core.constants import CPU_SAMPLE_INTERVAL_S, DependencyState
 from zahir.core.dependencies.dependency import check, dependency
-from zahir.core.zahir_types import DependencyResult
+from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 type ResourceType = Literal["cpu", "memory"]
 
@@ -21,13 +21,12 @@ def _get_usage(resource: ResourceType) -> float:
             return psutil.virtual_memory().percent
 
 
-def _resource_condition(resource: ResourceType, max_percent: float) -> Generator[Any, Any, Any]:
-    """Returns (True, metadata) if resource usage is within the limit, False otherwise."""
-
+def resource_condition(resource: ResourceType, max_percent: float) -> Generator[Any, Any, ConditionResult]:
+    """Returns satisfied if resource usage is within the limit, unsatisfied otherwise."""
+    metadata = {"resource": resource, "max_percent": max_percent}
     if _get_usage(resource) <= max_percent:
-        return (True, {"resource": resource, "max_percent": max_percent})
-
-    return False
+        return (DependencyState.SATISFIED, metadata)
+    return (DependencyState.UNSATISFIED, metadata)
     yield
 
 
@@ -37,7 +36,7 @@ def check_resource_dependency(
 ) -> Generator[Any, Any, DependencyResult]:
     """Evaluate resource usage once; return satisfied or impossible without retrying."""
     return check(
-        partial(_resource_condition, resource, max_percent),
+        partial(resource_condition, resource, max_percent),
         label=f"{resource} resource",
     )
 
@@ -49,7 +48,7 @@ def resource_dependency(
 ) -> Generator[Any, Any, DependencyResult]:
     timeout_ms = int(timeout * 1000) if timeout is not None else None
     return dependency(
-        partial(_resource_condition, resource, max_percent),
+        partial(resource_condition, resource, max_percent),
         timeout_ms=timeout_ms,
         label=f"{resource} resource",
     )

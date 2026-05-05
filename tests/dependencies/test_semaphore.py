@@ -80,7 +80,7 @@ def test_timeout_emits_impossible():
         emits, _ = drain_to(gen, EEmit)
 
     assert emits[0].body[0] == "impossible"
-    assert "db" in emits[0].body[1]
+    assert "db" in emits[0].body[1]["reason"]
 
 
 def test_timeout_reason_includes_name_and_duration():
@@ -96,8 +96,8 @@ def test_timeout_reason_includes_name_and_duration():
         emits, _ = drain_to(gen, EEmit)
 
     assert emits[0].body[0] == "impossible"
-    assert "my-semaphore" in emits[0].body[1]
-    assert "5000" in emits[0].body[1]
+    assert "my-semaphore" in emits[0].body[1]["reason"]
+    assert "5000" in emits[0].body[1]["reason"]
 
 
 @time_machine.travel(NOW, tick=False)
@@ -174,13 +174,13 @@ def test_check_semaphore_unsatisfied_does_not_sleep():
     assert isinstance(effect, EEmit)  # EEmit(impossible), not ESleep
 
 
-def test_check_semaphore_label_in_impossible_reason():
-    """Proves the semaphore name appears in the impossible reason."""
+def test_check_semaphore_metadata_contains_name():
+    """Proves the semaphore name appears in the impossible metadata when check maps unsatisfied."""
 
     gen = check_semaphore_dependency("my-gate")
     next(gen)
     emit = gen.send("unsatisfied")
-    assert "my-gate" in emit.body[1]
+    assert emit.body[1]["name"] == "my-gate"
 
 
 def test_impossible_timeout_returns_tuple_as_generator_value():

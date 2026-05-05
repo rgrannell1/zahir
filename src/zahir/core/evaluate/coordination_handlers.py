@@ -1,7 +1,7 @@
 from collections.abc import Generator, Sequence
 from dataclasses import dataclass, field
 from functools import partial, reduce
-from typing import Any
+from typing import Any, cast
 
 from tertius import Pid, mcall, mcast
 
@@ -30,26 +30,27 @@ from zahir.core.effects import (
     EStorageSetSemaphore,
     EStorageSignal,
 )
-from zahir.core.zahir_types import HandlerMap
+from zahir.core.zahir_types import CoordinationHandlerMap, HandlerMap
+
+
+@dataclass
+class CoordinationHandlerContext:
+    """TODO this is a specialist class, is it needed?"""
+    overseer: Pid
+    handler_wrappers: Sequence = field(default_factory=list)
 
 
 def make_merged_coordination_handlers(
     overseer: Pid,
     handler_wrappers: Sequence,
     user_handlers: HandlerMap,
-) -> HandlerMap:
+) -> CoordinationHandlerMap:
     """Coordination handlers merged with user overrides.
-
     User-provided handlers take precedence, allowing any coordination handler to be replaced.
     """
+
     ctx = CoordinationHandlerContext(overseer=overseer, handler_wrappers=handler_wrappers)
     return {**make_coordination_handlers(ctx), **user_handlers}
-
-
-@dataclass
-class CoordinationHandlerContext:
-    overseer: Pid
-    handler_wrappers: Sequence = field(default_factory=list)
 
 
 def _handle_enqueue(context: CoordinationHandlerContext, effect: EEnqueue) -> Generator[Any, Any, None]:
@@ -89,17 +90,18 @@ def _handle_job_complete(context: CoordinationHandlerContext, effect: EJobComple
 def _handle_job_fail(context: CoordinationHandlerContext, effect: EJobFail) -> Generator[Any, Any, None]:
     """Route the failure to the parent worker via the overseer, or record it as root error."""
 
-    if effect.reply_to is not None:
-        yield from mcast(
-            context.overseer,
-            EStorageJobDone(
-                reply_to=effect.reply_to,
-                sequence_number=effect.sequence_number,
-                body=effect.error,
-            ),
-        )
-    else:
+    if effect.__replace__ is None:
         yield from mcast(context.overseer, EStorageJobFailed(error=effect.error))
+        return
+
+    yield from mcast(
+        context.overseer,
+        EStorageJobDone(
+            reply_to=effect.reply_to,
+            sequence_number=effect.sequence_number,
+            body=effect.error,
+        ),
+    )
 
 
 def _handle_release(context: CoordinationHandlerContext, effect: ERelease) -> Generator[Any, Any, None]:
@@ -145,10 +147,12 @@ def _handle_get_result(context: CoordinationHandlerContext, effect: EGetResult) 
 
 
 # EGetJob fires on every worker poll tick — wrapping it generates high-volume noise with no signal.
+# TODO encode this skip in the telemetry layer
 _SKIP_WRAP = {EGetJob.tag}
 
 
-def make_coordination_handlers(context: CoordinationHandlerContext) -> HandlerMap:
+# Now, assemble all of the handlers and wrap them with telemetry context.
+def make_coordination_handlers(context: CoordinationHandlerContext) -> CoordinationHandlerMap:
     """Create handlers for all coordination effects — job lifecycle (worker) and completion polling (root)."""
 
     handlers = {
@@ -164,7 +168,15 @@ def make_coordination_handlers(context: CoordinationHandlerContext) -> HandlerMa
         ESetSemaphoreState.tag: partial(_handle_set_semaphore_state, context),
         ESignal.tag: partial(_handle_signal, context),
     }
-    return {
-        tag: handler if tag in _SKIP_WRAP else reduce(apply_wrapper, context.handler_wrappers, handler)
-        for tag, handler in handlers.items()
-    }
+
+    mapped = {}
+    wrappers = context.handler_wrappers
+
+    for tag, handler in handlers.items():
+        if tag in _SKIP_WRAP:
+            mapped[tag] = handler
+            continue
+
+        mapped[tag] = reduce(apply_wrapper, wrappers, handler)
+
+    return cast(CoordinationHandlerMap, mapped)

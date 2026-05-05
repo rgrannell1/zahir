@@ -187,6 +187,7 @@ def _handle_storage_get_result(backend: MemoryBackend, effect: EStorageGetResult
 def make_memory_storage_handlers() -> StorageHandlerMap:
     """Create a complete set of storage handlers backed by a fresh in-memory backend."""
     backend = MemoryBackend()
+
     return {
         EStorageGetJob.tag: partial(_handle_storage_get_job, backend),
         EStorageEnqueue.tag: partial(_handle_storage_enqueue, backend),

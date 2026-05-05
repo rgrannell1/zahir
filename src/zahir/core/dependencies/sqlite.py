@@ -8,8 +8,7 @@ from typing import Any
 
 from zahir.core.constants import DependencyState
 from zahir.core.dependencies.dependency import check, dependency
-from zahir.core.exceptions import ImpossibleError
-from zahir.core.zahir_types import DependencyResult
+from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 _DEFAULT_TIMEOUT_SECONDS = 5.0
 _BUSY_TIMEOUT_MS = 5000
@@ -58,13 +57,13 @@ def _parse_status(raw: str) -> str:
     return status
 
 
-def _sqlite_condition(
+def sqlite_condition(
     db_path: str,
     query: str,
     params: tuple[Any, ...] | None,
     timeout_seconds: float,
-) -> Generator[Any, Any, Any]:
-    """Returns (True, metadata) if the query returns rows (or a satisfied status), False if not yet, raises ImpossibleError if impossible."""  # noqa: E501
+) -> Generator[Any, Any, ConditionResult]:
+    """Returns satisfied if the query returns rows (or a satisfied status), unsatisfied if not yet, impossible if the status row is impossible."""  # noqa: E501
     metadata = {
         "db_path": db_path,
         "query": query,
@@ -74,17 +73,16 @@ def _sqlite_condition(
     column_names, row = _query(db_path, query, params or (), timeout_seconds)
 
     if row is None:
-        return False
+        return (DependencyState.UNSATISFIED, metadata)
 
     if len(row) == 1 and column_names == ["status"]:
         status = _parse_status(row[0])
         if status == DependencyState.UNSATISFIED:
-            return False
-
+            return (DependencyState.UNSATISFIED, metadata)
         if status == DependencyState.IMPOSSIBLE:
-            raise ImpossibleError(f"status=impossible for query against {db_path}")
+            return (DependencyState.IMPOSSIBLE, metadata)
 
-    return (True, metadata)
+    return (DependencyState.SATISFIED, metadata)
     yield  # make it a generator function
 
 
@@ -97,7 +95,7 @@ def sqlite_dependency(
 ) -> Generator[Any, Any, DependencyResult]:
     _validate_db_path(db_path)
     return dependency(
-        partial(_sqlite_condition, db_path, query, params, connection_timeout_seconds),
+        partial(sqlite_condition, db_path, query, params, connection_timeout_seconds),
         timeout_ms=poll_timeout_ms,
         label=f"sqlite '{db_path}'",
     )
@@ -112,6 +110,6 @@ def check_sqlite_dependency(
     """Evaluate the sqlite condition once; return satisfied or impossible without retrying."""
     _validate_db_path(db_path)
     return check(
-        partial(_sqlite_condition, db_path, query, params, connection_timeout_seconds),
+        partial(sqlite_condition, db_path, query, params, connection_timeout_seconds),
         label=f"sqlite '{db_path}'",
     )

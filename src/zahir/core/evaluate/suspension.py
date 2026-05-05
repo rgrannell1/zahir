@@ -10,6 +10,14 @@ from zahir.core.exceptions import JobError, JobTimeoutError
 from zahir.core.fp_types import Err, Ok, Result
 
 
+# (tag, sequence_number, body) — the raw work item delivered to a waiting parent
+type WorkItem = tuple[str, int | None, Any]
+
+# Return type of SuspensionTable.resume. None when children are still outstanding
+type ResumeResult = tuple[RunningJob, Result[Any, Exception]] | None
+
+
+
 @dataclass
 class RunningJob:
     """A job currently being stepped through by the worker."""
@@ -67,13 +75,6 @@ class SuspendedJob(RunningJob):
             results={},
             result_order=result_order,
         )
-
-
-# (tag, sequence_number, body) — the raw work item delivered to a waiting parent
-type WorkItem = tuple[str, int | None, Any]
-
-# Return type of SuspensionTable.resume. None when children are still outstanding
-type ResumeResult = tuple[RunningJob, Result[Any, Exception]] | None
 
 
 def _unwrap_reply(body: Any) -> Result[Any, Exception]:

@@ -1,7 +1,7 @@
 
 # Effects
 
-Effects are events with responses, approximately. Layering of job effects from coordination effects insulates jobs from directly altering Zahir runtime internals in-band (the better approach would be modifying handlers)
+Effects are events with responses, approximately. Layering of job effects from coordination effects insulates jobs from directly altering Zahir runtime internals in-band (if this was desired, we would instead modify handlers). We obtain our telemetry by composing wrapper generators around our handlers.
 
 **coordination.py**
 
@@ -16,7 +16,7 @@ Effects used by the workers to communicate with the overseer process. Not yielde
 
 **job.py**
 
-Effects a job may yield.
+Effects a job may yield to interact with the workflow engine.
 
 - `EGetJob(worker_pid_bytes)`: request work from the overseer — returns a new job, a buffered child result, or None
 - `EEnqueue(fn_name, args, reply_to, timeout_ms, sequence_number)`: queue a job; reply_to and sequence_number are None for the root job, set for child jobs
@@ -26,7 +26,7 @@ Effects a job may yield.
 
 **storage.py**
 
-Storage effects are yielded to the backend to handle stateful storage.
+Storage effects are yielded to the backend to handle state storage. By default, we store things in-memory.
 
 The overseer talks to the job queue through these effects rather than calling it directly. This means we can swap out storage implementations by swapping the handlers for these effects.
 

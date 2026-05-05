@@ -27,6 +27,7 @@ def get_job_id(effect) -> str | None:
 
     if seq is not None and isinstance(reply_to, bytes):
         return f"{reply_to.hex()}:{seq}"
+
     return None
 
 

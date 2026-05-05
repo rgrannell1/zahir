@@ -1,9 +1,10 @@
 """Entry point for running a zahir workflow: spawns the overseer and workers, seeds the root job, and polls for completion."""
 
+from asyncio import Handle
 from collections.abc import Generator, Sequence
-from typing import Any
+from typing import Any, cast
 
-from orbis import HandlerDict, handle
+from orbis import handle
 from tertius import EEmit, ESleep, ESpawn, Pid, Scope, run
 
 from zahir.core.backends.memory import make_memory_storage_handlers
@@ -12,6 +13,7 @@ from zahir.core.effects import EEnqueue, EGetError, EGetResult, EIsDone
 from zahir.core.evaluate.coordination_handlers import make_merged_coordination_handlers
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.worker import worker
+from zahir.core.zahir_types import HandlerMap
 
 
 def _poll_completion() -> Generator[Any, Any, None]:
@@ -47,7 +49,7 @@ def _evaluate_runner(
     scope: Scope,
     n_workers: int,
     handler_wrappers: Sequence,
-    handlers: HandlerDict,
+    handlers: HandlerMap,
 ) -> Generator[Any, Any, None]:
     """Run the root job and wait for completion."""
 
@@ -68,14 +70,14 @@ def evaluate(
     *,
     n_workers: int = 4,
     handler_wrappers: Sequence = (),
-    handlers: HandlerDict | None = None,
+    handlers: HandlerMap | None = None,
 ) -> Generator[Any, None, None]:
     """Entry point. Run a job and wait for completion."""
 
     if fn_name not in scope:
         raise KeyError(f"job {fn_name!r} not found in scope")
 
-    merged_handlers = {**make_memory_storage_handlers(), **(handlers or {})}
+    merged_handlers = cast(HandlerMap, {**make_memory_storage_handlers(), **(handlers or {})})
     full_scope: Scope = {"run_overseer": run_overseer, "worker": worker, **scope}
 
     yield from run(

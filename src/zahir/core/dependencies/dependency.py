@@ -9,8 +9,7 @@ from bookman.events import point
 from tertius import EEmit, ESleep
 
 from zahir.core.constants import DEPENDENCY_DELAY_MS, DependencyState, DependencyTag
-from zahir.core.exceptions import ImpossibleError
-from zahir.core.zahir_types import DependencyResult
+from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 
 def _waiting_event(label: str) -> object:
@@ -22,73 +21,64 @@ def _done_event(label: str) -> object:
 
 
 def check(
-    condition_fn: Callable[[], Generator],
+    condition_fn: Callable[[], Generator[Any, Any, ConditionResult]],
     label: str = "check",
 ) -> Generator[Any, Any, DependencyResult]:
     """Evaluate condition_fn once; return satisfied or impossible without retrying.
 
     condition_fn must return a generator that:
     - yields any effects it needs
-    - returns True or (True, metadata) when the condition is met
-    - returns False when not met
-    - raises ImpossibleError when the condition can never be met
+    - returns a ConditionResult: (satisfied, metadata), (unsatisfied, metadata), or (impossible, metadata)
+    Unsatisfied is mapped to impossible since there is no retry in check mode.
     """
-    try:
-        outcome = yield from condition_fn()
-        satisfied, metadata = outcome if isinstance(outcome, tuple) else (outcome, None)
-        if satisfied:
-            result: DependencyResult = (DependencyState.SATISFIED, metadata)
-            yield EEmit(result)
-            return result
-    except ImpossibleError as exc:
-        result = (DependencyState.IMPOSSIBLE, str(exc))
+    state, metadata = yield from condition_fn()
+    if state == DependencyState.SATISFIED:
+        result: DependencyResult = (DependencyState.SATISFIED, metadata)
         yield EEmit(result)
         return result
-
-    result = (DependencyState.IMPOSSIBLE, f"{label} condition not met")
+    if state == DependencyState.IMPOSSIBLE:
+        result = (DependencyState.IMPOSSIBLE, metadata)
+        yield EEmit(result)
+        return result
+    # UNSATISFIED: maps to impossible in one-shot mode
+    result = (DependencyState.IMPOSSIBLE, metadata)
     yield EEmit(result)
     return result
 
 
 def dependency(
-    condition_fn: Callable[[], Generator],
+    condition_fn: Callable[[], Generator[Any, Any, ConditionResult]],
     timeout_ms: int | None = None,
     poll_ms: int = DEPENDENCY_DELAY_MS,
     label: str = "dependency",
 ) -> Generator[Any, Any, DependencyResult]:
-    """Poll condition_fn until it returns True, raises ImpossibleError, or times out.
+    """Poll condition_fn until it returns satisfied or impossible, or times out.
 
     condition_fn must return a generator that:
     - yields any effects it needs (EAcquire, EGetSemaphore, ESleep, etc.)
-    - returns True or (True, metadata) when the condition is met
-    - returns False when not yet met (will retry after poll_ms)
-    - raises ImpossibleError when the condition can never be met
+    - returns a ConditionResult: (satisfied, metadata), (unsatisfied, metadata), or (impossible, metadata)
+    Unsatisfied causes a retry after poll_ms; satisfied or impossible terminates the loop.
     """
     timeout_at = datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms is not None else None
 
     while True:
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
-            result: DependencyResult = (
-                DependencyState.IMPOSSIBLE,
-                f"{label} timed out after {timeout_ms}ms",
-            )
-            yield EEmit(result)
+            impossible: DependencyResult = (DependencyState.IMPOSSIBLE, {"reason": f"{label} timed out after {timeout_ms}ms"})
+            yield EEmit(impossible)
             yield EEmit(_done_event(label))
-            return result
+            return impossible
 
-        try:
-            outcome = yield from condition_fn()
-            satisfied, metadata = outcome if isinstance(outcome, tuple) else (outcome, None)
-            if satisfied:
-                result = (DependencyState.SATISFIED, metadata)
-                yield EEmit(result)
-                yield EEmit(_done_event(label))
-                return result
-        except ImpossibleError as exc:
-            result = (DependencyState.IMPOSSIBLE, str(exc))
-            yield EEmit(result)
+        state, metadata = yield from condition_fn()
+        if state == DependencyState.SATISFIED:
+            satisfied: DependencyResult = (DependencyState.SATISFIED, metadata)
+            yield EEmit(satisfied)
             yield EEmit(_done_event(label))
-            return result
+            return satisfied
+        if state == DependencyState.IMPOSSIBLE:
+            impossible = (DependencyState.IMPOSSIBLE, metadata)
+            yield EEmit(impossible)
+            yield EEmit(_done_event(label))
+            return impossible
 
         yield EEmit(_waiting_event(label))
         yield ESleep(ms=poll_ms)

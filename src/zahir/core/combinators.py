@@ -1,4 +1,5 @@
-# Higher-order functions for composing effect handlers
+"""Higher-order functions for composing effect handlers"""
+
 from collections.abc import Generator
 from functools import partial
 from typing import Any
@@ -6,11 +7,12 @@ from typing import Any
 
 def apply_wrapper(handler: Any, wrapper: Any) -> Any:
     """Apply a single handler wrapper to a handler."""
+
     return wrapper(handler)
 
 
 def _drive_setup(gen) -> Generator[Any, Any, None]:
-    """Propagate fn setup yields to the caller until the seam (bare yield → None)."""
+    """Propagate fn setup yields to the caller until the seam (bare yield -> None)."""
 
     inner = next(gen)
     while inner is not None:
@@ -22,7 +24,7 @@ def _drive_teardown(gen, exc_caught, result) -> Generator[Any, Any, None]:
     """Drive fn teardown after the seam, propagating yields and absorbing StopIteration.
 
     If exc_caught is set, throws it into gen so teardown can observe the error.
-    If the exception propagates out of gen (i.e. fn did not catch it), swallow it —
+    If the exception propagates out of gen (i.e. fn did not catch it), swallow it -
     the caller will re-raise exc_caught itself.
     """
 
@@ -77,22 +79,6 @@ def apply_to_tags(wrapper, tags: set, handler_map: dict) -> dict:
 
 
 def wrap(fn):
-    """Combinator that applies fn around each job-effect handler call.
-
-    fn(effect) is a generator with two phases separated by a bare yield (yields None):
-    - setup:    yields effects (e.g. EEmit) propagated to the caller before the handler runs
-    - teardown: runs after the handler; receives the result via send, or the exception via throw
-                if the handler raised. fn may optionally catch the thrown exception to emit
-                error telemetry — if it does not, the exception propagates normally.
-
-    Example:
-        def my_wrapper(effect):
-            yield EEmit({"event": "start", "tag": effect.tag})  # setup
-            try:
-                result = yield                                    # seam
-                yield EEmit({"event": "end", "error": None})    # success teardown
-            except Exception as exc:
-                yield EEmit({"event": "end", "error": str(exc)}) # error teardown
-    """
+    """Combinator that applies fn around each job-effect handler call."""
 
     return partial(_wrap_handler, fn)

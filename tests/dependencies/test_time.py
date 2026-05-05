@@ -76,7 +76,7 @@ def test_impossible_includes_timestamps():
 
     emit = next(time_dependency(before=PAST, after=None))
     assert emit.body[0] == "impossible"
-    assert PAST.isoformat() in emit.body[1]
+    assert PAST.isoformat() in emit.body[1]["reason"]
 
 
 # return values

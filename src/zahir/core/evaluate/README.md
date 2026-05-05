@@ -25,4 +25,4 @@ The entrypoint to Zahir. Applies handlers, uses tertius and orbis
 
 **worker.py**
 
-This is what we run per-process on top of a Tertius genserver. It's a simple state machine handling idle
+This is what we run per-process on top of a Tertius genserver. It's a simple state machine, with running and idle states.

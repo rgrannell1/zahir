@@ -82,7 +82,7 @@ def test_timeout_emits_impossible():
             emits, _ = drain_to(gen, EEmit)
 
     assert emits[0].body[0] == "impossible"
-    assert "cpu" in emits[0].body[1]
+    assert "cpu" in emits[0].body[1]["reason"]
 
 
 def test_timeout_reason_includes_resource_and_duration():
@@ -98,8 +98,8 @@ def test_timeout_reason_includes_resource_and_duration():
             emits, _ = drain_to(gen, EEmit)
 
     assert emits[0].body[0] == "impossible"
-    assert "memory" in emits[0].body[1]
-    assert "30" in emits[0].body[1]
+    assert "memory" in emits[0].body[1]["reason"]
+    assert "30" in emits[0].body[1]["reason"]
 
 
 def test_high_then_low_usage_emits_satisfied():
@@ -177,9 +177,9 @@ def test_check_resource_high_usage_does_not_sleep():
     assert calls == 1
 
 
-def test_check_resource_label_in_impossible_reason():
-    """Proves the resource type appears in the impossible reason."""
+def test_check_resource_metadata_contains_resource_type():
+    """Proves the resource type appears in the impossible metadata when check fails."""
 
     with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
         emit = next(check_resource_dependency("memory", max_percent=50.0))
-    assert "memory" in emit.body[1]
+    assert emit.body[1]["resource"] == "memory"

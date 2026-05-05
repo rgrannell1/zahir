@@ -15,7 +15,9 @@ class JobContext[T]:
 
 # Result types for dependency combinators — the Left/Right of the dependency monad.
 type Satisfied = tuple[Literal["satisfied"], dict | None]
-type Impossible = tuple[Literal["impossible"], str]
+type Impossible = tuple[Literal["impossible"], dict | None]
+type Unsatisfied = tuple[Literal["unsatisfied"], dict | None]
+type ConditionResult = Satisfied | Impossible | Unsatisfied
 type DependencyResult = Satisfied | Impossible
 
 # Concurrency slot tracking: name -> (limit, active_count)
@@ -28,11 +30,13 @@ type PendingResults = dict[bytes, deque[tuple[int, Any]]]
 type HandlerCallable = Callable[..., Generator[Any, Any, Any]]
 
 # Effect tag -> handler callable, as returned by handler factory functions
-type HandlerMap = dict[str, HandlerCallable]
+# TODO deprecate this
+class HandlerMap(TypedDict):
+    __extra_items__: HandlerCallable
 
 
 class StorageHandlerMap(TypedDict):
-    """Handler map for storage effects. All listed keys are required; extra keys are allowed for custom backends."""
+    """Handler map for storage effects."""
 
     __extra_items__: HandlerCallable
     storage_get_job: HandlerCallable
@@ -46,6 +50,34 @@ class StorageHandlerMap(TypedDict):
     storage_is_done: HandlerCallable
     storage_get_error: HandlerCallable
     storage_get_result: HandlerCallable
+
+
+class JobHandlerMap(TypedDict):
+    """Handler map for job emittable effects"""
+
+    __extra_items__: HandlerCallable
+
+    acquire: HandlerCallable
+    get_semaphore: HandlerCallable
+    set_semaphore: HandlerCallable
+
+
+class CoordinationHandlerMap(TypedDict):
+    """Handler map for coordination effects"""
+
+    __extra_items__: HandlerCallable
+
+    acquire_slot: HandlerCallable
+    enqueue: HandlerCallable
+    get_error: HandlerCallable
+    get_job: HandlerCallable
+    get_result: HandlerCallable
+    is_done: HandlerCallable
+    job_complete: HandlerCallable
+    job_fail: HandlerCallable
+    release: HandlerCallable
+    set_semaphore_state: HandlerCallable
+    signal: HandlerCallable
 
 
 @dataclass

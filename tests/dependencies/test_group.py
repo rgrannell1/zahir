@@ -1,23 +1,24 @@
 from tertius import EEmit, ESleep
 
 from tests.shared import drain_to
-from zahir.core.dependencies.dependency import ImpossibleError, dependency
+from zahir.core.constants import DependencyState
+from zahir.core.dependencies.dependency import dependency
 from zahir.core.dependencies.group import group_dependency
 
 
 def _always_satisfied():
-    return (True, {"source": "a"})
+    return (DependencyState.SATISFIED, {"source": "a"})
     yield  # make it a generator function
 
 
 def _always_impossible():
-    raise ImpossibleError("blocked")
+    return (DependencyState.IMPOSSIBLE, {"reason": "blocked"})
     yield  # make it a generator function
 
 
 def _sleeps_then_satisfied():
     yield ESleep(ms=1000)
-    return (True, {"source": "b"})
+    return (DependencyState.SATISFIED, {"source": "b"})
 
 
 def _satisfied():
@@ -94,7 +95,7 @@ def test_handler_value_is_sent_back_into_dependency():
     def _capturing_condition():
         val = yield ESleep(ms=1)
         received.append(val)
-        return True
+        return (DependencyState.SATISFIED, None)
 
     gen = group_dependency([dependency(_capturing_condition)])
     drain_to(gen, responses={ESleep: 42})

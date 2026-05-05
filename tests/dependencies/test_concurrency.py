@@ -94,8 +94,8 @@ def test_timeout_reason_includes_name_and_duration():
         emits, _ = drain_to(gen, EEmit)
 
     assert emits[0].body[0] == "impossible"
-    assert "workers" in emits[0].body[1]
-    assert "5000" in emits[0].body[1]
+    assert "workers" in emits[0].body[1]["reason"]
+    assert "5000" in emits[0].body[1]["reason"]
 
 
 # concurrency_dependency — return values

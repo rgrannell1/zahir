@@ -18,7 +18,7 @@ from zahir.core.effects import (
 )
 from zahir.core.evaluate.suspension import WorkerLocals
 from zahir.core.exceptions import InvalidEffectError, JobTimeoutError
-from zahir.core.zahir_types import HandlerMap
+from zahir.core.zahir_types import HandlerMap, JobHandlerMap
 
 
 def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
@@ -109,7 +109,7 @@ def _handle_set_semaphore(effect: ESetSemaphore) -> Generator[Any, Any, None]:
     yield ESetSemaphoreState(name=effect.name, state=effect.state)
 
 
-def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> HandlerMap:
+def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> JobHandlerMap:
     """Create job-effect handlers keyed by effect tag, with any user-supplied wrappers applied."""
 
     handlers = {
@@ -117,4 +117,5 @@ def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> Hand
         EGetSemaphore.tag: _handle_signal,
         ESetSemaphore.tag: _handle_set_semaphore,
     }
+
     return {tag: reduce(apply_wrapper, handler_wrappers, handler) for tag, handler in handlers.items()}
