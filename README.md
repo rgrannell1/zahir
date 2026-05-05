@@ -29,6 +29,14 @@ Defines a workflow runtime on top of Tertius's concurrent-process model. Defines
 
 Telemetry is composed onto the effect handler layer; the events emited are envelopes for bookman events that capture data about what executed when, for how long. Metric aggregation (e.g in progress bars) is implemented using bookman.
 
+## Modules
+
+- [Effects](src/zahir/core/effects/README.md) - our event-response signals
+- [Evaluate](src/zahir/core/evaluate/README.md) - the bit that runs
+- [Dependencies](src/zahir/core/dependencies/README.md) - built-in world-state checks & pollers
+- [Backends](src/zahir/core/backends/README.md) - swappable storage backend implementations
+- [Metrics](src/zahir/progress_bar/metrics/README.md) - progress bar aggregators built on bookman
+
 ## A Simple Workflow
 
 The following example workflow reads the text of a book, splits it into chapters, and `chapter_processor` computes the longest word in each chapter. `longest_word_assembly` fans them out in parallel and returns the results. The root job `book_workflow` returns the final result, which `evaluate` surfaces as the last event in the stream.
@@ -76,7 +84,7 @@ for event in evaluate("book_workflow", ("war-and-peace.txt",), scope, n_workers=
 
 Jobs do something, based on an input, and return a value. Jobs can await other jobs by invoking functions registered in scope: `res = yield ctx.scope.my_subtask(input)`. Jobs are generators; they can fan out to other jobs (which run in parallel) or just call regular functions.
 
-There's no rollbacks; if something goes wrong, detect it with a try-catch or by inspecting returrn values, and run corrective actions yourself. Job-level rollbacks do not compose into workflow rollbacks; crouching, stepping backwards, and taking off your parachute will not get you back on your plane.
+There's no rollbacks; if something goes wrong, detect it with a try-catch or by inspecting returrn values, and run corrective actions yourself.
 
 Dependencies are jobs that wait for a condition. They return a `DependencyResult` tuple — `(DependencyState.SATISFIED, metadata)` when met, `(DependencyState.IMPOSSIBLE, reason)` when the condition can never be met. A combinator function handles the polling and sleeping until a result is returned.
 
@@ -102,15 +110,41 @@ Effects are generally abstracted away from jobs in Zahir, but ultimately both th
 
 ## Context: Job-accessible internals
 
-We need to pre-agree on what names map to what functions across processes; scope is a dictionary of names to functions. Jobs can be called using `ctx.scope.name(...args)`; of course, normal functions are accessible in the usual way.
+A detail; we need to pre-agree on what names map to what functions across processes; scope is a dictionary of names to functions. Jobs can be called using `ctx.scope.name(...args)`; of course, normal functions are accessible in the usual way.
 
-## Modules
+## Modelling Workflows
 
-- [Effects](src/zahir/core/effects/README.md) - our event-response signals
-- [Evaluate](src/zahir/core/evaluate/README.md) - the bit that runs
-- [Dependencies](src/zahir/core/dependencies/README.md) - built-in world-state checks & pollers
-- [Backends](src/zahir/core/backends/README.md) - swappable storage backend implementations
-- [Metrics](src/zahir/progress_bar/metrics/README.md) - progress bar aggregators built on bookman
+### Scheduling & Idempotency
+
+Scheduling is conceptually waiting for `if wordstate: do thing`. This includes waiting for a time window, for a signal from another process, or for a resource to enter a certain state. Idempotency is similarily a check on worldstates before proceeding, so could be modelled with `sqlite_condition` if we want to externalise state storage.
+
+```python
+def process_image(ctx: JobContext, path: str):
+    yield from concurrency_dependency("image_workers", limit=4)
+    return encode_image(path)
+    yield
+```
+
+
+## Checkpointing & Retries
+
+Retries can be modelled at the job-level. Checkpointing and rollbacks are simply `try-catch` usage.
+
+```python
+def fetch_with_retry(ctx: JobContext, url: str):
+    for attempt in range(3):
+        try:
+            result = yield ctx.scope.fetch(url)
+            return result
+        except JobError:
+            if attempt == 2:
+                raise
+    yield
+```
+
+## State Passing
+
+Pass parameters between jobs, or externalise state into SQLite or a similar store.s
 
 ## License
 
