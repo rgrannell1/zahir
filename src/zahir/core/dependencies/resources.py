@@ -1,4 +1,4 @@
-# Dependency that waits until CPU or memory usage is within a given threshold.
+"""Dependency that waits until CPU or memory usage is within a given threshold."""
 
 from collections.abc import Generator
 from functools import partial
@@ -6,7 +6,7 @@ from typing import Any, Literal
 
 import psutil
 
-from zahir.core.constants import CPU_SAMPLE_INTERVAL_S, DependencyState
+from zahir.core.constants import CPU_SAMPLE_INTERVAL_S
 from zahir.core.dependencies.dependency import check, dependency
 from zahir.core.zahir_types import ConditionResult, DependencyResult
 
@@ -25,8 +25,8 @@ def resource_condition(resource: ResourceType, max_percent: float) -> Generator[
     """Returns satisfied if resource usage is within the limit, unsatisfied otherwise."""
     metadata = {"resource": resource, "max_percent": max_percent}
     if _get_usage(resource) <= max_percent:
-        return (DependencyState.SATISFIED, metadata)
-    return (DependencyState.UNSATISFIED, metadata)
+        return ("satisfied", metadata)
+    return ("unsatisfied", metadata)
     yield
 
 

@@ -1,4 +1,5 @@
-# Dependency that waits until a named semaphore reaches the satisfied state.
+"""Dependency that waits until a named semaphore reaches the satisfied state"""
+
 from collections.abc import Generator
 from functools import partial
 from typing import Any
@@ -11,18 +12,23 @@ from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 def semaphore_condition(name: str) -> Generator[Any, Any, ConditionResult]:
     """Returns satisfied, unsatisfied, or impossible based on the semaphore state."""
+
     state = yield EGetSemaphore(name=name)
+
     if state == DependencyState.IMPOSSIBLE:
-        return (DependencyState.IMPOSSIBLE, {"name": name})
+        return ("impossible", {"name": name})
+
     if state == DependencyState.SATISFIED:
-        return (DependencyState.SATISFIED, {"name": name})
-    return (DependencyState.UNSATISFIED, {"name": name})
+        return ("satisfied", {"name": name})
+
+    return ("unsatisfied", {"name": name})
 
 
 def check_semaphore_dependency(
     name: str,
 ) -> Generator[Any, Any, DependencyResult]:
     """Evaluate the semaphore state once; return satisfied or impossible without retrying."""
+
     return check(
         partial(semaphore_condition, name),
         label=f"semaphore '{name}'",
@@ -33,6 +39,7 @@ def semaphore_dependency(
     name: str,
     timeout_ms: int | None = None,
 ) -> Generator[Any, Any, DependencyResult]:
+
     return dependency(
         partial(semaphore_condition, name),
         timeout_ms=timeout_ms,

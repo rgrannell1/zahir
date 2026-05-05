@@ -73,16 +73,16 @@ def sqlite_condition(
     column_names, row = _query(db_path, query, params or (), timeout_seconds)
 
     if row is None:
-        return (DependencyState.UNSATISFIED, metadata)
+        return ("unsatisfied", metadata)
 
     if len(row) == 1 and column_names == ["status"]:
         status = _parse_status(row[0])
         if status == DependencyState.UNSATISFIED:
-            return (DependencyState.UNSATISFIED, metadata)
+            return ("unsatisfied", metadata)
         if status == DependencyState.IMPOSSIBLE:
-            return (DependencyState.IMPOSSIBLE, metadata)
+            return ("impossible", metadata)
 
-    return (DependencyState.SATISFIED, metadata)
+    return ("satisfied", metadata)
     yield  # make it a generator function
 
 

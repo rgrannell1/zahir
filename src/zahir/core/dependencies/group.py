@@ -9,12 +9,12 @@ from zahir.core.zahir_types import DependencyResult
 
 
 def group_dependency(
-    dependencies: list[Generator],
+    dependencies: list[Generator[Any, Any, DependencyResult]],
 ) -> Generator[Any, Any, DependencyResult]:
     """Run dependencies in sequence; short-circuit on the first impossible result."""
 
     if not dependencies:
-        result: DependencyResult = (DependencyState.SATISFIED, None)
+        result: DependencyResult = ("satisfied", None)
         yield EEmit(result)
         return result
 

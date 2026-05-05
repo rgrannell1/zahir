@@ -4,7 +4,6 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import Any
 
-from zahir.core.constants import DependencyState
 from zahir.core.dependencies.dependency import check, dependency
 from zahir.core.zahir_types import ConditionResult, DependencyResult
 
@@ -17,12 +16,12 @@ def time_condition(
     now = datetime.now(tz=UTC)
 
     if before is not None and now >= before:
-        return (DependencyState.IMPOSSIBLE, {"reason": f"too late: now={now.isoformat()}, before={before.isoformat()}"})
+        return ("impossible", {"reason": f"too late: now={now.isoformat()}, before={before.isoformat()}"})
 
     if after is not None and now < after:
-        return (DependencyState.UNSATISFIED, {"after": after.isoformat()})
+        return ("unsatisfied", {"after": after.isoformat()})
 
-    return (DependencyState.SATISFIED, {})
+    return ("satisfied", {})
     yield
 
 

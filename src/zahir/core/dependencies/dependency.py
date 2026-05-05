@@ -33,15 +33,15 @@ def check(
     """
     state, metadata = yield from condition_fn()
     if state == DependencyState.SATISFIED:
-        result: DependencyResult = (DependencyState.SATISFIED, metadata)
+        result: DependencyResult = ("satisfied", metadata)
         yield EEmit(result)
         return result
     if state == DependencyState.IMPOSSIBLE:
-        result = (DependencyState.IMPOSSIBLE, metadata)
+        result = ("impossible", metadata)
         yield EEmit(result)
         return result
     # UNSATISFIED: maps to impossible in one-shot mode
-    result = (DependencyState.IMPOSSIBLE, metadata)
+    result = ("impossible", metadata)
     yield EEmit(result)
     return result
 
@@ -63,24 +63,30 @@ def dependency(
     timeout_at = datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms is not None else None
 
     while True:
+
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
-            impossible: DependencyResult = (DependencyState.IMPOSSIBLE, {"reason": f"{label} timed out after {timeout_ms}ms"})
+            impossible: DependencyResult = ("impossible", {"reason": f"{label} timed out after {timeout_ms}ms"})
             yield EEmit(impossible)
             yield EEmit(_done_event(label))
+
             return impossible
 
         state, metadata = yield from condition_fn()
 
         if state == DependencyState.SATISFIED:
-            satisfied: DependencyResult = (DependencyState.SATISFIED, metadata)
+            satisfied: DependencyResult = ("satisfied", metadata)
+
             yield EEmit(satisfied)
             yield EEmit(_done_event(label))
+
             return satisfied
 
         if state == DependencyState.IMPOSSIBLE:
-            impossible = (DependencyState.IMPOSSIBLE, metadata)
+            impossible = ("impossible", metadata)
+
             yield EEmit(impossible)
             yield EEmit(_done_event(label))
+
             return impossible
 
         yield EEmit(_waiting_event(label))
