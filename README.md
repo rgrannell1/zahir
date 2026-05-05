@@ -102,8 +102,8 @@ Jobs should await suitable conditions to run using dependency-jobs, and post-che
 
 Effects are generally abstracted away from jobs in Zahir, but ultimately both the zahir workflow engine & underlying multiprocess runtime are stacked effect systems. For every effect there's a handler; they're handled internally by Zahir, with telemetry simply being another generator composed on top to watch the information flows. The user too can compose on top of the effect system, to facilitate debugging. Most are internal; these can be yielded by a job
 
-- `yield EAwait(job | job[])`: pause, wait for one or more jobs in parallel, resume with the result or a list of results in dispatch order. Raises `JobError` if any job failed. `yield ctx.scope.myjob()` is shorthand for the single-job form.
-- `yield EAcquire(name, limit)`: acquire a named concurrency slot
+- `yield ctx.scope.myjob(args)`: dispatch a single job and resume with its result. Raises `JobError` if the job failed.
+- `yield await_all([ctx.scope.myjob(args), ...])`: dispatch multiple jobs in parallel, resume with results as a list in dispatch order. Raises `JobError` if any job failed.
 - `yield EGetSemaphore(name)`: get a semaphore's state
 - `yield ESetSemaphore(name, state)`: set a semaphore's state
 - `yield EEmit(msg)`: emit an event to the `evaluate` caller (from `tertius`)
