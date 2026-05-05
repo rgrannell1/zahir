@@ -6,8 +6,8 @@ from tertius import EEmit, ESleep
 
 from tests.shared import drain_to
 from zahir.core.dependencies.file import (
-    file_condition,
     check_file_dependency,
+    file_condition,
     file_dependency,
 )
 

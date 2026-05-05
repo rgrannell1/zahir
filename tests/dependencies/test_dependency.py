@@ -7,7 +7,6 @@ from tests.shared import NOW, drain_to
 from zahir.core.constants import DependencyState
 from zahir.core.dependencies.dependency import check, dependency
 
-
 # condition returns satisfied immediately
 
 

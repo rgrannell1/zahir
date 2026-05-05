@@ -1,9 +1,10 @@
 """Constants for the Zahir workflow engine"""
 
 from enum import StrEnum
-from tertius import EReceive
-from zahir.core.exceptions import InvalidEffectError, JobError, JobTimeoutError
 
+from tertius import EReceive
+
+from zahir.core.exceptions import InvalidEffectError, JobError, JobTimeoutError
 
 # How often should we poll for dependency state-changes?
 DEPENDENCY_DELAY_MS = 1_000
@@ -16,6 +17,7 @@ COMPLETION_POLL_MS = 500
 
 # How long to wait between CPU usage samples when checking resource availability
 CPU_SAMPLE_INTERVAL_S = 0.1
+
 
 # Lifecycle phase attached to every telemetry event
 class Phase(StrEnum):

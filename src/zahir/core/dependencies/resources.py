@@ -47,6 +47,7 @@ def resource_dependency(
     timeout: float | None = None,
 ) -> Generator[Any, Any, DependencyResult]:
     timeout_ms = int(timeout * 1000) if timeout is not None else None
+
     return dependency(
         partial(resource_condition, resource, max_percent),
         timeout_ms=timeout_ms,

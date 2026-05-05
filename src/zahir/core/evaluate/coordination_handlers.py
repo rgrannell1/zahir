@@ -36,6 +36,7 @@ from zahir.core.zahir_types import CoordinationHandlerMap, HandlerMap
 @dataclass
 class CoordinationHandlerContext:
     """TODO this is a specialist class, is it needed?"""
+
     overseer: Pid
     handler_wrappers: Sequence = field(default_factory=list)
 

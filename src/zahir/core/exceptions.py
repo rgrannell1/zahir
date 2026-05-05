@@ -1,5 +1,6 @@
 """Zahir's exceptions"""
 
+
 class ZahirError(Exception):
     pass
 
@@ -16,6 +17,7 @@ class JobError(ZahirError):
 
 class InvalidEffectError(ZahirError):
     """Not an effect."""
+
     pass
 
 

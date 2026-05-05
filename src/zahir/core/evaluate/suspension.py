@@ -9,13 +9,11 @@ from zahir.core.effects import EAwait, EEnqueue
 from zahir.core.exceptions import JobError, JobTimeoutError
 from zahir.core.fp_types import Err, Ok, Result
 
-
 # (tag, sequence_number, body) — the raw work item delivered to a waiting parent
 type WorkItem = tuple[str, int | None, Any]
 
 # Return type of SuspensionTable.resume. None when children are still outstanding
 type ResumeResult = tuple[RunningJob, Result[Any, Exception]] | None
-
 
 
 @dataclass

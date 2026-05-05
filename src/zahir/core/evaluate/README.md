@@ -13,11 +13,11 @@ We decouple effects (the messaging layer) from handlers. Defines what job effect
 
 **overseer.py**
 
-Spawns a tertius genserver to coordinate messages back and forward between the storage backend and jobs. Workers ask the overseer for jobs.
+Spawns a tertius genserver to coordinate messages back and forward between the storage backend and jobs across processes. Workers ask the overseer for jobs.
 
 **runner.py**
 
-The entrypoint to Zahir. Applies handlers, uses tertius and orbis
+The entrypoint to Zahir. Applies handlers, uses tertius and orbis.
 
 **suspension.py**
 

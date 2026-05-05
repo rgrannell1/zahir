@@ -56,7 +56,8 @@ def dependency(
 
     condition_fn must return a generator that:
     - yields any effects it needs (EAcquire, EGetSemaphore, ESleep, etc.)
-    - returns a ConditionResult: (satisfied, metadata), (unsatisfied, metadata), or (impossible, metadata)
+    - returns a ConditionResult: (satisfied | unsatisfied | impossible, metadata)
+
     Unsatisfied causes a retry after poll_ms; satisfied or impossible terminates the loop.
     """
     timeout_at = datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms is not None else None
@@ -69,11 +70,13 @@ def dependency(
             return impossible
 
         state, metadata = yield from condition_fn()
+
         if state == DependencyState.SATISFIED:
             satisfied: DependencyResult = (DependencyState.SATISFIED, metadata)
             yield EEmit(satisfied)
             yield EEmit(_done_event(label))
             return satisfied
+
         if state == DependencyState.IMPOSSIBLE:
             impossible = (DependencyState.IMPOSSIBLE, metadata)
             yield EEmit(impossible)

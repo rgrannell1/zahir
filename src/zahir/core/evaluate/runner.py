@@ -1,6 +1,5 @@
 """Entry point for running a zahir workflow: spawns the overseer and workers, seeds the root job, and polls for completion."""
 
-from asyncio import Handle
 from collections.abc import Generator, Sequence
 from typing import Any, cast
 

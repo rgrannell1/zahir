@@ -29,6 +29,7 @@ type PendingResults = dict[bytes, deque[tuple[int, Any]]]
 # A handler: takes an effect, optionally yields further effects, returns a value
 type HandlerCallable = Callable[..., Generator[Any, Any, Any]]
 
+
 # Effect tag -> handler callable, as returned by handler factory functions
 # TODO deprecate this
 class HandlerMap(TypedDict):
