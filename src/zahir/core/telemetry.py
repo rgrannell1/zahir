@@ -97,8 +97,7 @@ def _success_teardown(effect, ctx: SpanContext, tspan: TimeSpan, result):
 def _error_teardown(effect, ctx: SpanContext, start: float, exc: Exception):
     """Emit a handler-error span event."""
 
-    trace = "".join(traceback.format_exception(exc))
-    yield EEmit(end_effect_error_telemetry(effect, ctx.span_id, TimeSpan(start, time.time()), trace))
+    yield EEmit(end_effect_error_telemetry(effect, ctx.span_id, TimeSpan(start, time.time()), str(exc)))
 
 
 def _telemetry_fn(effect):

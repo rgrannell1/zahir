@@ -91,7 +91,7 @@ def _handle_job_complete(context: CoordinationHandlerContext, effect: EJobComple
 def _handle_job_fail(context: CoordinationHandlerContext, effect: EJobFail) -> Generator[Any, Any, None]:
     """Route the failure to the parent worker via the overseer, or record it as root error."""
 
-    if effect.__replace__ is None:
+    if effect.reply_to is None:
         yield from mcast(context.overseer, EStorageJobFailed(error=effect.error))
         return
 
