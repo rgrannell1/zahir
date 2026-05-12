@@ -21,6 +21,17 @@ from zahir.core.exceptions import InvalidEffectError, JobTimeoutError
 from zahir.core.zahir_types import HandlerMap, JobHandlerMap
 
 
+def _validate_effect(effect) -> InvalidEffectError | None:
+    """Return an error if effect is not allowed in a job context, else None."""
+    if not hasattr(effect, "tag"):
+        return InvalidEffectError(f"job yielded non-Effect value: {effect!r}")
+    if isinstance(effect, ZahirCoordinationEffect):
+        return InvalidEffectError(f"{type(effect).__name__} cannot be yielded directly in a job")
+    if isinstance(effect, BLOCKED_EFFECTS):
+        return InvalidEffectError(f"{type(effect).__name__} cannot be yielded directly in a job")
+    return None
+
+
 def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
     """Drive gen: reject disallowed effects with InvalidEffectError, dispatch job-level effects to handlers, bubble the rest."""
 
@@ -34,14 +45,8 @@ def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
         except StopIteration as stop:
             return stop.value
 
-        if not hasattr(effect, "tag"):
-            pending_throw = InvalidEffectError(f"job yielded non-Effect value: {effect!r}")
-            continue
-        if isinstance(effect, ZahirCoordinationEffect):
-            pending_throw = InvalidEffectError(f"{type(effect).__name__} cannot be yielded directly in a job")
-            continue
-        if isinstance(effect, BLOCKED_EFFECTS):
-            pending_throw = InvalidEffectError(f"{type(effect).__name__} cannot be yielded directly in a job")
+        if err := _validate_effect(effect):
+            pending_throw = err
             continue
 
         try:

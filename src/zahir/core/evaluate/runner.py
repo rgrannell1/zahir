@@ -1,6 +1,7 @@
 """Entry point for running a zahir workflow: spawns the overseer and workers, seeds the root job, and polls for completion."""
 
 from collections.abc import Generator, Sequence
+from dataclasses import dataclass, field
 from typing import Any, cast
 
 from orbis import handle
@@ -13,6 +14,15 @@ from zahir.core.evaluate.coordination_handlers import make_merged_coordination_h
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.worker import worker
 from zahir.core.zahir_types import HandlerMap
+
+
+@dataclass
+class EvaluateConfig:
+    """Runtime configuration for a zahir evaluation."""
+
+    n_workers: int = 4
+    handler_wrappers: Sequence = field(default_factory=tuple)
+    handlers: HandlerMap | None = None
 
 
 def _poll_completion() -> Generator[Any, Any, None]:
@@ -42,27 +52,20 @@ def _kickoff(fn_name: str, args: tuple) -> Generator[Any, Any, None]:
     yield from _poll_completion()
 
 
-def _evaluate_runner(
-    fn_name: str,
-    args: tuple,
-    scope: Scope,
-    n_workers: int,
-    handler_wrappers: Sequence,
-    handlers: HandlerMap,
-) -> Generator[Any, Any, None]:
+def _evaluate_runner(fn_name: str, args: tuple, scope: Scope, config: EvaluateConfig) -> Generator[Any, Any, None]:
     """Run the root job and wait for completion."""
 
-    overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(handlers,))
+    overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(config.handlers,))
 
-    for _ in range(n_workers):
-        yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, handler_wrappers, handlers))
+    for _ in range(config.n_workers):
+        yield ESpawn(fn_name="worker", args=(bytes(overseer), scope, config.handler_wrappers, config.handlers))
 
-    root_handlers = make_merged_coordination_handlers(overseer, handler_wrappers, handlers)
+    root_handlers = make_merged_coordination_handlers(overseer, config.handler_wrappers, config.handlers)
 
     yield from handle(_kickoff(fn_name, args), **root_handlers)
 
 
-def evaluate(
+def evaluate(  # noqa: PLR0913
     fn_name: str,
     args: tuple,
     scope: Scope,
@@ -78,14 +81,6 @@ def evaluate(
 
     merged_handlers = cast(HandlerMap, {**make_memory_storage_handlers(), **(handlers or {})})
     full_scope: Scope = {"run_overseer": run_overseer, "worker": worker, **scope}
+    config = EvaluateConfig(n_workers=n_workers, handler_wrappers=handler_wrappers, handlers=merged_handlers)
 
-    yield from run(
-        _evaluate_runner,
-        fn_name,
-        args,
-        scope,
-        n_workers,
-        handler_wrappers,
-        merged_handlers,
-        scope=full_scope,
-    )
+    yield from run(_evaluate_runner, fn_name, args, scope, config, scope=full_scope)

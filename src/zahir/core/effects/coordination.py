@@ -72,7 +72,7 @@ class EJobComplete(ZahirCoordinationEffect[None]):
     result: Any
     reply_to: bytes | None
     sequence_number: Any
-    fn_name: str = ""  # noqa: E501
+    fn_name: str = ""
 
 
 @dataclass
@@ -83,7 +83,7 @@ class EJobFail(ZahirCoordinationEffect[None]):
     error: Exception
     reply_to: bytes | None
     sequence_number: Any
-    fn_name: str = ""  # noqa: E501
+    fn_name: str = ""
 
 
 @dataclass

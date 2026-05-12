@@ -1,10 +1,19 @@
 # Helpers that translate zahir effects into bookman Event objects
 import os
+from dataclasses import dataclass
 
 from bookman.bookman_types import Message
 from bookman.events import Dims, Event, point, span
 
 from zahir.core.constants import JobTag, Phase
+
+
+@dataclass
+class TimeSpan:
+    """A closed time interval [start, end] in seconds since epoch."""
+
+    start: float
+    end: float
 
 
 def get_fn_name(effect) -> str | None:
@@ -59,18 +68,18 @@ def start_effect_telemetry(effect, span_id: str, at: float) -> Event:
     return point(dims, at=at)
 
 
-def end_effect_success_telemetry(effect, span_id: str, start: float, end: float, value: Message | None = None) -> Event:
+def end_effect_success_telemetry(effect, span_id: str, tspan: TimeSpan, value: Message | None = None) -> Event:
     """Span event marking successful handler completion."""
 
     dims = base_dimensions(effect, span_id) | {"phase": [Phase.END]}
-    return span(dims, at=start, until=end, value=value)
+    return span(dims, at=tspan.start, until=tspan.end, value=value)
 
 
-def end_effect_error_telemetry(effect, span_id: str, start: float, end: float, error: str) -> Event:
+def end_effect_error_telemetry(effect, span_id: str, tspan: TimeSpan, error: str) -> Event:
     """Span event marking handler failure."""
 
     dims = base_dimensions(effect, span_id) | {"phase": [Phase.ERROR]}
-    return span(dims, at=start, until=end, value=error)
+    return span(dims, at=tspan.start, until=tspan.end, value=error)
 
 
 def job_lifecycle_span(effect, job_id: str, enqueued_at: float, completed_at: float) -> Event:

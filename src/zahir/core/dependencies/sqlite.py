@@ -86,7 +86,7 @@ def sqlite_condition(
     yield  # make it a generator function
 
 
-def sqlite_dependency(
+def sqlite_dependency(  # noqa: PLR0913
     db_path: str,
     query: str,
     params: tuple[Any, ...] | None = None,

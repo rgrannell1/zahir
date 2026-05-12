@@ -3,6 +3,7 @@ import os
 import time
 import traceback
 import uuid
+from dataclasses import dataclass
 
 from bookman.bookman_types import Message
 from bookman.events import point
@@ -12,12 +13,21 @@ from zahir.core.combinators import wrap
 from zahir.core.constants import JobTag, WorkItemTag
 from zahir.core.effects import EGetJob
 from zahir.core.emit import (
+    TimeSpan,
     end_effect_error_telemetry,
     end_effect_success_telemetry,
     get_job_id,
     job_lifecycle_span,
     start_effect_telemetry,
 )
+
+
+@dataclass
+class SpanContext:
+    """Identifiers for one telemetry span."""
+
+    span_id: str
+    job_id: str | None
 
 # Process-local store of enqueue times keyed by job_id.
 # Safe to use here because ENQUEUE and JOB_COMPLETE are always handled in the same process.
@@ -56,11 +66,11 @@ def _resolve_execute(effect, result) -> object | None:
     return None
 
 
-def _setup_phase(effect, span_id: str, start: float, job_id: str | None):
+def _setup_phase(effect, ctx: SpanContext, start: float):
     """Emit the handler-start event; record enqueue time if this is an ENQUEUE effect."""
 
-    _record_enqueue(effect, job_id, start)
-    yield EEmit(start_effect_telemetry(effect, span_id, start))
+    _record_enqueue(effect, ctx.job_id, start)
+    yield EEmit(start_effect_telemetry(effect, ctx.span_id, start))
 
 
 def _format_effect_error(err: Exception) -> str:
@@ -70,13 +80,13 @@ def _format_effect_error(err: Exception) -> str:
     return "".join(traceback.format_exception(cause))
 
 
-def _success_teardown(effect, span_id: str, start: float, end: float, job_id: str | None, result):
+def _success_teardown(effect, ctx: SpanContext, tspan: TimeSpan, result):
     """Emit handler-end event and any lifecycle or execute events that apply."""
 
     err = getattr(effect, "error", None)
     value = Message(_format_effect_error(err)) if err is not None else None
-    yield EEmit(end_effect_success_telemetry(effect, span_id, start, end, value=value))
-    lifecycle = _resolve_lifecycle(effect, job_id, end)
+    yield EEmit(end_effect_success_telemetry(effect, ctx.span_id, tspan, value=value))
+    lifecycle = _resolve_lifecycle(effect, ctx.job_id, tspan.end)
     if lifecycle:
         yield EEmit(lifecycle)
     execute = _resolve_execute(effect, result)
@@ -84,27 +94,25 @@ def _success_teardown(effect, span_id: str, start: float, end: float, job_id: st
         yield EEmit(execute)
 
 
-def _error_teardown(effect, span_id: str, start: float, exc: Exception):
+def _error_teardown(effect, ctx: SpanContext, start: float, exc: Exception):
     """Emit a handler-error span event."""
 
     trace = "".join(traceback.format_exception(exc))
-    yield EEmit(end_effect_error_telemetry(effect, span_id, start, time.time(), trace))
+    yield EEmit(end_effect_error_telemetry(effect, ctx.span_id, TimeSpan(start, time.time()), trace))
 
 
 def _telemetry_fn(effect):
     """Emit telemetry events around the handler call."""
 
-    span_id = str(uuid.uuid4())
+    ctx = SpanContext(span_id=str(uuid.uuid4()), job_id=get_job_id(effect))
     start = time.time()
-    job_id = get_job_id(effect)
-    yield from _setup_phase(effect, span_id, start, job_id)
+    yield from _setup_phase(effect, ctx, start)
 
     try:
         result = yield
-        end = time.time()
-        yield from _success_teardown(effect, span_id, start, end, job_id, result)
+        yield from _success_teardown(effect, ctx, TimeSpan(start, time.time()), result)
     except Exception as exc:  # noqa: BLE001
-        yield from _error_teardown(effect, span_id, start, exc)
+        yield from _error_teardown(effect, ctx, start, exc)
 
 
 def make_telemetry():

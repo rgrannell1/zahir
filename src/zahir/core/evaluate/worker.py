@@ -103,6 +103,29 @@ def _failed_job(job: RunningJob, exc: Exception) -> Generator[Any, Any, None]:
     )
 
 
+def _handle_result_work_item(suspension: SuspensionTable, work) -> WorkerState:
+    """Resume a suspended job from a buffered result."""
+    resumed = suspension.resume(work)
+    if resumed is None:
+        return _Idle()
+    job, result = resumed
+    match result:
+        case Ok(value):
+            return _Running(job=job, handler_value=value)
+        case Err(error):
+            return _Running(job=job, pending_throw=error)
+
+
+def _handle_job_work_item(work, ctx: Any, job_handlers: HandlerMap) -> Generator[Any, Any, WorkerState]:
+    """Validate scope membership and build a RunningJob from a dequeued job work item."""
+    _, fn_name, _, reply_to, _, parent_sequence_number = work
+    if fn_name not in ctx._scope:
+        err = JobError(KeyError(f"job {fn_name!r} not found in scope"))
+        yield EJobFail(error=err, reply_to=reply_to, sequence_number=parent_sequence_number)
+        return _Idle()
+    return _Running(job=_build_job(work, ctx, job_handlers))
+
+
 def _handle_idle(
     suspension: SuspensionTable, ctx: Any, me_bytes: bytes, job_handlers: HandlerMap
 ) -> Generator[Any, Any, WorkerState]:
@@ -116,28 +139,9 @@ def _handle_idle(
 
     match work[0]:
         case WorkItemTag.RESULT:
-            resumed = suspension.resume(work)
-            if resumed is None:
-                return _Idle()
-
-            job, result = resumed
-            match result:
-                case Ok(value):
-                    return _Running(job=job, handler_value=value)
-                case Err(error):
-                    return _Running(job=job, pending_throw=error)
-
+            return _handle_result_work_item(suspension, work)
         case WorkItemTag.JOB:
-            _, fn_name, args, reply_to, timeout_ms, parent_sequence_number = work
-
-            # TODO handle this in a subfunction.
-            if fn_name not in ctx._scope:
-                err = JobError(KeyError(f"job {fn_name!r} not found in scope"))
-                yield EJobFail(error=err, reply_to=reply_to, sequence_number=parent_sequence_number)
-                return _Idle()
-
-            return _Running(job=_build_job(work, ctx, job_handlers))
-
+            return (yield from _handle_job_work_item(work, ctx, job_handlers))
         case _:
             return _Idle()
 

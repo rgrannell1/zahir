@@ -51,11 +51,8 @@ class MemoryBackend:
 
         return None
 
-    def enqueue(
-        self, fn_name: str, args: tuple, reply_to: bytes | None, timeout_ms: int | None, sequence_number: int | None
-    ) -> None:
+    def enqueue(self, spec: JobSpec) -> None:
         """Add a child job to the queue and increment pending."""
-        spec = JobSpec(fn_name=fn_name, args=args, reply_to=reply_to, timeout_ms=timeout_ms, sequence_number=sequence_number)
         self.queue.append(spec)
         self.pending += 1
 
@@ -121,7 +118,15 @@ def _handle_storage_get_job(backend: MemoryBackend, effect: EStorageGetJob) -> A
 
 def _handle_storage_enqueue(backend: MemoryBackend, effect: EStorageEnqueue) -> None:
     """Add a child job to the queue."""
-    backend.enqueue(effect.fn_name, effect.args, effect.reply_to, effect.timeout_ms, effect.sequence_number)
+    backend.enqueue(
+        JobSpec(
+            fn_name=effect.fn_name,
+            args=effect.args,
+            reply_to=effect.reply_to,
+            timeout_ms=effect.timeout_ms,
+            sequence_number=effect.sequence_number,
+        )
+    )
     return
     yield
 

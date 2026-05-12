@@ -20,8 +20,10 @@ class JobStats:
         return self.completed + self.failed
 
 
-def record_pid_mapping(pid_fn: dict[int, str], pid: int, fn_name: str, tag: str, phase: str) -> None:
+def record_pid_mapping(pid_fn: dict[int, str], pid: int, fn_name: str, event: Event) -> None:
     """Update the pid→fn_name map when a worker starts a new job."""
+    tag = event.dim("tag")
+    phase = event.dim("phase")
     if tag == JobTag.EXECUTE:
         # job:execute fires in the executing worker — the authoritative pid→fn mapping
         pid_fn[pid] = fn_name
@@ -71,14 +73,13 @@ class ProgressBarState:
     def update(self, event: Event) -> None:
         """Ingest one bookman event, updating job stats and dependency wait state."""
         tag = event.dim("tag")
-        phase = event.dim("phase")
         pid_str = event.dim("pid")
         fn_name = event.dim("fn")
 
         if pid_str:
             pid = int(pid_str)
             if fn_name:
-                record_pid_mapping(self._pid_fn, pid, fn_name, tag, phase)
+                record_pid_mapping(self._pid_fn, pid, fn_name, event)
             record_waiting_state(self._pid_waiting, pid, tag, event.dim("dep"))
 
         if fn_name:

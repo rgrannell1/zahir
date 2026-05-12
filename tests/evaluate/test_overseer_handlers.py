@@ -69,7 +69,7 @@ def test_enqueue_adds_job_to_queue():
     """Proves enqueue appends a new JobSpec to the queue."""
 
     backend = _backend()
-    backend.enqueue("process", (1,), None, None, None)
+    backend.enqueue(JobSpec(fn_name="process", args=(1,), reply_to=None))
     assert len(backend.queue) == 1
     assert backend.queue[0].fn_name == "process"
 
@@ -78,7 +78,7 @@ def test_enqueue_increments_pending():
     """Proves enqueue increments the pending job count."""
 
     backend = _backend(pending=2)
-    backend.enqueue("fn", (), None, None, None)
+    backend.enqueue(JobSpec(fn_name="fn", args=(), reply_to=None))
     assert backend.pending == 3
 
 
@@ -86,7 +86,7 @@ def test_enqueue_stores_timeout_ms():
     """Proves enqueue passes timeout_ms through to the JobSpec."""
 
     backend = _backend()
-    backend.enqueue("fn", (), None, 3000, None)
+    backend.enqueue(JobSpec(fn_name="fn", args=(), reply_to=None, timeout_ms=3000))
     assert backend.queue[0].timeout_ms == 3000
 
 
