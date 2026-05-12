@@ -4,7 +4,7 @@ from collections.abc import Generator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from functools import partial, reduce
-from typing import Any
+from typing import Any, cast
 
 from orbis import handle
 from tertius import ESelf, ESleep, Pid, Scope
@@ -149,6 +149,7 @@ def _handle_idle(
 def _handle_eawait(suspension: SuspensionTable, locals_: WorkerLocals, effect: EAwait) -> Generator[Any, Any, Any]:
     """Suspend the running job and enqueue its child jobs."""
 
+    assert locals_.current_job is not None
     yield from suspension.suspend(effect, locals_.current_job, locals_.me_bytes)
     return _SUSPENDED
 
@@ -158,7 +159,7 @@ def make_worker_handlers(suspension: SuspensionTable, locals_: WorkerLocals, han
 
     handler = partial(_handle_eawait, suspension, locals_)
     wrapped = reduce(apply_wrapper, handler_wrappers, handler)
-    return {EAwait.tag: wrapped}
+    return cast(HandlerMap, {EAwait.tag: wrapped})
 
 
 def _handle_running(state: _Running, locals_: WorkerLocals) -> Generator[Any, Any, WorkerState]:
@@ -198,11 +199,11 @@ def _worker_body(
                 state = yield from _handle_running(state, locals_)
 
 
-def worker(overseer_pid_bytes: bytes, scope: Scope, handler_wrappers, handlers: dict) -> Generator[Any, Any, None]:
+def worker(overseer_pid_bytes: bytes, scope: Scope, handler_wrappers, handlers: HandlerMap) -> Generator[Any, Any, None]:
     """zahir worker main loop"""
 
     overseer = Pid.from_bytes(overseer_pid_bytes)
-    ctx = JobContext(
+    ctx: JobContext[Any] = JobContext(
         _scope=scope,
         scope=ScopeProxy(scope),
     )
@@ -217,7 +218,7 @@ def worker(overseer_pid_bytes: bytes, scope: Scope, handler_wrappers, handlers: 
     # eawait handler, which uses locals_ for local state
     worker_handlers = make_worker_handlers(suspension, locals_, handler_wrappers)
 
-    yield from handle(
+    yield from handle(  # type: ignore
         _worker_body(suspension, locals_, job_handlers, overseer, ctx),
         **base_handlers,
         **worker_handlers,

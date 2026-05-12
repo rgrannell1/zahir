@@ -63,7 +63,6 @@ def dependency(
     timeout_at = datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms is not None else None
 
     while True:
-
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
             impossible: DependencyResult = ("impossible", {"reason": f"{label} timed out after {timeout_ms}ms"})
             yield EEmit(impossible)

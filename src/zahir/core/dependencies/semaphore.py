@@ -39,7 +39,6 @@ def semaphore_dependency(
     name: str,
     timeout_ms: int | None = None,
 ) -> Generator[Any, Any, DependencyResult]:
-
     return dependency(
         partial(semaphore_condition, name),
         timeout_ms=timeout_ms,

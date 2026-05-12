@@ -1,4 +1,6 @@
 # Coordinates state and system-stats models; exposes their data for display
+import time
+
 from bookman.events import Event
 
 from zahir.progress_bar.progress_bar_state_model import JobStats, ProgressBarState
@@ -12,21 +14,13 @@ def format_ms(ms: float) -> str:
     return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
 
-def eta_remaining_ms(jobs: dict[str, JobStats], mean_cores: float) -> float | None:
-    """Sum (in-flight count x mean duration) across all job types, divided by mean active cores."""
+def eta_remaining_ms(completed: int, remaining: int, elapsed_ms: float) -> float | None:
+    """Extrapolate remaining time from the observed completion rate."""
 
-    candidates = [
-        (in_flight, stats.mean_ms)
-        for stats in jobs.values()
-        for in_flight in (max(0, stats.total - stats.processed),)
-        if in_flight > 0 and stats.mean_ms is not None
-    ]
-
-    if not candidates:
+    if completed == 0 or elapsed_ms <= 0:
         return None
-
-    total = sum(count * mean_ms for count, mean_ms in candidates)
-    return total / max(1.0, mean_cores)
+    rate = completed / elapsed_ms
+    return remaining / rate
 
 
 class ProgressBarService:
@@ -35,6 +29,7 @@ class ProgressBarService:
     def __init__(self):
         self._state = ProgressBarState()
         self._system = SystemStats()
+        self._start_time = time.monotonic()
 
     def update(self, event: Event) -> None:
         self._state.update(event)
@@ -66,6 +61,13 @@ class ProgressBarService:
     def waiting_deps(self, fn_name: str) -> dict[str, int]:
         return self._state.waiting_deps(fn_name)
 
-    def format_eta(self) -> str:
-        ms = eta_remaining_ms(self._state.jobs, self._system.mean_active_cores)
+    @property
+    def elapsed_ms(self) -> float:
+        return (time.monotonic() - self._start_time) * 1000
+
+    def format_elapsed(self) -> str:
+        return format_ms(self.elapsed_ms)
+
+    def format_eta(self, completed: int, remaining: int) -> str:
+        ms = eta_remaining_ms(completed, remaining, self.elapsed_ms)
         return "--:--:--" if ms is None else format_ms(ms)

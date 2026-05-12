@@ -49,8 +49,8 @@ def job_description(fn_name: str, stats: JobStats, mean_ms: float | None = None,
     return f"  {mean}[blue]{fn_name}[/]: {body}"
 
 
-def workflow_description(total: int, processed: int, eta: str) -> str:
-    return f"Workflow | {processed}/{total} | eta {eta}"
+def workflow_description(elapsed: str, completed: int, remaining: int, eta: str) -> str:
+    return f"Workflow | {elapsed} elapsed | {completed} done | {remaining} remaining | eta {eta}"
 
 
 def system_description(cores: int, cpu: float, ram: float) -> str:

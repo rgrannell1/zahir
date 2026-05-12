@@ -3,7 +3,7 @@
 from collections.abc import Generator, Sequence
 from datetime import UTC, datetime
 from functools import partial, reduce
-from typing import Any
+from typing import Any, cast
 
 from zahir.core.combinators import apply_wrapper
 from zahir.core.constants import BLOCKED_EFFECTS, THROWABLE
@@ -51,7 +51,7 @@ def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
 
         try:
             if effect.tag in handlers:
-                send_value = yield from handlers[effect.tag](effect)
+                send_value = yield from handlers[effect.tag](effect)  # type: ignore[literal-required]
             else:
                 send_value = yield effect
         except THROWABLE as exc:
@@ -98,6 +98,7 @@ def _handle_acquire(locals_: WorkerLocals, effect: EAcquire) -> Generator[Any, A
     result = yield EAcquireSlot(name=effect.name, limit=effect.limit)
 
     if result:
+        assert locals_.current_job is not None
         locals_.current_job.acquired.append(effect.name)
     return result
 
@@ -123,4 +124,4 @@ def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> JobH
         ESetSemaphore.tag: _handle_set_semaphore,
     }
 
-    return {tag: reduce(apply_wrapper, handler_wrappers, handler) for tag, handler in handlers.items()}
+    return cast(JobHandlerMap, {tag: reduce(apply_wrapper, handler_wrappers, handler) for tag, handler in handlers.items()})

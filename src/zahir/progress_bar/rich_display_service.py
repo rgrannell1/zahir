@@ -43,7 +43,7 @@ class RichDisplayService:
             hide_bar=True,
         )
         self._workflow_task = self._progress.add_task(
-            workflow_description(0, 0, "--:--:--"),
+            workflow_description("00:00:00", 0, 0, "--:--:--"),
             total=0,
             hide_bar=True,
         )
@@ -104,9 +104,10 @@ class RichDisplayService:
 
         enqueued = [stat for stat in service.jobs.values() if stat.total > 0]
         total = sum(stat.total for stat in enqueued)
-        processed = sum(stat.processed for stat in enqueued)
-        desc = workflow_description(total, processed, service.format_eta())
-        self._progress.update(self._workflow_task, description=desc, completed=processed, total=total)
+        completed = sum(stat.processed for stat in enqueued)
+        remaining = total - completed
+        desc = workflow_description(service.format_elapsed(), completed, remaining, service.format_eta(completed, remaining))
+        self._progress.update(self._workflow_task, description=desc, completed=completed, total=total)
 
     def show_error(self, source: str, msg: str) -> None:
         """Print a persistent error line below the live progress bar."""

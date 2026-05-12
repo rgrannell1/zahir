@@ -51,7 +51,7 @@ def make_merged_coordination_handlers(
     """
 
     ctx = CoordinationHandlerContext(overseer=overseer, handler_wrappers=handler_wrappers)
-    return {**make_coordination_handlers(ctx), **user_handlers}
+    return cast(CoordinationHandlerMap, {**make_coordination_handlers(ctx), **user_handlers})
 
 
 def _handle_enqueue(context: CoordinationHandlerContext, effect: EEnqueue) -> Generator[Any, Any, None]:

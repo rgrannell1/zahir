@@ -22,7 +22,7 @@ class EvaluateConfig:
 
     n_workers: int = 4
     handler_wrappers: Sequence = field(default_factory=tuple)
-    handlers: HandlerMap | None = None
+    handlers: HandlerMap = field(default_factory=dict)
 
 
 def _poll_completion() -> Generator[Any, Any, None]:

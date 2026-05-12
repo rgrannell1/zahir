@@ -29,6 +29,7 @@ class SpanContext:
     span_id: str
     job_id: str | None
 
+
 # Process-local store of enqueue times keyed by job_id.
 # Safe to use here because ENQUEUE and JOB_COMPLETE are always handled in the same process.
 _enqueue_times: dict[str, float] = {}

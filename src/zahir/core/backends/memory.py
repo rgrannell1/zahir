@@ -1,9 +1,10 @@
 """In-memory coordination backend — the default storage backend for the overseer gen_server."""
 
 from collections import deque
+from collections.abc import Generator
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any
+from typing import Any, cast
 
 from zahir.core.constants import WorkItemTag
 from zahir.core.effects import (
@@ -116,7 +117,7 @@ def _handle_storage_get_job(backend: MemoryBackend, effect: EStorageGetJob) -> A
     yield
 
 
-def _handle_storage_enqueue(backend: MemoryBackend, effect: EStorageEnqueue) -> None:
+def _handle_storage_enqueue(backend: MemoryBackend, effect: EStorageEnqueue) -> Generator[Any, Any, None]:
     """Add a child job to the queue."""
     backend.enqueue(
         JobSpec(
@@ -131,27 +132,27 @@ def _handle_storage_enqueue(backend: MemoryBackend, effect: EStorageEnqueue) -> 
     yield
 
 
-def _handle_storage_job_done(backend: MemoryBackend, effect: EStorageJobDone) -> None:
+def _handle_storage_job_done(backend: MemoryBackend, effect: EStorageJobDone) -> Generator[Any, Any, None]:
     """Record job completion and route the result."""
     backend.job_done(effect.reply_to, effect.sequence_number, effect.body)
     return
     yield
 
 
-def _handle_storage_job_failed(backend: MemoryBackend, effect: EStorageJobFailed) -> None:
+def _handle_storage_job_failed(backend: MemoryBackend, effect: EStorageJobFailed) -> Generator[Any, Any, None]:
     """Record a root-level job failure."""
     backend.job_failed(effect.error)
     return
     yield
 
 
-def _handle_storage_acquire(backend: MemoryBackend, effect: EStorageAcquire) -> bool:
+def _handle_storage_acquire(backend: MemoryBackend, effect: EStorageAcquire) -> Generator[Any, Any, bool]:
     """Try to acquire a concurrency slot."""
     return backend.acquire(effect.name, effect.limit)
     yield
 
 
-def _handle_storage_release(backend: MemoryBackend, effect: EStorageRelease) -> None:
+def _handle_storage_release(backend: MemoryBackend, effect: EStorageRelease) -> Generator[Any, Any, None]:
     """Release a concurrency slot."""
     backend.release(effect.name)
     return
@@ -164,14 +165,14 @@ def _handle_storage_signal(backend: MemoryBackend, effect: EStorageSignal) -> An
     yield
 
 
-def _handle_storage_set_semaphore(backend: MemoryBackend, effect: EStorageSetSemaphore) -> None:
+def _handle_storage_set_semaphore(backend: MemoryBackend, effect: EStorageSetSemaphore) -> Generator[Any, Any, None]:
     """Set the semaphore state."""
     backend.set_semaphore(effect.name, effect.state)
     return
     yield
 
 
-def _handle_storage_is_done(backend: MemoryBackend, effect: EStorageIsDone) -> bool:
+def _handle_storage_is_done(backend: MemoryBackend, effect: EStorageIsDone) -> Generator[Any, Any, bool]:
     """Return True when all jobs have completed."""
     return backend.is_done()
     yield
@@ -193,16 +194,19 @@ def make_memory_storage_handlers() -> StorageHandlerMap:
     """Create a complete set of storage handlers backed by a fresh in-memory backend."""
     backend = MemoryBackend()
 
-    return {
-        EStorageGetJob.tag: partial(_handle_storage_get_job, backend),
-        EStorageEnqueue.tag: partial(_handle_storage_enqueue, backend),
-        EStorageJobDone.tag: partial(_handle_storage_job_done, backend),
-        EStorageJobFailed.tag: partial(_handle_storage_job_failed, backend),
-        EStorageAcquire.tag: partial(_handle_storage_acquire, backend),
-        EStorageRelease.tag: partial(_handle_storage_release, backend),
-        EStorageSignal.tag: partial(_handle_storage_signal, backend),
-        EStorageSetSemaphore.tag: partial(_handle_storage_set_semaphore, backend),
-        EStorageIsDone.tag: partial(_handle_storage_is_done, backend),
-        EStorageGetError.tag: partial(_handle_storage_get_error, backend),
-        EStorageGetResult.tag: partial(_handle_storage_get_result, backend),
-    }
+    return cast(
+        StorageHandlerMap,
+        {
+            EStorageGetJob.tag: partial(_handle_storage_get_job, backend),
+            EStorageEnqueue.tag: partial(_handle_storage_enqueue, backend),
+            EStorageJobDone.tag: partial(_handle_storage_job_done, backend),
+            EStorageJobFailed.tag: partial(_handle_storage_job_failed, backend),
+            EStorageAcquire.tag: partial(_handle_storage_acquire, backend),
+            EStorageRelease.tag: partial(_handle_storage_release, backend),
+            EStorageSignal.tag: partial(_handle_storage_signal, backend),
+            EStorageSetSemaphore.tag: partial(_handle_storage_set_semaphore, backend),
+            EStorageIsDone.tag: partial(_handle_storage_is_done, backend),
+            EStorageGetError.tag: partial(_handle_storage_get_error, backend),
+            EStorageGetResult.tag: partial(_handle_storage_get_result, backend),
+        },
+    )
