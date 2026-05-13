@@ -16,15 +16,15 @@ from zahir.core.effects import (
     EJobComplete,
     EJobFail,
     ERelease,
-    ESetSemaphoreState,
-    ESignal,
+    EGetState,
+    ESetState,
     EStorageAcquire,
     EStorageEnqueue,
     EStorageJobDone,
     EStorageJobFailed,
     EStorageRelease,
-    EStorageSetSemaphore,
-    EStorageSignal,
+    EStorageSetState,
+    EStorageGetState,
 )
 from zahir.core.evaluate.coordination_handlers import (
     CoordinationHandlerContext,
@@ -34,8 +34,8 @@ from zahir.core.evaluate.coordination_handlers import (
     _handle_job_complete,
     _handle_job_fail,
     _handle_release,
-    _handle_set_semaphore_state,
-    _handle_signal,
+    _handle_get_state,
+    _handle_set_state,
     make_coordination_handlers,
 )
 from zahir.core.exceptions import JobError
@@ -219,11 +219,11 @@ def test_handle_acquire_slot_mcalls_storage_acquire():
     assert exc.value.value is True
 
 
-# _handle_signal
+# _handle_get_state
 
 
-def test_handle_signal_mcalls_storage_signal():
-    """Proves _handle_signal sends EStorageSignal to the overseer and returns the state."""
+def test_handle_get_state_mcalls_storage_get_state():
+    """Proves _handle_get_state sends EStorageGetState to the overseer and returns the value."""
 
     sent = []
 
@@ -233,19 +233,19 @@ def test_handle_signal_mcalls_storage_signal():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", _capturing):
-        gen = _handle_signal(CTX, ESignal(name="db"))
+        gen = _handle_get_state(CTX, EGetState(name="db"))
         with pytest.raises(StopIteration) as exc:
             next(gen)
 
-    assert sent[0] == (OVERSEER, EStorageSignal(name="db"))
+    assert sent[0] == (OVERSEER, EStorageGetState(name="db"))
     assert exc.value.value == "satisfied"
 
 
-# _handle_set_semaphore_state
+# _handle_set_state
 
 
-def test_handle_set_semaphore_state_mcasts_storage_set_semaphore():
-    """Proves _handle_set_semaphore_state sends EStorageSetSemaphore to the overseer."""
+def test_handle_set_state_mcasts_storage_set_state():
+    """Proves _handle_set_state sends EStorageSetState to the overseer."""
 
     sent = []
 
@@ -255,9 +255,9 @@ def test_handle_set_semaphore_state_mcasts_storage_set_semaphore():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        drain_to(_handle_set_semaphore_state(CTX, ESetSemaphoreState(name="db", state="impossible")))
+        drain_to(_handle_set_state(CTX, ESetState(name="db", value="impossible")))
 
-    assert sent[0] == (OVERSEER, EStorageSetSemaphore(name="db", state="impossible"))
+    assert sent[0] == (OVERSEER, EStorageSetState(name="db", state="impossible"))
 
 
 # make_coordination_handlers
@@ -277,8 +277,8 @@ def test_make_coordination_handlers_contains_all_effect_types():
         EJobComplete.tag,
         EJobFail.tag,
         ERelease.tag,
-        ESetSemaphoreState.tag,
-        ESignal.tag,
+        EGetState.tag,
+        ESetState.tag,
     }
 
 

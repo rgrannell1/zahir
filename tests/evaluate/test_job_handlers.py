@@ -3,10 +3,11 @@ from zahir.core.effects import (
     EAcquire,
     EAcquireSlot,
     EGetSemaphore,
+    EGetState,
     ESetSemaphore,
-    ESetSemaphoreState,
-    ESignal,
+    ESetState,
 )
+
 from zahir.core.evaluate.job_handlers import (
     _handle_acquire,
     _handle_set_semaphore,
@@ -57,29 +58,29 @@ def test_handle_acquire_returns_false_and_does_not_track():
 # _handle_signal
 
 
-def test_handle_signal_yields_esignal():
-    """Proves _handle_signal yields ESignal with the correct semaphore name."""
+def test_handle_signal_yields_eget_state():
+    """Proves _handle_signal delegates to EGetState (not ESignal directly)."""
 
     gen = _handle_signal(EGetSemaphore(name="db"))
-    assert next(gen) == ESignal(name="db")
+    assert next(gen) == EGetState(name="db")
 
 
 def test_handle_signal_returns_semaphore_state():
-    """Proves _handle_signal returns whatever state the overseer sends back."""
+    """Proves _handle_signal returns whatever state the overseer sends back via EGetState."""
 
     gen = _handle_signal(EGetSemaphore(name="db"))
-    _, return_value = drain_to(gen, responses={ESignal: "satisfied"})
+    _, return_value = drain_to(gen, responses={EGetState: "satisfied"})
     assert return_value == "satisfied"
 
 
 # _handle_set_semaphore
 
 
-def test_handle_set_semaphore_yields_eset_semaphore_state():
-    """Proves _handle_set_semaphore yields ESetSemaphoreState with the correct name and state."""
+def test_handle_set_semaphore_yields_eset_state():
+    """Proves _handle_set_semaphore delegates to ESetState (not ESetSemaphoreState directly)."""
 
     gen = _handle_set_semaphore(ESetSemaphore(name="db", state="impossible"))
-    assert next(gen) == ESetSemaphoreState(name="db", state="impossible")
+    assert next(gen) == ESetState(name="db", value="impossible")
 
 
 # make_handlers

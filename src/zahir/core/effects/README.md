@@ -36,8 +36,8 @@ The overseer talks to the job queue through these effects rather than calling it
 - `EStorageJobFailed(error)`: mark one job finished with a failure and record it as the root-level error
 - `EStorageAcquire(name, limit)`: claim one of the available slots for a named concurrency limit, blocking further work if none are free
 - `EStorageRelease(name)`: give back a slot for a named concurrency limit
-- `EStorageSignal(name)`: check how many slots are currently in use for a named concurrency limit
-- `EStorageSetSemaphore(name, state)`: directly set the slot state for a named concurrency limit
+- `EStorageGetState(name)`: read a value from the overseer's key-value store by name
+- `EStorageSetState(name, state)`: write a value to the overseer's key-value store by name
 - `EStorageIsDone()`: ask whether every job has finished
 - `EStorageGetError()`: fetch the recorded failure, if the run went wrong
 - `EStorageGetResult()`: fetch the return value of the root job once it has finished

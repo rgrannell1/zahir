@@ -6,7 +6,7 @@ from tertius import EEmit
 
 from zahir.core.evaluate import JobContext, evaluate
 from zahir.progress_bar.progress_bar import with_progress
-from zahir.progress_bar.telemetry import make_telemetry
+from zahir.core.telemetry import make_telemetry
 
 FILE_PATH = pathlib.Path(__file__).parent / "warandpeace.txt"
 CHUNK_SIZE = 200  # lines per chapter
@@ -48,7 +48,7 @@ def book_processor(ctx: JobContext, file_path: str) -> Generator[Any, Any, None]
             longest_words.add(longest)
 
     uppercased: list[str] = yield ctx.scope.uppercase_words(sorted(longest_words))
-    yield EEmit({"longest_words": uppercased})
+    return {"longest_words": uppercased}
 
 
 _SCOPE = {
@@ -57,15 +57,18 @@ _SCOPE = {
     "uppercase_words": uppercase_words,
 }
 
-
-if __name__ == "__main__":
-    for _ in with_progress(
+def main():
+    res = yield from with_progress(
         evaluate(
             "book_processor",
             (str(FILE_PATH),),
             scope=_SCOPE,
             n_workers=4,
             handler_wrappers=[make_telemetry()],
-        )
-    ):
-        pass
+        ))
+
+    return res
+
+if __name__ == "__main__":
+
+    main()

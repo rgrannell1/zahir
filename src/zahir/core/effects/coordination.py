@@ -47,22 +47,6 @@ class EAcquireSlot(ZahirCoordinationEffect[bool]):
     limit: int
 
 
-@dataclass
-class ESignal(ZahirCoordinationEffect[str]):
-    """Internal: query the current state of a named semaphore from the overseer."""
-
-    tag: ClassVar[str] = "signal"
-    name: str
-
-
-@dataclass
-class ESetSemaphoreState(ZahirCoordinationEffect[None]):
-    """Internal: write a new state for a named semaphore to the overseer."""
-
-    tag: ClassVar[str] = "set_semaphore_state"
-    name: str
-    state: str
-
 
 @dataclass
 class EJobComplete(ZahirCoordinationEffect[None]):

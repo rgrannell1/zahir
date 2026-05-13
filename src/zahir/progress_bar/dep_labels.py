@@ -12,6 +12,7 @@ DEP_SHORT_LABELS: Final[list[tuple[str, str]]] = [
     ("semaphore '", "SEM"),
     ("sqlite '", "SQL"),
     ("time", "TIME"),
+    ("rate_limit '", "RATE"),
 ]
 
 

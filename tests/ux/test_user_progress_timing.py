@@ -81,7 +81,10 @@ def test_ten_jobs_eta_renders_hh_mm_ss_during_execution():
     for event in evaluate("ten_short_jobs", (), _TEN_SCOPE, n_workers=4, handler_wrappers=[make_telemetry()]):
         if isinstance(event, Event):
             service.update(event)
-            eta_snapshots.add(service.format_eta())
+            enqueued = [stat for stat in service.jobs.values() if stat.total > 0]
+            completed = sum(stat.processed for stat in enqueued)
+            remaining = sum(stat.total for stat in enqueued) - completed
+            eta_snapshots.add(service.format_eta(completed, remaining))
 
     rendered = {eta for eta in eta_snapshots if _HH_MM_SS.fullmatch(eta)}
     assert rendered, f"ETA never rendered a time estimate; observed: {eta_snapshots}"

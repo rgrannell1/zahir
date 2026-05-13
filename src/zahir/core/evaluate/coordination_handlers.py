@@ -12,12 +12,12 @@ from zahir.core.effects import (
     EGetError,
     EGetJob,
     EGetResult,
+    EGetState,
     EIsDone,
     EJobComplete,
     EJobFail,
     ERelease,
-    ESetSemaphoreState,
-    ESignal,
+    ESetState,
     EStorageAcquire,
     EStorageEnqueue,
     EStorageGetError,
@@ -27,8 +27,8 @@ from zahir.core.effects import (
     EStorageJobDone,
     EStorageJobFailed,
     EStorageRelease,
-    EStorageSetSemaphore,
-    EStorageSignal,
+    EStorageSetState,
+    EStorageGetState,
 )
 from zahir.core.zahir_types import CoordinationHandlerMap, HandlerMap
 
@@ -117,16 +117,16 @@ def _handle_acquire_slot(context: CoordinationHandlerContext, effect: EAcquireSl
     return (yield from mcall(context.overseer, EStorageAcquire(name=effect.name, limit=effect.limit)))
 
 
-def _handle_signal(context: CoordinationHandlerContext, effect: ESignal) -> Generator[Any, Any, str]:
-    """Query the current state of a named semaphore from the overseer."""
+def _handle_get_state(context: CoordinationHandlerContext, effect: EGetState) -> Generator[Any, Any, str]:
+    """Read a value from the overseer's key-value store by name."""
 
-    return (yield from mcall(context.overseer, EStorageSignal(name=effect.name)))
+    return (yield from mcall(context.overseer, EStorageGetState(name=effect.name)))
 
 
-def _handle_set_semaphore_state(context: CoordinationHandlerContext, effect: ESetSemaphoreState) -> Generator[Any, Any, None]:
-    """Write a new semaphore state to the overseer."""
+def _handle_set_state(context: CoordinationHandlerContext, effect: ESetState) -> Generator[Any, Any, None]:
+    """Write a value to the overseer's key-value store by name."""
 
-    yield from mcast(context.overseer, EStorageSetSemaphore(name=effect.name, state=effect.state))
+    yield from mcast(context.overseer, EStorageSetState(name=effect.name, state=effect.value))
 
 
 def _handle_is_done(context: CoordinationHandlerContext, effect: EIsDone) -> Generator[Any, Any, bool]:
@@ -166,8 +166,8 @@ def make_coordination_handlers(context: CoordinationHandlerContext) -> Coordinat
         EJobComplete.tag: partial(_handle_job_complete, context),
         EJobFail.tag: partial(_handle_job_fail, context),
         ERelease.tag: partial(_handle_release, context),
-        ESetSemaphoreState.tag: partial(_handle_set_semaphore_state, context),
-        ESignal.tag: partial(_handle_signal, context),
+        EGetState.tag: partial(_handle_get_state, context),
+        ESetState.tag: partial(_handle_set_state, context),
     }
 
     mapped = {}

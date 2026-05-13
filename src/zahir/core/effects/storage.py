@@ -66,18 +66,18 @@ class EStorageRelease(ZahirStorageEffect[None]):
 
 
 @dataclass
-class EStorageSignal(ZahirStorageEffect[Any]):
-    """Return the current semaphore state for a name."""
+class EStorageGetState(ZahirStorageEffect[Any]):
+    """Return the current KV state for a name."""
 
-    tag: ClassVar[str] = "storage_signal"
+    tag: ClassVar[str] = "storage_get_state"
     name: str
 
 
 @dataclass
-class EStorageSetSemaphore(ZahirStorageEffect[None]):
-    """Set the semaphore state for a name."""
+class EStorageSetState(ZahirStorageEffect[None]):
+    """Set the KV state for a name."""
 
-    tag: ClassVar[str] = "storage_set_semaphore"
+    tag: ClassVar[str] = "storage_set_state"
     name: str
     state: str
 

@@ -80,3 +80,28 @@ class ESetSemaphore(ZahirJobEvent):
     tag: ClassVar[str] = "set_semaphore"
     name: str
     state: str  # DependencyState value from constants
+
+
+@dataclass
+class EGetState(ZahirJobEffect[str | None]):
+    """Read an arbitrary string value from the runner's key-value store by name.
+
+    Returns None if the key has not been set. Unlike EGetSemaphore, the value
+    is not constrained to DependencyState strings.
+    """
+
+    tag: ClassVar[str] = "get_state"
+    name: str
+
+
+@dataclass
+class ESetState(ZahirJobEvent):
+    """Write an arbitrary string value to the runner's key-value store by name.
+
+    Unlike ESetSemaphore, the value is not constrained to DependencyState strings.
+    EGetSemaphore / ESetSemaphore are thin wrappers over EGetState / ESetState.
+    """
+
+    tag: ClassVar[str] = "set_state"
+    name: str
+    value: str

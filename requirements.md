@@ -17,7 +17,7 @@ Tertius mcall and mcast are never used outside of effect handler functions; this
 
 Each process may call handle exactly once. 
 
-The progress bar shows mean execution time for each job type
+The progress bar shows mean execution time for each job type. The workflow row of the progress bar shows how much time has elapsed since the run started, how many jobs have completed, how many jobs remain, and an ETA derived by extrapolating the observed completion rate (completed jobs divided by elapsed time) across the remaining job count. Elapsed time is derived from event timestamps via a bookman aggregator rather than from wall-clock time.
 
 All statistics must be computed through bookman.
 

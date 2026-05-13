@@ -17,8 +17,8 @@ from zahir.core.effects import (
     EStorageJobDone,
     EStorageJobFailed,
     EStorageRelease,
-    EStorageSetSemaphore,
-    EStorageSignal,
+    EStorageSetState,
+    EStorageGetState,
 )
 from zahir.core.zahir_types import ConcurrencyMap, JobSpec, PendingResults, StorageHandlerMap
 
@@ -159,14 +159,14 @@ def _handle_storage_release(backend: MemoryBackend, effect: EStorageRelease) -> 
     yield
 
 
-def _handle_storage_signal(backend: MemoryBackend, effect: EStorageSignal) -> Any:
-    """Return the current semaphore state."""
+def _handle_storage_get_state(backend: MemoryBackend, effect: EStorageGetState) -> Any:
+    """Return the current KV state."""
     return backend.signal(effect.name)
     yield
 
 
-def _handle_storage_set_semaphore(backend: MemoryBackend, effect: EStorageSetSemaphore) -> Generator[Any, Any, None]:
-    """Set the semaphore state."""
+def _handle_storage_set_state(backend: MemoryBackend, effect: EStorageSetState) -> Generator[Any, Any, None]:
+    """Set the KV state."""
     backend.set_semaphore(effect.name, effect.state)
     return
     yield
@@ -203,8 +203,8 @@ def make_memory_storage_handlers() -> StorageHandlerMap:
             EStorageJobFailed.tag: partial(_handle_storage_job_failed, backend),
             EStorageAcquire.tag: partial(_handle_storage_acquire, backend),
             EStorageRelease.tag: partial(_handle_storage_release, backend),
-            EStorageSignal.tag: partial(_handle_storage_signal, backend),
-            EStorageSetSemaphore.tag: partial(_handle_storage_set_semaphore, backend),
+            EStorageGetState.tag: partial(_handle_storage_get_state, backend),
+            EStorageSetState.tag: partial(_handle_storage_set_state, backend),
             EStorageIsDone.tag: partial(_handle_storage_is_done, backend),
             EStorageGetError.tag: partial(_handle_storage_get_error, backend),
             EStorageGetResult.tag: partial(_handle_storage_get_result, backend),

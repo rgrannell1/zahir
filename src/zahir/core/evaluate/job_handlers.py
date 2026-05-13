@@ -11,9 +11,9 @@ from zahir.core.effects import (
     EAcquire,
     EAcquireSlot,
     EGetSemaphore,
+    EGetState,
     ESetSemaphore,
-    ESetSemaphoreState,
-    ESignal,
+    ESetState,
     ZahirCoordinationEffect,
 )
 from zahir.core.evaluate.suspension import WorkerLocals
@@ -103,23 +103,23 @@ def _handle_acquire(locals_: WorkerLocals, effect: EAcquire) -> Generator[Any, A
     return result
 
 
-def _handle_signal(effect: EGetSemaphore) -> Generator[Any, Any, str]:
-    """Get the current state of a named semaphore."""
+def _handle_signal(effect: EGetSemaphore) -> Generator[Any, Any, str | None]:
+    """Read the current state of a named semaphore (delegates to EGetState)."""
 
-    return (yield ESignal(name=effect.name))
+    return (yield EGetState(name=effect.name))
 
 
 def _handle_set_semaphore(effect: ESetSemaphore) -> Generator[Any, Any, None]:
-    """Set the state of a semaphore and release all waiting workers."""
+    """Write a new state for a named semaphore (delegates to ESetState)."""
 
-    yield ESetSemaphoreState(name=effect.name, state=effect.state)
+    yield ESetState(name=effect.name, value=effect.state)
 
 
 def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> JobHandlerMap:
     """Create job-effect handlers keyed by effect tag, with any user-supplied wrappers applied."""
 
     handlers = {
-        EAcquire.tag: partial(_handle_acquire, locals_),
+        EAcquire.tag:      partial(_handle_acquire, locals_),
         EGetSemaphore.tag: _handle_signal,
         ESetSemaphore.tag: _handle_set_semaphore,
     }

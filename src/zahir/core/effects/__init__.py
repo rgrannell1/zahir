@@ -26,12 +26,6 @@ from zahir.core.effects.coordination import (
     ERelease as ERelease,
 )
 from zahir.core.effects.coordination import (
-    ESetSemaphoreState as ESetSemaphoreState,
-)
-from zahir.core.effects.coordination import (
-    ESignal as ESignal,
-)
-from zahir.core.effects.coordination import (
     ZahirCoordinationEffect as ZahirCoordinationEffect,
 )
 from zahir.core.effects.job import (
@@ -44,7 +38,13 @@ from zahir.core.effects.job import (
     EGetSemaphore as EGetSemaphore,
 )
 from zahir.core.effects.job import (
+    EGetState as EGetState,
+)
+from zahir.core.effects.job import (
     ESetSemaphore as ESetSemaphore,
+)
+from zahir.core.effects.job import (
+    ESetState as ESetState,
 )
 from zahir.core.effects.job import (
     ZahirJobEffect as ZahirJobEffect,
@@ -83,10 +83,10 @@ from zahir.core.effects.storage import (
     EStorageRelease as EStorageRelease,
 )
 from zahir.core.effects.storage import (
-    EStorageSetSemaphore as EStorageSetSemaphore,
+    EStorageSetState as EStorageSetState,
 )
 from zahir.core.effects.storage import (
-    EStorageSignal as EStorageSignal,
+    EStorageGetState as EStorageGetState,
 )
 from zahir.core.effects.storage import (
     ZahirStorageEffect as ZahirStorageEffect,
