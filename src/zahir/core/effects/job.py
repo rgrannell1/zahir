@@ -49,18 +49,6 @@ def await_all(specs: list[EAwait]) -> EAwait:
 
 
 @dataclass
-class EGetSemaphore(ZahirJobEffect[str]):
-    """Probe the current state of a named semaphore.
-
-    Returns 'satisfied', 'unsatisfied', or 'impossible'.
-    State is managed by the runner's GenServer and can be set externally.
-    """
-
-    tag: ClassVar[str] = "get_semaphore"
-    name: str
-
-
-@dataclass
 class EAcquire(ZahirJobEffect[bool]):
     """Try to acquire a named concurrency slot from the runner's pool.
 
@@ -74,21 +62,8 @@ class EAcquire(ZahirJobEffect[bool]):
 
 
 @dataclass
-class ESetSemaphore(ZahirJobEvent):
-    """Set the state of a named semaphore in the runner's GenServer."""
-
-    tag: ClassVar[str] = "set_semaphore"
-    name: str
-    state: str  # DependencyState value from constants
-
-
-@dataclass
 class EGetState(ZahirJobEffect[str | None]):
-    """Read an arbitrary string value from the runner's key-value store by name.
-
-    Returns None if the key has not been set. Unlike EGetSemaphore, the value
-    is not constrained to DependencyState strings.
-    """
+    """Read a string value from the runner's key-value store by name. Returns None if unset."""
 
     tag: ClassVar[str] = "get_state"
     name: str
@@ -96,11 +71,7 @@ class EGetState(ZahirJobEffect[str | None]):
 
 @dataclass
 class ESetState(ZahirJobEvent):
-    """Write an arbitrary string value to the runner's key-value store by name.
-
-    Unlike ESetSemaphore, the value is not constrained to DependencyState strings.
-    EGetSemaphore / ESetSemaphore are thin wrappers over EGetState / ESetState.
-    """
+    """Write a string value to the runner's key-value store by name."""
 
     tag: ClassVar[str] = "set_state"
     name: str

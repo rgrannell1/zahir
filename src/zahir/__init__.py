@@ -83,9 +83,7 @@ from zahir.core.dependencies import (
 )
 from zahir.core.effects import EAcquire as EAcquire
 from zahir.core.effects import EAwait as EAwait
-from zahir.core.effects import EGetSemaphore as EGetSemaphore
 from zahir.core.effects import EGetState as EGetState
-from zahir.core.effects import ESetSemaphore as ESetSemaphore
 from zahir.core.effects import ESetState as ESetState
 from zahir.core.effects import await_all as await_all
 from zahir.core.evaluate import evaluate as evaluate

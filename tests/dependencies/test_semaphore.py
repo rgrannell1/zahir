@@ -8,16 +8,16 @@ from zahir.core.dependencies.semaphore import (
     check_semaphore_dependency,
     semaphore_dependency,
 )
-from zahir.core.effects import EGetSemaphore
+from zahir.core.effects import EGetState
 
 
 @time_machine.travel(NOW, tick=False)
 def test_first_yield_is_esignal():
-    """Proves semaphore_dependency first probes the semaphore via EGetSemaphore."""
+    """Proves semaphore_dependency first probes the semaphore via EGetState."""
 
     gen = semaphore_dependency("db")
     effect = next(gen)
-    assert isinstance(effect, EGetSemaphore)
+    assert isinstance(effect, EGetState)
     assert effect.name == "db"
 
 
@@ -58,11 +58,11 @@ def test_unsatisfied_then_satisfied_emits_satisfied():
     """Proves the dependency re-probes after sleep and satisfies on next signal."""
 
     gen = semaphore_dependency("db")
-    next(gen)  # EGetSemaphore
+    next(gen)  # EGetState
     gen.send("unsatisfied")  # EEmit(waiting)
     next(gen)  # ESleep
-    signal = next(gen)  # next EGetSemaphore
-    assert isinstance(signal, EGetSemaphore)
+    signal = next(gen)  # next EGetState
+    assert isinstance(signal, EGetState)
     emit = gen.send("satisfied")
     assert emit.body[0] == "satisfied"
 
@@ -72,7 +72,7 @@ def test_timeout_emits_impossible():
 
     with time_machine.travel(NOW, tick=False):
         gen = semaphore_dependency("db", timeout_ms=1000)
-        next(gen)  # EGetSemaphore
+        next(gen)  # EGetState
         gen.send("unsatisfied")  # EEmit(waiting)
         next(gen)  # ESleep
 
@@ -106,7 +106,7 @@ def test_no_timeout_polls_indefinitely():
 
     gen = semaphore_dependency("db")
     for _ in range(10):
-        next(gen)  # EGetSemaphore
+        next(gen)  # EGetState
         gen.send("unsatisfied")  # ESleep
 
 
@@ -142,7 +142,7 @@ def test_check_semaphore_satisfied_emits_satisfied():
     """Proves check_semaphore_dependency emits satisfied when the semaphore is satisfied."""
 
     gen = check_semaphore_dependency("db")
-    next(gen)  # EGetSemaphore
+    next(gen)  # EGetState
     emit = gen.send("satisfied")
     assert emit.body[0] == "satisfied"
 
@@ -169,7 +169,7 @@ def test_check_semaphore_unsatisfied_does_not_sleep():
     """Proves check_semaphore_dependency never yields ESleep on unsatisfied state."""
 
     gen = check_semaphore_dependency("db")
-    next(gen)  # EGetSemaphore
+    next(gen)  # EGetState
     effect = gen.send("unsatisfied")
     assert isinstance(effect, EEmit)  # EEmit(impossible), not ESleep
 

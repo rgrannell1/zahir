@@ -2,16 +2,10 @@ from tests.shared import drain_to
 from zahir.core.effects import (
     EAcquire,
     EAcquireSlot,
-    EGetSemaphore,
-    EGetState,
-    ESetSemaphore,
-    ESetState,
 )
 
 from zahir.core.evaluate.job_handlers import (
     _handle_acquire,
-    _handle_set_semaphore,
-    _handle_signal,
     make_job_handlers,
 )
 from zahir.core.evaluate.suspension import RunningJob, WorkerLocals
@@ -55,34 +49,6 @@ def test_handle_acquire_returns_false_and_does_not_track():
     assert acquired == []
 
 
-# _handle_signal
-
-
-def test_handle_signal_yields_eget_state():
-    """Proves _handle_signal delegates to EGetState (not ESignal directly)."""
-
-    gen = _handle_signal(EGetSemaphore(name="db"))
-    assert next(gen) == EGetState(name="db")
-
-
-def test_handle_signal_returns_semaphore_state():
-    """Proves _handle_signal returns whatever state the overseer sends back via EGetState."""
-
-    gen = _handle_signal(EGetSemaphore(name="db"))
-    _, return_value = drain_to(gen, responses={EGetState: "satisfied"})
-    assert return_value == "satisfied"
-
-
-# _handle_set_semaphore
-
-
-def test_handle_set_semaphore_yields_eset_state():
-    """Proves _handle_set_semaphore delegates to ESetState (not ESetSemaphoreState directly)."""
-
-    gen = _handle_set_semaphore(ESetSemaphore(name="db", state="impossible"))
-    assert next(gen) == ESetState(name="db", value="impossible")
-
-
 # make_handlers
 
 
@@ -92,8 +58,6 @@ def test_make_handlers_contains_all_effect_types():
     handlers = make_job_handlers(_make_locals(), [])
     assert set(handlers.keys()) == {
         EAcquire.tag,
-        EGetSemaphore.tag,
-        ESetSemaphore.tag,
     }
 
 

@@ -3,8 +3,6 @@ from orbis import Effect, Event
 from zahir.core.effects import (
     EAcquire,
     EAwait,
-    EGetSemaphore,
-    ESetSemaphore,
     JobSpec,
     await_all,
 )
@@ -77,18 +75,6 @@ def test_jobspec_stores_timeout_ms():
     assert JobSpec(fn_name="fn", timeout_ms=5000).timeout_ms == 5000
 
 
-def test_eget_semaphore_is_effect():
-    """Proves EGetSemaphore is an Effect."""
-
-    assert isinstance(EGetSemaphore(name="db"), Effect)
-
-
-def test_eget_semaphore_stores_name():
-    """Proves EGetSemaphore stores its semaphore name."""
-
-    assert EGetSemaphore(name="my-lock").name == "my-lock"
-
-
 def test_eacquire_is_effect():
     """Proves EAcquire is an Effect."""
 
@@ -103,29 +89,8 @@ def test_eacquire_stores_name_and_limit():
     assert effect.limit == 4
 
 
-def test_esetsemaphore_is_event():
-    """Proves ESetSemaphore is an Event."""
-
-    assert isinstance(ESetSemaphore(name="db", state="satisfied"), Event)
-
-
-def test_esetsemaphore_stores_name_and_state():
-    """Proves ESetSemaphore stores its name and state."""
-
-    effect = ESetSemaphore(name="db", state="satisfied")
-    assert effect.name == "db"
-    assert effect.state == "satisfied"
-
-
 def test_effect_tags_are_unique():
     """Proves all effect tags are distinct from one another."""
 
-    tags = [cls.tag for cls in (EAwait, EGetSemaphore, EAcquire)]
-    assert len(tags) == len(set(tags))
-
-
-def test_event_tags_are_unique():
-    """Proves all event tags are distinct from one another."""
-
-    tags = [cls.tag for cls in (ESetSemaphore,)]
+    tags = [cls.tag for cls in (EAwait, EAcquire)]
     assert len(tags) == len(set(tags))

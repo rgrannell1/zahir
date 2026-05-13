@@ -6,14 +6,14 @@ from typing import Any
 
 from zahir.core.constants import DependencyState
 from zahir.core.dependencies.dependency import check, dependency
-from zahir.core.effects import EGetSemaphore
+from zahir.core.effects import EGetState
 from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 
 def semaphore_condition(name: str) -> Generator[Any, Any, ConditionResult]:
     """Returns satisfied, unsatisfied, or impossible based on the semaphore state."""
 
-    state = yield EGetSemaphore(name=name)
+    state = yield EGetState(name=name)
 
     if state == DependencyState.IMPOSSIBLE:
         return ("impossible", {"name": name})

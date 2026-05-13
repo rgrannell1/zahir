@@ -55,7 +55,7 @@ def dependency(
     """Poll condition_fn until it returns satisfied or impossible, or times out.
 
     condition_fn must return a generator that:
-    - yields any effects it needs (EAcquire, EGetSemaphore, ESleep, etc.)
+    - yields any effects it needs (EAcquire, EGetState, ESleep, etc.)
     - returns a ConditionResult: (satisfied | unsatisfied | impossible, metadata)
 
     Unsatisfied causes a retry after poll_ms; satisfied or impossible terminates the loop.

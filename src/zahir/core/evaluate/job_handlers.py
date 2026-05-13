@@ -10,10 +10,6 @@ from zahir.core.constants import BLOCKED_EFFECTS, THROWABLE
 from zahir.core.effects import (
     EAcquire,
     EAcquireSlot,
-    EGetSemaphore,
-    EGetState,
-    ESetSemaphore,
-    ESetState,
     ZahirCoordinationEffect,
 )
 from zahir.core.evaluate.suspension import WorkerLocals
@@ -103,25 +99,11 @@ def _handle_acquire(locals_: WorkerLocals, effect: EAcquire) -> Generator[Any, A
     return result
 
 
-def _handle_signal(effect: EGetSemaphore) -> Generator[Any, Any, str | None]:
-    """Read the current state of a named semaphore (delegates to EGetState)."""
-
-    return (yield EGetState(name=effect.name))
-
-
-def _handle_set_semaphore(effect: ESetSemaphore) -> Generator[Any, Any, None]:
-    """Write a new state for a named semaphore (delegates to ESetState)."""
-
-    yield ESetState(name=effect.name, value=effect.state)
-
-
 def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> JobHandlerMap:
     """Create job-effect handlers keyed by effect tag, with any user-supplied wrappers applied."""
 
     handlers = {
-        EAcquire.tag:      partial(_handle_acquire, locals_),
-        EGetSemaphore.tag: _handle_signal,
-        ESetSemaphore.tag: _handle_set_semaphore,
+        EAcquire.tag: partial(_handle_acquire, locals_),
     }
 
     return cast(JobHandlerMap, {tag: reduce(apply_wrapper, handler_wrappers, handler) for tag, handler in handlers.items()})

@@ -8,8 +8,8 @@ Effects are events with responses, approximately. Layering of job effects from c
 Effects used by the workers to communicate with the overseer process. Not yielded by jobs directly, though some are thin translations of job effects.
 
 - `EAcquireSlot(name, limit)`: request a named concurrency slot from the overseer
-- `ESignal(name)`: query the current state of a named semaphore from the overseer
-- `ESetSemaphoreState(name, state)`: write a new state for a named semaphore to the overseer
+- `EGetState(name)`: read a value from the overseer's key-value store by name
+- `ESetState(name, value)`: write a value to the overseer's key-value store by name
 - `EIsDone()`: ask the overseer whether all pending jobs have completed
 - `EGetError()`: retrieve the root error from the overseer, if any
 - `EGetResult()`: retrieve the root job's return value from the overseer
