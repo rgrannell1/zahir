@@ -27,25 +27,32 @@ def _format_waiting(waiting: dict[str, int]) -> str:
     return f"[yellow](w: {entries})[/]"
 
 
-def job_description(fn_name: str, stats: JobStats, mean_ms: float | None = None, waiting: dict[str, int] | None = None) -> str:
-    in_flight = stats.started - stats.processed
+def _job_status_parts(stats: JobStats, waiting: dict[str, int] | None) -> list[str]:
+    """Build the list of status fragments for a job row."""
+
+    running = stats.started - stats.processed
     parts = []
 
-    if in_flight > 0:
-        running = f"{in_flight} running"
+    if running > 0:
+        running_str = f"{running} running"
         if waiting:
-            running = f"{running} {_format_waiting(waiting)}"
-        parts.append(running)
+            running_str = f"{running_str} {_format_waiting(waiting)}"
+        parts.append(running_str)
 
+    if stats.total > stats.started:
+        parts.append(f"{stats.total - stats.started} queued")
     if stats.completed > 0:
         parts.append(f"{stats.completed} done")
-
     if stats.failed > 0:
         parts.append(f"[red]{stats.failed} failed[/]")
 
+    return parts
+
+
+def job_description(fn_name: str, stats: JobStats, mean_ms: float | None = None, waiting: dict[str, int] | None = None) -> str:
+    parts = _job_status_parts(stats, waiting)
     body = ", ".join(parts) or "starting"
     mean = _format_mean(mean_ms)
-
     return f"  {mean}[blue]{fn_name}[/]: {body}"
 
 

@@ -7,7 +7,7 @@ from functools import partial, reduce
 from typing import Any, cast
 
 from orbis import handle
-from tertius import ESelf, ESleep, Pid, Scope
+from tertius import EEmit, ESelf, ESleep, Pid, Scope
 
 from zahir.core.combinators import apply_wrapper
 from zahir.core.constants import WORKER_POLL_MS, WorkItemTag
@@ -18,7 +18,7 @@ from zahir.core.effects import (
     EJobFail,
     ERelease,
 )
-from zahir.core.telemetry import record_execute_start
+from zahir.core.emit import execute_start_event
 from zahir.core.evaluate.coordination_handlers import make_merged_coordination_handlers
 from zahir.core.evaluate.job_handlers import (
     evaluate_job,
@@ -28,6 +28,7 @@ from zahir.core.evaluate.suspension import RunningJob, SuspensionTable, WorkerLo
 from zahir.core.exceptions import JobError, ZahirError
 from zahir.core.fp_types import Err, Ok
 from zahir.core.scope_proxy import ScopeProxy
+from zahir.core.telemetry import record_execute_start
 from zahir.core.zahir_types import HandlerMap, JobContext
 
 # Sentinel returned by the EAwait handler to signal that the job was suspended.
@@ -125,7 +126,10 @@ def _handle_job_work_item(work, ctx: Any, job_handlers: HandlerMap) -> Generator
         yield EJobFail(error=err, reply_to=reply_to, sequence_number=parent_sequence_number)
         return _Idle()
     record_execute_start(reply_to, parent_sequence_number)
-    return _Running(job=_build_job(work, ctx, job_handlers))
+    if isinstance(reply_to, bytes) and parent_sequence_number is not None:
+        job_id = f"{reply_to.hex()}:{parent_sequence_number}"
+        yield EEmit(execute_start_event(fn_name, job_id))
+    return _Running(job=_build_job(work, ctx, job_handlers))  # noqa: B901
 
 
 def _handle_idle(
@@ -145,7 +149,7 @@ def _handle_idle(
         case WorkItemTag.JOB:
             return (yield from _handle_job_work_item(work, ctx, job_handlers))
         case _:
-            return _Idle()
+            return _Idle()  # noqa: B901
 
 
 def _handle_eawait(suspension: SuspensionTable, locals_: WorkerLocals, effect: EAwait) -> Generator[Any, Any, Any]:
@@ -153,7 +157,7 @@ def _handle_eawait(suspension: SuspensionTable, locals_: WorkerLocals, effect: E
 
     assert locals_.current_job is not None
     yield from suspension.suspend(effect, locals_.current_job, locals_.me_bytes)
-    return _SUSPENDED
+    return _SUSPENDED  # noqa: B901
 
 
 def make_worker_handlers(suspension: SuspensionTable, locals_: WorkerLocals, handler_wrappers: Sequence) -> HandlerMap:
@@ -181,7 +185,7 @@ def _handle_running(state: _Running, locals_: WorkerLocals) -> Generator[Any, An
     handler_value = yield effect
     if handler_value is _SUSPENDED:
         return _Idle()
-    return _Running(job=job, handler_value=handler_value, pending_throw=None)
+    return _Running(job=job, handler_value=handler_value, pending_throw=None)  # noqa: B901
 
 
 def _worker_body(

@@ -20,6 +20,7 @@ from zahir.progress_bar.metrics.selectors import (
     get_pid,
     has_fn,
     is_enqueue_start,
+    is_execute_start,
     is_job_complete,
     is_job_fail,
     is_job_lifecycle,
@@ -33,15 +34,17 @@ def none_if_zero(value: float) -> float | None:
 
 
 def job_stats_agg() -> Aggregator:
-    """Aggregator producing [total, completed, failed] counts for a single fn_name.
+    """Aggregator producing [total, executing, completed, failed] counts for a single fn_name.
 
     Use with stream_group_by(get_fn, job_stats_agg(), events) to get per-fn counts.
-    total counts enqueue:start events; completed and failed count their respective end events.
+    total counts enqueue:start events; executing counts job:execute:start events (worker pickup);
+    completed and failed count their respective end events.
     """
 
     return zip_all(
         [
             filter_events(is_enqueue_start, count_distinct(get_job_id)),
+            filter_events(is_execute_start, count_distinct(get_job_id)),
             filter_events(is_job_complete, count_distinct(get_job_id)),
             filter_events(is_job_fail, count_distinct(get_job_id)),
         ]

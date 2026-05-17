@@ -39,6 +39,12 @@ def is_enqueue_start(ev: Event) -> bool:
     return ev.dim("tag") == JobTag.ENQUEUE and ev.dim("phase") == Phase.START
 
 
+def is_execute_start(ev: Event) -> bool:
+    """True when a worker has picked up a job and begun executing it."""
+
+    return ev.dim("tag") == JobTag.EXECUTE and ev.dim("phase") == Phase.START
+
+
 def is_job_complete(ev: Event) -> bool:
     """True when a job has completed successfully."""
 

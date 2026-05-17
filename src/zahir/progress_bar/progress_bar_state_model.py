@@ -36,14 +36,14 @@ def record_waiting_state(pid_waiting: dict[int, str], pid: int, tag: str, dep: s
     """Update the pid→dep map as dependency state changes."""
     if tag == DependencyTag.WAITING and dep:
         pid_waiting[pid] = dep
-    elif tag in (DependencyTag.SATISFIED, JobTag.JOB_COMPLETE, JobTag.JOB_FAIL, JobTag.ENQUEUE):
+    elif tag in {DependencyTag.SATISFIED, JobTag.JOB_COMPLETE, JobTag.JOB_FAIL, JobTag.ENQUEUE}:
         pid_waiting.pop(pid, None)
 
 
 def extract_job_stats(agg, acc: Any) -> JobStats:
     """Extract a JobStats from a per_fn_progress_agg accumulator."""
-    (total, completed, failed), mean_ms = agg.extract(acc)
-    return JobStats(total=total, started=total, completed=completed, failed=failed, mean_ms=mean_ms)
+    (total, started, completed, failed), mean_ms = agg.extract(acc)
+    return JobStats(total=total, started=started, completed=completed, failed=failed, mean_ms=mean_ms)
 
 
 class ProgressBarState:

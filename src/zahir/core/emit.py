@@ -1,5 +1,7 @@
 # Helpers that translate zahir effects into bookman Event objects
 import os
+import time
+import uuid
 from dataclasses import dataclass
 
 from bookman.bookman_types import Message
@@ -80,6 +82,20 @@ def end_effect_error_telemetry(effect, span_id: str, tspan: TimeSpan, error: str
 
     dims = base_dimensions(effect, span_id) | {"phase": [Phase.ERROR]}
     return span(dims, at=tspan.start, until=tspan.end, value=error)
+
+
+def execute_start_event(fn_name: str, job_id: str) -> Event:
+    """Point event marking when a worker picks up a job for execution."""
+
+    dims: Dims = {
+        "id": [str(uuid.uuid4())],
+        "tag": [JobTag.EXECUTE],
+        "pid": [str(os.getpid())],
+        "fn": [fn_name],
+        "job_id": [job_id],
+        "phase": [Phase.START],
+    }
+    return point(dims, at=time.time())
 
 
 def job_lifecycle_span(effect, job_id: str, executed_at: float, completed_at: float) -> Event:
