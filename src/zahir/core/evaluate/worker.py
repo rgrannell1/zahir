@@ -18,6 +18,7 @@ from zahir.core.effects import (
     EJobFail,
     ERelease,
 )
+from zahir.core.telemetry import record_execute_start
 from zahir.core.evaluate.coordination_handlers import make_merged_coordination_handlers
 from zahir.core.evaluate.job_handlers import (
     evaluate_job,
@@ -123,6 +124,7 @@ def _handle_job_work_item(work, ctx: Any, job_handlers: HandlerMap) -> Generator
         err = JobError(KeyError(f"job {fn_name!r} not found in scope"))
         yield EJobFail(error=err, reply_to=reply_to, sequence_number=parent_sequence_number)
         return _Idle()
+    record_execute_start(reply_to, parent_sequence_number)
     return _Running(job=_build_job(work, ctx, job_handlers))
 
 

@@ -52,7 +52,7 @@ def is_job_fail(ev: Event) -> bool:
 
 
 def is_job_lifecycle(ev: Event) -> bool:
-    """True for job_lifecycle span events, which carry the full enqueue-to-completion duration."""
+    """True for job_lifecycle span events, which carry the execute-to-completion duration."""
 
     return ev.dim("tag") == JobTag.JOB_LIFECYCLE
 

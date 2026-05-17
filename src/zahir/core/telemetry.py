@@ -6,12 +6,10 @@ import uuid
 from dataclasses import dataclass
 
 from bookman.bookman_types import Message
-from bookman.events import point
 from tertius import EEmit
 
 from zahir.core.combinators import wrap
-from zahir.core.constants import JobTag, WorkItemTag
-from zahir.core.effects import EGetJob
+from zahir.core.constants import JobTag
 from zahir.core.emit import (
     TimeSpan,
     end_effect_error_telemetry,
@@ -30,47 +28,35 @@ class SpanContext:
     job_id: str | None
 
 
-# Process-local store of enqueue times keyed by job_id.
-# Safe to use here because ENQUEUE and JOB_COMPLETE are always handled in the same process.
-_enqueue_times: dict[str, float] = {}
+# Process-local store of job execute times keyed by job_id.
+# Populated by record_execute_start (called from the worker loop) rather than via handler wrappers,
+# because EGetJob is excluded from wrapping (high-volume poll events with no telemetry signal).
+_execute_times: dict[str, float] = {}
 
 _JOB_END_TAGS = {JobTag.JOB_COMPLETE, JobTag.JOB_FAIL}
 
 
-def _job_execute_event(fn_name: str) -> object:
-    return point({"tag": [JobTag.EXECUTE], "pid": [str(os.getpid())], "fn": [fn_name]}, at=time.time())
+def record_execute_start(reply_to: bytes | None, sequence_number: int | None) -> None:
+    """Record when a worker begins executing a job. Called from the worker loop on job pickup."""
 
-
-def _record_enqueue(effect, job_id: str | None, start: float) -> None:
-    """Store the enqueue start time so a lifecycle span can be emitted at completion."""
-
-    if effect.tag == JobTag.ENQUEUE and job_id:
-        _enqueue_times[job_id] = start
+    if isinstance(reply_to, bytes) and sequence_number is not None:
+        _execute_times[f"{reply_to.hex()}:{sequence_number}"] = time.time()
 
 
 def _resolve_lifecycle(effect, job_id: str | None, end: float) -> object | None:
-    """Return a lifecycle span event if this is a job-end effect with a known enqueue time."""
+    """Return a lifecycle span event if this is a job-end effect with a known execute time."""
 
     if effect.tag not in _JOB_END_TAGS or not job_id:
         return None
-    enqueued_at = _enqueue_times.pop(job_id, None)
-    if enqueued_at is None:
+    executed_at = _execute_times.pop(job_id, None)
+    if executed_at is None:
         return None
-    return job_lifecycle_span(effect, job_id, enqueued_at, end)
-
-
-def _resolve_execute(effect, result) -> object | None:
-    """Return a job:execute event if the EGetJob handler returned a job work item."""
-
-    if isinstance(effect, EGetJob) and result and result[0] == WorkItemTag.JOB:
-        return _job_execute_event(result[1])
-    return None
+    return job_lifecycle_span(effect, job_id, executed_at, end)
 
 
 def _setup_phase(effect, ctx: SpanContext, start: float):
-    """Emit the handler-start event; record enqueue time if this is an ENQUEUE effect."""
+    """Emit the handler-start event."""
 
-    _record_enqueue(effect, ctx.job_id, start)
     yield EEmit(start_effect_telemetry(effect, ctx.span_id, start))
 
 
@@ -82,7 +68,7 @@ def _format_effect_error(err: Exception) -> str:
 
 
 def _success_teardown(effect, ctx: SpanContext, tspan: TimeSpan, result):
-    """Emit handler-end event and any lifecycle or execute events that apply."""
+    """Emit handler-end event and any lifecycle span that applies."""
 
     err = getattr(effect, "error", None)
     value = Message(_format_effect_error(err)) if err is not None else None
@@ -90,9 +76,6 @@ def _success_teardown(effect, ctx: SpanContext, tspan: TimeSpan, result):
     lifecycle = _resolve_lifecycle(effect, ctx.job_id, tspan.end)
     if lifecycle:
         yield EEmit(lifecycle)
-    execute = _resolve_execute(effect, result)
-    if execute:
-        yield EEmit(execute)
 
 
 def _error_teardown(effect, ctx: SpanContext, start: float, exc: Exception):

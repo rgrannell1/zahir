@@ -49,8 +49,9 @@ def job_stats_agg() -> Aggregator:
 
 
 def job_duration_mean_agg() -> Aggregator:
-    """Mean job duration (ms) per fn, from the job_lifecycle span events emitted by telemetry.
+    """Mean job execution duration (ms) per fn, from job_lifecycle span events.
 
+    Measures from when a worker picks up the job to when it completes — excludes queue wait time.
     Returns None when no lifecycle events have been seen.
     """
 
