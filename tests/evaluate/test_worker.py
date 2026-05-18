@@ -5,9 +5,10 @@ import time_machine
 from tertius import ESleep
 
 from tests.shared import NOW, drain_to
-from zahir.core.effects import EAcquire, EAcquireSlot
+from zahir.core.effects import EAcquire, EAcquireSlot, EJobFail, ERelease
 from zahir.core.evaluate.job_handlers import evaluate_job, make_job_handlers
 from zahir.core.evaluate.suspension import RunningJob, WorkerLocals
+from zahir.core.evaluate.worker import _Running, _handle_running
 from zahir.core.exceptions import JobTimeoutError
 
 
@@ -136,6 +137,66 @@ def test_evaluate_job_does_not_track_denied_slots():
 
     _drive_with_acquire_result(evaluate_job(job(), make_job_handlers(locals_, []), None), granted=False)
     assert acquired == []
+
+
+# _handle_running — slot release on failure
+
+
+def _make_running(job_fn, acquired: list[str]) -> tuple[_Running, WorkerLocals]:
+    """Build a _Running state with pre-populated acquired slots for a job that will fail."""
+    locals_ = _make_locals(acquired)
+    running_job = RunningJob(
+        fn_name="test",
+        eval_gen=evaluate_job(job_fn(), _handlers(locals_), None),
+        reply_to=None,
+        parent_sequence_number=None,
+        acquired=acquired,
+    )
+    return _Running(job=running_job), locals_
+
+
+def test_slots_released_on_unhandled_exception():
+    """Proves _handle_running releases all acquired slots when the job raises."""
+
+    def failing_job():
+        raise RuntimeError("boom")
+        yield
+
+    state, locals_ = _make_running(failing_job, ["workers", "io"])
+    effects, _ = drain_to(_handle_running(state, locals_))
+
+    released = {e.name for e in effects if isinstance(e, ERelease)}
+    assert released == {"workers", "io"}
+
+
+def test_slots_released_before_job_fail_reported():
+    """Proves ERelease effects all precede EJobFail in the output stream."""
+
+    def failing_job():
+        raise RuntimeError("boom")
+        yield
+
+    state, locals_ = _make_running(failing_job, ["slot-a", "slot-b"])
+    effects, _ = drain_to(_handle_running(state, locals_))
+
+    indices = {type(e): idx for idx, e in enumerate(effects)}
+    release_indices = [idx for idx, e in enumerate(effects) if isinstance(e, ERelease)]
+    fail_idx = indices[EJobFail]
+    assert all(idx < fail_idx for idx in release_indices)
+
+
+def test_no_slots_held_job_fail_still_reported():
+    """Proves EJobFail is still emitted when the job holds no concurrency slots."""
+
+    def failing_job():
+        raise RuntimeError("boom")
+        yield
+
+    state, locals_ = _make_running(failing_job, [])
+    effects, _ = drain_to(_handle_running(state, locals_))
+
+    assert any(isinstance(e, EJobFail) for e in effects)
+    assert not any(isinstance(e, ERelease) for e in effects)
 
 
 # evaluate_job — unhandled exceptions

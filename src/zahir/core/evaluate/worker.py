@@ -156,6 +156,11 @@ def _handle_eawait(suspension: SuspensionTable, locals_: WorkerLocals, effect: E
     """Suspend the running job and enqueue its child jobs."""
 
     assert locals_.current_job is not None
+    if not effect.jobs:
+        # Empty fan-out: nothing to enqueue, so no child can ever complete and resume the parent.
+        # Return immediately with an empty result list rather than suspending forever.
+        return []
+        yield  # unreachable: required to make this function a generator
     yield from suspension.suspend(effect, locals_.current_job, locals_.me_bytes)
     return _SUSPENDED  # noqa: B901
 

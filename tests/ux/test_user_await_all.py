@@ -78,6 +78,20 @@ def test_await_all_preserves_order_when_completions_arrive_out_of_order():
     assert events == [[2, 4]]
 
 
+def empty_fanout(ctx: JobContext):
+    results = yield await_all([])
+    yield EEmit(results)
+
+
+def test_await_all_empty_list_completes_immediately():
+    """Proves await_all([]) returns an empty list without deadlocking."""
+
+    scope = {"empty_fanout": empty_fanout}
+    events = user_events(evaluate("empty_fanout", (), scope, n_workers=1))
+
+    assert events == [[]]
+
+
 def test_await_all_raises_job_error_on_failure():
     """Proves EAwait raises JobError if any child job crashes."""
 
