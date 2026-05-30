@@ -73,7 +73,8 @@ def test_init_cast_seeds_backend_via_storage_handlers():
     """Proves EStorageEnqueue sent as a cast seeds the backend correctly."""
 
     handlers = _make_handlers()
-    complete(handle(_handle_cast(None, EStorageEnqueue("start", (1, 2), None, None, None)), **handlers))
+    enqueue_effect = EStorageEnqueue("start", (1, 2), None, None, None)
+    complete(handle(_handle_cast(None, enqueue_effect), **handlers))
     _, result = complete(handle(_handle_call(None, EStorageIsDone()), **handlers))
     assert result is False
 
@@ -84,8 +85,10 @@ def test_round_trip_enqueue_then_get_job():
     handlers = _make_handlers()
 
     # enqueue root job, enqueue a child job, then fetch them
-    complete(handle(_handle_cast(None, EStorageEnqueue("root", (), None, None, None)), **handlers))
-    complete(handle(_handle_cast(None, EStorageEnqueue("child", (42,), None, None, None)), **handlers))
+    root_enqueue = EStorageEnqueue("root", (), None, None, None)
+    complete(handle(_handle_cast(None, root_enqueue), **handlers))
+    child_enqueue = EStorageEnqueue("child", (42,), None, None, None)
+    complete(handle(_handle_cast(None, child_enqueue), **handlers))
     # root job is first in queue; consume it
     complete(handle(_handle_call(None, EStorageGetJob(b"worker")), **handlers))
     # now child job should be available

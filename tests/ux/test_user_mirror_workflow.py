@@ -93,16 +93,19 @@ def failing_scan_media(ctx: JobContext, input: dict):
 
 def upload_media(ctx: JobContext, input: dict):
     """Mirrors upload.upload_media: parallel grey/mosaic, then optional uploads."""
-    grey_effects = [ctx.scope.compute_contrasting_grey({"fpath": f}) for f in input.get("fpaths", [])]
+    fpaths = input.get("fpaths", [])
+    grey_effects = [ctx.scope.compute_contrasting_grey({"fpath": f}) for f in fpaths]
     if grey_effects:
         yield await_all(grey_effects)
 
-    mosaic_effects = [ctx.scope.compute_image_mosaic({"fpath": f}) for f in input.get("fpaths", [])]
+    mosaic_effects = [ctx.scope.compute_image_mosaic({"fpath": f}) for f in fpaths]
     if mosaic_effects:
         yield await_all(mosaic_effects)
 
     if input.get("upload_images"):
-        photo_effects = [ctx.scope.upload_missing_photos({"fpath": f}) for f in input.get("fpaths", [])]
+        photo_effects = [
+            ctx.scope.upload_missing_photos({"fpath": f}) for f in fpaths
+        ]
         if photo_effects:
             yield await_all(photo_effects)
 
@@ -165,7 +168,9 @@ BASE_SCOPE = {
 def test_mirror_workflow_runs_and_publishes():
     """Proves a mirror-shaped workflow completes and emits a publish event."""
 
-    events = user_events(evaluate("mirror_workflow", ({"publish_d1": False},), BASE_SCOPE, n_workers=4))
+    input_data = {"publish_d1": False}
+    result = evaluate("mirror_workflow", (input_data,), BASE_SCOPE, n_workers=4)
+    events = user_events(result)
 
     assert events == [{"published": True}]
 
@@ -173,7 +178,9 @@ def test_mirror_workflow_runs_and_publishes():
 def test_mirror_workflow_builds_website_when_publish_d1():
     """Proves build_website is dispatched only when publish_d1 is set."""
 
-    events = user_events(evaluate("mirror_workflow", ({"publish_d1": True},), BASE_SCOPE, n_workers=4))
+    input_data = {"publish_d1": True}
+    result = evaluate("mirror_workflow", (input_data,), BASE_SCOPE, n_workers=4)
+    events = user_events(result)
 
     assert events == [{"published": True}, {"website_built": True}]
 

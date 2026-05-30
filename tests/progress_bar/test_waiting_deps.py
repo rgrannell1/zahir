@@ -14,10 +14,14 @@ from zahir.progress_bar.progress_bar_state_model import JobStats, ProgressBarSta
 
 def _enqueue(pid: int, fn_name: str):
     """ENQUEUE+START event that registers a worker pid onto a job."""
-    return point(
-        {"tag": [JobTag.ENQUEUE], "phase": [Phase.START], "pid": [str(pid)], "fn": [fn_name], "id": ["s"]},
-        at=time.time(),
-    )
+    event_data = {
+        "tag": [JobTag.ENQUEUE],
+        "phase": [Phase.START],
+        "pid": [str(pid)],
+        "fn": [fn_name],
+        "id": ["s"],
+    }
+    return point(event_data, at=time.time())
 
 
 def _waiting(pid: int, dep: str):
@@ -27,15 +31,20 @@ def _waiting(pid: int, dep: str):
 
 def _satisfied(pid: int, dep: str):
     """dep:satisfied event emitted when a dependency is finally met or abandoned."""
-    return point({"tag": [DependencyTag.SATISFIED], "pid": [str(pid)], "dep": [dep]}, at=time.time())
+    event_data = {"tag": [DependencyTag.SATISFIED], "pid": [str(pid)], "dep": [dep]}
+    return point(event_data, at=time.time())
 
 
 def _complete(pid: int, fn_name: str):
     """JOB_COMPLETE+END event — worker has finished a job."""
-    return point(
-        {"tag": [JobTag.JOB_COMPLETE], "phase": [Phase.END], "pid": [str(pid)], "fn": [fn_name], "id": ["s"]},
-        at=time.time(),
-    )
+    event_data = {
+        "tag": [JobTag.JOB_COMPLETE],
+        "phase": [Phase.END],
+        "pid": [str(pid)],
+        "fn": [fn_name],
+        "id": ["s"],
+    }
+    return point(event_data, at=time.time())
 
 
 # --- waiting_deps state tracking ---
@@ -77,7 +86,7 @@ def test_waiting_dep_not_attributed_to_wrong_fn():
 
 
 def test_multiple_pids_waiting_on_same_dep_aggregated():
-    """Proves waiting_deps sums counts when several pids are blocked on the same dependency label."""
+    """Proves waiting_deps sums counts when pids are blocked on same dep."""
     state = ProgressBarState()
     state.update(_enqueue(100, "fetch_job"))
     state.update(_enqueue(200, "fetch_job"))
@@ -98,7 +107,7 @@ def test_multiple_pids_waiting_on_different_deps_both_reported():
 
 
 def test_waiting_dep_without_prior_enqueue_not_attributed():
-    """Proves a dep:waiting event from an unknown pid does not appear under any fn's waiting_deps."""
+    """Proves unknown pid's dep:waiting event not attributed to any fn."""
     state = ProgressBarState()
     state.update(_waiting(999, "memory resource"))
     assert state.waiting_deps("fetch_job") == {}

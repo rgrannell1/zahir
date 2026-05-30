@@ -83,7 +83,10 @@ def bucket_key(bucket_s: float, ev) -> float:
     return (ev.at // bucket_s) * bucket_s
 
 
-def active_cores_timeline(events: Iterable, bucket_s: float = 1.0) -> Generator[dict[float, int], None, None]:
+def active_cores_timeline(
+    events: Iterable,
+    bucket_s: float = 1.0,
+) -> Generator[dict[float, int], None, None]:
     """Yield an updated per-bucket active core count after each event in the stream.
 
     Each yielded dict maps bucket-start timestamps to the count of unique worker pids

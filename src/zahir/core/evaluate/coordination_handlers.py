@@ -54,7 +54,9 @@ def make_merged_coordination_handlers(
     return cast(CoordinationHandlerMap, {**make_coordination_handlers(ctx), **user_handlers})
 
 
-def _handle_enqueue(context: CoordinationHandlerContext, effect: EEnqueue) -> Generator[Any, Any, None]:
+def _handle_enqueue(
+    context: CoordinationHandlerContext, effect: EEnqueue
+) -> Generator[Any, Any, None]:
     """Enqueue a child job with the overseer, routing the reply back to this worker."""
 
     yield from mcast(
@@ -69,13 +71,17 @@ def _handle_enqueue(context: CoordinationHandlerContext, effect: EEnqueue) -> Ge
     )
 
 
-def _handle_get_job(context: CoordinationHandlerContext, effect: EGetJob) -> Generator[Any, Any, Any]:
+def _handle_get_job(
+    context: CoordinationHandlerContext, effect: EGetJob
+) -> Generator[Any, Any, Any]:
     """Ask the overseer for work — returns a new job, a buffered result, or None."""
 
     return (yield from mcall(context.overseer, EStorageGetJob(effect.worker_pid_bytes)))
 
 
-def _handle_job_complete(context: CoordinationHandlerContext, effect: EJobComplete) -> Generator[Any, Any, None]:
+def _handle_job_complete(
+    context: CoordinationHandlerContext, effect: EJobComplete
+) -> Generator[Any, Any, None]:
     """Route the result to the parent worker via the overseer and decrement pending."""
 
     yield from mcast(
@@ -88,7 +94,9 @@ def _handle_job_complete(context: CoordinationHandlerContext, effect: EJobComple
     )
 
 
-def _handle_job_fail(context: CoordinationHandlerContext, effect: EJobFail) -> Generator[Any, Any, None]:
+def _handle_job_fail(
+    context: CoordinationHandlerContext, effect: EJobFail
+) -> Generator[Any, Any, None]:
     """Route the failure to the parent worker via the overseer, or record it as root error."""
 
     if effect.reply_to is None:
@@ -105,43 +113,58 @@ def _handle_job_fail(context: CoordinationHandlerContext, effect: EJobFail) -> G
     )
 
 
-def _handle_release(context: CoordinationHandlerContext, effect: ERelease) -> Generator[Any, Any, None]:
+def _handle_release(
+    context: CoordinationHandlerContext, effect: ERelease
+) -> Generator[Any, Any, None]:
     """Release a named concurrency slot back to the overseer."""
 
     yield from mcast(context.overseer, EStorageRelease(name=effect.name))
 
 
-def _handle_acquire_slot(context: CoordinationHandlerContext, effect: EAcquireSlot) -> Generator[Any, Any, bool]:
+def _handle_acquire_slot(
+    context: CoordinationHandlerContext, effect: EAcquireSlot
+) -> Generator[Any, Any, bool]:
     """Request a named concurrency slot from the overseer."""
 
-    return (yield from mcall(context.overseer, EStorageAcquire(name=effect.name, limit=effect.limit)))
+    acquire_effect = EStorageAcquire(name=effect.name, limit=effect.limit)
+    return (yield from mcall(context.overseer, acquire_effect))
 
 
-def _handle_get_state(context: CoordinationHandlerContext, effect: EGetState) -> Generator[Any, Any, str]:
+def _handle_get_state(
+    context: CoordinationHandlerContext, effect: EGetState
+) -> Generator[Any, Any, str]:
     """Read a value from the overseer's key-value store by name."""
 
     return (yield from mcall(context.overseer, EStorageGetState(name=effect.name)))
 
 
-def _handle_set_state(context: CoordinationHandlerContext, effect: ESetState) -> Generator[Any, Any, None]:
+def _handle_set_state(
+    context: CoordinationHandlerContext, effect: ESetState
+) -> Generator[Any, Any, None]:
     """Write a value to the overseer's key-value store by name."""
 
     yield from mcast(context.overseer, EStorageSetState(name=effect.name, state=effect.value))
 
 
-def _handle_is_done(context: CoordinationHandlerContext, effect: EIsDone) -> Generator[Any, Any, bool]:
+def _handle_is_done(
+    context: CoordinationHandlerContext, effect: EIsDone
+) -> Generator[Any, Any, bool]:
     """Ask the overseer whether all pending jobs have completed."""
 
     return (yield from mcall(context.overseer, EStorageIsDone()))
 
 
-def _handle_get_error(context: CoordinationHandlerContext, effect: EGetError) -> Generator[Any, Any, Exception | None]:
+def _handle_get_error(
+    context: CoordinationHandlerContext, effect: EGetError
+) -> Generator[Any, Any, Exception | None]:
     """Retrieve the root error from the overseer, if any."""
 
     return (yield from mcall(context.overseer, EStorageGetError()))
 
 
-def _handle_get_result(context: CoordinationHandlerContext, effect: EGetResult) -> Generator[Any, Any, Any]:
+def _handle_get_result(
+    context: CoordinationHandlerContext, effect: EGetResult
+) -> Generator[Any, Any, Any]:
     """Retrieve the root job's return value from the overseer."""
 
     return (yield from mcall(context.overseer, EStorageGetResult()))
@@ -153,8 +176,13 @@ _SKIP_WRAP = {EGetJob.tag}
 
 
 # Now, assemble all of the handlers and wrap them with telemetry context.
-def make_coordination_handlers(context: CoordinationHandlerContext) -> CoordinationHandlerMap:
-    """Create handlers for all coordination effects — job lifecycle (worker) and completion polling (root)."""
+def make_coordination_handlers(
+    context: CoordinationHandlerContext,
+) -> CoordinationHandlerMap:
+    """Create handlers for all coordination effects.
+
+    Handles job lifecycle (worker) and completion polling (root).
+    """
 
     handlers = {
         EAcquireSlot.tag: partial(_handle_acquire_slot, context),

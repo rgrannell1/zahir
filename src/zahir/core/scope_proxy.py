@@ -28,13 +28,16 @@ class ScopeProxy:
 
         params = list(inspect.signature(fn).parameters.values())[1:]  # strip ctx
         bound_sig = inspect.Signature(params)
-        timeout_param = inspect.Parameter("timeout_ms", inspect.Parameter.KEYWORD_ONLY, default=None)
+        timeout_param = inspect.Parameter(
+            "timeout_ms", inspect.Parameter.KEYWORD_ONLY, default=None
+        )
 
         @functools.wraps(fn)
         def dispatch(*args: Any, timeout_ms: int | None = None, **kwargs: Any) -> EAwait:
             bound = bound_sig.bind(*args, **kwargs)
             bound.apply_defaults()
-            return EAwait(jobs=[JobSpec(fn_name=name, args=bound.args, timeout_ms=timeout_ms)], scalar=True)
+            job_spec = JobSpec(fn_name=name, args=bound.args, timeout_ms=timeout_ms)
+            return EAwait(jobs=[job_spec], scalar=True)
 
         dispatch.__signature__ = inspect.Signature([*params, timeout_param])  # type: ignore[attr-defined]
         self.__dict__[name] = dispatch

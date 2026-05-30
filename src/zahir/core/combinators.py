@@ -73,9 +73,15 @@ def _wrap_handler(fn, handler):
 
 
 def apply_to_tags(wrapper, tags: set, handler_map: dict) -> dict:
-    """Apply a handler wrapper to specific tags in a handler map, leaving others unchanged."""
+    """Apply a handler wrapper to specific tags in a handler map.
 
-    return {tag: (wrapper(handler) if tag in tags else handler) for tag, handler in handler_map.items()}
+    Leaves other tags unchanged.
+    """
+
+    return {
+        tag: (wrapper(handler) if tag in tags else handler)
+        for tag, handler in handler_map.items()
+    }
 
 
 def wrap(fn):

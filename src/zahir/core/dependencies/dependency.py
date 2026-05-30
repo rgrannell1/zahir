@@ -1,4 +1,4 @@
-# Polling combinator that drives condition generators, handling retries, timeouts, and Left/Right signalling.
+# Polling combinator: drives condition generators with retries, timeouts, Left/Right.
 import os
 import time
 from collections.abc import Callable, Generator
@@ -13,11 +13,21 @@ from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 
 def _waiting_event(label: str) -> object:
-    return point({"tag": [DependencyTag.WAITING], "pid": [str(os.getpid())], "dep": [label]}, at=time.time())
+    data = {
+        "tag": [DependencyTag.WAITING],
+        "pid": [str(os.getpid())],
+        "dep": [label],
+    }
+    return point(data, at=time.time())
 
 
 def _done_event(label: str) -> object:
-    return point({"tag": [DependencyTag.SATISFIED], "pid": [str(os.getpid())], "dep": [label]}, at=time.time())
+    data = {
+        "tag": [DependencyTag.SATISFIED],
+        "pid": [str(os.getpid())],
+        "dep": [label],
+    }
+    return point(data, at=time.time())
 
 
 def check(
@@ -28,7 +38,8 @@ def check(
 
     condition_fn must return a generator that:
     - yields any effects it needs
-    - returns a ConditionResult: (satisfied, metadata), (unsatisfied, metadata), or (impossible, metadata)
+    - returns a ConditionResult: (satisfied, metadata), (unsatisfied, metadata),
+      or (impossible, metadata)
     Unsatisfied is mapped to impossible since there is no retry in check mode.
     """
     state, metadata = yield from condition_fn()
@@ -60,11 +71,13 @@ def dependency(
 
     Unsatisfied causes a retry after poll_ms; satisfied or impossible terminates the loop.
     """
-    timeout_at = datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms) if timeout_ms is not None else None
+    has_timeout = timeout_ms is not None
+    timeout_at = datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms) if has_timeout else None
 
     while True:
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
-            impossible: DependencyResult = ("impossible", {"reason": f"{label} timed out after {timeout_ms}ms"})
+            reason = f"{label} timed out after {timeout_ms}ms"
+            impossible: DependencyResult = ("impossible", {"reason": reason})
             yield EEmit(impossible)
             yield EEmit(_done_event(label))
 

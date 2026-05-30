@@ -97,7 +97,7 @@ class RichDisplayService:
             )
 
     def _refresh_workflow_row(self, service: ProgressBarService) -> None:
-        """Update the workflow row with the total number of enqueued jobs and the number of processed jobs."""
+        """Update the workflow row with the job counts and processing stats."""
 
         if self._workflow_task is None:
             return
@@ -106,8 +106,15 @@ class RichDisplayService:
         total = sum(stat.total for stat in enqueued)
         completed = sum(stat.processed for stat in enqueued)
         remaining = total - completed
-        desc = workflow_description(service.format_elapsed(), completed, remaining, service.format_eta(completed, remaining))
-        self._progress.update(self._workflow_task, description=desc, completed=completed, total=total)
+        eta = service.format_eta(completed, remaining)
+        elapsed = service.format_elapsed()
+        desc = workflow_description(elapsed, completed, remaining, eta)
+        self._progress.update(
+            self._workflow_task,
+            description=desc,
+            completed=completed,
+            total=total,
+        )
 
     def show_error(self, source: str, msg: str) -> None:
         """Print a persistent error line below the live progress bar."""

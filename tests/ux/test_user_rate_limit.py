@@ -1,4 +1,7 @@
-"""UX test: proves n jobs gated by rate_limit_dependency complete in at least (n-1) * min_seconds."""
+"""UX test: proves n jobs gated by rate_limit_dependency complete in at least (n-1) * min_seconds.
+
+Verifies rate limit spacing.
+"""
 
 import time
 

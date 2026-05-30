@@ -31,7 +31,11 @@ _SCOPE = {"fan_out": fan_out, "bounded_job": bounded_job}
 
 def _span_events(events: list) -> list[tuple[float, str]]:
     """Extract (timestamp, event) pairs from acquired/released emit events, sorted by time."""
-    spans = [(e["ts"], e["event"]) for e in events if isinstance(e, dict) and "event" in e and "ts" in e]
+    spans = [
+        (e["ts"], e["event"])
+        for e in events
+        if isinstance(e, dict) and "event" in e and "ts" in e
+    ]
     spans.sort()
     return spans
 

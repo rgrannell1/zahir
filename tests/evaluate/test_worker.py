@@ -15,7 +15,13 @@ from zahir.core.exceptions import JobTimeoutError
 def _make_locals(acquired: list | None = None) -> WorkerLocals:
     """Build a WorkerLocals with a minimal RunningJob for evaluate_job tests."""
     acquired_slots = [] if acquired is None else acquired
-    job = RunningJob(fn_name="test", eval_gen=None, reply_to=None, parent_sequence_number=None, acquired=acquired_slots)
+    job = RunningJob(
+        fn_name="test",
+        eval_gen=None,
+        reply_to=None,
+        parent_sequence_number=None,
+        acquired=acquired_slots,
+    )
     return WorkerLocals(current_job=job)
 
 
@@ -122,7 +128,8 @@ def test_evaluate_job_tracks_acquired_slots():
     def job():
         yield EAcquire(name="workers", limit=4)
 
-    _drive_with_acquire_result(evaluate_job(job(), make_job_handlers(locals_, []), None), granted=True)
+    job_gen = evaluate_job(job(), make_job_handlers(locals_, []), None)
+    _drive_with_acquire_result(job_gen, granted=True)
     assert acquired == ["workers"]
 
 
@@ -135,7 +142,8 @@ def test_evaluate_job_does_not_track_denied_slots():
     def job():
         yield EAcquire(name="workers", limit=4)
 
-    _drive_with_acquire_result(evaluate_job(job(), make_job_handlers(locals_, []), None), granted=False)
+    job_gen = evaluate_job(job(), make_job_handlers(locals_, []), None)
+    _drive_with_acquire_result(job_gen, granted=False)
     assert acquired == []
 
 

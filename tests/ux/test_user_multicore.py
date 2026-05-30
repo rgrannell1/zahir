@@ -41,9 +41,12 @@ def test_parallel_fanout_uses_multiple_os_processes():
 
 
 def test_job_ids_are_unique_across_workers():
-    """Proves that job_id dimensions on enqueue events are globally unique across all worker processes."""
+    """Proves job_id dimensions on enqueue events are globally unique across workers."""
 
-    raw_events = list(evaluate("collect_pids", (), _SCOPE, n_workers=_N_WORKERS, handler_wrappers=[make_telemetry()]))
+    telemetry = make_telemetry()
+    wrappers = [telemetry]
+    result = evaluate("collect_pids", (), _SCOPE, n_workers=_N_WORKERS, handler_wrappers=wrappers)
+    raw_events = list(result)
 
     enqueue_starts = [
         e

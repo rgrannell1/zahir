@@ -118,7 +118,9 @@ def _handle_result_work_item(suspension: SuspensionTable, work) -> WorkerState:
             return _Running(job=job, pending_throw=error)
 
 
-def _handle_job_work_item(work, ctx: Any, job_handlers: HandlerMap) -> Generator[Any, Any, WorkerState]:
+def _handle_job_work_item(
+    work, ctx: Any, job_handlers: HandlerMap
+) -> Generator[Any, Any, WorkerState]:
     """Validate scope membership and build a RunningJob from a dequeued job work item."""
     _, fn_name, _, reply_to, _, parent_sequence_number = work
     if fn_name not in ctx._scope:
@@ -152,7 +154,9 @@ def _handle_idle(
             return _Idle()  # noqa: B901
 
 
-def _handle_eawait(suspension: SuspensionTable, locals_: WorkerLocals, effect: EAwait) -> Generator[Any, Any, Any]:
+def _handle_eawait(
+    suspension: SuspensionTable, locals_: WorkerLocals, effect: EAwait
+) -> Generator[Any, Any, Any]:
     """Suspend the running job and enqueue its child jobs."""
 
     assert locals_.current_job is not None
@@ -165,12 +169,23 @@ def _handle_eawait(suspension: SuspensionTable, locals_: WorkerLocals, effect: E
     return _SUSPENDED  # noqa: B901
 
 
-def make_worker_handlers(suspension: SuspensionTable, locals_: WorkerLocals, handler_wrappers: Sequence) -> HandlerMap:
+def make_worker_handlers(
+    suspension: SuspensionTable, locals_: WorkerLocals, handler_wrappers: Sequence
+) -> HandlerMap:
     """EAwait handler with wrappers applied — merged last so it cannot be overridden."""
 
     handler = partial(_handle_eawait, suspension, locals_)
     wrapped = reduce(apply_wrapper, handler_wrappers, handler)
     return cast(HandlerMap, {EAwait.tag: wrapped})
+
+
+def step_job_generator(
+    job: RunningJob, pending_throw: Exception | None, handler_value: Any
+) -> Any:
+    """Drive job generator one step, throwing exception if pending."""
+    if pending_throw:
+        return job.eval_gen.throw(pending_throw)
+    return job.eval_gen.send(handler_value)
 
 
 def _handle_running(state: _Running, locals_: WorkerLocals) -> Generator[Any, Any, WorkerState]:
@@ -179,7 +194,7 @@ def _handle_running(state: _Running, locals_: WorkerLocals) -> Generator[Any, An
     job = state.job
     locals_.current_job = job
     try:
-        effect = job.eval_gen.throw(state.pending_throw) if state.pending_throw else job.eval_gen.send(state.handler_value)
+        effect = step_job_generator(job, state.pending_throw, state.handler_value)
     except StopIteration as exc:
         yield from _successful_job(job, exc.value)
         return _Idle()
@@ -194,7 +209,11 @@ def _handle_running(state: _Running, locals_: WorkerLocals) -> Generator[Any, An
 
 
 def _worker_body(
-    suspension: SuspensionTable, locals_: WorkerLocals, job_handlers: HandlerMap, _overseer_pid: Pid, ctx: Any
+    suspension: SuspensionTable,
+    locals_: WorkerLocals,
+    job_handlers: HandlerMap,
+    _overseer_pid: Pid,
+    ctx: Any,
 ) -> Generator[Any, Any, None]:
     """Worker main loop — drives jobs step by step, suspending onto a local stack on EAwait."""
 
@@ -210,7 +229,9 @@ def _worker_body(
                 state = yield from _handle_running(state, locals_)
 
 
-def worker(overseer_pid_bytes: bytes, scope: Scope, handler_wrappers, handlers: HandlerMap) -> Generator[Any, Any, None]:
+def worker(
+    overseer_pid_bytes: bytes, scope: Scope, handler_wrappers, handlers: HandlerMap
+) -> Generator[Any, Any, None]:
     """zahir worker main loop"""
 
     overseer = Pid.from_bytes(overseer_pid_bytes)

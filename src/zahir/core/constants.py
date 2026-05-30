@@ -56,8 +56,10 @@ class WorkItemTag(StrEnum):
     RESULT = "result"
 
 
-# Exceptions that evaluate_job throws back into the running job rather than propagating outward
+# Exceptions that evaluate_job throws back into the running job rather than
+# propagating outward
 THROWABLE = (JobTimeoutError, JobError, InvalidEffectError)
 
-# Tertius effects that must not be yielded directly by a zahir job — they block the worker process indefinitely
+# Tertius effects that must not be yielded directly by a zahir job — they
+# block the worker process indefinitely
 BLOCKED_EFFECTS = (EReceive,)

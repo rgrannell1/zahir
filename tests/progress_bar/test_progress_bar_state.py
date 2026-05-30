@@ -5,11 +5,25 @@ from zahir.progress_bar.progress_bar_state_model import ProgressBarState
 
 
 def _start(fn_name, job_id="j1"):
-    return point({"tag": [JobTag.ENQUEUE], "fn": [fn_name], "id": ["s"], "job_id": [job_id], "phase": [Phase.START]}, at=0.0)
+    event_data = {
+        "tag": [JobTag.ENQUEUE],
+        "fn": [fn_name],
+        "id": ["s"],
+        "job_id": [job_id],
+        "phase": [Phase.START],
+    }
+    return point(event_data, at=0.0)
 
 
 def _execute(fn_name, job_id="j1"):
-    return point({"tag": [JobTag.EXECUTE], "fn": [fn_name], "id": ["e"], "job_id": [job_id], "phase": [Phase.START]}, at=0.0)
+    event_data = {
+        "tag": [JobTag.EXECUTE],
+        "fn": [fn_name],
+        "id": ["e"],
+        "job_id": [job_id],
+        "phase": [Phase.START],
+    }
+    return point(event_data, at=0.0)
 
 
 def _end(fn_name, error=None, job_id="j1"):

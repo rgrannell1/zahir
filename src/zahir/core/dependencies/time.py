@@ -16,7 +16,8 @@ def time_condition(
     now = datetime.now(tz=UTC)
 
     if before is not None and now >= before:
-        return ("impossible", {"reason": f"too late: now={now.isoformat()}, before={before.isoformat()}"})
+        reason = f"too late: now={now.isoformat()}, before={before.isoformat()}"
+        return ("impossible", {"reason": reason})
 
     if after is not None and now < after:
         return ("unsatisfied", {"after": after.isoformat()})

@@ -17,9 +17,11 @@ class EEnqueue(ZahirCoordinationEffect[None]):
     tag: ClassVar[str] = "enqueue"
     fn_name: str
     args: tuple[Any, ...]
-    reply_to: bytes | None  # the requesting worker's PID bytes; None for the root job
+    # requesting worker's PID bytes; None for the root job
+    reply_to: bytes | None
     timeout_ms: int | None
-    sequence_number: int | None  # allocated sequence_number for routing the reply back to the parent; None for the root job
+    # sequence_number for routing reply to parent; None for the root job
+    sequence_number: int | None
 
 
 @dataclass

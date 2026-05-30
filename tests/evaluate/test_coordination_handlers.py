@@ -74,10 +74,14 @@ def test_handle_enqueue_sends_correct_message_to_overseer():
             )
         )
 
-    assert sent[0] == (
-        OVERSEER,
-        EStorageEnqueue(fn_name="child", args=(1,), reply_to=WORKER_PID, timeout_ms=500, sequence_number=3),
+    storage_enqueue = EStorageEnqueue(
+        fn_name="child",
+        args=(1,),
+        reply_to=WORKER_PID,
+        timeout_ms=500,
+        sequence_number=3,
     )
+    assert sent[0] == (OVERSEER, storage_enqueue)
 
 
 # _handle_get_job
@@ -117,8 +121,11 @@ def test_handle_job_complete_mcasts_storage_job_done_with_result():
         return None
         yield
 
+    job_complete_effect = EJobComplete(
+        result="done", reply_to=REPLY_TO, sequence_number=7
+    )
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        drain_to(_handle_job_complete(CTX, EJobComplete(result="done", reply_to=REPLY_TO, sequence_number=7)))
+        drain_to(_handle_job_complete(CTX, job_complete_effect))
 
     assert sent[0] == (OVERSEER, EStorageJobDone(reply_to=REPLY_TO, sequence_number=7, body="done"))
 
@@ -133,8 +140,11 @@ def test_handle_job_complete_with_none_reply_to():
         return None
         yield
 
+    job_complete_root = EJobComplete(
+        result="done", reply_to=None, sequence_number=None
+    )
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        drain_to(_handle_job_complete(CTX, EJobComplete(result="done", reply_to=None, sequence_number=None)))
+        drain_to(_handle_job_complete(CTX, job_complete_root))
 
     assert sent[0] == (OVERSEER, EStorageJobDone(reply_to=None, sequence_number=None, body="done"))
 
@@ -264,7 +274,7 @@ def test_handle_set_state_mcasts_storage_set_state():
 
 
 def test_make_coordination_handlers_contains_all_effect_types():
-    """Proves make_coordination_handlers returns entries for all coordination and root polling effect tags."""
+    """Proves handlers covers all coordination and root polling effect tags."""
 
     handlers = make_coordination_handlers(CTX)
     assert set(handlers.keys()) == {
@@ -293,12 +303,19 @@ def test_make_coordination_handlers_returns_callables():
 
 
 def test_job_complete_handler_emits_telemetry_with_fn_name():
-    """Proves EJobComplete handler emits telemetry events carrying fn_name when make_telemetry is applied."""
+    """Proves EJobComplete handler emits telemetry events carrying fn_name."""
 
-    ctx = CoordinationHandlerContext(overseer=OVERSEER, handler_wrappers=[make_telemetry()])
+    ctx = CoordinationHandlerContext(
+        overseer=OVERSEER, handler_wrappers=[make_telemetry()]
+    )
     handlers = make_coordination_handlers(ctx)
 
-    effect = EJobComplete(result="done", reply_to=REPLY_TO, sequence_number=7, fn_name="chapter_processor")
+    effect = EJobComplete(
+        result="done",
+        reply_to=REPLY_TO,
+        sequence_number=7,
+        fn_name="chapter_processor",
+    )
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
         emitted, _ = drain_to(handlers[EJobComplete.tag](effect))
@@ -308,7 +325,7 @@ def test_job_complete_handler_emits_telemetry_with_fn_name():
 
 
 def test_job_fail_handler_emits_telemetry_with_fn_name():
-    """Proves EJobFail handler emits telemetry events carrying fn_name when make_telemetry is applied."""
+    """Proves EJobFail handler emits telemetry events carrying fn_name."""
 
     ctx = CoordinationHandlerContext(overseer=OVERSEER, handler_wrappers=[make_telemetry()])
     handlers = make_coordination_handlers(ctx)

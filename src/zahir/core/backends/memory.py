@@ -40,7 +40,8 @@ class MemoryBackend:
     pending_results: PendingResults = field(default_factory=dict)
 
     def get_job(self, worker_pid_bytes: bytes) -> Any:
-        """Return a buffered result for this worker, the next queued job, or None."""
+        """Return a buffered result for this worker, the next queued job, or
+        None."""
         results = self.pending_results.get(worker_pid_bytes)
         if results:
             sequence_number, body = results.popleft()
@@ -48,7 +49,15 @@ class MemoryBackend:
 
         if self.queue:
             job = self.queue.popleft()
-            return (WorkItemTag.JOB, job.fn_name, job.args, job.reply_to, job.timeout_ms, job.sequence_number)
+            job_tuple = (
+                WorkItemTag.JOB,
+                job.fn_name,
+                job.args,
+                job.reply_to,
+                job.timeout_ms,
+                job.sequence_number,
+            )
+            return job_tuple
 
         return None
 
@@ -57,8 +66,14 @@ class MemoryBackend:
         self.queue.append(spec)
         self.pending += 1
 
-    def job_done(self, reply_to_bytes: bytes | None, sequence_number: Any, body: Any) -> None:
-        """Decrement pending and buffer the result for the waiting parent, or store as root result."""
+    def job_done(
+        self,
+        reply_to_bytes: bytes | None,
+        sequence_number: Any,
+        body: Any,
+    ) -> None:
+        """Decrement pending and buffer result for waiting parent, or store as
+        root result."""
         self.pending -= 1
         if reply_to_bytes is None:
             self.root_result = body
@@ -117,7 +132,10 @@ def _handle_storage_get_job(backend: MemoryBackend, effect: EStorageGetJob) -> A
     yield
 
 
-def _handle_storage_enqueue(backend: MemoryBackend, effect: EStorageEnqueue) -> Generator[Any, Any, None]:
+def _handle_storage_enqueue(
+    backend: MemoryBackend,
+    effect: EStorageEnqueue,
+) -> Generator[Any, Any, None]:
     """Add a child job to the queue."""
     backend.enqueue(
         JobSpec(
@@ -132,27 +150,39 @@ def _handle_storage_enqueue(backend: MemoryBackend, effect: EStorageEnqueue) -> 
     yield
 
 
-def _handle_storage_job_done(backend: MemoryBackend, effect: EStorageJobDone) -> Generator[Any, Any, None]:
+def _handle_storage_job_done(
+    backend: MemoryBackend,
+    effect: EStorageJobDone,
+) -> Generator[Any, Any, None]:
     """Record job completion and route the result."""
     backend.job_done(effect.reply_to, effect.sequence_number, effect.body)
     return
     yield
 
 
-def _handle_storage_job_failed(backend: MemoryBackend, effect: EStorageJobFailed) -> Generator[Any, Any, None]:
+def _handle_storage_job_failed(
+    backend: MemoryBackend,
+    effect: EStorageJobFailed,
+) -> Generator[Any, Any, None]:
     """Record a root-level job failure."""
     backend.job_failed(effect.error)
     return
     yield
 
 
-def _handle_storage_acquire(backend: MemoryBackend, effect: EStorageAcquire) -> Generator[Any, Any, bool]:
+def _handle_storage_acquire(
+    backend: MemoryBackend,
+    effect: EStorageAcquire,
+) -> Generator[Any, Any, bool]:
     """Try to acquire a concurrency slot."""
     return backend.acquire(effect.name, effect.limit)
     yield
 
 
-def _handle_storage_release(backend: MemoryBackend, effect: EStorageRelease) -> Generator[Any, Any, None]:
+def _handle_storage_release(
+    backend: MemoryBackend,
+    effect: EStorageRelease,
+) -> Generator[Any, Any, None]:
     """Release a concurrency slot."""
     backend.release(effect.name)
     return
@@ -165,14 +195,20 @@ def _handle_storage_get_state(backend: MemoryBackend, effect: EStorageGetState) 
     yield
 
 
-def _handle_storage_set_state(backend: MemoryBackend, effect: EStorageSetState) -> Generator[Any, Any, None]:
+def _handle_storage_set_state(
+    backend: MemoryBackend,
+    effect: EStorageSetState,
+) -> Generator[Any, Any, None]:
     """Set the KV state."""
     backend.set_semaphore(effect.name, effect.state)
     return
     yield
 
 
-def _handle_storage_is_done(backend: MemoryBackend, effect: EStorageIsDone) -> Generator[Any, Any, bool]:
+def _handle_storage_is_done(
+    backend: MemoryBackend,
+    effect: EStorageIsDone,
+) -> Generator[Any, Any, bool]:
     """Return True when all jobs have completed."""
     return backend.is_done()
     yield

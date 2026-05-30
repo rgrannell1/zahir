@@ -52,7 +52,12 @@ def _query(
 
 def _parse_status(raw: str) -> str:
     status = raw.lower().strip()
-    if status not in {DependencyState.SATISFIED, DependencyState.UNSATISFIED, DependencyState.IMPOSSIBLE}:
+    valid_statuses = {
+        DependencyState.SATISFIED,
+        DependencyState.UNSATISFIED,
+        DependencyState.IMPOSSIBLE,
+    }
+    if status not in valid_statuses:
         raise ValueError(f"invalid status value: {status!r}")
     return status
 

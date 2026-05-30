@@ -51,9 +51,12 @@ def test_sleeping_job_duration_measured_by_progress_bar():
 
     duration = service.mean_duration_ms("sleeping_job")
     assert duration is not None, "no duration recorded for sleeping_job"
+    lower_fmt = f"{_SLEEP_LOWER_BOUND_MS:.0f}"
+    upper_fmt = f"{_SLEEP_UPPER_BOUND_MS:.0f}"
+    duration_fmt = f"{duration:.1f}"
     assert (
         _SLEEP_LOWER_BOUND_MS <= duration <= _SLEEP_UPPER_BOUND_MS
-    ), f"expected duration in [{_SLEEP_LOWER_BOUND_MS:.0f}, {_SLEEP_UPPER_BOUND_MS:.0f}] ms, got {duration:.1f} ms"
+    ), f"expected duration in [{lower_fmt}, {upper_fmt}] ms, got {duration_fmt} ms"
 
 
 def short_job(ctx: JobContext):
@@ -73,12 +76,14 @@ _TEN_SCOPE = {
 
 
 def test_ten_jobs_eta_renders_hh_mm_ss_during_execution():
-    """Proves that running ten concurrent jobs causes the ETA to render as HH:MM:SS at least once."""
+    """Proves that running ten jobs causes the ETA to render as HH:MM:SS at least once."""
 
     service = ProgressBarService()
     eta_snapshots = set()
 
-    for event in evaluate("ten_short_jobs", (), _TEN_SCOPE, n_workers=4, handler_wrappers=[make_telemetry()]):
+    telemetry = make_telemetry()
+    result = evaluate("ten_short_jobs", (), _TEN_SCOPE, n_workers=4, handler_wrappers=[telemetry])
+    for event in result:
         if isinstance(event, Event):
             service.update(event)
             enqueued = [stat for stat in service.jobs.values() if stat.total > 0]

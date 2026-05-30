@@ -45,7 +45,8 @@ def test_no_prior_run_satisfies_immediately():
     with patch("zahir.core.dependencies.rate_limit.time") as mock_time:
         mock_time.time.return_value = _NOW
         gen = _make_gen()
-        effects, result = drain_to(gen, responses={EAcquire: True, EGetState: None, ESetState: None})
+        responses = {EAcquire: True, EGetState: None, ESetState: None}
+        effects, result = drain_to(gen, responses=responses)
 
     assert result[0] == "satisfied"
     assert isinstance(result[1]["elapsed"], float)
@@ -60,7 +61,8 @@ def test_elapsed_sufficient_satisfies_without_sleep():
     with patch("zahir.core.dependencies.rate_limit.time") as mock_time:
         mock_time.time.return_value = _NOW
         gen = _make_gen()
-        effects, result = drain_to(gen, responses={EAcquire: True, EGetState: last_at, ESetState: None})
+        responses = {EAcquire: True, EGetState: last_at, ESetState: None}
+        effects, result = drain_to(gen, responses=responses)
 
     sleep_effects = [eff for eff in effects if isinstance(eff, ESleep)]
     assert sleep_effects == [], "expected no ESleep when elapsed is already sufficient"
@@ -68,7 +70,7 @@ def test_elapsed_sufficient_satisfies_without_sleep():
 
 
 def test_elapsed_too_short_emits_waiting_point_then_sleeps():
-    """Proves the condition emits a WAITING bookman point then yields ESleep when elapsed < min_seconds."""
+    """Proves emitting WAITING point when elapsed < min_seconds, then yielding ESleep."""
 
     last_at = str(_NOW - 0.1)  # only 0.1s ago, need 1.0s
 
@@ -107,9 +109,14 @@ def test_sleep_duration_covers_remaining_gap():
             gen.send(last_at)       # elapsed too short → EEmit waiting point
             sleep_effect = gen.send(None)  # emit done → ESleep
 
-        assert isinstance(sleep_effect, ESleep), f"expected ESleep for elapsed={case['elapsed']}"
-        assert abs(sleep_effect.ms - case["expected_ms"]) <= 10, (
-            f"elapsed={case['elapsed']}s: expected ~{case['expected_ms']}ms sleep, got {sleep_effect.ms}ms"
+        assert isinstance(sleep_effect, ESleep), (
+            f"expected ESleep for elapsed={case['elapsed']}"
+        )
+        expected_ms = case["expected_ms"]
+        within_tolerance = abs(sleep_effect.ms - expected_ms) <= 10
+        assert within_tolerance, (
+            f"elapsed={case['elapsed']}s: expected ~{expected_ms}ms sleep, "
+            f"got {sleep_effect.ms}ms"
         )
 
 

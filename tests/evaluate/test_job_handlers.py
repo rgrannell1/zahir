@@ -14,7 +14,13 @@ from zahir.core.evaluate.suspension import RunningJob, WorkerLocals
 def _make_locals(acquired: list | None = None) -> WorkerLocals:
     """Build a WorkerLocals with a minimal RunningJob for handler tests."""
     acquired_slots = [] if acquired is None else acquired
-    job = RunningJob(fn_name="test", eval_gen=None, reply_to=None, parent_sequence_number=None, acquired=acquired_slots)
+    job = RunningJob(
+        fn_name="test",
+        eval_gen=None,
+        reply_to=None,
+        parent_sequence_number=None,
+        acquired=acquired_slots,
+    )
     return WorkerLocals(current_job=job)
 
 

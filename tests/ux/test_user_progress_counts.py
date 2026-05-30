@@ -89,7 +89,7 @@ MIXED_SCOPE = {
 
 
 def test_mixed_workflow_counts_successes_and_failures_separately():
-    """Proves completed and failed counts are tracked independently when a fan-out has mixed outcomes."""
+    """Proves completed and failed counts are tracked independently in a mixed fan-out."""
 
     state = _collect_state("mixed_root", (), MIXED_SCOPE)
 
@@ -107,11 +107,13 @@ def test_mixed_workflow_counts_successes_and_failures_separately():
 
 
 def test_mixed_workflow_enqueued_jobs_all_processed():
-    """Proves every job dispatched via EEnqueue (total > 0) is fully processed when the workflow ends."""
+    """Proves every enqueued job (total > 0) is fully processed when the workflow ends."""
 
     state = _collect_state("mixed_root", (), MIXED_SCOPE)
 
     # exclude the root job itself, which is never enqueued
     enqueued = {fn: stats for fn, stats in state.jobs.items() if stats.total > 0}
     for fn_name, stats in enqueued.items():
-        assert stats.processed == stats.total, f"{fn_name!r}: processed={stats.processed} != total={stats.total}"
+        processed = stats.processed
+        total = stats.total
+        assert processed == total, f"{fn_name!r}: processed={processed} != total={total}"

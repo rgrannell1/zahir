@@ -15,10 +15,19 @@ from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 
 def _waiting_point(label: str) -> object:
-    return point({"tag": [DependencyTag.WAITING], "pid": [str(os.getpid())], "dep": [label]}, at=time.time())
+    data = {
+        "tag": [DependencyTag.WAITING],
+        "pid": [str(os.getpid())],
+        "dep": [label],
+    }
+    return point(data, at=time.time())
 
 
-def rate_limit_condition(name: str, min_seconds: float, label: str) -> Generator[Any, Any, ConditionResult]:
+def rate_limit_condition(
+    name: str,
+    min_seconds: float,
+    label: str,
+) -> Generator[Any, Any, ConditionResult]:
     """Satisfied when at least min_seconds have elapsed since the last satisfaction.
 
     Uses EAcquire(limit=1) as a mutex so only one job passes the gate at a time.

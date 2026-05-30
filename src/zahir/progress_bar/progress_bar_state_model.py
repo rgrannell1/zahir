@@ -43,7 +43,13 @@ def record_waiting_state(pid_waiting: dict[int, str], pid: int, tag: str, dep: s
 def extract_job_stats(agg, acc: Any) -> JobStats:
     """Extract a JobStats from a per_fn_progress_agg accumulator."""
     (total, started, completed, failed), mean_ms = agg.extract(acc)
-    return JobStats(total=total, started=started, completed=completed, failed=failed, mean_ms=mean_ms)
+    return JobStats(
+        total=total,
+        started=started,
+        completed=completed,
+        failed=failed,
+        mean_ms=mean_ms,
+    )
 
 
 class ProgressBarState:

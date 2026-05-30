@@ -10,7 +10,9 @@ from zahir.progress_bar.progress_bar_service import (
 
 def _lifecycle(fn_name, duration_ms):
     """JOB_LIFECYCLE span carrying the measured wall-clock duration for one completed job."""
-    return span({"tag": [JobTag.JOB_LIFECYCLE], "fn": [fn_name], "id": ["lc"]}, at=0.0, until=duration_ms / 1000.0)
+    duration_secs = duration_ms / 1000.0
+    event_data = {"tag": [JobTag.JOB_LIFECYCLE], "fn": [fn_name], "id": ["lc"]}
+    return span(event_data, at=0.0, until=duration_secs)
 
 
 def _service(*events):

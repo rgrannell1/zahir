@@ -46,7 +46,7 @@ def test_satisfied_carries_metadata():
 
 
 def test_unsatisfied_then_satisfied_polls_and_satisfies():
-    """Proves a condition returning unsatisfied then satisfied loops through ESleep before satisfying."""
+    """Proves looping through ESleep when unsatisfied before returning satisfied."""
 
     calls = iter([(DependencyState.UNSATISFIED, None), (DependencyState.SATISFIED, None)])
 
@@ -136,6 +136,23 @@ def test_timeout_label_appears_in_reason():
         emits, _ = drain_to(gen, EEmit)
 
     assert "my-condition" in emits[0].body[1]["reason"]
+
+
+@time_machine.travel(NOW, tick=False)
+def test_zero_timeout_expires_immediately():
+    """Proves timeout_ms=0 times out before the first poll rather than never expiring."""
+
+    # condition is satisfiable: a working zero timeout must fire before it is checked
+    def _cond():
+        return (DependencyState.SATISFIED, None)
+        yield
+
+    gen = dependency(_cond, timeout_ms=0)
+    emits, _ = drain_to(gen, EEmit)
+
+    assert emits[0].body[0] == "impossible"
+    assert "timed out" in emits[0].body[1]["reason"]
+    assert "0" in emits[0].body[1]["reason"]
 
 
 @time_machine.travel(NOW, tick=False)

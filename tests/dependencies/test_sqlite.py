@@ -186,7 +186,7 @@ def test_no_rows_loops_and_retries_when_row_appears():
 
 
 def testsqlite_condition_unsatisfied_returns_unsatisfied():
-    """Proves sqlite_condition returns an unsatisfied ConditionResult for a status=unsatisfied row."""
+    """Proves sqlite_condition returns unsatisfied ConditionResult for status=unsatisfied row."""
 
     db = _make_db([("unsatisfied",)])
     with pytest.raises(StopIteration) as exc:

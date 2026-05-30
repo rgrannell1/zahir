@@ -7,7 +7,10 @@ from orbis import Effect
 
 
 class ZahirStorageEffect[ReturnT](Effect[ReturnT], abstract=True):
-    """Base class for storage effects yielded by the overseer gen_server — handled by the storage backend."""
+    """Base class for storage effects yielded by the overseer gen_server.
+
+    These effects are handled by the storage backend.
+    """
 
 
 @dataclass
@@ -32,7 +35,10 @@ class EStorageEnqueue(ZahirStorageEffect[None]):
 
 @dataclass
 class EStorageJobDone(ZahirStorageEffect[None]):
-    """Decrement pending and route a result or error to the parent worker, or store as root result."""
+    """Decrement pending and route a result or error to the parent worker.
+
+    If there is no parent, stores as root result.
+    """
 
     tag: ClassVar[str] = "storage_job_done"
     reply_to: bytes | None

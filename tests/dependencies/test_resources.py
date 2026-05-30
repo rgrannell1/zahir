@@ -107,7 +107,10 @@ def test_high_then_low_usage_emits_satisfied():
 
     calls = iter([_high_usage, _low_usage])
 
-    with patch("zahir.core.dependencies.resources._get_usage", lambda r: next(calls)(r)), time_machine.travel(NOW, tick=False):
+    with patch(
+        "zahir.core.dependencies.resources._get_usage",
+        lambda resource: next(calls)(resource),
+    ), time_machine.travel(NOW, tick=False):
         effects, _ = drain_to(resource_dependency("cpu", max_percent=50.0))
 
     assert any(isinstance(e, ESleep) for e in effects)

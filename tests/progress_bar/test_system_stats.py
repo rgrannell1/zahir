@@ -16,18 +16,26 @@ def _job_start(span_id: str, pid: int = 1234, fn: str = "some_job"):
 
 def _job_end(span_id: str, pid: int = 1234, fn: str = "some_job"):
     """JOB_COMPLETE+END event — worker has finished a job."""
-    return point(
-        {"tag": [JobTag.JOB_COMPLETE], "phase": [Phase.END], "id": [span_id], "pid": [str(pid)], "fn": [fn]},
-        at=time.time(),
-    )
+    event_data = {
+        "tag": [JobTag.JOB_COMPLETE],
+        "phase": [Phase.END],
+        "id": [span_id],
+        "pid": [str(pid)],
+        "fn": [fn],
+    }
+    return point(event_data, at=time.time())
 
 
 def _job_fail(span_id: str, pid: int = 1234, fn: str = "some_job"):
     """JOB_FAIL+END event — worker's job errored."""
-    return point(
-        {"tag": [JobTag.JOB_FAIL], "phase": [Phase.END], "id": [span_id], "pid": [str(pid)], "fn": [fn]},
-        at=time.time(),
-    )
+    event_data = {
+        "tag": [JobTag.JOB_FAIL],
+        "phase": [Phase.END],
+        "id": [span_id],
+        "pid": [str(pid)],
+        "fn": [fn],
+    }
+    return point(event_data, at=time.time())
 
 
 def _idle_event(span_id: str, pid: int = 1234):

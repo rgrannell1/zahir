@@ -70,7 +70,9 @@ def start_effect_telemetry(effect, span_id: str, at: float) -> Event:
     return point(dims, at=at)
 
 
-def end_effect_success_telemetry(effect, span_id: str, tspan: TimeSpan, value: Message | None = None) -> Event:
+def end_effect_success_telemetry(
+    effect, span_id: str, tspan: TimeSpan, value: Message | None = None
+) -> Event:
     """Span event marking successful handler completion."""
 
     dims = base_dimensions(effect, span_id) | {"phase": [Phase.END]}

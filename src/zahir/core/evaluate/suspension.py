@@ -1,4 +1,8 @@
-"""Fan-out suspension table: tracks jobs waiting on child results and resumes them when all children complete."""
+"""Fan-out suspension table.
+
+Tracks jobs waiting on child results and resumes them when all children
+complete.
+"""
 
 import itertools
 from collections.abc import Generator
@@ -58,7 +62,9 @@ class SuspendedJob(RunningJob):
     result_order: list[int] | None = None
 
     @classmethod
-    def from_job(cls, job: RunningJob, child_sequence_numbers: list[int], effect: EAwait) -> "SuspendedJob":
+    def from_job(
+        cls, job: RunningJob, child_sequence_numbers: list[int], effect: EAwait
+    ) -> "SuspendedJob":
         """Promote a running job to suspended, recording the fan-out from an EAwait."""
 
         # we only care about ordering for multi-job dispatch
@@ -115,7 +121,9 @@ class SuspensionTable:
     def __post_init__(self) -> None:
         self._alloc = itertools.count().__next__
 
-    def suspend(self, effect: EAwait, job: RunningJob, me_bytes: bytes) -> Generator[Any, Any, None]:
+    def suspend(
+        self, effect: EAwait, job: RunningJob, me_bytes: bytes
+    ) -> Generator[Any, Any, None]:
         """Suspend job, enqueue all child jobs, and record the fan-out in the table."""
 
         child_sequence_numbers = [self._alloc() for _ in effect.jobs]
@@ -134,7 +142,11 @@ class SuspensionTable:
         self.waiting[parent_key] = SuspendedJob.from_job(job, child_sequence_numbers, effect)
 
     def resume(self, work: WorkItem) -> ResumeResult:
-        """Record a child result. Returns (job, result) when all children are done, None if still waiting."""
+        """Record a child result.
+
+        Returns (job, result) when all children are done, None if still
+        waiting.
+        """
 
         _, child_sequence_number, body = work
 
@@ -150,6 +162,9 @@ class SuspensionTable:
             return None
 
         current = self.waiting.pop(parent_key)
-        result = _collect_await_many(current) if current.result_order is not None else _unwrap_reply(body)
+        if current.result_order is not None:
+            result = _collect_await_many(current)
+        else:
+            result = _unwrap_reply(body)
 
         return current, result

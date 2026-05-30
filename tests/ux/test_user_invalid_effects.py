@@ -36,7 +36,7 @@ def test_yielding_non_effect_raises_invalid_effect():
 
 
 def test_yielding_ereceive_raises_invalid_effect():
-    """Proves a job that yields EReceive directly raises InvalidEffectError rather than blocking forever."""
+    """Proves a job that yields EReceive directly raises InvalidEffectError rather than blocking."""
 
     with pytest.raises(InvalidEffectError):
         list(

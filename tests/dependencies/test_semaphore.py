@@ -126,7 +126,7 @@ def test_satisfied_returns_tuple_as_generator_value():
 
 @time_machine.travel(NOW, tick=False)
 def test_impossible_state_returns_tuple_as_generator_value():
-    """Proves the generator returns the impossible tuple as its StopIteration value when signal is impossible."""
+    """Proves generator returns impossible tuple as StopIteration value on impossible signal."""
 
     gen = semaphore_dependency("db")
     next(gen)

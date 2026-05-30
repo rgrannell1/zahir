@@ -29,7 +29,8 @@ def _validate_effect(effect) -> InvalidEffectError | None:
 
 
 def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
-    """Drive gen: reject disallowed effects with InvalidEffectError, dispatch job-level effects to handlers, bubble the rest."""
+    """Drive gen: reject disallowed effects, dispatch job-level effects to
+    handlers, bubble the rest."""
 
     send_value: Any = None
     pending_throw: Exception | None = None
@@ -99,11 +100,21 @@ def _handle_acquire(locals_: WorkerLocals, effect: EAcquire) -> Generator[Any, A
     return result
 
 
+def apply_wrappers_to_handler(handler: Any, handler_wrappers: Sequence) -> Any:
+    """Apply handler wrappers to a single handler."""
+    return reduce(apply_wrapper, handler_wrappers, handler)
+
+
 def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> JobHandlerMap:
-    """Create job-effect handlers keyed by effect tag, with any user-supplied wrappers applied."""
+    """Create job-effect handlers keyed by effect tag, with any
+    user-supplied wrappers applied."""
 
     handlers = {
         EAcquire.tag: partial(_handle_acquire, locals_),
     }
 
-    return cast(JobHandlerMap, {tag: reduce(apply_wrapper, handler_wrappers, handler) for tag, handler in handlers.items()})
+    wrapped = {
+        tag: apply_wrappers_to_handler(handler, handler_wrappers)
+        for tag, handler in handlers.items()
+    }
+    return cast(JobHandlerMap, wrapped)

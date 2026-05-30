@@ -49,7 +49,12 @@ def _job_status_parts(stats: JobStats, waiting: dict[str, int] | None) -> list[s
     return parts
 
 
-def job_description(fn_name: str, stats: JobStats, mean_ms: float | None = None, waiting: dict[str, int] | None = None) -> str:
+def job_description(
+    fn_name: str,
+    stats: JobStats,
+    mean_ms: float | None = None,
+    waiting: dict[str, int] | None = None,
+) -> str:
     parts = _job_status_parts(stats, waiting)
     body = ", ".join(parts) or "starting"
     mean = _format_mean(mean_ms)

@@ -46,7 +46,7 @@ def test_get_job_preserves_fifo_order():
 
 
 def test_get_job_returns_buffered_result_before_queue():
-    """Proves get_job returns a pending result for this worker before taking a new job from the queue."""
+    """Proves get_job returns pending result for this worker before a new job."""
 
     pending = {WORKER: deque([(42, "result")])}
     spec = JobSpec(fn_name="fn", args=(), reply_to=None)

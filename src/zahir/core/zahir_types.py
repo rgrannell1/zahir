@@ -14,8 +14,9 @@ class JobContext[T]:
 
 
 # Result types for dependency combinators — the Left/Right of the dependency monad.
-# TODO: these are type aliases, not classes — isinstance(result, Satisfied) raises a confusing error.
-#       Consider replacing with a proper enum or dataclass so callers can use isinstance naturally.
+# TODO: these are type aliases, not classes — isinstance(result, Satisfied)
+#       raises a confusing error. Consider replacing with a proper enum or
+#       dataclass so callers can use isinstance naturally.
 type Satisfied = tuple[Literal["satisfied"], dict | None]
 type Impossible = tuple[Literal["impossible"], dict | None]
 type Unsatisfied = tuple[Literal["unsatisfied"], dict | None]
