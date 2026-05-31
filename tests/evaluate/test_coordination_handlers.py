@@ -12,36 +12,33 @@ from zahir.core.effects import (
     EGetError,
     EGetJob,
     EGetResult,
+    EGetState,
     EIsDone,
     EJobComplete,
     EJobFail,
     ERelease,
-    EGetState,
     ESetState,
     EStorageAcquire,
     EStorageEnqueue,
+    EStorageGetState,
     EStorageJobDone,
     EStorageJobFailed,
     EStorageRelease,
     EStorageSetState,
-    EStorageGetState,
 )
 from zahir.core.evaluate.coordination_handlers import (
-    CoordinationHandlerContext,
     _handle_acquire_slot,
     _handle_enqueue,
     _handle_get_job,
+    _handle_get_state,
     _handle_job_complete,
     _handle_job_fail,
     _handle_release,
-    _handle_get_state,
     _handle_set_state,
-    make_coordination_handlers,
+    make_merged_coordination_handlers,
 )
 from zahir.core.exceptions import JobError
 from zahir.core.telemetry import make_telemetry
-
-CTX = CoordinationHandlerContext(overseer=OVERSEER)
 
 REPLY_TO = bytes(ME)
 WORKER_PID = b"worker-pid"
@@ -63,7 +60,7 @@ def test_handle_enqueue_sends_correct_message_to_overseer():
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         drain_to(
             _handle_enqueue(
-                CTX,
+                OVERSEER,
                 EEnqueue(
                     fn_name="child",
                     args=(1,),
@@ -92,7 +89,7 @@ def test_handle_get_job_returns_work_from_overseer():
 
     work = ("job", "fn", (), None, None, None)
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(work)):
-        gen = _handle_get_job(CTX, EGetJob(worker_pid_bytes=WORKER_PID))
+        gen = _handle_get_job(OVERSEER, EGetJob(worker_pid_bytes=WORKER_PID))
         with pytest.raises(StopIteration) as exc:
             next(gen)
         assert exc.value.value == work
@@ -102,7 +99,7 @@ def test_handle_get_job_returns_none_when_overseer_has_nothing():
     """Proves _handle_get_job returns None without looping when the overseer has nothing."""
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(None)):
-        gen = _handle_get_job(CTX, EGetJob(worker_pid_bytes=WORKER_PID))
+        gen = _handle_get_job(OVERSEER, EGetJob(worker_pid_bytes=WORKER_PID))
         with pytest.raises(StopIteration) as exc:
             next(gen)
         assert exc.value.value is None
@@ -125,7 +122,7 @@ def test_handle_job_complete_mcasts_storage_job_done_with_result():
         result="done", reply_to=REPLY_TO, sequence_number=7
     )
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        drain_to(_handle_job_complete(CTX, job_complete_effect))
+        drain_to(_handle_job_complete(OVERSEER, job_complete_effect))
 
     assert sent[0] == (OVERSEER, EStorageJobDone(reply_to=REPLY_TO, sequence_number=7, body="done"))
 
@@ -144,7 +141,7 @@ def test_handle_job_complete_with_none_reply_to():
         result="done", reply_to=None, sequence_number=None
     )
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        drain_to(_handle_job_complete(CTX, job_complete_root))
+        drain_to(_handle_job_complete(OVERSEER, job_complete_root))
 
     assert sent[0] == (OVERSEER, EStorageJobDone(reply_to=None, sequence_number=None, body="done"))
 
@@ -164,7 +161,9 @@ def test_handle_job_fail_routes_error_to_parent_via_overseer():
 
     err = JobError(ValueError("boom"))
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        drain_to(_handle_job_fail(CTX, EJobFail(error=err, reply_to=REPLY_TO, sequence_number=5)))
+        drain_to(
+            _handle_job_fail(OVERSEER, EJobFail(error=err, reply_to=REPLY_TO, sequence_number=5))
+        )
 
     assert sent[0] == (OVERSEER, EStorageJobDone(reply_to=REPLY_TO, sequence_number=5, body=err))
 
@@ -181,7 +180,9 @@ def test_handle_job_fail_sends_storage_job_failed_for_root_job():
 
     err = JobError(ValueError("boom"))
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        drain_to(_handle_job_fail(CTX, EJobFail(error=err, reply_to=None, sequence_number=None)))
+        drain_to(
+            _handle_job_fail(OVERSEER, EJobFail(error=err, reply_to=None, sequence_number=None))
+        )
 
     assert sent[0] == (OVERSEER, EStorageJobFailed(error=err))
 
@@ -200,7 +201,7 @@ def test_handle_release_mcasts_storage_release_with_name():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        gen = _handle_release(CTX, ERelease(name="workers"))
+        gen = _handle_release(OVERSEER, ERelease(name="workers"))
         with pytest.raises(StopIteration):
             next(gen)
 
@@ -221,7 +222,7 @@ def test_handle_acquire_slot_mcalls_storage_acquire():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", _capturing):
-        gen = _handle_acquire_slot(CTX, EAcquireSlot(name="workers", limit=4))
+        gen = _handle_acquire_slot(OVERSEER, EAcquireSlot(name="workers", limit=4))
         with pytest.raises(StopIteration) as exc:
             next(gen)
 
@@ -243,7 +244,7 @@ def test_handle_get_state_mcalls_storage_get_state():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", _capturing):
-        gen = _handle_get_state(CTX, EGetState(name="db"))
+        gen = _handle_get_state(OVERSEER, EGetState(name="db"))
         with pytest.raises(StopIteration) as exc:
             next(gen)
 
@@ -265,18 +266,18 @@ def test_handle_set_state_mcasts_storage_set_state():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        drain_to(_handle_set_state(CTX, ESetState(name="db", value="impossible")))
+        drain_to(_handle_set_state(OVERSEER, ESetState(name="db", value="impossible")))
 
     assert sent[0] == (OVERSEER, EStorageSetState(name="db", state="impossible"))
 
 
-# make_coordination_handlers
+# make_merged_coordination_handlers
 
 
-def test_make_coordination_handlers_contains_all_effect_types():
+def test_make_merged_coordination_handlers_contains_all_effect_types():
     """Proves handlers covers all coordination and root polling effect tags."""
 
-    handlers = make_coordination_handlers(CTX)
+    handlers = make_merged_coordination_handlers(OVERSEER, [], {})
     assert set(handlers.keys()) == {
         EAcquireSlot.tag,
         EEnqueue.tag,
@@ -292,10 +293,10 @@ def test_make_coordination_handlers_contains_all_effect_types():
     }
 
 
-def test_make_coordination_handlers_returns_callables():
-    """Proves every handler value in make_coordination_handlers is callable."""
+def test_make_merged_coordination_handlers_returns_callables():
+    """Proves every handler value in make_merged_coordination_handlers is callable."""
 
-    handlers = make_coordination_handlers(CTX)
+    handlers = make_merged_coordination_handlers(OVERSEER, [], {})
     assert all(callable(hdl) for hdl in handlers.values())
 
 
@@ -305,10 +306,7 @@ def test_make_coordination_handlers_returns_callables():
 def test_job_complete_handler_emits_telemetry_with_fn_name():
     """Proves EJobComplete handler emits telemetry events carrying fn_name."""
 
-    ctx = CoordinationHandlerContext(
-        overseer=OVERSEER, handler_wrappers=[make_telemetry()]
-    )
-    handlers = make_coordination_handlers(ctx)
+    handlers = make_merged_coordination_handlers(OVERSEER, [make_telemetry()], {})
 
     effect = EJobComplete(
         result="done",
@@ -327,8 +325,7 @@ def test_job_complete_handler_emits_telemetry_with_fn_name():
 def test_job_fail_handler_emits_telemetry_with_fn_name():
     """Proves EJobFail handler emits telemetry events carrying fn_name."""
 
-    ctx = CoordinationHandlerContext(overseer=OVERSEER, handler_wrappers=[make_telemetry()])
-    handlers = make_coordination_handlers(ctx)
+    handlers = make_merged_coordination_handlers(OVERSEER, [make_telemetry()], {})
 
     effect = EJobFail(
         error=JobError(ValueError("boom")),
@@ -344,11 +341,11 @@ def test_job_fail_handler_emits_telemetry_with_fn_name():
     assert any(e.dim("fn") == "chapter_processor" for e in telemetry)
 
 
-# make_coordination_handlers — root polling effects
+# make_merged_coordination_handlers — root polling effects
 
 
-def test_make_coordination_handlers_applies_wrapper_to_is_done():
-    """Proves make_coordination_handlers wraps EIsDone handler when handler_wrappers is set."""
+def test_make_merged_coordination_handlers_applies_wrapper_to_is_done():
+    """Proves the EIsDone handler is wrapped when handler_wrappers is set."""
 
     emitted = []
 
@@ -358,8 +355,7 @@ def test_make_coordination_handlers_applies_wrapper_to_is_done():
 
     from zahir.core.combinators import wrap
 
-    ctx = CoordinationHandlerContext(overseer=OVERSEER, handler_wrappers=[wrap(recording_fn)])
-    handlers = make_coordination_handlers(ctx)
+    handlers = make_merged_coordination_handlers(OVERSEER, [wrap(recording_fn)], {})
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
         drain_to(handlers[EIsDone.tag](EIsDone()))
@@ -367,7 +363,7 @@ def test_make_coordination_handlers_applies_wrapper_to_is_done():
     assert EIsDone.tag in emitted
 
 
-def test_make_coordination_handlers_applies_wrapper_to_all_root_effects():
+def test_make_merged_coordination_handlers_applies_wrapper_to_all_root_effects():
     """Proves handler_wrappers covers all three root polling effect types."""
 
     seen_tags = []
@@ -378,8 +374,7 @@ def test_make_coordination_handlers_applies_wrapper_to_all_root_effects():
 
     from zahir.core.combinators import wrap
 
-    ctx = CoordinationHandlerContext(overseer=OVERSEER, handler_wrappers=[wrap(recording_fn)])
-    handlers = make_coordination_handlers(ctx)
+    handlers = make_merged_coordination_handlers(OVERSEER, [wrap(recording_fn)], {})
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
         drain_to(handlers[EIsDone.tag](EIsDone()))
@@ -393,11 +388,10 @@ def test_make_coordination_handlers_applies_wrapper_to_all_root_effects():
     assert EGetResult.tag in seen_tags
 
 
-def test_make_coordination_handlers_emits_telemetry_events_for_is_done():
-    """Proves make_coordination_handlers emits bookman Events when make_telemetry is applied."""
+def test_make_merged_coordination_handlers_emits_telemetry_events_for_is_done():
+    """Proves bookman Events are emitted when make_telemetry is applied."""
 
-    ctx = CoordinationHandlerContext(overseer=OVERSEER, handler_wrappers=[make_telemetry()])
-    handlers = make_coordination_handlers(ctx)
+    handlers = make_merged_coordination_handlers(OVERSEER, [make_telemetry()], {})
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
         emitted, _ = drain_to(handlers[EIsDone.tag](EIsDone()))

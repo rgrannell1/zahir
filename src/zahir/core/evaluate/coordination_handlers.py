@@ -1,5 +1,4 @@
 from collections.abc import Generator, Sequence
-from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, cast
 
@@ -33,37 +32,13 @@ from zahir.core.effects import (
 from zahir.core.zahir_types import CoordinationHandlerMap, HandlerMap
 
 
-@dataclass
-class CoordinationHandlerContext:
-    """TODO this is a specialist class, is it needed?"""
-
-    overseer: Pid
-    handler_wrappers: Sequence = field(default_factory=list)
-
-
-def make_merged_coordination_handlers(
-    overseer: Pid,
-    handler_wrappers: Sequence,
-    user_handlers: HandlerMap,
-) -> CoordinationHandlerMap:
-    """Coordination handlers merged with user overrides.
-    User-provided handlers take precedence, allowing any coordination handler to be replaced.
-    """
-
-    ctx = CoordinationHandlerContext(overseer=overseer, handler_wrappers=handler_wrappers)
-    return cast(
-        CoordinationHandlerMap,
-        merge_handlers(make_coordination_handlers(ctx), user_handlers),
-    )
-
-
 def _handle_enqueue(
-    context: CoordinationHandlerContext, effect: EEnqueue
+    overseer: Pid, effect: EEnqueue
 ) -> Generator[Any, Any, None]:
     """Enqueue a child job with the overseer, routing the reply back to this worker."""
 
     yield from mcast(
-        context.overseer,
+        overseer,
         EStorageEnqueue(
             fn_name=effect.fn_name,
             args=effect.args,
@@ -75,20 +50,20 @@ def _handle_enqueue(
 
 
 def _handle_get_job(
-    context: CoordinationHandlerContext, effect: EGetJob
+    overseer: Pid, effect: EGetJob
 ) -> Generator[Any, Any, Any]:
     """Ask the overseer for work — returns a new job, a buffered result, or None."""
 
-    return (yield from mcall(context.overseer, EStorageGetJob(effect.worker_pid_bytes)))
+    return (yield from mcall(overseer, EStorageGetJob(effect.worker_pid_bytes)))
 
 
 def _handle_job_complete(
-    context: CoordinationHandlerContext, effect: EJobComplete
+    overseer: Pid, effect: EJobComplete
 ) -> Generator[Any, Any, None]:
     """Route the result to the parent worker via the overseer and decrement pending."""
 
     yield from mcast(
-        context.overseer,
+        overseer,
         EStorageJobDone(
             reply_to=effect.reply_to,
             sequence_number=effect.sequence_number,
@@ -98,16 +73,16 @@ def _handle_job_complete(
 
 
 def _handle_job_fail(
-    context: CoordinationHandlerContext, effect: EJobFail
+    overseer: Pid, effect: EJobFail
 ) -> Generator[Any, Any, None]:
     """Route the failure to the parent worker via the overseer, or record it as root error."""
 
     if effect.reply_to is None:
-        yield from mcast(context.overseer, EStorageJobFailed(error=effect.error))
+        yield from mcast(overseer, EStorageJobFailed(error=effect.error))
         return
 
     yield from mcast(
-        context.overseer,
+        overseer,
         EStorageJobDone(
             reply_to=effect.reply_to,
             sequence_number=effect.sequence_number,
@@ -117,60 +92,60 @@ def _handle_job_fail(
 
 
 def _handle_release(
-    context: CoordinationHandlerContext, effect: ERelease
+    overseer: Pid, effect: ERelease
 ) -> Generator[Any, Any, None]:
     """Release a named concurrency slot back to the overseer."""
 
-    yield from mcast(context.overseer, EStorageRelease(name=effect.name))
+    yield from mcast(overseer, EStorageRelease(name=effect.name))
 
 
 def _handle_acquire_slot(
-    context: CoordinationHandlerContext, effect: EAcquireSlot
+    overseer: Pid, effect: EAcquireSlot
 ) -> Generator[Any, Any, bool]:
     """Request a named concurrency slot from the overseer."""
 
     acquire_effect = EStorageAcquire(name=effect.name, limit=effect.limit)
-    return (yield from mcall(context.overseer, acquire_effect))
+    return (yield from mcall(overseer, acquire_effect))
 
 
 def _handle_get_state(
-    context: CoordinationHandlerContext, effect: EGetState
+    overseer: Pid, effect: EGetState
 ) -> Generator[Any, Any, str]:
     """Read a value from the overseer's key-value store by name."""
 
-    return (yield from mcall(context.overseer, EStorageGetState(name=effect.name)))
+    return (yield from mcall(overseer, EStorageGetState(name=effect.name)))
 
 
 def _handle_set_state(
-    context: CoordinationHandlerContext, effect: ESetState
+    overseer: Pid, effect: ESetState
 ) -> Generator[Any, Any, None]:
     """Write a value to the overseer's key-value store by name."""
 
-    yield from mcast(context.overseer, EStorageSetState(name=effect.name, state=effect.value))
+    yield from mcast(overseer, EStorageSetState(name=effect.name, state=effect.value))
 
 
 def _handle_is_done(
-    context: CoordinationHandlerContext, effect: EIsDone
+    overseer: Pid, effect: EIsDone
 ) -> Generator[Any, Any, bool]:
     """Ask the overseer whether all pending jobs have completed."""
 
-    return (yield from mcall(context.overseer, EStorageIsDone()))
+    return (yield from mcall(overseer, EStorageIsDone()))
 
 
 def _handle_get_error(
-    context: CoordinationHandlerContext, effect: EGetError
+    overseer: Pid, effect: EGetError
 ) -> Generator[Any, Any, Exception | None]:
     """Retrieve the root error from the overseer, if any."""
 
-    return (yield from mcall(context.overseer, EStorageGetError()))
+    return (yield from mcall(overseer, EStorageGetError()))
 
 
 def _handle_get_result(
-    context: CoordinationHandlerContext, effect: EGetResult
+    overseer: Pid, effect: EGetResult
 ) -> Generator[Any, Any, Any]:
     """Retrieve the root job's return value from the overseer."""
 
-    return (yield from mcall(context.overseer, EStorageGetResult()))
+    return (yield from mcall(overseer, EStorageGetResult()))
 
 
 # EGetJob fires on every worker poll tick — wrapping it generates high-volume noise with no signal.
@@ -179,29 +154,30 @@ _SKIP_WRAP = frozenset({EGetJob.tag})
 
 
 # Now, assemble all of the handlers and wrap them with telemetry context.
-def make_coordination_handlers(
-    context: CoordinationHandlerContext,
+def make_merged_coordination_handlers(
+    overseer: Pid,
+    handler_wrappers: Sequence,
+    user_handlers: HandlerMap,
 ) -> CoordinationHandlerMap:
-    """Create handlers for all coordination effects.
+    """Create handlers for all coordination effects, merged with user overrides.
 
+    User-provided handlers take precedence, allowing any coordination handler to be replaced.
     Handles job lifecycle (worker) and completion polling (root).
     """
 
     bindings = {
-        EAcquireSlot.tag: partial(_handle_acquire_slot, context),
-        EEnqueue.tag: partial(_handle_enqueue, context),
-        EGetError.tag: partial(_handle_get_error, context),
-        EGetJob.tag: partial(_handle_get_job, context),
-        EGetResult.tag: partial(_handle_get_result, context),
-        EIsDone.tag: partial(_handle_is_done, context),
-        EJobComplete.tag: partial(_handle_job_complete, context),
-        EJobFail.tag: partial(_handle_job_fail, context),
-        ERelease.tag: partial(_handle_release, context),
-        EGetState.tag: partial(_handle_get_state, context),
-        ESetState.tag: partial(_handle_set_state, context),
+        EAcquireSlot.tag: partial(_handle_acquire_slot, overseer),
+        EEnqueue.tag: partial(_handle_enqueue, overseer),
+        EGetError.tag: partial(_handle_get_error, overseer),
+        EGetJob.tag: partial(_handle_get_job, overseer),
+        EGetResult.tag: partial(_handle_get_result, overseer),
+        EIsDone.tag: partial(_handle_is_done, overseer),
+        EJobComplete.tag: partial(_handle_job_complete, overseer),
+        EJobFail.tag: partial(_handle_job_fail, overseer),
+        ERelease.tag: partial(_handle_release, overseer),
+        EGetState.tag: partial(_handle_get_state, overseer),
+        ESetState.tag: partial(_handle_set_state, overseer),
     }
 
-    return cast(
-        CoordinationHandlerMap,
-        build_handler_map(bindings, context.handler_wrappers, skip=_SKIP_WRAP),
-    )
+    base = build_handler_map(bindings, handler_wrappers, skip=_SKIP_WRAP)
+    return cast(CoordinationHandlerMap, merge_handlers(base, user_handlers))
