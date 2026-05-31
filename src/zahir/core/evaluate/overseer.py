@@ -29,9 +29,9 @@ def _handle_cast(state: Any, body: Any) -> Generator[Any, Any, Any]:
 
 
 def run_overseer(
-    storage_handlers: dict,
+    handlers: dict,
 ) -> Generator[Any, Any, None]:
-    """Run the overseer genserver"""
+    """Run the overseer genserver. Receives the full handler bag; dispatches its storage slice."""
 
     overseer = gen_server(
         init=_init,
@@ -39,4 +39,4 @@ def run_overseer(
         handle_cast=_handle_cast,
     )
 
-    yield from handle(overseer(), **storage_handlers)
+    yield from handle(overseer(), **handlers)
