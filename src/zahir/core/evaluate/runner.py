@@ -11,6 +11,7 @@ from orbis import handle
 from tertius import EEmit, ESleep, ESpawn, Pid, Scope, run
 
 from zahir.core.backends.memory import make_memory_storage_handlers
+from zahir.core.combinators import merge_handlers
 from zahir.core.constants import COMPLETION_POLL_MS
 from zahir.core.effects import EEnqueue, EGetError, EGetResult, EIsDone
 from zahir.core.evaluate.coordination_handlers import make_merged_coordination_handlers
@@ -97,8 +98,8 @@ def evaluate(  # noqa: PLR0913
     if fn_name not in scope:
         raise KeyError(f"job {fn_name!r} not found in scope")
 
-    memory_handlers = make_memory_storage_handlers()
-    merged_handlers = cast(HandlerMap, {**memory_handlers, **(handlers or {})})
+    memory_handlers = make_memory_storage_handlers(handler_wrappers)
+    merged_handlers = cast(HandlerMap, merge_handlers(memory_handlers, handlers or {}))
     full_scope: Scope = {
         "run_overseer": run_overseer,
         "worker": worker,

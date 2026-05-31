@@ -1,14 +1,43 @@
 """Higher-order functions for composing effect handlers"""
 
-from collections.abc import Generator
-from functools import partial
+from collections.abc import Generator, Sequence
+from collections.abc import Set as AbstractSet
+from functools import partial, reduce
 from typing import Any
+
+from zahir.core.zahir_types import HandlerCallable
 
 
 def apply_wrapper(handler: Any, wrapper: Any) -> Any:
     """Apply a single handler wrapper to a handler."""
 
     return wrapper(handler)
+
+
+def build_handler_map(
+    bindings: dict[str, HandlerCallable],
+    wrappers: Sequence[Any] = (),
+    skip: AbstractSet[str] = frozenset(),
+) -> dict[str, HandlerCallable]:
+    """Build an effect-tag -> handler map, applying wrappers to each handler in order.
+
+    Handlers whose tag is in skip are left unwrapped. With no wrappers, handlers
+    are returned as-is.
+    """
+
+    return {
+        tag: handler if tag in skip else reduce(apply_wrapper, wrappers, handler)
+        for tag, handler in bindings.items()
+    }
+
+
+def merge_handlers(*handler_maps: dict[str, HandlerCallable]) -> dict[str, HandlerCallable]:
+    """Merge handler maps left-to-right; later maps override earlier ones on tag collision."""
+
+    merged: dict[str, HandlerCallable] = {}
+    for handler_map in handler_maps:
+        merged.update(handler_map)
+    return merged
 
 
 def _drive_setup(gen) -> Generator[Any, Any, None]:

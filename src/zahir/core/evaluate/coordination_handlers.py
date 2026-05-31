@@ -1,11 +1,11 @@
 from collections.abc import Generator, Sequence
 from dataclasses import dataclass, field
-from functools import partial, reduce
+from functools import partial
 from typing import Any, cast
 
 from tertius import Pid, mcall, mcast
 
-from zahir.core.combinators import apply_wrapper
+from zahir.core.combinators import build_handler_map, merge_handlers
 from zahir.core.effects import (
     EAcquireSlot,
     EEnqueue,
@@ -23,12 +23,12 @@ from zahir.core.effects import (
     EStorageGetError,
     EStorageGetJob,
     EStorageGetResult,
+    EStorageGetState,
     EStorageIsDone,
     EStorageJobDone,
     EStorageJobFailed,
     EStorageRelease,
     EStorageSetState,
-    EStorageGetState,
 )
 from zahir.core.zahir_types import CoordinationHandlerMap, HandlerMap
 
@@ -51,7 +51,10 @@ def make_merged_coordination_handlers(
     """
 
     ctx = CoordinationHandlerContext(overseer=overseer, handler_wrappers=handler_wrappers)
-    return cast(CoordinationHandlerMap, {**make_coordination_handlers(ctx), **user_handlers})
+    return cast(
+        CoordinationHandlerMap,
+        merge_handlers(make_coordination_handlers(ctx), user_handlers),
+    )
 
 
 def _handle_enqueue(
@@ -172,7 +175,7 @@ def _handle_get_result(
 
 # EGetJob fires on every worker poll tick — wrapping it generates high-volume noise with no signal.
 # TODO encode this skip in the telemetry layer
-_SKIP_WRAP = {EGetJob.tag}
+_SKIP_WRAP = frozenset({EGetJob.tag})
 
 
 # Now, assemble all of the handlers and wrap them with telemetry context.
@@ -184,7 +187,7 @@ def make_coordination_handlers(
     Handles job lifecycle (worker) and completion polling (root).
     """
 
-    handlers = {
+    bindings = {
         EAcquireSlot.tag: partial(_handle_acquire_slot, context),
         EEnqueue.tag: partial(_handle_enqueue, context),
         EGetError.tag: partial(_handle_get_error, context),
@@ -198,14 +201,7 @@ def make_coordination_handlers(
         ESetState.tag: partial(_handle_set_state, context),
     }
 
-    mapped = {}
-    wrappers = context.handler_wrappers
-
-    for tag, handler in handlers.items():
-        if tag in _SKIP_WRAP:
-            mapped[tag] = handler
-            continue
-
-        mapped[tag] = reduce(apply_wrapper, wrappers, handler)
-
-    return cast(CoordinationHandlerMap, mapped)
+    return cast(
+        CoordinationHandlerMap,
+        build_handler_map(bindings, context.handler_wrappers, skip=_SKIP_WRAP),
+    )

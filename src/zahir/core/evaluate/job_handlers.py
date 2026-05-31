@@ -2,10 +2,10 @@
 
 from collections.abc import Generator, Sequence
 from datetime import UTC, datetime
-from functools import partial, reduce
+from functools import partial
 from typing import Any, cast
 
-from zahir.core.combinators import apply_wrapper
+from zahir.core.combinators import build_handler_map
 from zahir.core.constants import BLOCKED_EFFECTS, THROWABLE
 from zahir.core.effects import (
     EAcquire,
@@ -100,21 +100,11 @@ def _handle_acquire(locals_: WorkerLocals, effect: EAcquire) -> Generator[Any, A
     return result
 
 
-def apply_wrappers_to_handler(handler: Any, handler_wrappers: Sequence) -> Any:
-    """Apply handler wrappers to a single handler."""
-    return reduce(apply_wrapper, handler_wrappers, handler)
-
-
 def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> JobHandlerMap:
     """Create job-effect handlers keyed by effect tag, with any
     user-supplied wrappers applied."""
 
-    handlers = {
+    bindings = {
         EAcquire.tag: partial(_handle_acquire, locals_),
     }
-
-    wrapped = {
-        tag: apply_wrappers_to_handler(handler, handler_wrappers)
-        for tag, handler in handlers.items()
-    }
-    return cast(JobHandlerMap, wrapped)
+    return cast(JobHandlerMap, build_handler_map(bindings, handler_wrappers))

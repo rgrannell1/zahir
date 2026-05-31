@@ -1,11 +1,12 @@
 """In-memory coordination backend — the default storage backend for the overseer gen_server."""
 
 from collections import deque
-from collections.abc import Generator
+from collections.abc import Generator, Sequence
 from dataclasses import dataclass, field
 from functools import partial
 from typing import Any, cast
 
+from zahir.core.combinators import build_handler_map
 from zahir.core.constants import WorkItemTag
 from zahir.core.effects import (
     EStorageAcquire,
@@ -13,12 +14,12 @@ from zahir.core.effects import (
     EStorageGetError,
     EStorageGetJob,
     EStorageGetResult,
+    EStorageGetState,
     EStorageIsDone,
     EStorageJobDone,
     EStorageJobFailed,
     EStorageRelease,
     EStorageSetState,
-    EStorageGetState,
 )
 from zahir.core.zahir_types import ConcurrencyMap, JobSpec, PendingResults, StorageHandlerMap
 
@@ -226,23 +227,27 @@ def _handle_storage_get_result(backend: MemoryBackend, effect: EStorageGetResult
     yield
 
 
-def make_memory_storage_handlers() -> StorageHandlerMap:
-    """Create a complete set of storage handlers backed by a fresh in-memory backend."""
+# EStorageGetJob is polled on every worker tick — wrapping it floods telemetry with noise.
+# Mirrors the EGetJob skip in coordination_handlers.
+_SKIP_WRAP = frozenset({EStorageGetJob.tag})
+
+
+def make_memory_storage_handlers(handler_wrappers: Sequence = ()) -> StorageHandlerMap:
+    """Create a complete set of storage handlers backed by a fresh in-memory backend,
+    with any user-supplied wrappers applied."""
     backend = MemoryBackend()
 
-    return cast(
-        StorageHandlerMap,
-        {
-            EStorageGetJob.tag: partial(_handle_storage_get_job, backend),
-            EStorageEnqueue.tag: partial(_handle_storage_enqueue, backend),
-            EStorageJobDone.tag: partial(_handle_storage_job_done, backend),
-            EStorageJobFailed.tag: partial(_handle_storage_job_failed, backend),
-            EStorageAcquire.tag: partial(_handle_storage_acquire, backend),
-            EStorageRelease.tag: partial(_handle_storage_release, backend),
-            EStorageGetState.tag: partial(_handle_storage_get_state, backend),
-            EStorageSetState.tag: partial(_handle_storage_set_state, backend),
-            EStorageIsDone.tag: partial(_handle_storage_is_done, backend),
-            EStorageGetError.tag: partial(_handle_storage_get_error, backend),
-            EStorageGetResult.tag: partial(_handle_storage_get_result, backend),
-        },
-    )
+    bindings = {
+        EStorageGetJob.tag: partial(_handle_storage_get_job, backend),
+        EStorageEnqueue.tag: partial(_handle_storage_enqueue, backend),
+        EStorageJobDone.tag: partial(_handle_storage_job_done, backend),
+        EStorageJobFailed.tag: partial(_handle_storage_job_failed, backend),
+        EStorageAcquire.tag: partial(_handle_storage_acquire, backend),
+        EStorageRelease.tag: partial(_handle_storage_release, backend),
+        EStorageGetState.tag: partial(_handle_storage_get_state, backend),
+        EStorageSetState.tag: partial(_handle_storage_set_state, backend),
+        EStorageIsDone.tag: partial(_handle_storage_is_done, backend),
+        EStorageGetError.tag: partial(_handle_storage_get_error, backend),
+        EStorageGetResult.tag: partial(_handle_storage_get_result, backend),
+    }
+    return cast(StorageHandlerMap, build_handler_map(bindings, handler_wrappers, skip=_SKIP_WRAP))

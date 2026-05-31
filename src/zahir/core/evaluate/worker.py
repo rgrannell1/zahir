@@ -3,13 +3,13 @@
 from collections.abc import Generator, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from functools import partial, reduce
+from functools import partial
 from typing import Any, cast
 
 from orbis import handle
 from tertius import EEmit, ESelf, ESleep, Pid, Scope
 
-from zahir.core.combinators import apply_wrapper
+from zahir.core.combinators import build_handler_map, merge_handlers
 from zahir.core.constants import WORKER_POLL_MS, WorkItemTag
 from zahir.core.effects import (
     EAwait,
@@ -174,9 +174,8 @@ def make_worker_handlers(
 ) -> HandlerMap:
     """EAwait handler with wrappers applied — merged last so it cannot be overridden."""
 
-    handler = partial(_handle_eawait, suspension, locals_)
-    wrapped = reduce(apply_wrapper, handler_wrappers, handler)
-    return cast(HandlerMap, {EAwait.tag: wrapped})
+    bindings = {EAwait.tag: partial(_handle_eawait, suspension, locals_)}
+    return cast(HandlerMap, build_handler_map(bindings, handler_wrappers))
 
 
 def step_job_generator(
@@ -252,6 +251,5 @@ def worker(
 
     yield from handle(  # type: ignore
         _worker_body(suspension, locals_, job_handlers, overseer, ctx),
-        **base_handlers,
-        **worker_handlers,
+        **merge_handlers(base_handlers, worker_handlers),
     )
