@@ -4,7 +4,7 @@ from typing import Any, cast
 
 from tertius import Pid, mcall, mcast
 
-from zahir.core.combinators import build_handler_map, merge_handlers
+from zahir.core.combinators import build_handler_map
 from zahir.core.effects import (
     EAcquireSlot,
     EEnqueue,
@@ -29,7 +29,7 @@ from zahir.core.effects import (
     EStorageRelease,
     EStorageSetState,
 )
-from zahir.core.zahir_types import CoordinationHandlerMap, HandlerMap
+from zahir.core.zahir_types import CoordinationHandlerMap
 
 
 def _handle_enqueue(
@@ -154,15 +154,14 @@ _SKIP_WRAP = frozenset({EGetJob.tag})
 
 
 # Now, assemble all of the handlers and wrap them with telemetry context.
-def make_merged_coordination_handlers(
+def make_coordination_handlers(
     overseer: Pid,
     handler_wrappers: Sequence,
-    user_handlers: HandlerMap,
 ) -> CoordinationHandlerMap:
-    """Create handlers for all coordination effects, merged with user overrides.
+    """Create handlers for all coordination effects.
 
-    User-provided handlers take precedence, allowing any coordination handler to be replaced.
-    Handles job lifecycle (worker) and completion polling (root).
+    Handles job lifecycle (worker) and completion polling (root). Callers merge in any
+    user overrides at the call site via merge_handlers.
     """
 
     bindings = {
@@ -179,5 +178,7 @@ def make_merged_coordination_handlers(
         ESetState.tag: partial(_handle_set_state, overseer),
     }
 
-    base = build_handler_map(bindings, handler_wrappers, skip=_SKIP_WRAP)
-    return cast(CoordinationHandlerMap, merge_handlers(base, user_handlers))
+    return cast(
+        CoordinationHandlerMap,
+        build_handler_map(bindings, handler_wrappers, skip=_SKIP_WRAP),
+    )

@@ -14,7 +14,7 @@ from zahir.core.backends.memory import make_memory_storage_handlers
 from zahir.core.combinators import merge_handlers
 from zahir.core.constants import COMPLETION_POLL_MS
 from zahir.core.effects import EEnqueue, EGetError, EGetResult, EIsDone
-from zahir.core.evaluate.coordination_handlers import make_merged_coordination_handlers
+from zahir.core.evaluate.coordination_handlers import make_coordination_handlers
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.worker import worker
 from zahir.core.zahir_types import HandlerMap
@@ -75,9 +75,8 @@ def _evaluate_runner(
         )
         yield ESpawn(fn_name="worker", args=worker_args)
 
-    root_handlers = make_merged_coordination_handlers(
-        overseer,
-        config.handler_wrappers,
+    root_handlers = merge_handlers(
+        make_coordination_handlers(overseer, config.handler_wrappers),
         config.handlers,
     )
 

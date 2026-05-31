@@ -35,7 +35,7 @@ from zahir.core.evaluate.coordination_handlers import (
     _handle_job_fail,
     _handle_release,
     _handle_set_state,
-    make_merged_coordination_handlers,
+    make_coordination_handlers,
 )
 from zahir.core.exceptions import JobError
 from zahir.core.telemetry import make_telemetry
@@ -271,13 +271,13 @@ def test_handle_set_state_mcasts_storage_set_state():
     assert sent[0] == (OVERSEER, EStorageSetState(name="db", state="impossible"))
 
 
-# make_merged_coordination_handlers
+# make_coordination_handlers
 
 
-def test_make_merged_coordination_handlers_contains_all_effect_types():
+def test_make_coordination_handlers_contains_all_effect_types():
     """Proves handlers covers all coordination and root polling effect tags."""
 
-    handlers = make_merged_coordination_handlers(OVERSEER, [], {})
+    handlers = make_coordination_handlers(OVERSEER, [])
     assert set(handlers.keys()) == {
         EAcquireSlot.tag,
         EEnqueue.tag,
@@ -293,10 +293,10 @@ def test_make_merged_coordination_handlers_contains_all_effect_types():
     }
 
 
-def test_make_merged_coordination_handlers_returns_callables():
-    """Proves every handler value in make_merged_coordination_handlers is callable."""
+def test_make_coordination_handlers_returns_callables():
+    """Proves every handler value in make_coordination_handlers is callable."""
 
-    handlers = make_merged_coordination_handlers(OVERSEER, [], {})
+    handlers = make_coordination_handlers(OVERSEER, [])
     assert all(callable(hdl) for hdl in handlers.values())
 
 
@@ -306,7 +306,7 @@ def test_make_merged_coordination_handlers_returns_callables():
 def test_job_complete_handler_emits_telemetry_with_fn_name():
     """Proves EJobComplete handler emits telemetry events carrying fn_name."""
 
-    handlers = make_merged_coordination_handlers(OVERSEER, [make_telemetry()], {})
+    handlers = make_coordination_handlers(OVERSEER, [make_telemetry()])
 
     effect = EJobComplete(
         result="done",
@@ -325,7 +325,7 @@ def test_job_complete_handler_emits_telemetry_with_fn_name():
 def test_job_fail_handler_emits_telemetry_with_fn_name():
     """Proves EJobFail handler emits telemetry events carrying fn_name."""
 
-    handlers = make_merged_coordination_handlers(OVERSEER, [make_telemetry()], {})
+    handlers = make_coordination_handlers(OVERSEER, [make_telemetry()])
 
     effect = EJobFail(
         error=JobError(ValueError("boom")),
@@ -341,10 +341,10 @@ def test_job_fail_handler_emits_telemetry_with_fn_name():
     assert any(e.dim("fn") == "chapter_processor" for e in telemetry)
 
 
-# make_merged_coordination_handlers — root polling effects
+# make_coordination_handlers — root polling effects
 
 
-def test_make_merged_coordination_handlers_applies_wrapper_to_is_done():
+def test_make_coordination_handlers_applies_wrapper_to_is_done():
     """Proves the EIsDone handler is wrapped when handler_wrappers is set."""
 
     emitted = []
@@ -355,7 +355,7 @@ def test_make_merged_coordination_handlers_applies_wrapper_to_is_done():
 
     from zahir.core.combinators import wrap
 
-    handlers = make_merged_coordination_handlers(OVERSEER, [wrap(recording_fn)], {})
+    handlers = make_coordination_handlers(OVERSEER, [wrap(recording_fn)])
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
         drain_to(handlers[EIsDone.tag](EIsDone()))
@@ -363,7 +363,7 @@ def test_make_merged_coordination_handlers_applies_wrapper_to_is_done():
     assert EIsDone.tag in emitted
 
 
-def test_make_merged_coordination_handlers_applies_wrapper_to_all_root_effects():
+def test_make_coordination_handlers_applies_wrapper_to_all_root_effects():
     """Proves handler_wrappers covers all three root polling effect types."""
 
     seen_tags = []
@@ -374,7 +374,7 @@ def test_make_merged_coordination_handlers_applies_wrapper_to_all_root_effects()
 
     from zahir.core.combinators import wrap
 
-    handlers = make_merged_coordination_handlers(OVERSEER, [wrap(recording_fn)], {})
+    handlers = make_coordination_handlers(OVERSEER, [wrap(recording_fn)])
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
         drain_to(handlers[EIsDone.tag](EIsDone()))
@@ -388,10 +388,10 @@ def test_make_merged_coordination_handlers_applies_wrapper_to_all_root_effects()
     assert EGetResult.tag in seen_tags
 
 
-def test_make_merged_coordination_handlers_emits_telemetry_events_for_is_done():
+def test_make_coordination_handlers_emits_telemetry_events_for_is_done():
     """Proves bookman Events are emitted when make_telemetry is applied."""
 
-    handlers = make_merged_coordination_handlers(OVERSEER, [make_telemetry()], {})
+    handlers = make_coordination_handlers(OVERSEER, [make_telemetry()])
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
         emitted, _ = drain_to(handlers[EIsDone.tag](EIsDone()))

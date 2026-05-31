@@ -19,7 +19,7 @@ from zahir.core.effects import (
     ERelease,
 )
 from zahir.core.emit import execute_start_event
-from zahir.core.evaluate.coordination_handlers import make_merged_coordination_handlers
+from zahir.core.evaluate.coordination_handlers import make_coordination_handlers
 from zahir.core.evaluate.job_handlers import (
     evaluate_job,
     make_job_handlers,
@@ -178,7 +178,7 @@ def make_worker_handlers(
     return cast(HandlerMap, build_handler_map(bindings, handler_wrappers))
 
 
-def step_job_generator(
+def advance_job(
     job: RunningJob, pending_throw: Exception | None, handler_value: Any
 ) -> Any:
     """Drive job generator one step, throwing exception if pending."""
@@ -193,7 +193,7 @@ def _handle_running(state: _Running, locals_: WorkerLocals) -> Generator[Any, An
     job = state.job
     locals_.current_job = job
     try:
-        effect = step_job_generator(job, state.pending_throw, state.handler_value)
+        effect = advance_job(job, state.pending_throw, state.handler_value)
     except StopIteration as exc:
         yield from _successful_job(job, exc.value)
         return _Idle()
@@ -245,7 +245,7 @@ def worker(
     # acquire & similar
     job_handlers = make_job_handlers(locals_, handler_wrappers)
     # general coordination handlers
-    base_handlers = make_merged_coordination_handlers(overseer, handler_wrappers, handlers)
+    base_handlers = merge_handlers(make_coordination_handlers(overseer, handler_wrappers), handlers)
     # eawait handler, which uses locals_ for local state
     worker_handlers = make_worker_handlers(suspension, locals_, handler_wrappers)
 
