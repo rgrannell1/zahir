@@ -128,7 +128,7 @@ def process_image(ctx: JobContext, path: str):
 
 ## Checkpointing & Retries
 
-Retries can be modelled at the job-level. Rollbacks are simply `try-catch` usage; if one code-path fails, proceed along another. For checkpointing, externalise state in persistent storage.
+Retries can be modelled at the job-level. Rollbacks are simply `try-catch` usage; if one code-path fails, proceed along another. For checkpointing, externalise state in persistent storage. I have another library, [Funes](https://github.com/rgrannell1/funes) which cleanly supports caching of expensive computations which fits naturally with Zahir. I think ultimately durable jobs are the wrong abstraction; durable computation results achieves much of the benefits at far lower architectural cost.
 
 ```python
 def fetch_with_retry(ctx: JobContext, url: str):
