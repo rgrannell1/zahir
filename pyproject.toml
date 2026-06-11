@@ -11,6 +11,11 @@ dependencies = [
     "tertius",
 ]
 
+[tool.uv.sources]
+tertius = { path = "../tertius", editable = true }
+orbis = { path = "../orbis", editable = true }
+bookman = { path = "../bookman", editable = true }
+
 [dependency-groups]
 dev = [
     "bookman>=0.5",

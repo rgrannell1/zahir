@@ -28,7 +28,7 @@ from zahir.core.evaluate.suspension import RunningJob, SuspensionTable, WorkerLo
 from zahir.core.exceptions import JobError, ZahirError
 from zahir.core.fp_types import Err, Ok
 from zahir.core.scope_proxy import ScopeProxy
-from zahir.core.telemetry import record_execute_start
+from zahir.core.telemetry import record_execute_start, record_execute_start_id
 from zahir.core.zahir_types import HandlerMap, JobContext
 
 # Sentinel returned by the EAwait handler to signal that the job was suspended.
@@ -130,7 +130,10 @@ def _handle_job_work_item(
     record_execute_start(reply_to, parent_sequence_number)
     if isinstance(reply_to, bytes) and parent_sequence_number is not None:
         job_id = f"{reply_to.hex()}:{parent_sequence_number}"
-        yield EEmit(execute_start_event(fn_name, job_id))
+    else:
+        job_id = "root"
+        record_execute_start_id(job_id)
+    yield EEmit(execute_start_event(fn_name, job_id))
     return _Running(job=_build_job(work, ctx, job_handlers))  # noqa: B901
 
 

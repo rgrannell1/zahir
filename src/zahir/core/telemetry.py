@@ -43,6 +43,12 @@ def record_execute_start(reply_to: bytes | None, sequence_number: int | None) ->
         _execute_times[f"{reply_to.hex()}:{sequence_number}"] = time.time()
 
 
+def record_execute_start_id(job_id: str) -> None:
+    """Record when a worker begins executing a job with an already-derived id."""
+
+    _execute_times[job_id] = time.time()
+
+
 def _resolve_lifecycle(effect, job_id: str | None, end: float) -> object | None:
     """Return a lifecycle span event if this is a job-end effect with a known execute time."""
 

@@ -12,6 +12,12 @@ from zahir.progress_bar.descriptions_view import (
 from zahir.progress_bar.progress_bar_service import ProgressBarService
 
 
+def _visible_total(stats) -> int:
+    """Return the denominator to display for a job row with any observed activity."""
+
+    return max(stats.total, stats.started, stats.processed)
+
+
 def _make_progress() -> Progress:
     """Our task progress widget."""
 
@@ -82,7 +88,8 @@ class RichDisplayService:
         """Update the job rows with the current stats for each function."""
 
         for fn_name, stats in service.jobs.items():
-            if stats.total == 0:
+            total = _visible_total(stats)
+            if total == 0:
                 continue
             task_id = self._ensure_job_task(fn_name)
             mean_ms = service.mean_duration_ms(fn_name)
@@ -92,7 +99,7 @@ class RichDisplayService:
                 task_id,
                 description=job_description(fn_name, stats, mean_ms, waiting),
                 completed=stats.processed,
-                total=stats.total,
+                total=total,
                 status=job_status(stats),
             )
 
@@ -102,9 +109,9 @@ class RichDisplayService:
         if self._workflow_task is None:
             return
 
-        enqueued = [stat for stat in service.jobs.values() if stat.total > 0]
-        total = sum(stat.total for stat in enqueued)
-        completed = sum(stat.processed for stat in enqueued)
+        visible = [stat for stat in service.jobs.values() if _visible_total(stat) > 0]
+        total = sum(_visible_total(stat) for stat in visible)
+        completed = sum(stat.processed for stat in visible)
         remaining = total - completed
         eta = service.format_eta(completed, remaining)
         elapsed = service.format_elapsed()

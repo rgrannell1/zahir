@@ -5,6 +5,7 @@ import contextlib
 from bookman.events import Event
 
 from tests.ux.test_user_mirror_workflow import BASE_SCOPE
+from zahir.core.constants import JobTag, Phase
 from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate, setup
 from zahir.core.exceptions import JobError
@@ -57,6 +58,8 @@ def test_mirror_workflow_root_job_is_counted():
     root_stats = state.jobs.get("mirror_workflow")
     assert root_stats is not None
     assert root_stats.total == 1
+    assert root_stats.started == 1
+    assert root_stats.completed == 1
 
 
 # --- mixed ok and failing jobs ---
@@ -120,3 +123,21 @@ def test_mixed_workflow_enqueued_jobs_all_processed():
         processed = stats.processed
         total = stats.total
         assert processed == total, f"{fn_name!r}: processed={processed} != total={total}"
+
+
+def test_root_fanout_child_enqueue_telemetry_arrives_before_completion():
+    """Proves live progress can see child jobs as soon as a root job fans out."""
+
+    runtime = setup(n_workers=4)
+    events = evaluate(runtime, "mixed_root", (), MIXED_SCOPE, handler_wrappers=[make_telemetry()])
+
+    for event in events:
+        if (
+            isinstance(event, Event)
+            and event.dim("tag") == JobTag.ENQUEUE
+            and event.dim("phase") == Phase.START
+            and event.dim("fn") == "ok_job"
+        ):
+            return
+
+    raise AssertionError("child enqueue telemetry for ok_job was not emitted")
