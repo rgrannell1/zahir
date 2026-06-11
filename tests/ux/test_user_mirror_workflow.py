@@ -250,7 +250,9 @@ def test_mirror_workflow_parallel_scan_reads():
         "read_videos": emitting_read_videos,
     }
 
-    events = list(evaluate(setup(n_workers=4), "mirror_workflow", ({"publish_d1": False},), scope))
+    events = list(
+        evaluate(setup(n_workers=4), "mirror_workflow", ({"publish_d1": False},), scope)
+    )
 
     assert sorted(event for event in events if isinstance(event, str)) == [
         "read_albums",

@@ -53,7 +53,12 @@ _SCOPE = {
 def test_resource_dependency_blocks_all_jobs_when_threshold_is_zero():
     """Proves memory-gated jobs return None when the threshold is impossible to meet."""
 
-    result = evaluate(setup(n_workers=_N_WORKERS), "ram_fanout_root", (_ALWAYS_BLOCKED,), _SCOPE)
+    result = evaluate(
+        setup(n_workers=_N_WORKERS),
+        "ram_fanout_root",
+        (_ALWAYS_BLOCKED,),
+        _SCOPE,
+    )
     events = user_events(result)
 
     records = events[-1]

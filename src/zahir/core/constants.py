@@ -18,6 +18,19 @@ COMPLETION_POLL_MS = 500
 # How long to wait between CPU usage samples when checking resource availability
 CPU_SAMPLE_INTERVAL_S = 0.1
 
+# Broker name the overseer registers under, so remote workers can find it by name
+OVERSEER_NAME = "zahir:overseer"
+
+# How often a joining remote worker polls the broker for the overseer name
+OVERSEER_WHEREIS_POLL_MS = 250
+
+# How long a joining remote worker waits for the overseer name before giving up
+OVERSEER_WHEREIS_TIMEOUT_MS = 30_000
+
+# Remote worker receive timeout — if the overseer stops replying for this long,
+# the worker raises and exits rather than hanging forever
+REMOTE_RECV_TIMEOUT_MS = 60_000
+
 
 # Lifecycle phase attached to every telemetry event
 class Phase(StrEnum):

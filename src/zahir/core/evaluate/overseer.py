@@ -4,14 +4,19 @@ from collections.abc import Generator
 from typing import Any
 
 from orbis import handle
-from tertius import gen_server
+from tertius import ERegister, gen_server
+
+from zahir.core.constants import OVERSEER_NAME
 
 
 def _init() -> Generator[Any, Any, None]:
-    """No-op init — the root job is enqueued by _root after all workers are spawned."""
+    """Register the overseer's broker name so remote workers can find it.
 
-    return None
-    yield
+    The root job is enqueued by _root after all workers are spawned.
+    """
+
+    yield ERegister(name=OVERSEER_NAME)
+    return None  # noqa: B901
 
 
 def _handle_call(state: Any, body: Any) -> Generator[Any, Any, tuple[Any, Any]]:

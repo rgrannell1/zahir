@@ -1,9 +1,9 @@
-"""UX test: verifies setup() produces a runtime handle accepted by evaluate()."""
+"""UX test: verifies local and remote setup helpers produce working runtime handles."""
 
-import pytest
+from tertius import TcpTransport
 
-from tests.shared import user_events
-from zahir.core.evaluate import JobContext, evaluate, setup
+from tests.shared import free_ports, user_events
+from zahir.core.evaluate import JobContext, evaluate, setup, setup_remote
 
 
 def setup_returning_root(ctx: JobContext):
@@ -12,22 +12,32 @@ def setup_returning_root(ctx: JobContext):
     return {"result": 42}  # noqa: B901
 
 
+_SCOPE = {"setup_returning_root": setup_returning_root}
+
+
 def test_setup_runtime_runs_the_existing_local_path():
     """Proves evaluate(setup(...), ...) preserves the current local execution path."""
 
     runtime = setup(n_workers=1)
-    scope = {"setup_returning_root": setup_returning_root}
 
-    events = user_events(evaluate(runtime, "setup_returning_root", (), scope))
+    events = user_events(evaluate(runtime, "setup_returning_root", (), _SCOPE))
 
     assert events == [{"result": 42}]
 
 
-def test_setup_remote_refs_fail_fast_until_wired():
-    """Proves remote process refs are rejected explicitly until runtime resolution lands."""
+def test_setup_remote_evaluates_over_tcp_transport():
+    """Proves a setup_remote runtime binds the broker over TCP and evaluates jobs through it."""
 
-    runtime = setup(overseer=("name", "overseer"), workers=(("name", "worker-1"),), n_workers=1)
-    scope = {"setup_returning_root": setup_returning_root}
+    data_port, control_port = free_ports(2)
+    runtime = setup_remote(
+        host="127.0.0.1",
+        data_port=data_port,
+        control_port=control_port,
+        n_workers=1,
+    )
 
-    with pytest.raises(NotImplementedError, match="not wired into evaluate"):
-        list(evaluate(runtime, "setup_returning_root", (), scope))
+    assert isinstance(runtime[1], TcpTransport)
+
+    events = user_events(evaluate(runtime, "setup_returning_root", (), _SCOPE))
+
+    assert events == [{"result": 42}]

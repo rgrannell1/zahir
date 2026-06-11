@@ -30,7 +30,7 @@ from zahir.core.dependencies import (
     time_dependency,
 )
 from zahir.core.effects import EAcquire, EAwait, EGetState, ESetState, await_all
-from zahir.core.evaluate import evaluate, setup
+from zahir.core.evaluate import evaluate, join_worker, setup, setup_remote
 from zahir.core.telemetry import make_telemetry
 from zahir.core.zahir_types import JobContext
 from zahir.progress_bar.progress_bar import with_progress
@@ -61,6 +61,7 @@ __all__ = [
     "file_condition",
     "file_dependency",
     "group_dependency",
+    "join_worker",
     "make_memory_storage_handlers",
     "make_telemetry",
     "rate_limit_dependency",
@@ -69,6 +70,7 @@ __all__ = [
     "semaphore_condition",
     "semaphore_dependency",
     "setup",
+    "setup_remote",
     "sqlite_condition",
     "sqlite_dependency",
     "time_condition",

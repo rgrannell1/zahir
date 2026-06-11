@@ -1,3 +1,4 @@
+import socket
 from collections.abc import Generator, Iterable
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -20,7 +21,11 @@ def mean_active_cores(events: list[Any], window_ms: float = _DEFAULT_WINDOW_MS) 
     unique PIDs that emitted at least one event in each window, then averages across
     all windows. Requires events produced with make_telemetry() so the pid dim is set.
     """
-    pid_times = [(e.at, e.dim("pid")) for e in events if isinstance(e, Event) and e.dim("pid")]
+    pid_times = [
+        (event.at, event.dim("pid"))
+        for event in events
+        if isinstance(event, Event) and event.dim("pid")
+    ]
     if not pid_times:
         return 0.0
 
@@ -75,7 +80,7 @@ def drain_to(gen: Generator, *types: type, responses: dict | None = None) -> tup
     except StopIteration as exc:
         return_value = exc.value
     if types:
-        return [e for e in effects if isinstance(e, types)], return_value
+        return [effect for effect in effects if isinstance(effect, types)], return_value
     return effects, return_value
 
 
@@ -86,4 +91,16 @@ def user_events(events_iter: Iterable[Any]) -> list[Any]:
     alongside user-emitted values. This strips the infrastructure layer so tests
     can assert on application-level output without breaking as event counts grow.
     """
-    return [e for e in events_iter if not isinstance(e, Event)]
+    return [event for event in events_iter if not isinstance(event, Event)]
+
+
+def free_ports(count: int) -> list[int]:
+    """Reserve free localhost TCP ports by binding then releasing them."""
+
+    sockets = [socket.socket() for _ in range(count)]
+    for sock in sockets:
+        sock.bind(("127.0.0.1", 0))
+    ports = [sock.getsockname()[1] for sock in sockets]
+    for sock in sockets:
+        sock.close()
+    return ports

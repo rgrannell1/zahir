@@ -23,3 +23,7 @@ class InvalidEffectError(ZahirError):
 
 class ImpossibleError(ZahirError):
     """Raised by a condition function to signal the dependency can never be satisfied."""
+
+
+class OverseerNotFoundError(ZahirError):
+    """Raised when a remote worker cannot resolve the overseer by name in time."""

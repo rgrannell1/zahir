@@ -57,12 +57,9 @@ def _evaluate_runner(
 ) -> Generator[Any, Any, None]:
     """Run the root job and wait for completion."""
 
-    _, _transport, overseer_ref, worker_refs, n_workers = runtime
+    _, _transport, n_workers = runtime
     fn_name, args, scope = inputs
     handler_wrappers, handlers = bindings
-
-    if overseer_ref is not None or worker_refs:
-        raise NotImplementedError("remote process refs are not wired into evaluate() yet")
 
     overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(handlers,))
 
@@ -104,10 +101,12 @@ def evaluate(  # noqa: PLR0913
         "worker": worker,
         **scope,
     }
+    _, transport, _n_workers = runtime
     yield from run(
         _evaluate_runner,
         runtime,
         (fn_name, args, scope),
         (handler_wrappers, merged_handlers),
         scope=full_scope,
+        transport=transport,
     )
