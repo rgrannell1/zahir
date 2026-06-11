@@ -4,7 +4,6 @@ Spawns overseer and workers, seeds root job, polls for completion.
 """
 
 from collections.abc import Generator, Sequence
-from dataclasses import dataclass, field
 from typing import Any, cast
 
 from orbis import handle
@@ -16,17 +15,12 @@ from zahir.core.constants import COMPLETION_POLL_MS
 from zahir.core.effects import EEnqueue, EGetError, EGetResult, EIsDone
 from zahir.core.evaluate.coordination_handlers import make_coordination_handlers
 from zahir.core.evaluate.overseer import run_overseer
+from zahir.core.evaluate.runtime import Runtime
 from zahir.core.evaluate.worker import worker
 from zahir.core.zahir_types import HandlerMap
 
-
-@dataclass
-class EvaluateConfig:
-    """Runtime configuration for a zahir evaluation."""
-
-    n_workers: int = 4
-    handler_wrappers: Sequence = field(default_factory=tuple)
-    handlers: HandlerMap = field(default_factory=dict)
+type EvaluationInputs = tuple[str, tuple, Scope]
+type RuntimeBindings = tuple[Sequence, HandlerMap]
 
 
 def _poll_completion() -> Generator[Any, Any, None]:
@@ -57,38 +51,44 @@ def _kickoff(fn_name: str, args: tuple) -> Generator[Any, Any, None]:
 
 
 def _evaluate_runner(
-    fn_name: str,
-    args: tuple,
-    scope: Scope,
-    config: EvaluateConfig,
+    runtime: Runtime,
+    inputs: EvaluationInputs,
+    bindings: RuntimeBindings,
 ) -> Generator[Any, Any, None]:
     """Run the root job and wait for completion."""
 
-    overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(config.handlers,))
+    _, _transport, overseer_ref, worker_refs, n_workers = runtime
+    fn_name, args, scope = inputs
+    handler_wrappers, handlers = bindings
 
-    for _ in range(config.n_workers):
+    if overseer_ref is not None or worker_refs:
+        raise NotImplementedError("remote process refs are not wired into evaluate() yet")
+
+    overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(handlers,))
+
+    for _ in range(n_workers):
         worker_args = (
             bytes(overseer),
             scope,
-            config.handler_wrappers,
-            config.handlers,
+            handler_wrappers,
+            handlers,
         )
         yield ESpawn(fn_name="worker", args=worker_args)
 
     root_handlers = merge_handlers(
-        make_coordination_handlers(overseer, config.handler_wrappers),
-        config.handlers,
+        make_coordination_handlers(overseer, handler_wrappers),
+        handlers,
     )
 
     yield from handle(_kickoff(fn_name, args), **root_handlers)
 
 
 def evaluate(  # noqa: PLR0913
+    runtime: Runtime,
     fn_name: str,
     args: tuple,
     scope: Scope,
     *,
-    n_workers: int = 4,
     handler_wrappers: Sequence = (),
     handlers: HandlerMap | None = None,
 ) -> Generator[Any, None, None]:
@@ -104,10 +104,10 @@ def evaluate(  # noqa: PLR0913
         "worker": worker,
         **scope,
     }
-    config = EvaluateConfig(
-        n_workers=n_workers,
-        handler_wrappers=handler_wrappers,
-        handlers=merged_handlers,
+    yield from run(
+        _evaluate_runner,
+        runtime,
+        (fn_name, args, scope),
+        (handler_wrappers, merged_handlers),
+        scope=full_scope,
     )
-
-    yield from run(_evaluate_runner, fn_name, args, scope, config, scope=full_scope)

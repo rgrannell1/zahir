@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from tertius import EEmit
 
 from zahir.core.dependencies.time import time_dependency
-from zahir.core.evaluate import evaluate
+from zahir.core.evaluate import evaluate, setup
 
 PAST = datetime(2000, 1, 1, tzinfo=UTC)
 FUTURE = datetime(2100, 1, 1, tzinfo=UTC)
@@ -30,7 +30,7 @@ def job_with_satisfied_time_dep(ctx):
 def test_impossible_time_dependency_returns_impossible_to_job():
     """Proves an impossible time dependency returns an impossible result to the job."""
 
-    events = list(evaluate("job", (), {"job": job_with_impossible_time_dep}, n_workers=1))
+    events = list(evaluate(setup(n_workers=1), "job", (), {"job": job_with_impossible_time_dep}))
 
     assert {"impossible": True} in events
 
@@ -38,6 +38,6 @@ def test_impossible_time_dependency_returns_impossible_to_job():
 def test_satisfied_time_dependency_returns_satisfied_to_job():
     """Proves a satisfied time dependency returns a satisfied result to the job."""
 
-    events = list(evaluate("job", (), {"job": job_with_satisfied_time_dep}, n_workers=1))
+    events = list(evaluate(setup(n_workers=1), "job", (), {"job": job_with_satisfied_time_dep}))
 
     assert {"satisfied": True} in events

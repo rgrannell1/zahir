@@ -6,7 +6,7 @@ from tertius import EEmit, ESleep
 
 from zahir.core.dependencies.concurrency import concurrency_dependency
 from zahir.core.effects import await_all
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.evaluate import JobContext, evaluate, setup
 
 _SLOT_NAME = "bounded"
 _LIMIT = 3
@@ -32,9 +32,9 @@ _SCOPE = {"fan_out": fan_out, "bounded_job": bounded_job}
 def _span_events(events: list) -> list[tuple[float, str]]:
     """Extract (timestamp, event) pairs from acquired/released emit events, sorted by time."""
     spans = [
-        (e["ts"], e["event"])
-        for e in events
-        if isinstance(e, dict) and "event" in e and "ts" in e
+        (event["ts"], event["event"])
+        for event in events
+        if isinstance(event, dict) and "event" in event and "ts" in event
     ]
     spans.sort()
     return spans
@@ -57,7 +57,7 @@ def test_concurrency_limit_is_never_exceeded():
     """Proves the concurrency slot limit is never exceeded across many parallel processes."""
 
     # n_workers > _LIMIT so without the semaphore, more than _LIMIT would overlap
-    events = list(evaluate("fan_out", (), _SCOPE, n_workers=8))
+    events = list(evaluate(setup(n_workers=8), "fan_out", (), _SCOPE))
 
     spans = _span_events(events)
     assert len(spans) == _N_JOBS * 2, f"expected {_N_JOBS * 2} bracket events, got {len(spans)}"

@@ -2,11 +2,9 @@ import pathlib
 from collections.abc import Generator
 from typing import Any
 
-from tertius import EEmit
-
-from zahir.core.evaluate import JobContext, evaluate
-from zahir.progress_bar.progress_bar import with_progress
+from zahir.core.evaluate import JobContext, evaluate, setup
 from zahir.core.telemetry import make_telemetry
+from zahir.progress_bar.progress_bar import with_progress
 
 FILE_PATH = pathlib.Path(__file__).parent / "warandpeace.txt"
 CHUNK_SIZE = 200  # lines per chapter
@@ -14,7 +12,7 @@ CHUNK_SIZE = 200  # lines per chapter
 
 def _chunks(file_path: pathlib.Path, size: int) -> list[list[str]]:
     lines = file_path.read_text().splitlines()
-    return [lines[i : i + size] for i in range(0, len(lines), size)]
+    return [lines[idx : idx + size] for idx in range(0, len(lines), size)]
 
 
 def _longest_word(lines: list[str]) -> str:
@@ -27,14 +25,14 @@ def _longest_word(lines: list[str]) -> str:
 
 def chapter_processor(ctx: JobContext, lines: list[str]) -> Generator[Any, Any, str]:
     """Return the longest word in this chunk of lines."""
-    return _longest_word(lines)
-    yield
+    yield from ()
+    return _longest_word(lines)  # noqa: B901
 
 
 def uppercase_words(ctx: JobContext, words: list[str]) -> Generator[Any, Any, list[str]]:
     """Return the uppercased words."""
-    return [word.upper() for word in words]
-    yield
+    yield from ()
+    return [word.upper() for word in words]  # noqa: B901
 
 
 def book_processor(ctx: JobContext, file_path: str) -> Generator[Any, Any, None]:
@@ -57,18 +55,19 @@ _SCOPE = {
     "uppercase_words": uppercase_words,
 }
 
+
 def main():
     res = yield from with_progress(
         evaluate(
+            setup(n_workers=4),
             "book_processor",
             (str(FILE_PATH),),
             scope=_SCOPE,
-            n_workers=4,
             handler_wrappers=[make_telemetry()],
         ))
 
     return res
 
-if __name__ == "__main__":
 
+if __name__ == "__main__":
     main()

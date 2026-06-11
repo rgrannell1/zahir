@@ -2,7 +2,7 @@ import pytest
 from tertius import EEmit, EReceive
 
 from tests.shared import user_events
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.evaluate import JobContext, evaluate, setup
 from zahir.core.exceptions import InvalidEffectError
 
 
@@ -27,10 +27,10 @@ def test_yielding_non_effect_raises_invalid_effect():
     with pytest.raises(InvalidEffectError):
         list(
             evaluate(
+                setup(n_workers=1),
                 "job_yielding_non_effect",
                 (),
                 {"job_yielding_non_effect": job_yielding_non_effect},
-                n_workers=1,
             )
         )
 
@@ -41,10 +41,10 @@ def test_yielding_ereceive_raises_invalid_effect():
     with pytest.raises(InvalidEffectError):
         list(
             evaluate(
+                setup(n_workers=1),
                 "job_yielding_receive",
                 (),
                 {"job_yielding_receive": job_yielding_receive},
-                n_workers=1,
             )
         )
 
@@ -54,10 +54,10 @@ def test_invalid_effect_is_catchable_in_job():
 
     events = user_events(
         evaluate(
+            setup(n_workers=1),
             "job_catching_invalid_effect",
             (),
             {"job_catching_invalid_effect": job_catching_invalid_effect},
-            n_workers=1,
         )
     )
 
@@ -69,4 +69,4 @@ def test_missing_fn_name_raises_before_spawn():
     """Proves evaluate raises KeyError immediately when fn_name is absent from scope."""
 
     with pytest.raises(KeyError, match="not found in scope"):
-        list(evaluate("nonexistent", (), {}, n_workers=1))
+        list(evaluate(setup(n_workers=1), "nonexistent", (), {}))

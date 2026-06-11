@@ -4,7 +4,7 @@ from tertius import EEmit, ESleep
 
 from zahir.core.dependencies.concurrency import concurrency_dependency
 from zahir.core.effects import await_all
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.evaluate import JobContext, evaluate, setup
 
 _SLOT_NAME = "workers"
 _LIMIT = 2
@@ -28,7 +28,7 @@ _SCOPE = {"fan_out": fan_out, "slot_job": slot_job}
 def test_all_slots_complete_after_release():
     """Proves all jobs acquire and release their slot so every job eventually runs."""
 
-    events = list(evaluate("fan_out", (), _SCOPE, n_workers=4))
+    events = list(evaluate(setup(n_workers=4), "fan_out", (), _SCOPE))
 
-    done_ids = {e["done"] for e in events if isinstance(e, dict) and "done" in e}
+    done_ids = {event["done"] for event in events if isinstance(event, dict) and "done" in event}
     assert done_ids == set(range(_N_JOBS))

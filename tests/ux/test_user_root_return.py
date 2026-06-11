@@ -3,30 +3,29 @@
 from tertius import EEmit
 
 from tests.shared import user_events
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.evaluate import JobContext, evaluate, setup
 
 
 def returning_root(ctx: JobContext):
-    return {"result": 42}
-    yield
+    yield from ()
+    return {"result": 42}  # noqa: B901
 
 
 def returning_root_with_emit(ctx: JobContext):
     yield EEmit("before")
-    return {"result": 42}
-    yield
+    return {"result": 42}  # noqa: B901
 
 
 def returning_none_root(ctx: JobContext):
-    return None
-    yield
+    yield from ()
+    return None  # noqa: B901, PLR1711
 
 
 def test_root_return_value_is_yielded_by_evaluate():
     """Proves evaluate yields the root job's return value as the final event."""
 
     scope = {"returning_root": returning_root}
-    events = user_events(evaluate("returning_root", (), scope, n_workers=1))
+    events = user_events(evaluate(setup(n_workers=1), "returning_root", (), scope))
 
     assert events == [{"result": 42}]
 
@@ -36,10 +35,10 @@ def test_root_return_value_comes_after_emitted_events():
 
     events = user_events(
         evaluate(
+            setup(n_workers=1),
             "returning_root_with_emit",
             (),
             {"returning_root_with_emit": returning_root_with_emit},
-            n_workers=1,
         )
     )
 
@@ -51,10 +50,10 @@ def test_root_return_none_yields_nothing_extra():
 
     events = user_events(
         evaluate(
+            setup(n_workers=1),
             "returning_none_root",
             (),
             {"returning_none_root": returning_none_root},
-            n_workers=1,
         )
     )
 

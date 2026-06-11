@@ -6,7 +6,7 @@ from bookman.events import Event
 from tertius import ESleep
 
 from zahir.core.effects import await_all
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.evaluate import JobContext, evaluate, setup
 from zahir.core.telemetry import make_telemetry
 from zahir.progress_bar.progress_bar_service import ProgressBarService
 
@@ -16,7 +16,7 @@ _HH_MM_SS = re.compile(r"\d{2}:\d{2}:\d{2}")
 def sleeping_job(ctx: JobContext):
     """A job that sleeps for 1 second."""
     yield ESleep(ms=1_000)
-    return "done"
+    return "done"  # noqa: B901
 
 
 def sleep_workflow(ctx: JobContext):
@@ -38,7 +38,8 @@ _SLEEP_UPPER_BOUND_MS = 1_500.0
 def _collect_service(fn_name: str, args: tuple, scope: dict) -> ProgressBarService:
     """Run a workflow and return the accumulated progress bar service state."""
     service = ProgressBarService()
-    for event in evaluate(fn_name, args, scope, n_workers=4, handler_wrappers=[make_telemetry()]):
+    runtime = setup(n_workers=4)
+    for event in evaluate(runtime, fn_name, args, scope, handler_wrappers=[make_telemetry()]):
         if isinstance(event, Event):
             service.update(event)
     return service
@@ -82,7 +83,13 @@ def test_ten_jobs_eta_renders_hh_mm_ss_during_execution():
     eta_snapshots = set()
 
     telemetry = make_telemetry()
-    result = evaluate("ten_short_jobs", (), _TEN_SCOPE, n_workers=4, handler_wrappers=[telemetry])
+    result = evaluate(
+        setup(n_workers=4),
+        "ten_short_jobs",
+        (),
+        _TEN_SCOPE,
+        handler_wrappers=[telemetry],
+    )
     for event in result:
         if isinstance(event, Event):
             service.update(event)

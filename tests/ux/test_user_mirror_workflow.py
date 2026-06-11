@@ -9,54 +9,54 @@ from tertius import EEmit
 
 from tests.shared import user_events
 from zahir.core.effects import await_all
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.evaluate import JobContext, evaluate, setup
 
 # --- mock leaf jobs (no-ops that mirror real job signatures) ---
 
 
 def media_scan(ctx: JobContext, input: dict):
-    return {"complete": True}
-    yield
+    yield from ()
+    return {"complete": True}  # noqa: B901
 
 
 def read_albums(ctx: JobContext, input: dict):
-    return {"status": "albums_loaded"}
-    yield
+    yield from ()
+    return {"status": "albums_loaded"}  # noqa: B901
 
 
 def read_photos(ctx: JobContext, input: dict):
-    return {"status": "photos_loaded"}
-    yield
+    yield from ()
+    return {"status": "photos_loaded"}  # noqa: B901
 
 
 def read_videos(ctx: JobContext, input: dict):
-    return {"status": "videos_loaded"}
-    yield
+    yield from ()
+    return {"status": "videos_loaded"}  # noqa: B901
 
 
 def wikidata_scan(ctx: JobContext, input: dict):
-    return {"complete": True}
-    yield
+    yield from ()
+    return {"complete": True}  # noqa: B901
 
 
 def compute_contrasting_grey(ctx: JobContext, input: dict):
-    return None
-    yield
+    yield from ()
+    return None  # noqa: B901, PLR1711
 
 
 def compute_image_mosaic(ctx: JobContext, input: dict):
-    return None
-    yield
+    yield from ()
+    return None  # noqa: B901, PLR1711
 
 
 def upload_missing_photos(ctx: JobContext, input: dict):
-    return None
-    yield
+    yield from ()
+    return None  # noqa: B901, PLR1711
 
 
 def upload_missing_videos(ctx: JobContext, input: dict):
-    return None
-    yield
+    yield from ()
+    return None  # noqa: B901, PLR1711
 
 
 def publish_artifacts(ctx: JobContext, input: dict):
@@ -87,24 +87,24 @@ def scan_media(ctx: JobContext, input: dict):
 
 def failing_scan_media(ctx: JobContext, input: dict):
     """Variant that raises, to test mirror_workflow's scan error handling."""
+    yield from ()
     raise RuntimeError("vault unavailable")
-    yield
 
 
 def upload_media(ctx: JobContext, input: dict):
     """Mirrors upload.upload_media: parallel grey/mosaic, then optional uploads."""
     fpaths = input.get("fpaths", [])
-    grey_effects = [ctx.scope.compute_contrasting_grey({"fpath": f}) for f in fpaths]
+    grey_effects = [ctx.scope.compute_contrasting_grey({"fpath": fpath}) for fpath in fpaths]
     if grey_effects:
         yield await_all(grey_effects)
 
-    mosaic_effects = [ctx.scope.compute_image_mosaic({"fpath": f}) for f in fpaths]
+    mosaic_effects = [ctx.scope.compute_image_mosaic({"fpath": fpath}) for fpath in fpaths]
     if mosaic_effects:
         yield await_all(mosaic_effects)
 
     if input.get("upload_images"):
         photo_effects = [
-            ctx.scope.upload_missing_photos({"fpath": f}) for f in fpaths
+            ctx.scope.upload_missing_photos({"fpath": fpath}) for fpath in fpaths
         ]
         if photo_effects:
             yield await_all(photo_effects)
@@ -169,7 +169,7 @@ def test_mirror_workflow_runs_and_publishes():
     """Proves a mirror-shaped workflow completes and emits a publish event."""
 
     input_data = {"publish_d1": False}
-    result = evaluate("mirror_workflow", (input_data,), BASE_SCOPE, n_workers=4)
+    result = evaluate(setup(n_workers=4), "mirror_workflow", (input_data,), BASE_SCOPE)
     events = user_events(result)
 
     assert events == [{"published": True}]
@@ -179,7 +179,7 @@ def test_mirror_workflow_builds_website_when_publish_d1():
     """Proves build_website is dispatched only when publish_d1 is set."""
 
     input_data = {"publish_d1": True}
-    result = evaluate("mirror_workflow", (input_data,), BASE_SCOPE, n_workers=4)
+    result = evaluate(setup(n_workers=4), "mirror_workflow", (input_data,), BASE_SCOPE)
     events = user_events(result)
 
     assert events == [{"published": True}, {"website_built": True}]
@@ -189,7 +189,9 @@ def test_mirror_workflow_continues_after_scan_failure():
     """Proves mirror_workflow swallows scan errors and still publishes."""
 
     scope = {**BASE_SCOPE, "scan_media": failing_scan_media}
-    events = user_events(evaluate("mirror_workflow", ({"publish_d1": False},), scope, n_workers=4))
+    events = user_events(
+        evaluate(setup(n_workers=4), "mirror_workflow", ({"publish_d1": False},), scope)
+    )
 
     assert events == [{"published": True}]
 
@@ -248,9 +250,9 @@ def test_mirror_workflow_parallel_scan_reads():
         "read_videos": emitting_read_videos,
     }
 
-    events = list(evaluate("mirror_workflow", ({"publish_d1": False},), scope, n_workers=4))
+    events = list(evaluate(setup(n_workers=4), "mirror_workflow", ({"publish_d1": False},), scope))
 
-    assert sorted(e for e in events if isinstance(e, str)) == [
+    assert sorted(event for event in events if isinstance(event, str)) == [
         "read_albums",
         "read_photos",
         "read_videos",
@@ -267,9 +269,11 @@ def test_mirror_workflow_parallel_image_processing():
     }
 
     fpaths = ["a.jpg", "b.jpg"]
-    events = user_events(evaluate("mirror_workflow", ({"fpaths": fpaths},), scope, n_workers=4))
+    events = user_events(
+        evaluate(setup(n_workers=4), "mirror_workflow", ({"fpaths": fpaths},), scope)
+    )
 
-    tuples = [e for e in events if isinstance(e, tuple)]
+    tuples = [event for event in events if isinstance(event, tuple)]
     assert sorted(tuples) == [
         ("grey", "a.jpg"),
         ("grey", "b.jpg"),
@@ -298,6 +302,7 @@ def test_mirror_workflow_all_jobs_run_in_full_execution():
 
     events = list(
         evaluate(
+            setup(n_workers=4),
             "mirror_workflow",
             (
                 {
@@ -308,11 +313,10 @@ def test_mirror_workflow_all_jobs_run_in_full_execution():
                 },
             ),
             scope,
-            n_workers=4,
         )
     )
 
-    assert sorted(e for e in events if isinstance(e, str)) == [
+    assert sorted(event for event in events if isinstance(event, str)) == [
         "build_website",
         "media_scan",
         "publish_artifacts",

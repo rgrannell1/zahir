@@ -9,7 +9,7 @@ from tertius import EEmit
 
 from zahir.core.dependencies.rate_limit import rate_limit_dependency
 from zahir.core.effects import await_all
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.evaluate import JobContext, evaluate, setup
 
 _RATE_NAME = "ux_test_rate_limit"
 _MIN_SECONDS = 0.3
@@ -36,7 +36,11 @@ _SCOPE = {"fan_out": fan_out, "rate_limited_job": rate_limited_job}
 
 def _satisfaction_times(events: list) -> list[float]:
     """Extract sorted satisfaction timestamps from emitted events."""
-    times = [e["satisfied_at"] for e in events if isinstance(e, dict) and "satisfied_at" in e]
+    times = [
+        event["satisfied_at"]
+        for event in events
+        if isinstance(event, dict) and "satisfied_at" in event
+    ]
     times.sort()
     return times
 
@@ -44,11 +48,11 @@ def _satisfaction_times(events: list) -> list[float]:
 def test_rate_limited_jobs_are_spaced_by_at_least_min_seconds():
     """Proves n jobs gated by rate_limit_dependency take at least (n-1) * min_seconds in total.
 
-    Uses n_workers=1 so jobs execute sequentially within the single worker — each job
+    Uses setup(n_workers=1) so jobs execute sequentially within the single worker — each job
     acquires the mutex and then sleeps via ESleep(remaining) rather than competing on
     'slot busy' retries, giving clean and deterministic timing.
     """
-    events = list(evaluate("fan_out", (), _SCOPE, n_workers=1))
+    events = list(evaluate(setup(n_workers=1), "fan_out", (), _SCOPE))
 
     times = _satisfaction_times(events)
     assert len(times) == _N_JOBS, f"expected {_N_JOBS} satisfaction events, got {len(times)}"

@@ -1,13 +1,18 @@
+import inspect
+
+import pytest
 from tertius import EEmit
 
 from tests.shared import user_events
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.effects import EAwait
+from zahir.core.evaluate import JobContext, evaluate, setup
 from zahir.core.scope_proxy import ScopeProxy
+from zahir.core.zahir_types import JobSpec
 
 
 def child_job(ctx: JobContext, value: int):
-    return value * 2
-    yield
+    yield from ()
+    return value * 2  # noqa: B901
 
 
 def parent_job(ctx: JobContext):
@@ -18,9 +23,6 @@ def parent_job(ctx: JobContext):
 def test_scope_proxy_returns_eawait_with_correct_args():
     """Proves ScopeProxy.__getattr__ returns an EAwait with a JobSpec carrying fn_name and args."""
 
-    from zahir.core.effects import EAwait
-    from zahir.core.zahir_types import JobSpec
-
     scope = {"child_job": child_job}
     proxy = ScopeProxy(scope)
 
@@ -30,8 +32,6 @@ def test_scope_proxy_returns_eawait_with_correct_args():
 
 def test_scope_proxy_strips_ctx_from_signature():
     """Proves ScopeProxy exposes the job signature without the leading ctx parameter."""
-
-    import inspect
 
     scope = {"child_job": child_job}
     proxy = ScopeProxy(scope)
@@ -44,8 +44,6 @@ def test_scope_proxy_strips_ctx_from_signature():
 def test_scope_proxy_raises_attribute_error_for_unknown_job():
     """Proves ScopeProxy raises AttributeError when the job name is not in scope."""
 
-    import pytest
-
     proxy = ScopeProxy({})
     with pytest.raises(AttributeError, match="no job named"):
         proxy.missing_job  # noqa: B018
@@ -55,6 +53,6 @@ def test_scope_proxy_dispatches_typed_await():
     """Proves ctx.scope.<fn>(args) produces a correctly dispatched EAwait end-to-end."""
 
     scope = {"parent_job": parent_job, "child_job": child_job}
-    events = user_events(evaluate("parent_job", (), scope, n_workers=2))
+    events = user_events(evaluate(setup(n_workers=2), "parent_job", (), scope))
 
     assert events == [{"result": 42}]

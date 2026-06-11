@@ -6,16 +6,19 @@ from bookman.events import Event
 
 from tests.ux.test_user_mirror_workflow import BASE_SCOPE
 from zahir.core.effects import await_all
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.evaluate import JobContext, evaluate, setup
 from zahir.core.exceptions import JobError
 from zahir.core.telemetry import make_telemetry
 from zahir.progress_bar.progress_bar_state_model import ProgressBarState
+
+_EXPECTED_OK_JOB_COUNT = 2
 
 
 def _collect_state(fn_name, args, scope) -> ProgressBarState:
     """Run a workflow and return the accumulated progress bar state."""
     state = ProgressBarState()
-    for event in evaluate(fn_name, args, scope, n_workers=4, handler_wrappers=[make_telemetry()]):
+    runtime = setup(n_workers=4)
+    for event in evaluate(runtime, fn_name, args, scope, handler_wrappers=[make_telemetry()]):
         if isinstance(event, Event):
             state.update(event)
     return state
@@ -60,13 +63,13 @@ def test_mirror_workflow_root_job_is_counted():
 
 
 def ok_job(ctx: JobContext, value: int):
-    return value * 2
-    yield
+    yield from ()
+    return value * 2  # noqa: B901
 
 
 def bomb_job(ctx: JobContext):
+    yield from ()
     raise ValueError("intentional failure")
-    yield
 
 
 def mixed_root(ctx: JobContext):
@@ -95,8 +98,8 @@ def test_mixed_workflow_counts_successes_and_failures_separately():
 
     ok_stats = state.jobs.get("ok_job")
     assert ok_stats is not None
-    assert ok_stats.total == 2
-    assert ok_stats.completed == 2
+    assert ok_stats.total == _EXPECTED_OK_JOB_COUNT
+    assert ok_stats.completed == _EXPECTED_OK_JOB_COUNT
     assert ok_stats.failed == 0
 
     bomb_stats = state.jobs.get("bomb_job")

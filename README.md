@@ -43,7 +43,7 @@ The following example workflow reads the text of a book, splits it into chapters
 
 ```python
 from zahir.core.effects import await_all
-from zahir.core.evaluate import JobContext, evaluate
+from zahir.core.evaluate import JobContext, evaluate, setup
 
 
 def chapter_processor(ctx: JobContext, chapter: str):
@@ -74,7 +74,7 @@ scope = {
     "chapter_processor": chapter_processor,
 }
 
-for event in evaluate("book_workflow", ("war-and-peace.txt",), scope, n_workers=4):
+for event in evaluate(setup(n_workers=4), "book_workflow", ("war-and-peace.txt",), scope):
     print(event)  # {"longest_words": [...]}
 ```
 
