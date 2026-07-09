@@ -48,6 +48,8 @@ class JobTag(StrEnum):
     EXECUTE = "job:execute"
     # span event covering full job lifetime from enqueue to completion, for duration aggregation
     JOB_LIFECYCLE = "job_lifecycle"
+    # emitted by job code to report intra-job progress; carries completed + optional total
+    JOB_PROGRESS = "job:progress"
     # emitted by the retried combinator when a failed attempt is about to be re-dispatched
     RETRY = "job:retry"
 

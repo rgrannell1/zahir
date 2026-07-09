@@ -4,6 +4,7 @@ from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
 
 from zahir.progress_bar.columns_view import JobBarColumn, NofMColumn
 from zahir.progress_bar.descriptions_view import (
+    JobDisplayContext,
     job_description,
     job_status,
     system_description,
@@ -34,7 +35,12 @@ class RichDisplayService:
 
     def __init__(self):
         self._progress = _make_progress()
-        self._live = Live(self._progress, screen=True)
+        self._live = Live(
+            self._progress,
+            auto_refresh=False,
+            screen=False,
+            transient=False,
+        )
         self._job_tasks: dict[str, TaskID] = {}
         self._system_task: TaskID | None = None
         self._workflow_task: TaskID | None = None
@@ -69,6 +75,7 @@ class RichDisplayService:
         self._refresh_job_rows(service)
         self._refresh_workflow_row(service)
         self._refresh_system_row(service)
+        self._live.refresh()
 
     def _refresh_system_row(self, service: ProgressBarService) -> None:
         """Update the system row with the current stats for the system."""
@@ -92,12 +99,14 @@ class RichDisplayService:
             if total == 0:
                 continue
             task_id = self._ensure_job_task(fn_name)
-            mean_ms = service.mean_duration_ms(fn_name)
-            waiting = service.waiting_deps(fn_name)
-
+            ctx = JobDisplayContext(
+                mean_ms=service.mean_duration_ms(fn_name),
+                waiting=service.waiting_deps(fn_name),
+                progress=service.job_progress(fn_name),
+            )
             self._progress.update(
                 task_id,
-                description=job_description(fn_name, stats, mean_ms, waiting),
+                description=job_description(fn_name, stats, ctx),
                 completed=stats.processed,
                 total=total,
                 status=job_status(stats),

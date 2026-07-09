@@ -6,7 +6,7 @@ from bookman.events import point
 
 from zahir.core.constants import DependencyTag, JobTag, Phase
 from zahir.progress_bar.dep_labels import short_label
-from zahir.progress_bar.descriptions_view import job_description
+from zahir.progress_bar.descriptions_view import JobDisplayContext, job_description
 from zahir.progress_bar.progress_bar_state_model import JobStats, ProgressBarState
 
 # --- event factories ---
@@ -163,7 +163,8 @@ def _in_flight_stats() -> JobStats:
 def test_job_description_shows_waiting_when_blocked():
     """Proves the description contains the waiting indicator when jobs are blocked on a dep."""
     stats = _in_flight_stats()
-    desc = job_description("fetch_job", stats, waiting={"memory resource": 1})
+    ctx = JobDisplayContext(waiting={"memory resource": 1})
+    desc = job_description("fetch_job", stats, ctx)
     assert "w:" in desc
     assert "MEM" in desc
 
@@ -171,21 +172,22 @@ def test_job_description_shows_waiting_when_blocked():
 def test_job_description_no_waiting_when_dict_empty():
     """Proves the description omits the waiting indicator when the waiting dict is empty."""
     stats = _in_flight_stats()
-    desc = job_description("fetch_job", stats, waiting={})
+    desc = job_description("fetch_job", stats, JobDisplayContext())
     assert "w:" not in desc
 
 
 def test_job_description_no_waiting_when_none():
     """Proves the description omits the waiting indicator when waiting is None."""
     stats = _in_flight_stats()
-    desc = job_description("fetch_job", stats, waiting=None)
+    desc = job_description("fetch_job", stats, JobDisplayContext())
     assert "w:" not in desc
 
 
 def test_job_description_waiting_count_shown():
     """Proves the waiting count is included when more than one job is blocked."""
     stats = _in_flight_stats()
-    desc = job_description("fetch_job", stats, waiting={"memory resource": 3})
+    ctx = JobDisplayContext(waiting={"memory resource": 3})
+    desc = job_description("fetch_job", stats, ctx)
     assert "3" in desc
     assert "MEM" in desc
 
@@ -193,5 +195,6 @@ def test_job_description_waiting_count_shown():
 def test_job_description_fn_name_always_present():
     """Proves the fn_name appears in the description regardless of waiting state."""
     stats = _in_flight_stats()
-    desc = job_description("fetch_job", stats, waiting={"cpu resource": 1})
+    ctx = JobDisplayContext(waiting={"cpu resource": 1})
+    desc = job_description("fetch_job", stats, ctx)
     assert "fetch_job" in desc

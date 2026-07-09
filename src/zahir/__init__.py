@@ -30,6 +30,7 @@ from zahir.core.dependencies import (
     time_dependency,
 )
 from zahir.core.effects import EAcquire, EAwait, EGetState, ESetState, await_all, gather_all
+from zahir.core.emit import job_progress_event
 from zahir.core.evaluate import evaluate, join_worker, setup, setup_remote
 from zahir.core.fp_types import Err, Ok, Result
 from zahir.core.retry import retried
@@ -67,6 +68,7 @@ __all__ = [
     "file_dependency",
     "gather_all",
     "group_dependency",
+    "job_progress_event",
     "join_worker",
     "make_memory_storage_handlers",
     "make_telemetry",

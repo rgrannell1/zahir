@@ -61,6 +61,9 @@ class ProgressBarService:
     def waiting_deps(self, fn_name: str) -> dict[str, int]:
         return self._state.waiting_deps(fn_name)
 
+    def job_progress(self, fn_name: str) -> tuple[float, int | None] | None:
+        return self._state.job_progress(fn_name)
+
     @property
     def elapsed_ms(self) -> float:
         return (time.monotonic() - self._start_time) * 1000

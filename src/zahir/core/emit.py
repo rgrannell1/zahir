@@ -102,6 +102,24 @@ def execute_start_event(fn_name: str, job_id: str) -> Event:
     return point(dims, at=time.time())
 
 
+def job_progress_event(completed: int, total: int | None = None) -> Event:
+    """Point event emitted by job code to report intra-job progress.
+
+    Yield via: yield EEmit(job_progress_event(completed=idx, total=len(items)))
+    total may be omitted when the full count is not known upfront.
+    """
+
+    dims: Dims = {
+        "id": [str(uuid.uuid4())],
+        "tag": [JobTag.JOB_PROGRESS],
+        "pid": [str(os.getpid())],
+        "completed": [str(completed)],
+    }
+    if total is not None:
+        dims["total"] = [str(total)]
+    return point(dims, at=time.time())
+
+
 def retry_event(fn_name: str, attempt: int, error: Exception) -> Event:
     """Point event marking a failed job attempt that the retried combinator will re-dispatch."""
 

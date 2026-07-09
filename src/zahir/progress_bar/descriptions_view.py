@@ -1,5 +1,16 @@
+from dataclasses import dataclass, field
+
 from zahir.progress_bar.dep_labels import short_label
 from zahir.progress_bar.progress_bar_state_model import JobStats
+
+
+@dataclass
+class JobDisplayContext:
+    """Optional per-row display extras for a job description."""
+
+    mean_ms: float | None = None
+    waiting: dict[str, int] = field(default_factory=dict)
+    progress: tuple[float, int | None] | None = None
 
 
 def job_status(stats: JobStats) -> str:
@@ -27,7 +38,7 @@ def _format_waiting(waiting: dict[str, int]) -> str:
     return f"[yellow](w: {entries})[/]"
 
 
-def _job_status_parts(stats: JobStats, waiting: dict[str, int] | None) -> list[str]:
+def _job_status_parts(stats: JobStats, waiting: dict[str, int]) -> list[str]:
     """Build the list of status fragments for a job row."""
 
     running = stats.started - stats.processed
@@ -49,16 +60,22 @@ def _job_status_parts(stats: JobStats, waiting: dict[str, int] | None) -> list[s
     return parts
 
 
-def job_description(
-    fn_name: str,
-    stats: JobStats,
-    mean_ms: float | None = None,
-    waiting: dict[str, int] | None = None,
-) -> str:
-    parts = _job_status_parts(stats, waiting)
+def _format_progress(progress: tuple[float, int | None] | None) -> str:
+    """Format intra-job progress as a short inline indicator."""
+    if progress is None:
+        return ""
+    fraction, total = progress
+    if total is not None:
+        return f" [dim]{fraction:.0%}[/]"
+    return f" [dim]{fraction:.0f} steps[/]"
+
+
+def job_description(fn_name: str, stats: JobStats, ctx: JobDisplayContext) -> str:
+    parts = _job_status_parts(stats, ctx.waiting)
     body = ", ".join(parts) or "starting"
-    mean = _format_mean(mean_ms)
-    return f"  {mean}[blue]{fn_name}[/]: {body}"
+    mean = _format_mean(ctx.mean_ms)
+    prog = _format_progress(ctx.progress)
+    return f"  {mean}[blue]{fn_name}[/]: {body}{prog}"
 
 
 def workflow_description(elapsed: str, completed: int, remaining: int, eta: str) -> str:
