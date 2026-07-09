@@ -61,6 +61,9 @@ class SuspendedJob(RunningJob):
     # None for scalar dispatch; ordered sequence_number list for multi-job dispatch
     result_order: list[int] | None = None
 
+    # gather dispatch: resume with a list of Ok/Err rather than throwing the first error
+    gather: bool = False
+
     @classmethod
     def from_job(
         cls, job: RunningJob, child_sequence_numbers: list[int], effect: EAwait
@@ -78,6 +81,7 @@ class SuspendedJob(RunningJob):
             awaiting=set(child_sequence_numbers),
             results={},
             result_order=result_order,
+            gather=effect.gather,
         )
 
 
@@ -88,6 +92,25 @@ def _unwrap_reply(body: Any) -> Result[Any, Exception]:
         return Err(body)
 
     return Ok(body)
+
+
+def _collect_gather(job: SuspendedJob) -> Result[list, Exception]:
+    """Collect ordered multi-job results as a list of Ok/Err; never a top-level Err."""
+
+    assert job.result_order is not None
+
+    gathered = [_unwrap_reply(job.results[seq]) for seq in job.result_order]
+    return Ok(gathered)
+
+
+def _collect_result(job: SuspendedJob, body: Any) -> Result[Any, Exception]:
+    """Choose the collection strategy matching the completed fan-out's dispatch mode."""
+
+    if job.gather:
+        return _collect_gather(job)
+    if job.result_order is not None:
+        return _collect_await_many(job)
+    return _unwrap_reply(body)
 
 
 def _collect_await_many(job: SuspendedJob) -> Result[list, Exception]:
@@ -162,9 +185,4 @@ class SuspensionTable:
             return None
 
         current = self.waiting.pop(parent_key)
-        if current.result_order is not None:
-            result = _collect_await_many(current)
-        else:
-            result = _unwrap_reply(body)
-
-        return current, result
+        return current, _collect_result(current, body)

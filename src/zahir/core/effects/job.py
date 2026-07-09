@@ -19,33 +19,52 @@ class ZahirJobEvent(ZahirJobEffect[None], Event, abstract=True):
 class EAwait(ZahirJobEffect[Any]):
     """Dispatch one or more jobs concurrently.
 
-    Constructed by ScopeProxy (single job, scalar=True) and await_all (multiple
-    jobs, scalar=False). User code yields ctx.scope.myjob() or await_all([...]).
+    Constructed by ScopeProxy (single job, scalar=True), await_all (multiple
+    jobs, scalar=False), and gather_all (multiple jobs, gather=True). User code
+    yields ctx.scope.myjob(), await_all([...]), or gather_all([...]).
 
     For a single-job dispatch (scalar=True), returns the result directly.
-    For a multi-job dispatch (scalar=False), returns results as a list in input order.
+    For a multi-job dispatch (scalar=False), returns results as a list in input order;
+    the first child failure is thrown into the awaiting job.
+    For a gather dispatch (gather=True), returns a list of Ok/Err results in input
+    order and never throws — child failures arrive as Err values.
     """
 
     tag: ClassVar[str] = "await"
     jobs: list[JobSpec]
     scalar: bool
+    gather: bool
 
-    def __init__(self, *, jobs: list[JobSpec], scalar: bool = True):
+    def __init__(self, *, jobs: list[JobSpec], scalar: bool = True, gather: bool = False):
         self.jobs = jobs
         self.scalar = scalar
+        self.gather = gather
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, EAwait):
             return NotImplemented
-        return self.jobs == other.jobs and self.scalar == other.scalar
+        return (
+            self.jobs == other.jobs
+            and self.scalar == other.scalar
+            and self.gather == other.gather
+        )
 
     def __repr__(self) -> str:
-        return f"EAwait(jobs={self.jobs!r}, scalar={self.scalar!r})"
+        return f"EAwait(jobs={self.jobs!r}, scalar={self.scalar!r}, gather={self.gather!r})"
 
 
 def await_all(specs: list[EAwait]) -> EAwait:
     """Dispatch multiple jobs concurrently; returns results as a list in input order."""
     return EAwait(jobs=[spec.jobs[0] for spec in specs], scalar=False)
+
+
+def gather_all(specs: list[EAwait]) -> EAwait:
+    """Dispatch multiple jobs concurrently; returns a list of Ok/Err results in input order.
+
+    Unlike await_all, a child failure does not raise in the awaiting job — each
+    child's outcome arrives as an Ok(value) or Err(error) in the returned list.
+    """
+    return EAwait(jobs=[spec.jobs[0] for spec in specs], scalar=False, gather=True)
 
 
 @dataclass

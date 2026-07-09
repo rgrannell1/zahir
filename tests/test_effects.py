@@ -1,10 +1,11 @@
-from orbis import Effect, Event
+from orbis import Effect
 
 from zahir.core.effects import (
     EAcquire,
     EAwait,
     JobSpec,
     await_all,
+    gather_all,
 )
 
 
@@ -47,6 +48,36 @@ def test_await_all_preserves_job_order():
     specs = [EAwait(jobs=[_spec("a")]), EAwait(jobs=[_spec("b")])]
     effect = await_all(specs)
     assert [j.fn_name for j in effect.jobs] == ["a", "b"]
+
+
+def test_eawait_gather_defaults_to_false():
+    """Proves EAwait gather defaults to False, so existing dispatch modes are unchanged."""
+
+    assert EAwait(jobs=[_spec()]).gather is False
+    assert await_all([EAwait(jobs=[_spec()])]).gather is False
+
+
+def test_gather_all_returns_gather_eawait():
+    """Proves gather_all produces a non-scalar EAwait with gather=True."""
+
+    effect = gather_all([EAwait(jobs=[_spec("a")]), EAwait(jobs=[_spec("b")])])
+    assert isinstance(effect, EAwait)
+    assert effect.scalar is False
+    assert effect.gather is True
+
+
+def test_gather_all_preserves_job_order():
+    """Proves gather_all preserves the order of job specs."""
+
+    effect = gather_all([EAwait(jobs=[_spec("a")]), EAwait(jobs=[_spec("b")])])
+    assert [job.fn_name for job in effect.jobs] == ["a", "b"]
+
+
+def test_eawait_equality_distinguishes_gather():
+    """Proves EAwait equality accounts for gather mode."""
+
+    specs = [EAwait(jobs=[_spec("a")]), EAwait(jobs=[_spec("b")])]
+    assert await_all(specs) != gather_all(specs)
 
 
 def test_jobspec_stores_fn_name_and_args():

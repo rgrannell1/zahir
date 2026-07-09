@@ -29,8 +29,9 @@ from zahir.core.dependencies import (
     time_condition,
     time_dependency,
 )
-from zahir.core.effects import EAcquire, EAwait, EGetState, ESetState, await_all
+from zahir.core.effects import EAcquire, EAwait, EGetState, ESetState, await_all, gather_all
 from zahir.core.evaluate import evaluate, join_worker, setup, setup_remote
+from zahir.core.fp_types import Err, Ok, Result
 from zahir.core.retry import retried
 from zahir.core.telemetry import make_telemetry
 from zahir.core.zahir_types import JobContext
@@ -43,9 +44,12 @@ __all__ = [
     "EAwait",
     "EGetState",
     "ESetState",
+    "Err",
     "Impossible",
     "ImpossibleError",
     "JobContext",
+    "Ok",
+    "Result",
     "Satisfied",
     "Unsatisfied",
     "await_all",
@@ -61,6 +65,7 @@ __all__ = [
     "evaluate",
     "file_condition",
     "file_dependency",
+    "gather_all",
     "group_dependency",
     "join_worker",
     "make_memory_storage_handlers",
