@@ -31,6 +31,7 @@ from zahir.core.dependencies import (
 )
 from zahir.core.effects import EAcquire, EAwait, EGetState, ESetState, await_all
 from zahir.core.evaluate import evaluate, join_worker, setup, setup_remote
+from zahir.core.retry import retried
 from zahir.core.telemetry import make_telemetry
 from zahir.core.zahir_types import JobContext
 from zahir.progress_bar.progress_bar import with_progress
@@ -67,6 +68,7 @@ __all__ = [
     "rate_limit_dependency",
     "resource_condition",
     "resource_dependency",
+    "retried",
     "semaphore_condition",
     "semaphore_dependency",
     "setup",

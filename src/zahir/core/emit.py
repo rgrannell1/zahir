@@ -102,6 +102,20 @@ def execute_start_event(fn_name: str, job_id: str) -> Event:
     return point(dims, at=time.time())
 
 
+def retry_event(fn_name: str, attempt: int, error: Exception) -> Event:
+    """Point event marking a failed job attempt that the retried combinator will re-dispatch."""
+
+    dims: Dims = {
+        "id": [str(uuid.uuid4())],
+        "tag": [JobTag.RETRY],
+        "pid": [str(os.getpid())],
+        "fn": [fn_name],
+        "attempt": [str(attempt)],
+        "error": [type(error).__name__],
+    }
+    return point(dims, at=time.time())
+
+
 def job_lifecycle_span(effect, job_id: str, executed_at: float, completed_at: float) -> Event:
     """Span event covering the job from when a worker picked it up to completion."""
 
