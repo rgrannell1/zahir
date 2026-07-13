@@ -17,14 +17,14 @@ def remote_leaf(ctx: JobContext, value: int):
     """Double the value and report which OS process executed it."""
 
     yield from ()
-    return {"value": value * 2, "worker_os_pid": os.getpid()}  # noqa: B901
+    return {"value": value * 2, "worker_os_pid": os.getpid()}
 
 
 def remote_root(ctx: JobContext, values: tuple):
     """Fan the values out to leaf jobs and collect their results."""
 
     results = yield await_all([ctx.scope.remote_leaf(value) for value in values])
-    return results  # noqa: B901
+    return results
     yield
 
 

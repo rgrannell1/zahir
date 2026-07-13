@@ -16,7 +16,7 @@ def _init() -> Generator[Any, Any, None]:
     """
 
     yield ERegister(name=OVERSEER_NAME)
-    return None  # noqa: B901
+    return None
 
 
 def _handle_call(state: Any, body: Any) -> Generator[Any, Any, tuple[Any, Any]]:

@@ -1,5 +1,4 @@
 # Handler wrapper that emits bookman telemetry events around effect handler calls
-import os
 import time
 import traceback
 import uuid

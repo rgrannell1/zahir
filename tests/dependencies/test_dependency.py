@@ -6,6 +6,7 @@ from tertius import EEmit, ESleep
 from tests.shared import NOW, drain_to
 from zahir.core.constants import DependencyState
 from zahir.core.dependencies.dependency import check, dependency
+from zahir.core.zahir_types import ConditionResult
 
 # condition returns satisfied immediately
 
@@ -48,7 +49,11 @@ def test_satisfied_carries_metadata():
 def test_unsatisfied_then_satisfied_polls_and_satisfies():
     """Proves looping through ESleep when unsatisfied before returning satisfied."""
 
-    calls = iter([(DependencyState.UNSATISFIED, None), (DependencyState.SATISFIED, None)])
+    states: list[ConditionResult] = [
+        (DependencyState.UNSATISFIED, None),
+        (DependencyState.SATISFIED, None),
+    ]
+    calls = iter(states)
 
     def _cond():
         return next(calls)
@@ -176,7 +181,11 @@ def test_no_timeout_never_expires():
 def test_custom_poll_ms_used_in_sleep():
     """Proves poll_ms controls the ESleep duration between retries."""
 
-    calls = iter([(DependencyState.UNSATISFIED, None), (DependencyState.SATISFIED, None)])
+    states: list[ConditionResult] = [
+        (DependencyState.UNSATISFIED, None),
+        (DependencyState.SATISFIED, None),
+    ]
+    calls = iter(states)
 
     def _cond():
         return next(calls)

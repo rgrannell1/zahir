@@ -1,6 +1,6 @@
 """Higher-order functions for composing effect handlers"""
 
-from collections.abc import Generator, Sequence
+from collections.abc import Generator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from functools import partial, reduce
 from typing import Any
@@ -31,7 +31,7 @@ def build_handler_map(
     }
 
 
-def merge_handlers(*handler_maps: dict[str, HandlerCallable]) -> dict[str, HandlerCallable]:
+def merge_handlers(*handler_maps: Mapping[str, HandlerCallable]) -> dict[str, HandlerCallable]:
     """Merge handler maps left-to-right; later maps override earlier ones on tag collision."""
 
     merged: dict[str, HandlerCallable] = {}

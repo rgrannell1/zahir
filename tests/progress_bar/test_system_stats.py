@@ -3,6 +3,7 @@ import time
 from bookman.events import point
 
 from zahir.core.constants import JobTag, Phase
+from zahir.progress_bar.descriptions_view import system_description
 from zahir.progress_bar.system_stats_service import SystemStats
 
 
@@ -144,8 +145,6 @@ def test_poll_populates_cpu_and_ram():
 
 def test_format_contains_cores_cpu_ram():
     "Proves format() output includes cores, cpu, and ram labels"
-    from zahir.progress_bar.descriptions_view import system_description
-
     stats = SystemStats()
     stats.poll()
     stats.update(_job_start("span-1", pid=42))

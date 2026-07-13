@@ -3,6 +3,7 @@ from collections.abc import Generator
 from functools import partial
 from typing import Any
 
+from zahir.core.constants import DependencyState
 from zahir.core.dependencies.dependency import dependency
 from zahir.core.effects import EAcquire
 from zahir.core.zahir_types import ConditionResult, DependencyResult
@@ -12,8 +13,8 @@ def concurrency_condition(name: str, limit: int) -> Generator[Any, Any, Conditio
     """Returns satisfied if the slot was acquired, unsatisfied if the slot is full."""
     acquired = yield EAcquire(name=name, limit=limit)
     if acquired:
-        return ("satisfied", {"name": name, "limit": limit})
-    return ("unsatisfied", {"name": name, "limit": limit})
+        return (DependencyState.SATISFIED, {"name": name, "limit": limit})
+    return (DependencyState.UNSATISFIED, {"name": name, "limit": limit})
 
 
 def concurrency_dependency(

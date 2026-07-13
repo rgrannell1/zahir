@@ -129,8 +129,8 @@ class MemoryBackend:
 
 def _handle_storage_get_job(backend: MemoryBackend, effect: EStorageGetJob) -> Any:
     """Return the next work item for the requesting worker."""
+    yield from ()
     return backend.get_job(effect.worker_pid_bytes)
-    yield
 
 
 def _handle_storage_enqueue(
@@ -147,8 +147,8 @@ def _handle_storage_enqueue(
             sequence_number=effect.sequence_number,
         )
     )
+    yield from ()
     return
-    yield
 
 
 def _handle_storage_job_done(
@@ -157,8 +157,8 @@ def _handle_storage_job_done(
 ) -> Generator[Any, Any, None]:
     """Record job completion and route the result."""
     backend.job_done(effect.reply_to, effect.sequence_number, effect.body)
+    yield from ()
     return
-    yield
 
 
 def _handle_storage_job_failed(
@@ -167,8 +167,8 @@ def _handle_storage_job_failed(
 ) -> Generator[Any, Any, None]:
     """Record a root-level job failure."""
     backend.job_failed(effect.error)
+    yield from ()
     return
-    yield
 
 
 def _handle_storage_acquire(
@@ -176,8 +176,8 @@ def _handle_storage_acquire(
     effect: EStorageAcquire,
 ) -> Generator[Any, Any, bool]:
     """Try to acquire a concurrency slot."""
+    yield from ()
     return backend.acquire(effect.name, effect.limit)
-    yield
 
 
 def _handle_storage_release(
@@ -186,14 +186,14 @@ def _handle_storage_release(
 ) -> Generator[Any, Any, None]:
     """Release a concurrency slot."""
     backend.release(effect.name)
+    yield from ()
     return
-    yield
 
 
 def _handle_storage_get_state(backend: MemoryBackend, effect: EStorageGetState) -> Any:
     """Return the current KV state."""
+    yield from ()
     return backend.signal(effect.name)
-    yield
 
 
 def _handle_storage_set_state(
@@ -202,8 +202,8 @@ def _handle_storage_set_state(
 ) -> Generator[Any, Any, None]:
     """Set the KV state."""
     backend.set_semaphore(effect.name, effect.state)
+    yield from ()
     return
-    yield
 
 
 def _handle_storage_is_done(
@@ -211,20 +211,20 @@ def _handle_storage_is_done(
     effect: EStorageIsDone,
 ) -> Generator[Any, Any, bool]:
     """Return True when all jobs have completed."""
+    yield from ()
     return backend.is_done()
-    yield
 
 
 def _handle_storage_get_error(backend: MemoryBackend, effect: EStorageGetError) -> Any:
     """Return the root error, if any."""
+    yield from ()
     return backend.get_error()
-    yield
 
 
 def _handle_storage_get_result(backend: MemoryBackend, effect: EStorageGetResult) -> Any:
     """Return the root job's return value."""
+    yield from ()
     return backend.get_result()
-    yield
 
 
 # EStorageGetJob is polled on every worker tick — wrapping it floods telemetry with noise.

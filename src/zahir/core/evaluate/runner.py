@@ -7,7 +7,7 @@ from collections.abc import Generator, Sequence
 from typing import Any, cast
 
 from orbis import handle
-from tertius import EEmit, ESleep, ESpawn, Pid, Scope, run
+from tertius import EEmit, ESleep, ESpawn, Pid, Scope, SpawnMode, run
 
 from zahir.core.backends.memory import make_memory_storage_handlers
 from zahir.core.combinators import merge_handlers
@@ -57,27 +57,31 @@ def _evaluate_runner(
 ) -> Generator[Any, Any, None]:
     """Run the root job and wait for completion."""
 
-    _, _transport, n_workers = runtime
+    _, _transport, n_workers, n_thread_workers = runtime
     fn_name, args, scope = inputs
     handler_wrappers, handlers = bindings
 
     overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(handlers,))
 
+    worker_args = (
+        bytes(overseer),
+        scope,
+        handler_wrappers,
+        handlers,
+    )
+
     for _ in range(n_workers):
-        worker_args = (
-            bytes(overseer),
-            scope,
-            handler_wrappers,
-            handlers,
-        )
-        yield ESpawn(fn_name="worker", args=worker_args)
+        yield ESpawn(fn_name="worker", args=worker_args, mode=SpawnMode.PROCESS)
+
+    for _ in range(n_thread_workers):
+        yield ESpawn(fn_name="worker", args=worker_args, mode=SpawnMode.THREAD)
 
     root_handlers = merge_handlers(
         make_coordination_handlers(overseer, handler_wrappers),
         handlers,
     )
 
-    yield from handle(_kickoff(fn_name, args), **root_handlers)
+    yield from handle(_kickoff(fn_name, args), root_handlers)
 
 
 def evaluate(  # noqa: PLR0913
@@ -101,7 +105,7 @@ def evaluate(  # noqa: PLR0913
         "worker": worker,
         **scope,
     }
-    _, transport, _n_workers = runtime
+    _, transport, _n_workers, _n_thread_workers = runtime
     yield from run(
         _evaluate_runner,
         runtime,

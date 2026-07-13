@@ -9,6 +9,7 @@ dependencies = [
     "psutil>=7.2.2",
     "rich>=13.0.0",
     "tertius",
+    "typing-extensions>=4.15.0",
 ]
 
 [tool.uv.sources]
@@ -37,12 +38,26 @@ pythonpath = ["src"]
 testpaths = ["tests"]
 markers = ["local_only: test only runs on the local dev machine, skipped in CI"]
 
+[tool.pyright]
+# vulture_whitelist is not real code; attribute stubs marking dynamically-read names as used.
+exclude = ["vulture_whitelist.py", "**/__pycache__", ".venv", "docs"]
+
 [tool.ruff]
 line-length = 100
 preview = true
+# Not real code; attribute stubs that mark dynamically-read names as used.
+extend-exclude = ["vulture_whitelist.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "UP", "B", "C4", "BLE", "SIM", "RUF", "PLR", "PLC", "C"]
+# B901: zahir's handlers and jobs are generators that return values via StopIteration.
+ignore = ["B901"]
+
+[tool.ruff.lint.per-file-ignores]
+# Explicit `X as X` re-export idiom; __init__.py files are exports only.
+"**/__init__.py" = ["PLC0414"]
+# Tests use literal expected values and white-box imports of internal handlers.
+"tests/**" = ["PLR2004", "PLC2701"]
 
 [tool.ruff.lint.pylint]
 max-statements = 14

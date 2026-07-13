@@ -11,6 +11,19 @@ from zahir.progress_bar.rich_display_service import RichDisplayService
 _POLL_INTERVAL_S = 0.25
 
 
+def _feed_bar(bar: "ZahirProgressBar", event: Any, last_poll: float) -> float:
+    """Poll system stats if due and feed telemetry events; return the new poll time."""
+
+    now = time.monotonic()
+    if now - last_poll >= _POLL_INTERVAL_S:
+        bar.poll()
+        last_poll = now
+
+    if isinstance(event, Event):
+        bar.update(event)
+    return last_poll
+
+
 def with_progress(events: Iterable[Any]) -> Generator[Any, None, None]:
     """Wrap any event iterable (e.g. evaluate(...)) and render a live progress bar.
 
@@ -24,15 +37,7 @@ def with_progress(events: Iterable[Any]) -> Generator[Any, None, None]:
     with bar:
         try:
             for event in events:
-                now = time.monotonic()
-
-                if now - last_poll >= _POLL_INTERVAL_S:
-                    bar.poll()
-                    last_poll = now
-
-                if isinstance(event, Event):
-                    bar.update(event)
-
+                last_poll = _feed_bar(bar, event, last_poll)
                 yield event
         except BaseException as err:  # noqa: BLE001
             # Capture the exception so the with block exits cleanly, restoring

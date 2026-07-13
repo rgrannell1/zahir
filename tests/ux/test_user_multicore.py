@@ -1,6 +1,8 @@
 """Integration test: verifies that parallel fan-out distributes work across OS processes."""
 
 import os
+from collections.abc import Generator
+from typing import Any
 
 from bookman.events import Event
 from tertius import EEmit, ESleep
@@ -15,11 +17,11 @@ _N_WORKERS = 4
 _N_JOBS = 8  # more jobs than workers so at least two workers must be used
 
 
-def report_pid(ctx: JobContext) -> int:
+def report_pid(ctx: JobContext) -> Generator[Any, Any, int]:
     # Sleep long enough for other workers to pick up sibling jobs from the queue.
     # Without a pause, one worker drains the queue before others get scheduled.
     yield ESleep(ms=50)
-    return os.getpid()  # noqa: B901
+    return os.getpid()
 
 
 def collect_pids(ctx: JobContext):

@@ -1,6 +1,6 @@
-from bookman.events import point, span
+from bookman.events import span
 
-from zahir.core.constants import JobTag, Phase
+from zahir.core.constants import JobTag
 from zahir.progress_bar.progress_bar_service import (
     ProgressBarService,
     eta_remaining_ms,

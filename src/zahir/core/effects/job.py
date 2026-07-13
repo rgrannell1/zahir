@@ -1,7 +1,7 @@
 """Effects that can be yielded directly by user job generators."""
 
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any, ClassVar, LiteralString
 
 from orbis import Effect, Event
 
@@ -30,7 +30,7 @@ class EAwait(ZahirJobEffect[Any]):
     order and never throws — child failures arrive as Err values.
     """
 
-    tag: ClassVar[str] = "await"
+    tag: ClassVar[LiteralString] = "await"
     jobs: list[JobSpec]
     scalar: bool
     gather: bool
@@ -75,7 +75,7 @@ class EAcquire(ZahirJobEffect[bool]):
     Release is handled automatically when the job exits.
     """
 
-    tag: ClassVar[str] = "acquire"
+    tag: ClassVar[LiteralString] = "acquire"
     name: str
     limit: int
 
@@ -84,7 +84,7 @@ class EAcquire(ZahirJobEffect[bool]):
 class EGetState(ZahirJobEffect[str | None]):
     """Read a string value from the runner's key-value store by name. Returns None if unset."""
 
-    tag: ClassVar[str] = "get_state"
+    tag: ClassVar[LiteralString] = "get_state"
     name: str
 
 
@@ -92,6 +92,6 @@ class EGetState(ZahirJobEffect[str | None]):
 class ESetState(ZahirJobEvent):
     """Write a string value to the runner's key-value store by name."""
 
-    tag: ClassVar[str] = "set_state"
+    tag: ClassVar[LiteralString] = "set_state"
     name: str
     value: str

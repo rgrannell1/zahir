@@ -1,7 +1,7 @@
 """Effects yielded by the overseer gen_server — handled by storage backends."""
 
 from dataclasses import dataclass
-from typing import Any, ClassVar
+from typing import Any, ClassVar, LiteralString
 
 from orbis import Effect
 
@@ -17,7 +17,7 @@ class ZahirStorageEffect[ReturnT](Effect[ReturnT], abstract=True):
 class EStorageGetJob(ZahirStorageEffect[Any]):
     """Return the next work item for a worker from the backend."""
 
-    tag: ClassVar[str] = "storage_get_job"
+    tag: ClassVar[LiteralString] = "storage_get_job"
     worker_pid_bytes: bytes
 
 
@@ -25,7 +25,7 @@ class EStorageGetJob(ZahirStorageEffect[Any]):
 class EStorageEnqueue(ZahirStorageEffect[None]):
     """Enqueue a child job and increment pending."""
 
-    tag: ClassVar[str] = "storage_enqueue"
+    tag: ClassVar[LiteralString] = "storage_enqueue"
     fn_name: str
     args: tuple[Any, ...]
     reply_to: bytes | None
@@ -40,7 +40,7 @@ class EStorageJobDone(ZahirStorageEffect[None]):
     If there is no parent, stores as root result.
     """
 
-    tag: ClassVar[str] = "storage_job_done"
+    tag: ClassVar[LiteralString] = "storage_job_done"
     reply_to: bytes | None
     sequence_number: Any
     body: Any
@@ -50,7 +50,7 @@ class EStorageJobDone(ZahirStorageEffect[None]):
 class EStorageJobFailed(ZahirStorageEffect[None]):
     """Decrement pending and record a root-level failure."""
 
-    tag: ClassVar[str] = "storage_job_failed"
+    tag: ClassVar[LiteralString] = "storage_job_failed"
     error: Exception
 
 
@@ -58,7 +58,7 @@ class EStorageJobFailed(ZahirStorageEffect[None]):
 class EStorageAcquire(ZahirStorageEffect[bool]):
     """Try to acquire a named concurrency slot."""
 
-    tag: ClassVar[str] = "storage_acquire"
+    tag: ClassVar[LiteralString] = "storage_acquire"
     name: str
     limit: int
 
@@ -67,7 +67,7 @@ class EStorageAcquire(ZahirStorageEffect[bool]):
 class EStorageRelease(ZahirStorageEffect[None]):
     """Release a named concurrency slot."""
 
-    tag: ClassVar[str] = "storage_release"
+    tag: ClassVar[LiteralString] = "storage_release"
     name: str
 
 
@@ -75,7 +75,7 @@ class EStorageRelease(ZahirStorageEffect[None]):
 class EStorageGetState(ZahirStorageEffect[Any]):
     """Return the current KV state for a name."""
 
-    tag: ClassVar[str] = "storage_get_state"
+    tag: ClassVar[LiteralString] = "storage_get_state"
     name: str
 
 
@@ -83,7 +83,7 @@ class EStorageGetState(ZahirStorageEffect[Any]):
 class EStorageSetState(ZahirStorageEffect[None]):
     """Set the KV state for a name."""
 
-    tag: ClassVar[str] = "storage_set_state"
+    tag: ClassVar[LiteralString] = "storage_set_state"
     name: str
     state: str
 
@@ -92,18 +92,18 @@ class EStorageSetState(ZahirStorageEffect[None]):
 class EStorageIsDone(ZahirStorageEffect[bool]):
     """Return True when all pending jobs have completed."""
 
-    tag: ClassVar[str] = "storage_is_done"
+    tag: ClassVar[LiteralString] = "storage_is_done"
 
 
 @dataclass
 class EStorageGetError(ZahirStorageEffect[Any]):
     """Return the root error, if any."""
 
-    tag: ClassVar[str] = "storage_get_error"
+    tag: ClassVar[LiteralString] = "storage_get_error"
 
 
 @dataclass
 class EStorageGetResult(ZahirStorageEffect[Any]):
     """Return the root job's return value."""
 
-    tag: ClassVar[str] = "storage_get_result"
+    tag: ClassVar[LiteralString] = "storage_get_result"

@@ -8,17 +8,17 @@ from zahir.core.evaluate import JobContext, evaluate, setup
 
 def returning_root(ctx: JobContext):
     yield from ()
-    return {"result": 42}  # noqa: B901
+    return {"result": 42}
 
 
 def returning_root_with_emit(ctx: JobContext):
     yield EEmit("before")
-    return {"result": 42}  # noqa: B901
+    return {"result": 42}
 
 
 def returning_none_root(ctx: JobContext):
     yield from ()
-    return None  # noqa: B901, PLR1711
+    return None  # noqa: PLR1711
 
 
 def test_root_return_value_is_yielded_by_evaluate():

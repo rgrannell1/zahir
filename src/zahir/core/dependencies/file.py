@@ -4,6 +4,7 @@ from collections.abc import Generator
 from functools import partial
 from typing import Any
 
+from zahir.core.constants import DependencyState
 from zahir.core.dependencies.dependency import check, dependency
 from zahir.core.zahir_types import ConditionResult, DependencyResult
 
@@ -13,10 +14,10 @@ def file_condition(fpath: str) -> Generator[Any, Any, ConditionResult]:
 
     metadata = {"path": fpath}
     if pathlib.Path(fpath).exists():
-        return ("satisfied", metadata)
+        return (DependencyState.SATISFIED, metadata)
 
-    return ("unsatisfied", metadata)
-    yield  # make it a generator function
+    yield from ()  # make it a generator function
+    return (DependencyState.UNSATISFIED, metadata)
 
 
 def file_dependency(fpath: str) -> Generator[Any, Any, DependencyResult]:

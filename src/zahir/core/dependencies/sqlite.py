@@ -29,7 +29,7 @@ def _connect(db_path: str, timeout_seconds: float) -> sqlite3.Connection:
 
 
 def _validate_db_path(db_path: str) -> None:
-    if not db_path or db_path.strip() == "":
+    if not db_path or not db_path.strip():
         raise ValueError("db_path is required")
     if db_path == ":memory:":
         return
@@ -78,23 +78,24 @@ def sqlite_condition(
     column_names, row = _query(db_path, query, params or (), timeout_seconds)
 
     if row is None:
-        return ("unsatisfied", metadata)
+        return (DependencyState.UNSATISFIED, metadata)
 
     if len(row) == 1 and column_names == ["status"]:
         status = _parse_status(row[0])
         if status == DependencyState.UNSATISFIED:
-            return ("unsatisfied", metadata)
+            return (DependencyState.UNSATISFIED, metadata)
         if status == DependencyState.IMPOSSIBLE:
-            return ("impossible", metadata)
+            return (DependencyState.IMPOSSIBLE, metadata)
 
-    return ("satisfied", metadata)
-    yield  # make it a generator function
+    yield from ()  # make it a generator function
+    return (DependencyState.SATISFIED, metadata)
 
 
 def sqlite_dependency(  # noqa: PLR0913
     db_path: str,
     query: str,
     params: tuple[Any, ...] | None = None,
+    *,
     connection_timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
     poll_timeout_ms: int | None = None,
 ) -> Generator[Any, Any, DependencyResult]:

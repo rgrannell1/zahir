@@ -1,13 +1,13 @@
 from zahir.core.dependencies.concurrency import concurrency_condition as concurrency_condition
 from zahir.core.dependencies.concurrency import concurrency_dependency as concurrency_dependency
-from zahir.core.dependencies.rate_limit import rate_limit_condition as rate_limit_condition
-from zahir.core.dependencies.rate_limit import rate_limit_dependency as rate_limit_dependency
 from zahir.core.dependencies.dependency import check as check
 from zahir.core.dependencies.dependency import dependency as dependency
 from zahir.core.dependencies.file import check_file_dependency as check_file_dependency
 from zahir.core.dependencies.file import file_condition as file_condition
 from zahir.core.dependencies.file import file_dependency as file_dependency
 from zahir.core.dependencies.group import group_dependency as group_dependency
+from zahir.core.dependencies.rate_limit import rate_limit_condition as rate_limit_condition
+from zahir.core.dependencies.rate_limit import rate_limit_dependency as rate_limit_dependency
 from zahir.core.dependencies.resources import (
     check_resource_dependency as check_resource_dependency,
 )

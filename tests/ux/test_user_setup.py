@@ -9,7 +9,7 @@ from zahir.core.evaluate import JobContext, evaluate, setup, setup_remote
 def setup_returning_root(ctx: JobContext):
     assert ctx is not None
     yield from ()
-    return {"result": 42}  # noqa: B901
+    return {"result": 42}
 
 
 _SCOPE = {"setup_returning_root": setup_returning_root}
@@ -19,6 +19,26 @@ def test_setup_runtime_runs_the_existing_local_path():
     """Proves evaluate(setup(...), ...) preserves the current local execution path."""
 
     runtime = setup(n_workers=1)
+
+    events = user_events(evaluate(runtime, "setup_returning_root", (), _SCOPE))
+
+    assert events == [{"result": 42}]
+
+
+def test_setup_thread_workers_evaluate_jobs():
+    """Proves a thread-only pool executes jobs to completion."""
+
+    runtime = setup(n_workers=0, n_thread_workers=2)
+
+    events = user_events(evaluate(runtime, "setup_returning_root", (), _SCOPE))
+
+    assert events == [{"result": 42}]
+
+
+def test_setup_mixed_pool_evaluates_jobs():
+    """Proves a mixed process/thread pool executes jobs to completion."""
+
+    runtime = setup(n_workers=1, n_thread_workers=1)
 
     events = user_events(evaluate(runtime, "setup_returning_root", (), _SCOPE))
 

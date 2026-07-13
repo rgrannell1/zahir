@@ -524,12 +524,13 @@ wheels = [
 [[package]]
 name = "zahir2"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "pdoc" },
     { name = "psutil" },
     { name = "rich" },
     { name = "tertius" },
+    { name = "typing-extensions" },
 ]
 
 [package.dev-dependencies]
@@ -551,6 +552,7 @@ requires-dist = [
     { name = "psutil", specifier = ">=7.2.2" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "tertius", editable = "../tertius" },
+    { name = "typing-extensions", specifier = ">=4.15.0" },
 ]
 
 [package.metadata.requires-dev]

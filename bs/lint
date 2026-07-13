@@ -2,5 +2,5 @@
 set -euo pipefail
 
 uv run ruff check .
-uv run python3 -m vulture src/
+uv run python3 -m vulture src/ vulture_whitelist.py
 uv run pyright .

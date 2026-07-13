@@ -3,7 +3,6 @@ from zahir.core.effects import (
     EAcquire,
     EAcquireSlot,
 )
-
 from zahir.core.evaluate.job_handlers import (
     _handle_acquire,
     make_job_handlers,

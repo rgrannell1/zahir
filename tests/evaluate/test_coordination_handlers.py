@@ -6,6 +6,7 @@ from tertius import EEmit
 
 from tests.evaluate.mocks import ME, OVERSEER, mock_mcall, mock_mcast
 from tests.shared import drain_to
+from zahir.core.combinators import wrap
 from zahir.core.effects import (
     EAcquireSlot,
     EEnqueue,
@@ -316,7 +317,7 @@ def test_job_complete_handler_emits_telemetry_with_fn_name():
     )
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
-        emitted, _ = drain_to(handlers[EJobComplete.tag](effect))
+        emitted, _ = drain_to(handlers["job_complete"](effect))
 
     telemetry = [e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)]
     assert any(e.dim("fn") == "chapter_processor" for e in telemetry)
@@ -335,7 +336,7 @@ def test_job_fail_handler_emits_telemetry_with_fn_name():
     )
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", mock_mcast()):
-        emitted, _ = drain_to(handlers[EJobFail.tag](effect))
+        emitted, _ = drain_to(handlers["job_fail"](effect))
 
     telemetry = [e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)]
     assert any(e.dim("fn") == "chapter_processor" for e in telemetry)
@@ -353,12 +354,10 @@ def test_make_coordination_handlers_applies_wrapper_to_is_done():
         emitted.append(effect.tag)
         yield
 
-    from zahir.core.combinators import wrap
-
     handlers = make_coordination_handlers(OVERSEER, [wrap(recording_fn)])
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
-        drain_to(handlers[EIsDone.tag](EIsDone()))
+        drain_to(handlers["is_done"](EIsDone()))
 
     assert EIsDone.tag in emitted
 
@@ -372,20 +371,15 @@ def test_make_coordination_handlers_applies_wrapper_to_all_root_effects():
         seen_tags.append(effect.tag)
         yield
 
-    from zahir.core.combinators import wrap
-
     handlers = make_coordination_handlers(OVERSEER, [wrap(recording_fn)])
 
-    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
-        drain_to(handlers[EIsDone.tag](EIsDone()))
-    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(None)):
-        drain_to(handlers[EGetError.tag](EGetError()))
-    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(None)):
-        drain_to(handlers[EGetResult.tag](EGetResult()))
+    cases = [(EIsDone, False), (EGetError, None), (EGetResult, None)]
+    for effect_type, reply in cases:
+        with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(reply)):
+            drain_to(handlers[effect_type.tag](effect_type()))
 
-    assert EIsDone.tag in seen_tags
-    assert EGetError.tag in seen_tags
-    assert EGetResult.tag in seen_tags
+    for effect_type, _reply in cases:
+        assert effect_type.tag in seen_tags
 
 
 def test_make_coordination_handlers_emits_telemetry_events_for_is_done():
@@ -394,7 +388,7 @@ def test_make_coordination_handlers_emits_telemetry_events_for_is_done():
     handlers = make_coordination_handlers(OVERSEER, [make_telemetry()])
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
-        emitted, _ = drain_to(handlers[EIsDone.tag](EIsDone()))
+        emitted, _ = drain_to(handlers["is_done"](EIsDone()))
 
     telemetry = [e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)]
     assert len(telemetry) == 2  # start point + end span

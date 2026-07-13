@@ -8,8 +8,9 @@ from tests.shared import NOW, drain_to
 from zahir.core.effects import EAcquire, EAcquireSlot, EJobFail, ERelease
 from zahir.core.evaluate.job_handlers import evaluate_job, make_job_handlers
 from zahir.core.evaluate.suspension import RunningJob, WorkerLocals
-from zahir.core.evaluate.worker import _Running, _handle_running
+from zahir.core.evaluate.worker import _handle_running, _Running
 from zahir.core.exceptions import JobTimeoutError
+from zahir.core.zahir_types import JobHandlerMap
 
 
 def _make_locals(acquired: list | None = None) -> WorkerLocals:
@@ -25,7 +26,7 @@ def _make_locals(acquired: list | None = None) -> WorkerLocals:
     return WorkerLocals(current_job=job)
 
 
-def _handlers(locals_: WorkerLocals | None = None) -> dict:
+def _handlers(locals_: WorkerLocals | None = None) -> JobHandlerMap:
     """Return pre-built job handlers for use with evaluate_job."""
     return make_job_handlers(locals_ or _make_locals(), [])
 

@@ -26,16 +26,16 @@ def _longest_word(lines: list[str]) -> str:
 def chapter_processor(ctx: JobContext, lines: list[str]) -> Generator[Any, Any, str]:
     """Return the longest word in this chunk of lines."""
     yield from ()
-    return _longest_word(lines)  # noqa: B901
+    return _longest_word(lines)
 
 
 def uppercase_words(ctx: JobContext, words: list[str]) -> Generator[Any, Any, list[str]]:
     """Return the uppercased words."""
     yield from ()
-    return [word.upper() for word in words]  # noqa: B901
+    return [word.upper() for word in words]
 
 
-def book_processor(ctx: JobContext, file_path: str) -> Generator[Any, Any, None]:
+def book_processor(ctx: JobContext, file_path: str) -> Generator[Any, Any, dict]:
     """Fan out to chapter processors, collect longest words, uppercase, emit."""
     chunks = _chunks(pathlib.Path(file_path), CHUNK_SIZE)
 

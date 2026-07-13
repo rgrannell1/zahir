@@ -14,7 +14,7 @@ def group_dependency(
     """Run dependencies in sequence; short-circuit on the first impossible result."""
 
     if not dependencies:
-        result: DependencyResult = ("satisfied", None)
+        result: DependencyResult = (DependencyState.SATISFIED, None)
         yield EEmit(result)
         return result
 

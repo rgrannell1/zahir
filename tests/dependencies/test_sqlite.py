@@ -1,3 +1,4 @@
+import os
 import sqlite3
 import tempfile
 from itertools import islice
@@ -11,14 +12,14 @@ from zahir.core.dependencies.sqlite import sqlite_condition, sqlite_dependency
 
 
 def _make_db(rows: list[tuple]) -> str:
-    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-    tmp.close()
-    conn = sqlite3.connect(tmp.name)
+    handle, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(handle)
+    conn = sqlite3.connect(db_path)
     conn.execute("CREATE TABLE state (status TEXT)")
     conn.executemany("INSERT INTO state VALUES (?)", rows)
     conn.commit()
     conn.close()
-    return tmp.name
+    return db_path
 
 
 def test_non_status_column_emits_satisfied():

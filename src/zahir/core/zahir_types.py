@@ -1,6 +1,11 @@
 from collections import deque
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generator, Literal, TypedDict
+from typing import Any, Callable, Generator, Literal
+
+# TypedDict from typing_extensions for PEP 728 closed maps; stdlib lacks it on 3.14.
+from typing_extensions import TypedDict
+
+from zahir.core.constants import DependencyState
 
 
 class JobContext[T]:
@@ -17,9 +22,9 @@ class JobContext[T]:
 # TODO: these are type aliases, not classes — isinstance(result, Satisfied)
 #       raises a confusing error. Consider replacing with a proper enum or
 #       dataclass so callers can use isinstance naturally.
-type Satisfied = tuple[Literal["satisfied"], dict | None]
-type Impossible = tuple[Literal["impossible"], dict | None]
-type Unsatisfied = tuple[Literal["unsatisfied"], dict | None]
+type Satisfied = tuple[Literal[DependencyState.SATISFIED], dict | None]
+type Impossible = tuple[Literal[DependencyState.IMPOSSIBLE], dict | None]
+type Unsatisfied = tuple[Literal[DependencyState.UNSATISFIED], dict | None]
 type ConditionResult = Satisfied | Impossible | Unsatisfied
 type DependencyResult = Satisfied | Impossible
 
@@ -35,11 +40,11 @@ type HandlerCallable = Callable[..., Generator[Any, Any, Any]]
 
 # Effect tag -> handler callable, as returned by handler factory functions
 # TODO deprecate this
-class HandlerMap(TypedDict):
+class HandlerMap(TypedDict, closed=True):
     __extra_items__: HandlerCallable
 
 
-class StorageHandlerMap(TypedDict):
+class StorageHandlerMap(TypedDict, closed=True):
     """Handler map for storage effects."""
 
     __extra_items__: HandlerCallable
@@ -56,7 +61,7 @@ class StorageHandlerMap(TypedDict):
     storage_get_result: HandlerCallable
 
 
-class JobHandlerMap(TypedDict):
+class JobHandlerMap(TypedDict, closed=True):
     """Handler map for job emittable effects"""
 
     __extra_items__: HandlerCallable
@@ -66,7 +71,7 @@ class JobHandlerMap(TypedDict):
     set_semaphore: HandlerCallable
 
 
-class CoordinationHandlerMap(TypedDict):
+class CoordinationHandlerMap(TypedDict, closed=True):
     """Handler map for coordination effects"""
 
     __extra_items__: HandlerCallable

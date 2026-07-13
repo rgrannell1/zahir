@@ -24,7 +24,7 @@ def _filled_width(task) -> int:
 class JobBarColumn(ProgressColumn):
     """Coloured block progress bar. Colour reflects job status field."""
 
-    def render(self, task) -> Text:
+    def render(self, task) -> Text:  # noqa: PLR6301 -- rich override
         if task.fields.get("hide_bar"):
             return Text("")
 
@@ -38,7 +38,7 @@ class JobBarColumn(ProgressColumn):
 class NofMColumn(ProgressColumn):
     """Shows completed/total. Hidden for rows that set hide_bar."""
 
-    def render(self, task) -> Text:
+    def render(self, task) -> Text:  # noqa: PLR6301 -- rich override
         if task.fields.get("hide_bar"):
             return Text("")
         return Text(f"{int(task.completed)}/{int(task.total or 0)}")

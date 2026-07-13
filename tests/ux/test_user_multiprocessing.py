@@ -1,3 +1,6 @@
+from collections.abc import Generator
+from typing import Any
+
 from tertius import EEmit
 
 from tests.shared import user_events
@@ -9,9 +12,9 @@ def identity(effect):
     yield
 
 
-def inc(ctx: JobContext, num: int) -> int:
+def inc(ctx: JobContext, num: int) -> Generator[Any, Any, int]:
     yield from ()
-    return num + 1  # noqa: B901
+    return num + 1
 
 
 def chain_and_sum(ctx: JobContext):

@@ -68,7 +68,7 @@ def base_dimensions(effect, span_id: str) -> Dims:
 def start_effect_telemetry(effect, span_id: str, at: float) -> Event:
     """Point event marking when a handler began."""
 
-    dims = base_dimensions(effect, span_id) | {"phase": [Phase.START]}
+    dims = base_dimensions(effect, span_id) | {"phase": [Phase.START.value]}
     return point(dims, at=at)
 
 
@@ -77,15 +77,15 @@ def end_effect_success_telemetry(
 ) -> Event:
     """Span event marking successful handler completion."""
 
-    dims = base_dimensions(effect, span_id) | {"phase": [Phase.END]}
+    dims = base_dimensions(effect, span_id) | {"phase": [Phase.END.value]}
     return span(dims, at=tspan.start, until=tspan.end, value=value)
 
 
 def end_effect_error_telemetry(effect, span_id: str, tspan: TimeSpan, error: str) -> Event:
     """Span event marking handler failure."""
 
-    dims = base_dimensions(effect, span_id) | {"phase": [Phase.ERROR]}
-    return span(dims, at=tspan.start, until=tspan.end, value=error)
+    dims = base_dimensions(effect, span_id) | {"phase": [Phase.ERROR.value]}
+    return span(dims, at=tspan.start, until=tspan.end, value=Message(error))
 
 
 def execute_start_event(fn_name: str, job_id: str) -> Event:
@@ -137,5 +137,5 @@ def retry_event(fn_name: str, attempt: int, error: Exception) -> Event:
 def job_lifecycle_span(effect, job_id: str, executed_at: float, completed_at: float) -> Event:
     """Span event covering the job from when a worker picked it up to completion."""
 
-    dims = base_dimensions(effect, job_id) | {"tag": [JobTag.JOB_LIFECYCLE]}
+    dims = base_dimensions(effect, job_id) | {"tag": [JobTag.JOB_LIFECYCLE.value]}
     return span(dims, at=executed_at, until=completed_at)

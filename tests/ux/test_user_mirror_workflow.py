@@ -16,47 +16,47 @@ from zahir.core.evaluate import JobContext, evaluate, setup
 
 def media_scan(ctx: JobContext, input: dict):
     yield from ()
-    return {"complete": True}  # noqa: B901
+    return {"complete": True}
 
 
 def read_albums(ctx: JobContext, input: dict):
     yield from ()
-    return {"status": "albums_loaded"}  # noqa: B901
+    return {"status": "albums_loaded"}
 
 
 def read_photos(ctx: JobContext, input: dict):
     yield from ()
-    return {"status": "photos_loaded"}  # noqa: B901
+    return {"status": "photos_loaded"}
 
 
 def read_videos(ctx: JobContext, input: dict):
     yield from ()
-    return {"status": "videos_loaded"}  # noqa: B901
+    return {"status": "videos_loaded"}
 
 
 def wikidata_scan(ctx: JobContext, input: dict):
     yield from ()
-    return {"complete": True}  # noqa: B901
+    return {"complete": True}
 
 
 def compute_contrasting_grey(ctx: JobContext, input: dict):
     yield from ()
-    return None  # noqa: B901, PLR1711
+    return None  # noqa: PLR1711
 
 
 def compute_image_mosaic(ctx: JobContext, input: dict):
     yield from ()
-    return None  # noqa: B901, PLR1711
+    return None  # noqa: PLR1711
 
 
 def upload_missing_photos(ctx: JobContext, input: dict):
     yield from ()
-    return None  # noqa: B901, PLR1711
+    return None  # noqa: PLR1711
 
 
 def upload_missing_videos(ctx: JobContext, input: dict):
     yield from ()
-    return None  # noqa: B901, PLR1711
+    return None  # noqa: PLR1711
 
 
 def publish_artifacts(ctx: JobContext, input: dict):

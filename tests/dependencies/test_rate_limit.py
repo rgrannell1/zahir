@@ -1,13 +1,16 @@
 # Unit tests for rate_limit_condition and rate_limit_dependency.
-import pytest
+from collections.abc import Generator
+from typing import Any
 from unittest.mock import patch
 
+import pytest
 from bookman.events import Event
 from tertius import EEmit, ESleep
 
 from tests.shared import drain_to
 from zahir.core.dependencies.rate_limit import rate_limit_condition
 from zahir.core.effects import EAcquire, EGetState, ESetState
+from zahir.core.zahir_types import ConditionResult
 
 _NAME = "fetch"
 _MIN_SECONDS = 1.0
@@ -15,7 +18,7 @@ _NOW = 1_000_000.0  # arbitrary fixed timestamp
 _LABEL = f"rate_limit '{_NAME}' ({_MIN_SECONDS}s)"
 
 
-def _make_gen(min_seconds: float = _MIN_SECONDS) -> object:
+def _make_gen(min_seconds: float = _MIN_SECONDS) -> Generator[Any, Any, ConditionResult]:
     label = f"rate_limit '{_NAME}' ({min_seconds}s)"
     return rate_limit_condition(_NAME, min_seconds, label)
 
@@ -46,7 +49,7 @@ def test_no_prior_run_satisfies_immediately():
         mock_time.time.return_value = _NOW
         gen = _make_gen()
         responses = {EAcquire: True, EGetState: None, ESetState: None}
-        effects, result = drain_to(gen, responses=responses)
+        _effects, result = drain_to(gen, responses=responses)
 
     assert result[0] == "satisfied"
     assert isinstance(result[1]["elapsed"], float)

@@ -14,7 +14,7 @@ from zahir.core.effects import (
 )
 from zahir.core.evaluate.suspension import WorkerLocals
 from zahir.core.exceptions import InvalidEffectError, JobTimeoutError
-from zahir.core.zahir_types import HandlerMap, JobHandlerMap
+from zahir.core.zahir_types import JobHandlerMap
 
 
 def _validate_effect(effect) -> InvalidEffectError | None:
@@ -28,7 +28,29 @@ def _validate_effect(effect) -> InvalidEffectError | None:
     return None
 
 
-def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
+def _advance(
+    gen: Generator,
+    send_value: Any,
+    pending_throw: Exception | None,
+) -> tuple[Any, bool, Any]:
+    """Resume gen with a value or a throw; return (effect, done, return_value)."""
+
+    try:
+        effect = gen.throw(pending_throw) if pending_throw else gen.send(send_value)
+        return (effect, False, None)
+    except StopIteration as stop:
+        return (None, True, stop.value)
+
+
+def _dispatch(handlers: JobHandlerMap, effect: Any) -> Generator:
+    """Route an effect to its job-level handler, or bubble it up."""
+
+    if effect.tag in handlers:
+        return (yield from handlers[effect.tag](effect))  # type: ignore[literal-required]
+    return (yield effect)
+
+
+def job_guard(gen: Generator, handlers: JobHandlerMap) -> Generator:
     """Drive gen: reject disallowed effects, dispatch job-level effects to
     handlers, bubble the rest."""
 
@@ -36,21 +58,16 @@ def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
     pending_throw: Exception | None = None
 
     while True:
-        try:
-            effect = gen.throw(pending_throw) if pending_throw else gen.send(send_value)
-            pending_throw = None
-        except StopIteration as stop:
-            return stop.value
+        effect, done, return_value = _advance(gen, send_value, pending_throw)
+        if done:
+            return return_value
 
-        if err := _validate_effect(effect):
-            pending_throw = err
+        pending_throw = _validate_effect(effect)
+        if pending_throw:
             continue
 
         try:
-            if effect.tag in handlers:
-                send_value = yield from handlers[effect.tag](effect)  # type: ignore[literal-required]
-            else:
-                send_value = yield effect
+            send_value = yield from _dispatch(handlers, effect)
         except THROWABLE as exc:
             pending_throw = exc
 
@@ -62,12 +79,11 @@ def timeout_guard(gen: Generator, deadline: datetime | None) -> Generator:
     pending_throw: Exception | None = None
 
     while True:
-        try:
-            effect = gen.throw(pending_throw) if pending_throw else gen.send(send_value)
-            pending_throw = None
-        except StopIteration as stop:
-            return stop.value
+        effect, done, return_value = _advance(gen, send_value, pending_throw)
+        if done:
+            return return_value
 
+        pending_throw = None
         if deadline and datetime.now(UTC) >= deadline:
             pending_throw = JobTimeoutError()
             continue
@@ -75,13 +91,12 @@ def timeout_guard(gen: Generator, deadline: datetime | None) -> Generator:
         try:
             send_value = yield effect
         except Exception as err:  # noqa: BLE001
-            send_value = None
-            pending_throw = err
+            send_value, pending_throw = None, err
 
 
 def evaluate_job(
     job_gen: Generator[Any, Any, Any],
-    handlers: HandlerMap,
+    handlers: JobHandlerMap,
     deadline: datetime | None,
 ) -> Generator[Any, Any, Any]:
     """Wrap job_gen in job_guard and timeout_guard using pre-built handlers."""

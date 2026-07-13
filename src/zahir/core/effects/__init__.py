@@ -68,6 +68,9 @@ from zahir.core.effects.storage import (
     EStorageGetResult as EStorageGetResult,
 )
 from zahir.core.effects.storage import (
+    EStorageGetState as EStorageGetState,
+)
+from zahir.core.effects.storage import (
     EStorageIsDone as EStorageIsDone,
 )
 from zahir.core.effects.storage import (
@@ -81,9 +84,6 @@ from zahir.core.effects.storage import (
 )
 from zahir.core.effects.storage import (
     EStorageSetState as EStorageSetState,
-)
-from zahir.core.effects.storage import (
-    EStorageGetState as EStorageGetState,
 )
 from zahir.core.effects.storage import (
     ZahirStorageEffect as ZahirStorageEffect,

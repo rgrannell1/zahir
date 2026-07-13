@@ -12,7 +12,7 @@ from zahir.core.zahir_types import JobSpec
 
 def child_job(ctx: JobContext, value: int):
     yield from ()
-    return value * 2  # noqa: B901
+    return value * 2
 
 
 def parent_job(ctx: JobContext):

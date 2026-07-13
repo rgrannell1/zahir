@@ -8,12 +8,12 @@ from zahir.core.exceptions import JobError
 
 def double(ctx: JobContext, value: int):
     yield from ()
-    return value * 2  # noqa: B901
+    return value * 2
 
 
 def slow_double(ctx: JobContext, value: int):
     yield ESleep(ms=200)
-    return value * 2  # noqa: B901
+    return value * 2
 
 
 def fan_out(ctx: JobContext):

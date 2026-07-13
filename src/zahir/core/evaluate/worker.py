@@ -29,7 +29,7 @@ from zahir.core.exceptions import JobError, ZahirError
 from zahir.core.fp_types import Err, Ok
 from zahir.core.scope_proxy import ScopeProxy
 from zahir.core.telemetry import record_execute_start, record_execute_start_id
-from zahir.core.zahir_types import HandlerMap, JobContext
+from zahir.core.zahir_types import HandlerMap, JobContext, JobHandlerMap
 
 # Sentinel returned by the EAwait handler to signal that the job was suspended.
 # _handle_running checks for this to transition to _Idle rather than _Running.
@@ -57,7 +57,7 @@ def _build_job(
     # TODO: this should be lifted to an actual type
     work: tuple[str, str, tuple, bytes | None, int | None, int | None],
     ctx: Any,
-    job_handlers: HandlerMap,
+    job_handlers: JobHandlerMap,
 ) -> RunningJob:
     """Construct a RunningJob from a dequeued job work item."""
 
@@ -119,7 +119,7 @@ def _handle_result_work_item(suspension: SuspensionTable, work) -> WorkerState:
 
 
 def _handle_job_work_item(
-    work, ctx: Any, job_handlers: HandlerMap
+    work, ctx: Any, job_handlers: JobHandlerMap
 ) -> Generator[Any, Any, WorkerState]:
     """Validate scope membership and build a RunningJob from a dequeued job work item."""
     _, fn_name, _, reply_to, _, parent_sequence_number = work
@@ -134,11 +134,11 @@ def _handle_job_work_item(
         job_id = "root"
         record_execute_start_id(job_id)
     yield EEmit(execute_start_event(fn_name, job_id))
-    return _Running(job=_build_job(work, ctx, job_handlers))  # noqa: B901
+    return _Running(job=_build_job(work, ctx, job_handlers))
 
 
 def _handle_idle(
-    suspension: SuspensionTable, ctx: Any, me_bytes: bytes, job_handlers: HandlerMap
+    suspension: SuspensionTable, ctx: Any, me_bytes: bytes, job_handlers: JobHandlerMap
 ) -> Generator[Any, Any, WorkerState]:
     """Fetch the next work item and transition to the appropriate state."""
 
@@ -154,7 +154,7 @@ def _handle_idle(
         case WorkItemTag.JOB:
             return (yield from _handle_job_work_item(work, ctx, job_handlers))
         case _:
-            return _Idle()  # noqa: B901
+            return _Idle()
 
 
 def _handle_eawait(
@@ -166,10 +166,10 @@ def _handle_eawait(
     if not effect.jobs:
         # Empty fan-out: nothing to enqueue, so no child can ever complete and resume the parent.
         # Return immediately with an empty result list rather than suspending forever.
+        yield from ()  # unreachable: required to make this function a generator
         return []
-        yield  # unreachable: required to make this function a generator
     yield from suspension.suspend(effect, locals_.current_job, locals_.me_bytes)
-    return _SUSPENDED  # noqa: B901
+    return _SUSPENDED
 
 
 def make_worker_handlers(
@@ -207,13 +207,13 @@ def _handle_running(state: _Running, locals_: WorkerLocals) -> Generator[Any, An
     handler_value = yield effect
     if handler_value is _SUSPENDED:
         return _Idle()
-    return _Running(job=job, handler_value=handler_value, pending_throw=None)  # noqa: B901
+    return _Running(job=job, handler_value=handler_value, pending_throw=None)
 
 
 def _worker_body(
     suspension: SuspensionTable,
     locals_: WorkerLocals,
-    job_handlers: HandlerMap,
+    job_handlers: JobHandlerMap,
     _overseer_pid: Pid,
     ctx: Any,
 ) -> Generator[Any, Any, None]:
@@ -252,7 +252,7 @@ def worker(
     # eawait handler, which uses locals_ for local state
     worker_handlers = make_worker_handlers(suspension, locals_, handler_wrappers)
 
-    yield from handle(  # type: ignore
+    yield from handle(
         _worker_body(suspension, locals_, job_handlers, overseer, ctx),
-        **merge_handlers(base_handlers, worker_handlers),
+        merge_handlers(base_handlers, worker_handlers),
     )

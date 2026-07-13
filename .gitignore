@@ -14,3 +14,4 @@ events.md
 build/*
 logs/
 .chainlit/
+*.annotations

@@ -8,7 +8,7 @@ from typing import Any
 from bookman.events import point
 from tertius import EEmit, ESleep
 
-from zahir.core.constants import DependencyTag
+from zahir.core.constants import DependencyState, DependencyTag
 from zahir.core.dependencies.dependency import dependency
 from zahir.core.effects import EAcquire, EGetState, ESetState
 from zahir.core.zahir_types import ConditionResult, DependencyResult
@@ -38,7 +38,7 @@ def rate_limit_condition(
     """
     acquired = yield EAcquire(name=f'rate_limit:{name}', limit=1)
     if not acquired:
-        return ('unsatisfied', {'name': name, 'reason': 'slot busy'})
+        return (DependencyState.UNSATISFIED, {'name': name, 'reason': 'slot busy'})
 
     elapsed = 0.0
     while True:
@@ -52,7 +52,7 @@ def rate_limit_condition(
         yield ESleep(ms=remaining_ms)
 
     yield ESetState(name=f'rate_limit:last_at:{name}', value=str(time.time()))
-    return ('satisfied', {'name': name, 'elapsed': elapsed})
+    return (DependencyState.SATISFIED, {'name': name, 'elapsed': elapsed})
 
 
 def rate_limit_dependency(

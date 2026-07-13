@@ -34,7 +34,7 @@ def ram_limited_job(ctx: JobContext, max_percent: float):
             end = time.time()
             return (os.getpid(), start, end)
         case ("impossible", _):
-            return None  # noqa: B901
+            return None
 
 
 def ram_fanout_root(ctx: JobContext, max_percent: float):

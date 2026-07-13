@@ -30,6 +30,14 @@ def _done_event(label: str) -> object:
     return point(data, at=time.time())
 
 
+def _finish(label: str, result: DependencyResult) -> Generator[Any, Any, DependencyResult]:
+    """Emit the terminal result and the done event, then return the result."""
+
+    yield EEmit(result)
+    yield EEmit(_done_event(label))
+    return result
+
+
 def check(
     condition_fn: Callable[[], Generator[Any, Any, ConditionResult]],
     label: str = "check",
@@ -44,15 +52,15 @@ def check(
     """
     state, metadata = yield from condition_fn()
     if state == DependencyState.SATISFIED:
-        result: DependencyResult = ("satisfied", metadata)
+        result: DependencyResult = (DependencyState.SATISFIED, metadata)
         yield EEmit(result)
         return result
     if state == DependencyState.IMPOSSIBLE:
-        result = ("impossible", metadata)
+        result = (DependencyState.IMPOSSIBLE, metadata)
         yield EEmit(result)
         return result
     # UNSATISFIED: maps to impossible in one-shot mode
-    result = ("impossible", metadata)
+    result = (DependencyState.IMPOSSIBLE, metadata)
     yield EEmit(result)
     return result
 
@@ -77,29 +85,15 @@ def dependency(
     while True:
         if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
             reason = f"{label} timed out after {timeout_ms}ms"
-            impossible: DependencyResult = ("impossible", {"reason": reason})
-            yield EEmit(impossible)
-            yield EEmit(_done_event(label))
-
-            return impossible
+            return (yield from _finish(label, (DependencyState.IMPOSSIBLE, {"reason": reason})))
 
         state, metadata = yield from condition_fn()
 
         if state == DependencyState.SATISFIED:
-            satisfied: DependencyResult = ("satisfied", metadata)
-
-            yield EEmit(satisfied)
-            yield EEmit(_done_event(label))
-
-            return satisfied
+            return (yield from _finish(label, (DependencyState.SATISFIED, metadata)))
 
         if state == DependencyState.IMPOSSIBLE:
-            impossible = ("impossible", metadata)
-
-            yield EEmit(impossible)
-            yield EEmit(_done_event(label))
-
-            return impossible
+            return (yield from _finish(label, (DependencyState.IMPOSSIBLE, metadata)))
 
         yield EEmit(_waiting_event(label))
         yield ESleep(ms=poll_ms)

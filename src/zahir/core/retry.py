@@ -32,7 +32,7 @@ def retried(spec: EAwait, attempts: int, backoff_ms: int) -> Generator[Any, Any,
 
     for attempt in range(1, attempts + 1):
         try:
-            return (yield spec)  # noqa: B901
+            return (yield spec)
         except (JobError, JobTimeoutError) as err:
             if attempt == attempts:
                 raise

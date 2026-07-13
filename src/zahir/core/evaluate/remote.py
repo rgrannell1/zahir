@@ -31,7 +31,7 @@ def resolve_overseer(timeout_ms: int) -> Generator[Any, Any, Pid]:
     while waited_ms < timeout_ms:
         pid = yield EWhereis(name=OVERSEER_NAME)
         if pid is not None:
-            return pid  # noqa: B901
+            return pid
 
         yield ESleep(ms=OVERSEER_WHEREIS_POLL_MS)
         waited_ms += OVERSEER_WHEREIS_POLL_MS

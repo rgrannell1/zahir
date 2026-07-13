@@ -16,12 +16,12 @@ def semaphore_condition(name: str) -> Generator[Any, Any, ConditionResult]:
     state = yield EGetState(name=name)
 
     if state == DependencyState.IMPOSSIBLE:
-        return ("impossible", {"name": name})
+        return (DependencyState.IMPOSSIBLE, {"name": name})
 
     if state == DependencyState.SATISFIED:
-        return ("satisfied", {"name": name})
+        return (DependencyState.SATISFIED, {"name": name})
 
-    return ("unsatisfied", {"name": name})
+    return (DependencyState.UNSATISFIED, {"name": name})
 
 
 def check_semaphore_dependency(

@@ -1,3 +1,5 @@
+from functools import reduce
+
 import pytest
 from tertius import EEmit
 
@@ -127,8 +129,6 @@ def test_wrap_teardown_with_no_yields_does_not_error():
 
 def test_wrap_stacks_correctly_via_reduce():
     """Proves two wrapped wrappers both fire in order around the handler."""
-
-    from functools import reduce
 
     order = []
 

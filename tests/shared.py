@@ -59,7 +59,9 @@ def peak_concurrent(intervals: list[Interval]) -> int:
     return peak
 
 
-def drain_to(gen: Generator, *types: type, responses: dict | None = None) -> tuple[list, Any]:
+def drain_to(
+    gen: Generator[Any, Any, Any], *types: type, responses: dict | None = None
+) -> tuple[list, Any]:
     """Drive gen to StopIteration and return (effects, return_value).
 
     Sends responses[type(effect)] back into the generator for each yielded effect;

@@ -67,7 +67,7 @@ def test_mirror_workflow_root_job_is_counted():
 
 def ok_job(ctx: JobContext, value: int):
     yield from ()
-    return value * 2  # noqa: B901
+    return value * 2
 
 
 def bomb_job(ctx: JobContext):

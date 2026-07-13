@@ -16,7 +16,7 @@ _HH_MM_SS = re.compile(r"\d{2}:\d{2}:\d{2}")
 def sleeping_job(ctx: JobContext):
     """A job that sleeps for 1 second."""
     yield ESleep(ms=1_000)
-    return "done"  # noqa: B901
+    return "done"
 
 
 def sleep_workflow(ctx: JobContext):
