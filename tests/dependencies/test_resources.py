@@ -1,4 +1,4 @@
-from datetime import timedelta
+import time
 from unittest.mock import patch
 
 import time_machine
@@ -78,7 +78,7 @@ def test_timeout_emits_impossible():
             next(gen)  # advance through one retry: EEmit(waiting)
             next(gen)  # advance through one retry: ESleep
 
-        with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
+        with patch("time.monotonic", return_value=time.monotonic() + 2.0):
             emits, _ = drain_to(gen, EEmit)
 
     assert emits[0].body[0] == "impossible"
@@ -94,7 +94,7 @@ def test_timeout_reason_includes_resource_and_duration():
             next(gen)  # advance through one retry: EEmit(waiting)
             next(gen)  # advance through one retry: ESleep
 
-        with time_machine.travel(NOW + timedelta(seconds=60), tick=False):
+        with patch("time.monotonic", return_value=time.monotonic() + 60.0):
             emits, _ = drain_to(gen, EEmit)
 
     assert emits[0].body[0] == "impossible"
@@ -139,7 +139,7 @@ def test_impossible_returns_tuple_as_generator_value():
             next(gen)  # advance through one retry: EEmit(waiting)
             next(gen)  # advance through one retry: ESleep
 
-        with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
+        with patch("time.monotonic", return_value=time.monotonic() + 2.0):
             emits, return_value = drain_to(gen, EEmit)
 
     assert return_value is emits[0].body

@@ -27,3 +27,7 @@ class ImpossibleError(ZahirError):
 
 class OverseerNotFoundError(ZahirError):
     """Raised when a remote worker cannot resolve the overseer by name in time."""
+
+
+class OverseerSilentError(ZahirError):
+    """Raised when the overseer answers no heartbeat for longer than max_silence_ms."""

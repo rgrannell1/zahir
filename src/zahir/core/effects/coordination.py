@@ -5,6 +5,8 @@ from typing import Any, ClassVar, LiteralString
 
 from orbis import Effect
 
+from zahir.core.zahir_types import JobSpec
+
 
 class ZahirCoordinationEffect[ReturnT](Effect[ReturnT], abstract=True):
     """Base class for effects yielded by the runtime layer, never by jobs directly."""
@@ -12,24 +14,14 @@ class ZahirCoordinationEffect[ReturnT](Effect[ReturnT], abstract=True):
 
 @dataclass
 class EEnqueue(ZahirCoordinationEffect[None]):
-    """Internal: enqueue a child job and route its reply back to this worker."""
+    """Internal: enqueue a child job and route its reply back to this worker.
+
+    The JobSpec travels whole — reply_to and sequence_number on it route the
+    child's result back to the enqueuing worker; both are None for the root job.
+    """
 
     tag: ClassVar[LiteralString] = "enqueue"
-    fn_name: str
-    args: tuple[Any, ...]
-    # requesting worker's PID bytes; None for the root job
-    reply_to: bytes | None
-    timeout_ms: int | None
-    # sequence_number for routing reply to parent; None for the root job
-    sequence_number: int | None
-
-
-@dataclass
-class ERelease(ZahirCoordinationEffect[None]):
-    """Internal: release a named concurrency slot back to the overseer."""
-
-    tag: ClassVar[LiteralString] = "release"
-    name: str
+    job: JobSpec
 
 
 @dataclass
@@ -38,15 +30,6 @@ class EGetJob(ZahirCoordinationEffect[Any]):
 
     tag: ClassVar[LiteralString] = "get_job"
     worker_pid_bytes: bytes = b""
-
-
-@dataclass
-class EAcquireSlot(ZahirCoordinationEffect[bool]):
-    """Internal: request a named concurrency slot from the overseer."""
-
-    tag: ClassVar[LiteralString] = "acquire_slot"
-    name: str
-    limit: int
 
 
 @dataclass
@@ -69,24 +52,3 @@ class EJobFail(ZahirCoordinationEffect[None]):
     reply_to: bytes | None
     sequence_number: Any
     fn_name: str = ""
-
-
-@dataclass
-class EIsDone(ZahirCoordinationEffect[bool]):
-    """Internal: ask the overseer whether all pending jobs have completed."""
-
-    tag: ClassVar[LiteralString] = "is_done"
-
-
-@dataclass
-class EGetError(ZahirCoordinationEffect[Exception | None]):
-    """Internal: retrieve the root error from the overseer, if any job failed fatally."""
-
-    tag: ClassVar[LiteralString] = "get_error"
-
-
-@dataclass
-class EGetResult(ZahirCoordinationEffect[Any]):
-    """Internal: retrieve the root job's return value from the overseer."""
-
-    tag: ClassVar[LiteralString] = "get_result"

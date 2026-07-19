@@ -46,10 +46,14 @@ def parse_progress_dims(
     """Parse completed/total dim strings into a typed tuple, or None if absent.
 
     event.dim() returns '' for missing dims, so treat empty string as absent.
+    A total of 0 (empty batch) is treated as no known total — a fraction of an
+    empty batch is undefined and would divide by zero downstream.
     """
     if not completed_str:
         return None
     total = int(total_str) if total_str else None
+    if total == 0:
+        total = None
     return (int(completed_str), total)
 
 

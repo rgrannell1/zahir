@@ -17,8 +17,8 @@ _.storage_is_done  # noqa: F821
 _.storage_get_error  # noqa: F821
 _.storage_get_result  # noqa: F821
 _.get_semaphore  # noqa: F821
-_.acquire_slot  # noqa: F821
 _.job_complete  # noqa: F821
 _.job_fail  # noqa: F821
-_.set_semaphore_state  # noqa: F821
+_.get_state  # noqa: F821
+_.set_state  # noqa: F821
 _.render  # noqa: F821 # rich ProgressColumn override

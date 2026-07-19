@@ -1,7 +1,7 @@
 """Per-job effect handlers: acquire, semaphore read/write, and the job/timeout guard stack."""
 
+import time
 from collections.abc import Generator, Sequence
-from datetime import UTC, datetime
 from functools import partial
 from typing import Any, cast
 
@@ -9,8 +9,11 @@ from zahir.core.combinators import build_handler_map
 from zahir.core.constants import BLOCKED_EFFECTS, THROWABLE
 from zahir.core.effects import (
     EAcquire,
-    EAcquireSlot,
+    EReleaseSlot,
+    EStorageAcquire,
+    EStorageRelease,
     ZahirCoordinationEffect,
+    ZahirStorageEffect,
 )
 from zahir.core.evaluate.suspension import WorkerLocals
 from zahir.core.exceptions import InvalidEffectError, JobTimeoutError
@@ -21,7 +24,7 @@ def _validate_effect(effect) -> InvalidEffectError | None:
     """Return an error if effect is not allowed in a job context, else None."""
     if not hasattr(effect, "tag"):
         return InvalidEffectError(f"job yielded non-Effect value: {effect!r}")
-    if isinstance(effect, ZahirCoordinationEffect):
+    if isinstance(effect, ZahirCoordinationEffect | ZahirStorageEffect):
         return InvalidEffectError(f"{type(effect).__name__} cannot be yielded directly in a job")
     if isinstance(effect, BLOCKED_EFFECTS):
         return InvalidEffectError(f"{type(effect).__name__} cannot be yielded directly in a job")
@@ -72,8 +75,12 @@ def job_guard(gen: Generator, handlers: JobHandlerMap) -> Generator:
             pending_throw = exc
 
 
-def timeout_guard(gen: Generator, deadline: datetime | None) -> Generator:
-    """Wrap gen, injecting JobTimeoutError into the job if the deadline passes between effects."""
+def timeout_guard(gen: Generator, deadline: float | None) -> Generator:
+    """Wrap gen, injecting JobTimeoutError into the job if the deadline passes between effects.
+
+    deadline is a monotonic-clock instant (time.monotonic() seconds), so wall-clock
+    steps from NTP or suspend/resume cannot fire it early or defer it.
+    """
 
     send_value: Any = None
     pending_throw: Exception | None = None
@@ -84,7 +91,7 @@ def timeout_guard(gen: Generator, deadline: datetime | None) -> Generator:
             return return_value
 
         pending_throw = None
-        if deadline and datetime.now(UTC) >= deadline:
+        if deadline is not None and time.monotonic() >= deadline:
             pending_throw = JobTimeoutError()
             continue
 
@@ -97,7 +104,7 @@ def timeout_guard(gen: Generator, deadline: datetime | None) -> Generator:
 def evaluate_job(
     job_gen: Generator[Any, Any, Any],
     handlers: JobHandlerMap,
-    deadline: datetime | None,
+    deadline: float | None,
 ) -> Generator[Any, Any, Any]:
     """Wrap job_gen in job_guard and timeout_guard using pre-built handlers."""
     guarded = job_guard(job_gen, handlers)
@@ -107,12 +114,29 @@ def evaluate_job(
 def _handle_acquire(locals_: WorkerLocals, effect: EAcquire) -> Generator[Any, Any, bool]:
     """Attempt to acquire a concurrency slot, returning True on success and False on failure."""
 
-    result = yield EAcquireSlot(name=effect.name, limit=effect.limit)
+    result = yield EStorageAcquire(name=effect.name, limit=effect.limit)
 
     if result:
         assert locals_.current_job is not None
         locals_.current_job.acquired.append(effect.name)
     return result
+
+
+def _handle_release_slot(
+    locals_: WorkerLocals, effect: EReleaseSlot
+) -> Generator[Any, Any, None]:
+    """Release a held concurrency slot immediately and remove it from job-exit cleanup.
+
+    A slot the job does not hold is a no-op — forwarding a release for it would
+    wrongly decrement another holder's count.
+    """
+
+    job = locals_.current_job
+    assert job is not None
+    if effect.name not in job.acquired:
+        return
+    job.acquired.remove(effect.name)
+    yield EStorageRelease(name=effect.name)
 
 
 def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> JobHandlerMap:
@@ -121,5 +145,6 @@ def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> JobH
 
     bindings = {
         EAcquire.tag: partial(_handle_acquire, locals_),
+        EReleaseSlot.tag: partial(_handle_release_slot, locals_),
     }
     return cast(JobHandlerMap, build_handler_map(bindings, handler_wrappers))

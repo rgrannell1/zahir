@@ -20,6 +20,16 @@ def parent_job(ctx: JobContext):
     yield EEmit({"result": result})
 
 
+def kw_child_job(ctx: JobContext, value: int, *, doubled: bool = False):
+    yield from ()
+    return value * 2 if doubled else value
+
+
+def kw_parent_job(ctx: JobContext):
+    result = yield ctx.scope.kw_child_job(21, doubled=True)
+    yield EEmit({"result": result})
+
+
 def test_scope_proxy_returns_eawait_with_correct_args():
     """Proves ScopeProxy.__getattr__ returns an EAwait with a JobSpec carrying fn_name and args."""
 
@@ -28,6 +38,25 @@ def test_scope_proxy_returns_eawait_with_correct_args():
 
     effect = proxy.child_job(99)
     assert effect == EAwait(jobs=[JobSpec(fn_name="child_job", args=(99,))], scalar=True)
+
+
+def test_scope_proxy_preserves_keyword_only_args():
+    """Proves keyword-only arguments are carried on the JobSpec rather than silently dropped."""
+
+    proxy = ScopeProxy({"kw_child_job": kw_child_job})
+
+    effect = proxy.kw_child_job(21, doubled=True)
+    assert effect.jobs[0].args == (21,)
+    assert effect.jobs[0].kwargs == {"doubled": True}
+
+
+def test_keyword_only_args_reach_the_child_job():
+    """Proves a dispatched job receives its keyword-only arguments end-to-end."""
+
+    scope = {"kw_parent_job": kw_parent_job, "kw_child_job": kw_child_job}
+    events = user_events(evaluate(setup(n_workers=2), "kw_parent_job", (), scope))
+
+    assert events == [{"result": 42}]
 
 
 def test_scope_proxy_strips_ctx_from_signature():

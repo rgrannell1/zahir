@@ -2,10 +2,12 @@
 
 import pytest
 
+from tests.evaluate.mocks import make_deadlined_parent
 from zahir.core.effects import EAwait, JobSpec, await_all, gather_all
 from zahir.core.evaluate.suspension import RunningJob, SuspensionTable
 from zahir.core.exceptions import JobError, JobTimeoutError
 from zahir.core.fp_types import Err, Ok
+from zahir.core.zahir_types import ResultItem
 
 
 def make_parent() -> RunningJob:
@@ -31,11 +33,11 @@ def run_fanout(effect: EAwait, completions: list[tuple[int, object]]):
 
     table = SuspensionTable()
     enqueues = list(table.suspend(effect, make_parent(), b"worker"))
-    sequence_numbers = [enqueue.sequence_number for enqueue in enqueues]
+    sequence_numbers = [enqueue.job.sequence_number for enqueue in enqueues]
 
     outcome = None
     for child_idx, body in completions:
-        outcome = table.resume(("result", sequence_numbers[child_idx], body))
+        outcome = table.resume(ResultItem(sequence_numbers[child_idx], body))
     return outcome
 
 
@@ -112,6 +114,70 @@ def test_resume_returns_none_while_children_outstanding():
     effect = gather_all([make_scalar("a"), make_scalar("b")])
     table = SuspensionTable()
     enqueues = list(table.suspend(effect, make_parent(), b"worker"))
-    first_sequence_number = enqueues[0].sequence_number
+    first_sequence_number = enqueues[0].job.sequence_number
 
-    assert table.resume(("result", first_sequence_number, "left")) is None
+    assert table.resume(ResultItem(first_sequence_number, "left")) is None
+
+
+# expiry
+
+
+def test_pop_expired_returns_timed_out_parent():
+    """Proves a suspended parent whose deadline has passed is removed and returned."""
+
+    table = SuspensionTable()
+    list(table.suspend(make_scalar("a"), make_deadlined_parent(deadline=1.0), b"worker"))
+
+    expired = table.pop_expired(now=2.0)
+    assert expired is not None
+    assert expired.fn_name == "parent"
+    assert table.pop_expired(now=2.0) is None
+
+
+def test_pop_expired_ignores_live_parents():
+    """Proves parents without a deadline, or with an unexpired one, are left suspended."""
+
+    table = SuspensionTable()
+    list(table.suspend(make_scalar("a"), make_parent(), b"worker"))
+    list(table.suspend(make_scalar("b"), make_deadlined_parent(deadline=10.0), b"worker"))
+
+    assert table.pop_expired(now=2.0) is None
+
+
+def test_late_result_after_expiry_is_discarded():
+    """Proves a child result arriving after its parent expired is discarded, not a crash."""
+
+    table = SuspensionTable()
+    enqueues = list(table.suspend(make_scalar("a"), make_deadlined_parent(deadline=1.0), b"worker"))
+    table.pop_expired(now=2.0)
+
+    late = ResultItem(enqueues[0].job.sequence_number, "late")
+    assert table.resume(late) is None
+
+
+def test_resume_discards_unknown_sequence_numbers():
+    """Proves resume ignores results for children it never registered."""
+
+    table = SuspensionTable()
+    assert table.resume(ResultItem(999, "stray")) is None
+
+
+# partial fan-out failure
+
+
+def test_failed_enqueue_cleans_up_child_registrations():
+    """Proves a mid-fan-out enqueue failure unregisters the fan-out, so late results
+    from already-enqueued children are discarded rather than crashing the worker."""
+
+    table = SuspensionTable()
+    effect = await_all([make_scalar("a"), make_scalar("b")])
+    gen = table.suspend(effect, make_parent(), b"worker")
+
+    first_enqueue = next(gen)
+    with pytest.raises(RuntimeError):
+        gen.throw(RuntimeError("enqueue failed"))
+
+    late = ResultItem(first_enqueue.job.sequence_number, "late")
+    assert table.resume(late) is None
+    assert table.child_to_parent == {}
+    assert table.waiting == {}

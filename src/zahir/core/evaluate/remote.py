@@ -45,12 +45,15 @@ def _joined_worker(
     scope: Scope,
     handler_wrappers: Sequence,
     handlers: HandlerMap,
-    overseer_timeout_ms: int,
+    timeouts: tuple[int, int],
 ) -> Generator[Any, Any, None]:
     """Resolve the overseer by name, then run the standard worker loop against it."""
 
+    overseer_timeout_ms, max_silence_ms = timeouts
     overseer = yield from resolve_overseer(overseer_timeout_ms)
-    yield from worker(bytes(overseer), scope, handler_wrappers, handlers)
+    yield from worker(
+        bytes(overseer), scope, handler_wrappers, handlers, max_silence_ms=max_silence_ms
+    )
 
 
 def join_worker(  # noqa: PLR0913
@@ -70,8 +73,8 @@ def join_worker(  # noqa: PLR0913
     The scope must contain the same job functions as the orchestrator's — jobs are
     dispatched by name, so the code has to be installed on this host. The call only
     returns by raising: OverseerNotFoundError when no overseer registers in time,
-    or a receive timeout error once the orchestrator shuts down and stops replying
-    for recv_timeout_ms.
+    or OverseerSilentError / a receive timeout once the orchestrator shuts down and
+    stops replying for recv_timeout_ms.
     """
 
     transport = TcpTransport(
@@ -88,7 +91,7 @@ def join_worker(  # noqa: PLR0913
         scope,
         handler_wrappers,
         merged_handlers,
-        overseer_timeout_ms,
+        (overseer_timeout_ms, recv_timeout_ms),
         transport=transport,
         recv_timeout_ms=recv_timeout_ms,
     )

@@ -10,7 +10,7 @@ from tertius import EEmit, ESleep
 
 from zahir.core.constants import DependencyState, DependencyTag
 from zahir.core.dependencies.dependency import dependency
-from zahir.core.effects import EAcquire, EGetState, ESetState
+from zahir.core.effects import EAcquire, EGetState, EReleaseSlot, ESetState
 from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 
@@ -34,25 +34,33 @@ def rate_limit_condition(
     After acquiring, waits internally with ESleep rather than returning 'unsatisfied' —
     returning unsatisfied while holding the slot would cause a deadlock because the
     dependency retry loop would call EAcquire again and find the slot already taken.
+    The mutex is released with EReleaseSlot once the timestamp is stamped, so the gate
+    only serialises the gap check — not the whole job that passes through it.
     Emits a WAITING point before each sleep so the progress bar can show the blocked state.
     """
     acquired = yield EAcquire(name=f'rate_limit:{name}', limit=1)
     if not acquired:
         return (DependencyState.UNSATISFIED, {'name': name, 'reason': 'slot busy'})
 
-    elapsed = 0.0
+    elapsed = yield from wait_for_gap(name, min_seconds, label)
+
+    yield ESetState(name=f'rate_limit:last_at:{name}', value=str(time.time()))
+    yield EReleaseSlot(name=f'rate_limit:{name}')
+    return (DependencyState.SATISFIED, {'name': name, 'elapsed': elapsed})
+
+
+def wait_for_gap(name: str, min_seconds: float, label: str) -> Generator[Any, Any, float]:
+    """Sleep inside the gate until min_seconds have passed since the last stamp."""
+
     while True:
         raw = yield EGetState(name=f'rate_limit:last_at:{name}')
         last_at = float(raw) if raw else 0.0
         elapsed = time.time() - last_at
         if elapsed >= min_seconds:
-            break
+            return elapsed
         yield EEmit(_waiting_point(label))
         remaining_ms = max(1, int((min_seconds - elapsed) * 1000))
         yield ESleep(ms=remaining_ms)
-
-    yield ESetState(name=f'rate_limit:last_at:{name}', value=str(time.time()))
-    return (DependencyState.SATISFIED, {'name': name, 'elapsed': elapsed})
 
 
 def rate_limit_dependency(

@@ -2,20 +2,20 @@ from collections.abc import Generator, Sequence
 from functools import partial
 from typing import Any, cast
 
-from tertius import Pid, mcall, mcast
+from tertius import Pid, mcall, mcall_timeout, mcast
 
 from zahir.core.combinators import build_handler_map
+from zahir.core.constants import (
+    COMPLETION_PARK_TIMEOUT_MS,
+    WORKER_PARK_TIMEOUT_MS,
+    WorkItemTag,
+)
 from zahir.core.effects import (
-    EAcquireSlot,
     EEnqueue,
-    EGetError,
     EGetJob,
-    EGetResult,
     EGetState,
-    EIsDone,
     EJobComplete,
     EJobFail,
-    ERelease,
     ESetState,
     EStorageAcquire,
     EStorageEnqueue,
@@ -28,38 +28,58 @@ from zahir.core.effects import (
     EStorageJobFailed,
     EStorageRelease,
     EStorageSetState,
+    ZahirStorageEffect,
 )
-from zahir.core.zahir_types import CoordinationHandlerMap
+from zahir.core.exceptions import OverseerSilentError
+from zahir.core.zahir_types import CoordinationHandlerMap, LeaseTracker, SilenceTracker
 
 
-def _handle_enqueue(
-    overseer: Pid, effect: EEnqueue
-) -> Generator[Any, Any, None]:
+def _handle_enqueue(overseer: Pid, effect: EEnqueue) -> Generator[Any, Any, None]:
     """Enqueue a child job with the overseer, routing the reply back to this worker."""
 
-    yield from mcast(
-        overseer,
-        EStorageEnqueue(
-            fn_name=effect.fn_name,
-            args=effect.args,
-            reply_to=effect.reply_to,
-            timeout_ms=effect.timeout_ms,
-            sequence_number=effect.sequence_number,
-        ),
-    )
+    yield from mcast(overseer, EStorageEnqueue(job=effect.job))
+
+
+def record_silence(silence: SilenceTracker, window_ms: int) -> None:
+    """Accumulate a reply-less park window; raise once the overseer has been silent too long."""
+
+    silence.silent_ms += window_ms
+    limit = silence.max_silence_ms
+    if limit is not None and silence.silent_ms >= limit:
+        raise OverseerSilentError(f"overseer sent no replies for {silence.silent_ms}ms")
 
 
 def _handle_get_job(
-    overseer: Pid, effect: EGetJob
+    overseer: Pid, silence: SilenceTracker, lease: LeaseTracker, effect: EGetJob
 ) -> Generator[Any, Any, Any]:
-    """Ask the overseer for work — returns a new job, a buffered result, or None."""
+    """Ask the overseer for work — returns a new job, a buffered result, or None.
 
-    return (yield from mcall(overseer, EStorageGetJob(effect.worker_pid_bytes)))
+    The overseer parks this call while it has nothing to hand back; the worker
+    heartbeats after WORKER_PARK_TIMEOUT_MS. A NO_WORK ack (wake or heartbeat
+    answer) maps to None so the worker simply asks again. A live overseer acks
+    every heartbeat, so accumulated silence means it is gone.
+
+    Work replies arrive leased as (lease_id, work): the request acks the last
+    received lease so the overseer knows delivery succeeded, and a reply lost to
+    a heartbeat timeout is re-delivered on the next request rather than lost.
+    """
+
+    get_job = EStorageGetJob(effect.worker_pid_bytes, ack=lease.ack)
+    reply = yield from mcall_timeout(overseer, get_job, timeout_ms=WORKER_PARK_TIMEOUT_MS)
+    if reply is None:
+        record_silence(silence, WORKER_PARK_TIMEOUT_MS)
+        return None
+
+    silence.silent_ms = 0
+    if reply == WorkItemTag.NO_WORK:
+        return None
+
+    lease_id, work = reply
+    lease.ack = lease_id
+    return work
 
 
-def _handle_job_complete(
-    overseer: Pid, effect: EJobComplete
-) -> Generator[Any, Any, None]:
+def _handle_job_complete(overseer: Pid, effect: EJobComplete) -> Generator[Any, Any, None]:
     """Route the result to the parent worker via the overseer and decrement pending."""
 
     yield from mcast(
@@ -72,9 +92,7 @@ def _handle_job_complete(
     )
 
 
-def _handle_job_fail(
-    overseer: Pid, effect: EJobFail
-) -> Generator[Any, Any, None]:
+def _handle_job_fail(overseer: Pid, effect: EJobFail) -> Generator[Any, Any, None]:
     """Route the failure to the parent worker via the overseer, or record it as root error."""
 
     if effect.reply_to is None:
@@ -91,94 +109,77 @@ def _handle_job_fail(
     )
 
 
-def _handle_release(
-    overseer: Pid, effect: ERelease
-) -> Generator[Any, Any, None]:
-    """Release a named concurrency slot back to the overseer."""
+def _call_overseer(overseer: Pid, effect: ZahirStorageEffect) -> Generator[Any, Any, Any]:
+    """Transport a storage effect to the overseer and return its reply."""
 
-    yield from mcast(overseer, EStorageRelease(name=effect.name))
+    return (yield from mcall(overseer, effect))
 
 
-def _handle_acquire_slot(
-    overseer: Pid, effect: EAcquireSlot
-) -> Generator[Any, Any, bool]:
-    """Request a named concurrency slot from the overseer."""
+def _cast_overseer(overseer: Pid, effect: ZahirStorageEffect) -> Generator[Any, Any, None]:
+    """Transport a fire-and-forget storage effect to the overseer."""
 
-    acquire_effect = EStorageAcquire(name=effect.name, limit=effect.limit)
-    return (yield from mcall(overseer, acquire_effect))
+    yield from mcast(overseer, effect)
 
 
-def _handle_get_state(
-    overseer: Pid, effect: EGetState
-) -> Generator[Any, Any, str]:
+def _handle_get_state(overseer: Pid, effect: EGetState) -> Generator[Any, Any, str]:
     """Read a value from the overseer's key-value store by name."""
 
     return (yield from mcall(overseer, EStorageGetState(name=effect.name)))
 
 
-def _handle_set_state(
-    overseer: Pid, effect: ESetState
-) -> Generator[Any, Any, None]:
+def _handle_set_state(overseer: Pid, effect: ESetState) -> Generator[Any, Any, None]:
     """Write a value to the overseer's key-value store by name."""
 
     yield from mcast(overseer, EStorageSetState(name=effect.name, state=effect.value))
 
 
-def _handle_is_done(
-    overseer: Pid, effect: EIsDone
-) -> Generator[Any, Any, bool]:
-    """Ask the overseer whether all pending jobs have completed."""
+def _handle_is_done(overseer: Pid, effect: EStorageIsDone) -> Generator[Any, Any, bool]:
+    """Ask the overseer whether all pending jobs have completed.
 
-    return (yield from mcall(overseer, EStorageIsDone()))
+    The overseer parks this call until completion; a heartbeat timeout or a
+    not-done ack both map to False so the runner simply asks again.
+    """
 
-
-def _handle_get_error(
-    overseer: Pid, effect: EGetError
-) -> Generator[Any, Any, Exception | None]:
-    """Retrieve the root error from the overseer, if any."""
-
-    return (yield from mcall(overseer, EStorageGetError()))
-
-
-def _handle_get_result(
-    overseer: Pid, effect: EGetResult
-) -> Generator[Any, Any, Any]:
-    """Retrieve the root job's return value from the overseer."""
-
-    return (yield from mcall(overseer, EStorageGetResult()))
-
-
-# EGetJob fires on every worker poll tick — wrapping it generates high-volume noise with no signal.
-# TODO encode this skip in the telemetry layer
-_SKIP_WRAP = frozenset({EGetJob.tag})
+    done = yield from mcall_timeout(overseer, effect, timeout_ms=COMPLETION_PARK_TIMEOUT_MS)
+    return bool(done)
 
 
 # Now, assemble all of the handlers and wrap them with telemetry context.
+# EGetJob is wrapped like everything else: it long-polls at the overseer, so its
+# spans measure per-worker idle time rather than emitting per-tick noise.
 def make_coordination_handlers(
     overseer: Pid,
     handler_wrappers: Sequence,
+    max_silence_ms: int | None = None,
 ) -> CoordinationHandlerMap:
-    """Create handlers for all coordination effects.
+    """Create handlers for all coordination and transported storage effects.
 
-    Handles job lifecycle (worker) and completion polling (root). Callers merge in any
-    user overrides at the call site via merge_handlers.
+    Handles job lifecycle (worker) and completion long-polling (root). Callers merge
+    these last: transported storage tags must beat any locally-present storage
+    handlers, which would otherwise run against a private backend. max_silence_ms
+    bounds how long the overseer may answer no get-job heartbeat before the worker
+    raises.
     """
 
+    silence = SilenceTracker(max_silence_ms=max_silence_ms)
+    lease = LeaseTracker()
     bindings = {
-        EAcquireSlot.tag: partial(_handle_acquire_slot, overseer),
         EEnqueue.tag: partial(_handle_enqueue, overseer),
-        EGetError.tag: partial(_handle_get_error, overseer),
-        EGetJob.tag: partial(_handle_get_job, overseer),
-        EGetResult.tag: partial(_handle_get_result, overseer),
-        EIsDone.tag: partial(_handle_is_done, overseer),
+        EGetJob.tag: partial(_handle_get_job, overseer, silence, lease),
         EJobComplete.tag: partial(_handle_job_complete, overseer),
         EJobFail.tag: partial(_handle_job_fail, overseer),
-        ERelease.tag: partial(_handle_release, overseer),
         EGetState.tag: partial(_handle_get_state, overseer),
         ESetState.tag: partial(_handle_set_state, overseer),
+        # Storage effects yielded worker- or runner-side are transported to the
+        # overseer; the overseer's own bag binds these tags to the backend instead.
+        EStorageAcquire.tag: partial(_call_overseer, overseer),
+        EStorageRelease.tag: partial(_cast_overseer, overseer),
+        EStorageIsDone.tag: partial(_handle_is_done, overseer),
+        EStorageGetError.tag: partial(_call_overseer, overseer),
+        EStorageGetResult.tag: partial(_call_overseer, overseer),
     }
 
     return cast(
         CoordinationHandlerMap,
-        build_handler_map(bindings, handler_wrappers, skip=_SKIP_WRAP),
+        build_handler_map(bindings, handler_wrappers),
     )

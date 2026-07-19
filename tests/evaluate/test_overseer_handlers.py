@@ -2,7 +2,7 @@
 from collections import deque
 
 from zahir.core.backends.memory import MemoryBackend
-from zahir.core.zahir_types import JobSpec
+from zahir.core.zahir_types import JobSpec, ResultItem
 
 WORKER = b"worker-pid"
 
@@ -17,15 +17,16 @@ def _backend(**kwargs) -> MemoryBackend:
 def test_get_job_returns_none_when_queue_empty_and_no_results():
     """Proves get_job returns None when no jobs are queued and no results are buffered."""
 
-    assert _backend().get_job(WORKER) is None
+    assert _backend().get_job(WORKER, None) is None
 
 
-def test_get_job_returns_job_tuple_from_queue():
-    """Proves get_job returns a ("job", ...) tuple from the queue when no results are pending."""
+def test_get_job_returns_leased_job_spec_from_queue():
+    """Proves get_job returns the queued JobSpec itself, wrapped in a lease."""
 
     spec = JobSpec(fn_name="process", args=(1,), reply_to=None, timeout_ms=5000, sequence_number=3)
-    result = _backend(queue=deque([spec])).get_job(WORKER)
-    assert result == ("job", "process", (1,), None, 5000, 3)
+    lease_id, work = _backend(queue=deque([spec])).get_job(WORKER, None)
+    assert work is spec
+    assert lease_id == 1
 
 
 def test_get_job_removes_job_from_queue():
@@ -33,7 +34,7 @@ def test_get_job_removes_job_from_queue():
 
     spec = JobSpec(fn_name="fn", args=(), reply_to=None)
     backend = _backend(queue=deque([spec]))
-    backend.get_job(WORKER)
+    backend.get_job(WORKER, None)
     assert len(backend.queue) == 0
 
 
@@ -41,8 +42,8 @@ def test_get_job_preserves_fifo_order():
     """Proves get_job dequeues jobs in FIFO order."""
 
     specs = [JobSpec(fn_name=f"fn{idx}", args=(), reply_to=None) for idx in range(3)]
-    result = _backend(queue=deque(specs)).get_job(WORKER)
-    assert result[1] == "fn0"
+    _, work = _backend(queue=deque(specs)).get_job(WORKER, None)
+    assert work.fn_name == "fn0"
 
 
 def test_get_job_returns_buffered_result_before_queue():
@@ -50,8 +51,8 @@ def test_get_job_returns_buffered_result_before_queue():
 
     pending = {WORKER: deque([(42, "result")])}
     spec = JobSpec(fn_name="fn", args=(), reply_to=None)
-    work = _backend(queue=deque([spec]), pending_results=pending).get_job(WORKER)
-    assert work == ("result", 42, "result")
+    _, work = _backend(queue=deque([spec]), pending_results=pending).get_job(WORKER, None)
+    assert work == ResultItem(sequence_number=42, body="result")
 
 
 def test_get_job_result_is_worker_specific():
@@ -59,7 +60,81 @@ def test_get_job_result_is_worker_specific():
 
     other_worker = b"other-pid"
     pending = {other_worker: deque([(1, "result")])}
-    assert _backend(pending_results=pending).get_job(WORKER) is None
+    assert _backend(pending_results=pending).get_job(WORKER, None) is None
+
+
+# get_job — lease protocol
+
+
+def test_get_job_redelivers_work_when_reply_was_lost():
+    """Proves work handed to a worker whose reply timed out is re-delivered, not lost."""
+
+    spec = JobSpec(fn_name="fn", args=(), reply_to=None)
+    backend = _backend(queue=deque([spec]))
+
+    first = backend.get_job(WORKER, None)
+    second = backend.get_job(WORKER, None)
+    assert second == first
+
+
+def test_get_job_ack_clears_lease_and_hands_out_next_item():
+    """Proves an acked lease is dropped and the next queued item is delivered."""
+
+    specs = [JobSpec(fn_name=f"fn{idx}", args=(), reply_to=None) for idx in range(2)]
+    backend = _backend(queue=deque(specs))
+
+    first_lease_id, first_work = backend.get_job(WORKER, None)
+    second_lease_id, second_work = backend.get_job(WORKER, first_lease_id)
+    assert first_work.fn_name == "fn0"
+    assert second_work.fn_name == "fn1"
+    assert second_lease_id != first_lease_id
+
+
+def test_get_job_ack_is_processed_when_queue_is_empty():
+    """Proves an ack clears the lease even with no new work, so it is never re-delivered."""
+
+    spec = JobSpec(fn_name="fn", args=(), reply_to=None)
+    backend = _backend(queue=deque([spec]))
+
+    lease_id, _ = backend.get_job(WORKER, None)
+    assert backend.get_job(WORKER, lease_id) is None
+    assert backend.get_job(WORKER, None) is None
+
+
+def test_get_job_stale_ack_still_redelivers_current_lease():
+    """Proves an ack for an older lease does not clear the current one."""
+
+    specs = [JobSpec(fn_name=f"fn{idx}", args=(), reply_to=None) for idx in range(2)]
+    backend = _backend(queue=deque(specs))
+
+    first_lease_id, _ = backend.get_job(WORKER, None)
+    current = backend.get_job(WORKER, first_lease_id)
+    redelivered = backend.get_job(WORKER, first_lease_id)
+    assert redelivered == current
+
+
+def test_get_job_leases_are_worker_specific():
+    """Proves one worker's un-acked lease does not affect another worker's handout."""
+
+    other_worker = b"other-pid"
+    specs = [JobSpec(fn_name=f"fn{idx}", args=(), reply_to=None) for idx in range(2)]
+    backend = _backend(queue=deque(specs))
+
+    _, first_work = backend.get_job(WORKER, None)
+    _, second_work = backend.get_job(other_worker, None)
+    assert first_work.fn_name == "fn0"
+    assert second_work.fn_name == "fn1"
+
+
+def test_get_job_redelivers_buffered_results_too():
+    """Proves un-acked buffered results are re-delivered like jobs."""
+
+    pending = {WORKER: deque([(42, "result")])}
+    backend = _backend(pending_results=pending)
+
+    first = backend.get_job(WORKER, None)
+    second = backend.get_job(WORKER, None)
+    assert second == first
 
 
 # enqueue

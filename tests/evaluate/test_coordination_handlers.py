@@ -4,42 +4,43 @@ import pytest
 from bookman.events import Event
 from tertius import EEmit
 
-from tests.evaluate.mocks import ME, OVERSEER, mock_mcall, mock_mcast
+from tests.evaluate.mocks import ME, OVERSEER, mock_mcall, mock_mcall_timeout, mock_mcast
 from tests.shared import drain_to
 from zahir.core.combinators import wrap
+from zahir.core.constants import WORKER_PARK_TIMEOUT_MS, WorkItemTag
 from zahir.core.effects import (
-    EAcquireSlot,
     EEnqueue,
-    EGetError,
     EGetJob,
-    EGetResult,
     EGetState,
-    EIsDone,
     EJobComplete,
     EJobFail,
-    ERelease,
     ESetState,
     EStorageAcquire,
     EStorageEnqueue,
+    EStorageGetError,
+    EStorageGetJob,
+    EStorageGetResult,
     EStorageGetState,
+    EStorageIsDone,
     EStorageJobDone,
     EStorageJobFailed,
     EStorageRelease,
     EStorageSetState,
 )
 from zahir.core.evaluate.coordination_handlers import (
-    _handle_acquire_slot,
+    _call_overseer,
+    _cast_overseer,
     _handle_enqueue,
     _handle_get_job,
     _handle_get_state,
     _handle_job_complete,
     _handle_job_fail,
-    _handle_release,
     _handle_set_state,
     make_coordination_handlers,
 )
-from zahir.core.exceptions import JobError
+from zahir.core.exceptions import JobError, OverseerSilentError
 from zahir.core.telemetry import make_telemetry
+from zahir.core.zahir_types import JobSpec, LeaseTracker, SilenceTracker
 
 REPLY_TO = bytes(ME)
 WORKER_PID = b"worker-pid"
@@ -58,52 +59,96 @@ def test_handle_enqueue_sends_correct_message_to_overseer():
         return None
         yield
 
-    with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        drain_to(
-            _handle_enqueue(
-                OVERSEER,
-                EEnqueue(
-                    fn_name="child",
-                    args=(1,),
-                    reply_to=WORKER_PID,
-                    timeout_ms=500,
-                    sequence_number=3,
-                ),
-            )
-        )
-
-    storage_enqueue = EStorageEnqueue(
-        fn_name="child",
-        args=(1,),
-        reply_to=WORKER_PID,
-        timeout_ms=500,
-        sequence_number=3,
+    child_spec = JobSpec(
+        fn_name="child", args=(1,), reply_to=WORKER_PID, timeout_ms=500, sequence_number=3
     )
-    assert sent[0] == (OVERSEER, storage_enqueue)
+    with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
+        drain_to(_handle_enqueue(OVERSEER, EEnqueue(job=child_spec)))
+
+    assert sent[0] == (OVERSEER, EStorageEnqueue(job=child_spec))
 
 
 # _handle_get_job
 
+MCALL_TIMEOUT_PATH = "zahir.core.evaluate.coordination_handlers.mcall_timeout"
+
+
+def run_get_job(reply, silence: SilenceTracker, lease: LeaseTracker | None = None):
+    """Drive _handle_get_job against a canned overseer reply; return its result."""
+
+    with patch(MCALL_TIMEOUT_PATH, mock_mcall_timeout(reply)):
+        gen = _handle_get_job(
+            OVERSEER, silence, lease or LeaseTracker(), EGetJob(worker_pid_bytes=WORKER_PID)
+        )
+        with pytest.raises(StopIteration) as exc:
+            next(gen)
+        return exc.value.value
+
 
 def test_handle_get_job_returns_work_from_overseer():
-    """Proves _handle_get_job returns whatever the overseer replies with."""
+    """Proves _handle_get_job unwraps a leased work reply and returns the work item."""
 
-    work = ("job", "fn", (), None, None, None)
-    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(work)):
-        gen = _handle_get_job(OVERSEER, EGetJob(worker_pid_bytes=WORKER_PID))
-        with pytest.raises(StopIteration) as exc:
+    work = JobSpec(fn_name="fn")
+    assert run_get_job((1, work), SilenceTracker()) == work
+
+
+def test_handle_get_job_records_lease_id_for_next_ack():
+    """Proves a received lease id is recorded so the next request acks it."""
+
+    lease = LeaseTracker()
+    work = JobSpec(fn_name="fn")
+    run_get_job((9, work), SilenceTracker(), lease)
+    assert lease.ack == 9
+
+
+def test_handle_get_job_sends_recorded_ack_to_overseer():
+    """Proves the next EStorageGetJob carries the last received lease id as its ack."""
+
+    sent = []
+
+    def _capturing(pid, body, timeout_ms):
+        sent.append(body)
+        return None
+        yield
+
+    lease = LeaseTracker(ack=9)
+    get_job = EGetJob(worker_pid_bytes=WORKER_PID)
+    with patch(MCALL_TIMEOUT_PATH, _capturing):
+        gen = _handle_get_job(OVERSEER, SilenceTracker(), lease, get_job)
+        with pytest.raises(StopIteration):
             next(gen)
-        assert exc.value.value == work
+
+    assert sent[0] == EStorageGetJob(worker_pid_bytes=WORKER_PID, ack=9)
 
 
-def test_handle_get_job_returns_none_when_overseer_has_nothing():
-    """Proves _handle_get_job returns None without looping when the overseer has nothing."""
+def test_handle_get_job_maps_no_work_ack_to_none():
+    """Proves a NO_WORK wake or heartbeat ack maps to None so the worker re-requests."""
 
-    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(None)):
-        gen = _handle_get_job(OVERSEER, EGetJob(worker_pid_bytes=WORKER_PID))
-        with pytest.raises(StopIteration) as exc:
-            next(gen)
-        assert exc.value.value is None
+    assert run_get_job(WorkItemTag.NO_WORK, SilenceTracker()) is None
+
+
+def test_handle_get_job_returns_none_on_heartbeat_timeout():
+    """Proves a reply-less park window maps to None so the worker re-requests."""
+
+    assert run_get_job(None, SilenceTracker()) is None
+
+
+def test_handle_get_job_raises_after_prolonged_silence():
+    """Proves accumulated reply-less windows past max_silence_ms raise OverseerSilentError."""
+
+    silence = SilenceTracker(max_silence_ms=2 * WORKER_PARK_TIMEOUT_MS)
+    assert run_get_job(None, silence) is None
+    with pytest.raises(OverseerSilentError):
+        run_get_job(None, silence)
+
+
+def test_handle_get_job_reply_resets_silence():
+    """Proves any overseer reply resets the accumulated silence window."""
+
+    silence = SilenceTracker(max_silence_ms=2 * WORKER_PARK_TIMEOUT_MS)
+    assert run_get_job(None, silence) is None
+    assert run_get_job(WorkItemTag.NO_WORK, silence) is None
+    assert silence.silent_ms == 0
 
 
 # _handle_job_complete
@@ -188,11 +233,11 @@ def test_handle_job_fail_sends_storage_job_failed_for_root_job():
     assert sent[0] == (OVERSEER, EStorageJobFailed(error=err))
 
 
-# _handle_release
+# _cast_overseer
 
 
-def test_handle_release_mcasts_storage_release_with_name():
-    """Proves _handle_release sends EStorageRelease to the overseer."""
+def test_cast_overseer_mcasts_storage_release_with_name():
+    """Proves _cast_overseer sends the storage effect to the overseer unchanged."""
 
     sent = []
 
@@ -202,18 +247,18 @@ def test_handle_release_mcasts_storage_release_with_name():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
-        gen = _handle_release(OVERSEER, ERelease(name="workers"))
+        gen = _cast_overseer(OVERSEER, EStorageRelease(name="workers"))
         with pytest.raises(StopIteration):
             next(gen)
 
     assert sent[0] == (OVERSEER, EStorageRelease(name="workers"))
 
 
-# _handle_acquire_slot
+# _call_overseer
 
 
-def test_handle_acquire_slot_mcalls_storage_acquire():
-    """Proves _handle_acquire_slot sends EStorageAcquire to the overseer and returns the result."""
+def test_call_overseer_mcalls_storage_acquire():
+    """Proves _call_overseer sends the storage effect to the overseer and returns the reply."""
 
     sent = []
 
@@ -223,7 +268,7 @@ def test_handle_acquire_slot_mcalls_storage_acquire():
         yield
 
     with patch("zahir.core.evaluate.coordination_handlers.mcall", _capturing):
-        gen = _handle_acquire_slot(OVERSEER, EAcquireSlot(name="workers", limit=4))
+        gen = _call_overseer(OVERSEER, EStorageAcquire(name="workers", limit=4))
         with pytest.raises(StopIteration) as exc:
             next(gen)
 
@@ -280,17 +325,17 @@ def test_make_coordination_handlers_contains_all_effect_types():
 
     handlers = make_coordination_handlers(OVERSEER, [])
     assert set(handlers.keys()) == {
-        EAcquireSlot.tag,
         EEnqueue.tag,
-        EGetError.tag,
         EGetJob.tag,
-        EGetResult.tag,
-        EIsDone.tag,
         EJobComplete.tag,
         EJobFail.tag,
-        ERelease.tag,
         EGetState.tag,
         ESetState.tag,
+        EStorageAcquire.tag,
+        EStorageRelease.tag,
+        EStorageIsDone.tag,
+        EStorageGetError.tag,
+        EStorageGetResult.tag,
     }
 
 
@@ -346,7 +391,7 @@ def test_job_fail_handler_emits_telemetry_with_fn_name():
 
 
 def test_make_coordination_handlers_applies_wrapper_to_is_done():
-    """Proves the EIsDone handler is wrapped when handler_wrappers is set."""
+    """Proves the EStorageIsDone transport handler is wrapped when handler_wrappers is set."""
 
     emitted = []
 
@@ -356,10 +401,10 @@ def test_make_coordination_handlers_applies_wrapper_to_is_done():
 
     handlers = make_coordination_handlers(OVERSEER, [wrap(recording_fn)])
 
-    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
-        drain_to(handlers["is_done"](EIsDone()))
+    with patch(MCALL_TIMEOUT_PATH, mock_mcall_timeout(False)):
+        drain_to(handlers["storage_is_done"](EStorageIsDone()))
 
-    assert EIsDone.tag in emitted
+    assert EStorageIsDone.tag in emitted
 
 
 def test_make_coordination_handlers_applies_wrapper_to_all_root_effects():
@@ -373,9 +418,12 @@ def test_make_coordination_handlers_applies_wrapper_to_all_root_effects():
 
     handlers = make_coordination_handlers(OVERSEER, [wrap(recording_fn)])
 
-    cases = [(EIsDone, False), (EGetError, None), (EGetResult, None)]
+    cases = [(EStorageIsDone, False), (EStorageGetError, None), (EStorageGetResult, None)]
     for effect_type, reply in cases:
-        with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(reply)):
+        with (
+            patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(reply)),
+            patch(MCALL_TIMEOUT_PATH, mock_mcall_timeout(reply)),
+        ):
             drain_to(handlers[effect_type.tag](effect_type()))
 
     for effect_type, _reply in cases:
@@ -387,8 +435,8 @@ def test_make_coordination_handlers_emits_telemetry_events_for_is_done():
 
     handlers = make_coordination_handlers(OVERSEER, [make_telemetry()])
 
-    with patch("zahir.core.evaluate.coordination_handlers.mcall", mock_mcall(False)):
-        emitted, _ = drain_to(handlers["is_done"](EIsDone()))
+    with patch(MCALL_TIMEOUT_PATH, mock_mcall_timeout(False)):
+        emitted, _ = drain_to(handlers["storage_is_done"](EStorageIsDone()))
 
     telemetry = [e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)]
     assert len(telemetry) == 2  # start point + end span

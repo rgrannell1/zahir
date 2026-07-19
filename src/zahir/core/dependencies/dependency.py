@@ -2,12 +2,12 @@
 import os
 import time
 from collections.abc import Callable, Generator
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from bookman.events import point
 from tertius import EEmit, ESleep
 
+from zahir.core.clock import monotonic_deadline
 from zahir.core.constants import DEPENDENCY_DELAY_MS, DependencyState, DependencyTag
 from zahir.core.zahir_types import ConditionResult, DependencyResult
 
@@ -79,11 +79,10 @@ def dependency(
 
     Unsatisfied causes a retry after poll_ms; satisfied or impossible terminates the loop.
     """
-    has_timeout = timeout_ms is not None
-    timeout_at = datetime.now(tz=UTC) + timedelta(milliseconds=timeout_ms) if has_timeout else None
+    timeout_at = monotonic_deadline(timeout_ms)
 
     while True:
-        if timeout_at is not None and datetime.now(tz=UTC) >= timeout_at:
+        if timeout_at is not None and time.monotonic() >= timeout_at:
             reason = f"{label} timed out after {timeout_ms}ms"
             return (yield from _finish(label, (DependencyState.IMPOSSIBLE, {"reason": reason})))
 

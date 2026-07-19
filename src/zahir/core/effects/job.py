@@ -81,6 +81,19 @@ class EAcquire(ZahirJobEffect[bool]):
 
 
 @dataclass
+class EReleaseSlot(ZahirJobEvent):
+    """Release a named concurrency slot before the job exits.
+
+    Slots acquired with EAcquire are normally released automatically at job exit;
+    yield this to release earlier — e.g. a gate or mutex held only briefly.
+    Releasing a slot the job does not hold is a no-op.
+    """
+
+    tag: ClassVar[LiteralString] = "release_slot"
+    name: str
+
+
+@dataclass
 class EGetState(ZahirJobEffect[str | None]):
     """Read a string value from the runner's key-value store by name. Returns None if unset."""
 

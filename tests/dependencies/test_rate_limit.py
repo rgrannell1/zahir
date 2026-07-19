@@ -9,7 +9,7 @@ from tertius import EEmit, ESleep
 
 from tests.shared import drain_to
 from zahir.core.dependencies.rate_limit import rate_limit_condition
-from zahir.core.effects import EAcquire, EGetState, ESetState
+from zahir.core.effects import EAcquire, EGetState, EReleaseSlot, ESetState
 from zahir.core.zahir_types import ConditionResult
 
 _NAME = "fetch"
@@ -54,6 +54,33 @@ def test_no_prior_run_satisfies_immediately():
     assert result[0] == "satisfied"
     assert isinstance(result[1]["elapsed"], float)
     assert result[1]["elapsed"] >= _MIN_SECONDS
+
+
+def test_gate_released_after_satisfaction():
+    """Proves the mutex slot is released by the condition itself, not held until job exit."""
+
+    with patch("zahir.core.dependencies.rate_limit.time") as mock_time:
+        mock_time.time.return_value = _NOW
+        gen = _make_gen()
+        responses = {EAcquire: True, EGetState: None, ESetState: None}
+        effects, result = drain_to(gen, responses=responses)
+
+    assert result[0] == "satisfied"
+    releases = [effect for effect in effects if isinstance(effect, EReleaseSlot)]
+    assert [release.name for release in releases] == [f"rate_limit:{_NAME}"]
+
+    stamp_idx = next(idx for idx, effect in enumerate(effects) if isinstance(effect, ESetState))
+    release_idx = effects.index(releases[0])
+    assert release_idx > stamp_idx
+
+
+def test_no_release_when_slot_was_busy():
+    """Proves an unsatisfied probe (slot busy) releases nothing it never held."""
+
+    gen = _make_gen()
+    next(gen)  # EAcquire
+    effects, _ = drain_to(gen, responses={EAcquire: False})
+    assert not any(isinstance(effect, EReleaseSlot) for effect in effects)
 
 
 def test_elapsed_sufficient_satisfies_without_sleep():

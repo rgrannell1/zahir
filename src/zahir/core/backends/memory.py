@@ -7,7 +7,6 @@ from functools import partial
 from typing import Any, cast
 
 from zahir.core.combinators import build_handler_map
-from zahir.core.constants import WorkItemTag
 from zahir.core.effects import (
     EStorageAcquire,
     EStorageEnqueue,
@@ -21,7 +20,15 @@ from zahir.core.effects import (
     EStorageRelease,
     EStorageSetState,
 )
-from zahir.core.zahir_types import ConcurrencyMap, JobSpec, PendingResults, StorageHandlerMap
+from zahir.core.zahir_types import (
+    ConcurrencyMap,
+    JobSpec,
+    LeaseMap,
+    PendingResults,
+    ResultItem,
+    StorageHandlerMap,
+    WorkItem,
+)
 
 
 @dataclass
@@ -39,26 +46,58 @@ class MemoryBackend:
     root_error: Exception | None = None
     root_result: Any = None
     pending_results: PendingResults = field(default_factory=dict)
+    leased: LeaseMap = field(default_factory=dict)
+    lease_counter: int = 0
 
-    def get_job(self, worker_pid_bytes: bytes) -> Any:
-        """Return a buffered result for this worker, the next queued job, or
-        None."""
+    def settle_lease(self, worker_pid_bytes: bytes, ack: int | None) -> Any:
+        """Drop an acked lease; re-deliver an un-acked one. None when no lease is open."""
+
+        lease = self.leased.get(worker_pid_bytes)
+        if lease is None:
+            return None
+
+        lease_id, _work = lease
+        if ack == lease_id:
+            del self.leased[worker_pid_bytes]
+            return None
+        return lease
+
+    def open_lease(self, worker_pid_bytes: bytes, work: Any) -> tuple[int, Any]:
+        """Record a work handout so it survives a lost reply, and return the leased item."""
+
+        self.lease_counter += 1
+        lease = (self.lease_counter, work)
+        self.leased[worker_pid_bytes] = lease
+        return lease
+
+    def next_work_item(self, worker_pid_bytes: bytes) -> WorkItem | None:
+        """Return a buffered result for this worker, the next queued job, or None."""
+
         results = self.pending_results.get(worker_pid_bytes)
         if results:
             sequence_number, body = results.popleft()
-            return (WorkItemTag.RESULT, sequence_number, body)
+            return ResultItem(sequence_number=sequence_number, body=body)
 
         if self.queue:
-            job = self.queue.popleft()
-            job_tuple = (
-                WorkItemTag.JOB,
-                job.fn_name,
-                job.args,
-                job.reply_to,
-                job.timeout_ms,
-                job.sequence_number,
-            )
-            return job_tuple
+            return self.queue.popleft()
+
+        return None
+
+    def get_job(self, worker_pid_bytes: bytes, ack: int | None) -> Any:
+        """Return the worker's un-acked lease, a buffered result, or the next queued job.
+
+        Every work handout is leased: the reply can be lost when it crosses the
+        worker's heartbeat timeout, so the item is held until the worker's next
+        request acks receipt. Returns (lease_id, work) or None.
+        """
+
+        redelivery = self.settle_lease(worker_pid_bytes, ack)
+        if redelivery is not None:
+            return redelivery
+
+        work = self.next_work_item(worker_pid_bytes)
+        if work is not None:
+            return self.open_lease(worker_pid_bytes, work)
 
         return None
 
@@ -130,7 +169,7 @@ class MemoryBackend:
 def _handle_storage_get_job(backend: MemoryBackend, effect: EStorageGetJob) -> Any:
     """Return the next work item for the requesting worker."""
     yield from ()
-    return backend.get_job(effect.worker_pid_bytes)
+    return backend.get_job(effect.worker_pid_bytes, effect.ack)
 
 
 def _handle_storage_enqueue(
@@ -138,15 +177,7 @@ def _handle_storage_enqueue(
     effect: EStorageEnqueue,
 ) -> Generator[Any, Any, None]:
     """Add a child job to the queue."""
-    backend.enqueue(
-        JobSpec(
-            fn_name=effect.fn_name,
-            args=effect.args,
-            reply_to=effect.reply_to,
-            timeout_ms=effect.timeout_ms,
-            sequence_number=effect.sequence_number,
-        )
-    )
+    backend.enqueue(effect.job)
     yield from ()
     return
 
@@ -154,21 +185,23 @@ def _handle_storage_enqueue(
 def _handle_storage_job_done(
     backend: MemoryBackend,
     effect: EStorageJobDone,
-) -> Generator[Any, Any, None]:
-    """Record job completion and route the result."""
+) -> Generator[Any, Any, bool]:
+    """Record job completion and route the result. Returns True when the workflow is done,
+    so the overseer can wake completion waiters without a second dispatch."""
     backend.job_done(effect.reply_to, effect.sequence_number, effect.body)
     yield from ()
-    return
+    return backend.is_done()
 
 
 def _handle_storage_job_failed(
     backend: MemoryBackend,
     effect: EStorageJobFailed,
-) -> Generator[Any, Any, None]:
-    """Record a root-level job failure."""
+) -> Generator[Any, Any, bool]:
+    """Record a root-level job failure. Returns True when the workflow is done,
+    so the overseer can wake completion waiters without a second dispatch."""
     backend.job_failed(effect.error)
     yield from ()
-    return
+    return backend.is_done()
 
 
 def _handle_storage_acquire(
@@ -227,14 +260,13 @@ def _handle_storage_get_result(backend: MemoryBackend, effect: EStorageGetResult
     return backend.get_result()
 
 
-# EStorageGetJob is polled on every worker tick — wrapping it floods telemetry with noise.
-# Mirrors the EGetJob skip in coordination_handlers.
-_SKIP_WRAP = frozenset({EStorageGetJob.tag})
-
-
 def make_memory_storage_handlers(handler_wrappers: Sequence = ()) -> StorageHandlerMap:
     """Create a complete set of storage handlers backed by a fresh in-memory backend,
-    with any user-supplied wrappers applied."""
+    with any user-supplied wrappers applied.
+
+    EStorageGetJob is wrapped like everything else: workers long-poll rather than
+    spin, so get-job telemetry is meaningful signal, not per-tick noise.
+    """
     backend = MemoryBackend()
 
     bindings = {
@@ -250,4 +282,4 @@ def make_memory_storage_handlers(handler_wrappers: Sequence = ()) -> StorageHand
         EStorageGetError.tag: partial(_handle_storage_get_error, backend),
         EStorageGetResult.tag: partial(_handle_storage_get_result, backend),
     }
-    return cast(StorageHandlerMap, build_handler_map(bindings, handler_wrappers, skip=_SKIP_WRAP))
+    return cast(StorageHandlerMap, build_handler_map(bindings, handler_wrappers))

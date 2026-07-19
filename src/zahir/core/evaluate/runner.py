@@ -1,43 +1,45 @@
 """Entry point for running a zahir workflow.
 
-Spawns overseer and workers, seeds root job, polls for completion.
+Spawns overseer and workers, seeds root job, long-polls for completion.
 """
 
 from collections.abc import Generator, Sequence
 from typing import Any, cast
 
 from orbis import handle
-from tertius import EEmit, ESleep, ESpawn, Pid, Scope, SpawnMode, run
+from tertius import EEmit, ESpawn, Pid, Scope, SpawnMode, run
 
 from zahir.core.backends.memory import make_memory_storage_handlers
 from zahir.core.combinators import merge_handlers
-from zahir.core.constants import COMPLETION_POLL_MS
-from zahir.core.effects import EEnqueue, EGetError, EGetResult, EIsDone
+from zahir.core.effects import EEnqueue, EStorageGetError, EStorageGetResult, EStorageIsDone
 from zahir.core.evaluate.coordination_handlers import make_coordination_handlers
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.runtime import Runtime
 from zahir.core.evaluate.worker import worker
-from zahir.core.zahir_types import HandlerMap
+from zahir.core.zahir_types import HandlerMap, JobSpec
 
 type EvaluationInputs = tuple[str, tuple, Scope]
 type RuntimeBindings = tuple[Sequence, HandlerMap]
 
 
 def _poll_completion() -> Generator[Any, Any, None]:
-    """Poll the overseer until all jobs finish, then surface the root result."""
+    """Long-poll the overseer until all jobs finish, then surface the root result.
+
+    EStorageIsDone parks at the overseer until completion; False means a heartbeat
+    or a not-done ack, so the loop simply asks again — no sleep.
+    """
 
     while True:
-        done = yield EIsDone()
+        done = yield EStorageIsDone()
 
         if not done:
-            yield ESleep(ms=COMPLETION_POLL_MS)
             continue
 
-        error = yield EGetError()
+        error = yield EStorageGetError()
         if error is not None:
             raise error
 
-        result = yield EGetResult()
+        result = yield EStorageGetResult()
         if result is not None:
             yield EEmit(result)
         return
@@ -46,7 +48,7 @@ def _poll_completion() -> Generator[Any, Any, None]:
 def _kickoff(fn_name: str, args: tuple) -> Generator[Any, Any, None]:
     """Enqueue the root job then poll for completion."""
 
-    yield EEnqueue(fn_name=fn_name, args=args, reply_to=None, timeout_ms=None, sequence_number=None)
+    yield EEnqueue(job=JobSpec(fn_name=fn_name, args=args))
     yield from _poll_completion()
 
 
@@ -76,9 +78,11 @@ def _evaluate_runner(
     for _ in range(n_thread_workers):
         yield ESpawn(fn_name="worker", args=worker_args, mode=SpawnMode.THREAD)
 
+    # Coordination merged last: the root's transported storage tags must beat the
+    # memory backend present in the shared bag, which belongs to the overseer.
     root_handlers = merge_handlers(
-        make_coordination_handlers(overseer, handler_wrappers),
         handlers,
+        make_coordination_handlers(overseer, handler_wrappers),
     )
 
     yield from handle(_kickoff(fn_name, args), root_handlers)

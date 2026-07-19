@@ -1,16 +1,25 @@
-from datetime import timedelta
+import time
 
 import pytest
-import time_machine
 from tertius import ESleep
 
-from tests.shared import NOW, drain_to
-from zahir.core.effects import EAcquire, EAcquireSlot, EJobFail, ERelease
+from tests.evaluate.mocks import make_deadlined_parent
+from tests.shared import drain_to
+from zahir.core.effects import (
+    EAcquire,
+    EAwait,
+    EJobComplete,
+    EJobFail,
+    EReleaseSlot,
+    EStorageAcquire,
+    EStorageRelease,
+    JobSpec,
+)
 from zahir.core.evaluate.job_handlers import evaluate_job, make_job_handlers
-from zahir.core.evaluate.suspension import RunningJob, WorkerLocals
-from zahir.core.evaluate.worker import _handle_running, _Running
+from zahir.core.evaluate.suspension import RunningJob, SuspensionTable, WorkerLocals
+from zahir.core.evaluate.worker import _build_job, _handle_idle, _handle_running, _Idle, _Running
 from zahir.core.exceptions import JobTimeoutError
-from zahir.core.zahir_types import JobHandlerMap
+from zahir.core.zahir_types import JobContext, JobHandlerMap
 
 
 def _make_locals(acquired: list | None = None) -> WorkerLocals:
@@ -67,10 +76,9 @@ def test_evaluate_job_throws_job_timeout_when_deadline_exceeded():
         yield ESleep(ms=100)
         yield ESleep(ms=100)
 
-    with time_machine.travel(NOW, tick=False):
-        past_deadline = NOW - timedelta(seconds=1)
-        with pytest.raises(JobTimeoutError):
-            drain_to(evaluate_job(job(), _handlers(), past_deadline))
+    past_deadline = time.monotonic() - 1.0
+    with pytest.raises(JobTimeoutError):
+        drain_to(evaluate_job(job(), _handlers(), past_deadline))
 
 
 def test_evaluate_job_job_can_catch_job_timeout():
@@ -84,9 +92,8 @@ def test_evaluate_job_job_can_catch_job_timeout():
         except JobTimeoutError:
             results.append("caught")
 
-    with time_machine.travel(NOW, tick=False):
-        past_deadline = NOW - timedelta(seconds=1)
-        drain_to(evaluate_job(job(), _handlers(), past_deadline))
+    past_deadline = time.monotonic() - 1.0
+    drain_to(evaluate_job(job(), _handlers(), past_deadline))
 
     assert results == ["caught"]
 
@@ -102,16 +109,72 @@ def test_evaluate_job_no_deadline_never_times_out():
     assert len(effects) == 5
 
 
+# _build_job — deadline construction
+
+
+def test_build_job_zero_timeout_sets_immediate_deadline():
+    """Proves timeout_ms=0 produces an immediate deadline rather than no deadline."""
+
+    def zero_job(ctx):
+        yield ESleep(ms=1)
+        yield ESleep(ms=1)
+
+    ctx = JobContext(_scope={"zero_job": zero_job}, scope=None)
+    spec = JobSpec(fn_name="zero_job", timeout_ms=0)
+    job = _build_job(spec, ctx, _handlers())
+
+    with pytest.raises(JobTimeoutError):
+        drain_to(job.eval_gen)
+
+
+# _handle_idle — suspended-job expiry
+
+
+def test_idle_worker_times_out_expired_suspended_parent():
+    """Proves an idle pass resumes an expired suspended parent by throwing JobTimeoutError."""
+
+    suspension = SuspensionTable()
+    parent = make_deadlined_parent(deadline=time.monotonic() - 1.0)
+    spec = EAwait(jobs=[JobSpec(fn_name="child")], scalar=True)
+    list(suspension.suspend(spec, parent, b"me"))
+
+    gen = _handle_idle(suspension, None, b"me", _handlers())
+    next(gen)  # EGetJob
+    with pytest.raises(StopIteration) as exc:
+        gen.send(None)
+
+    state = exc.value.value
+    assert isinstance(state, _Running)
+    assert state.job.fn_name == "parent"
+    assert isinstance(state.pending_throw, JobTimeoutError)
+
+
+def test_idle_worker_leaves_live_suspended_parents_alone():
+    """Proves an idle pass with no expired parents stays idle."""
+
+    suspension = SuspensionTable()
+    parent = make_deadlined_parent(deadline=time.monotonic() + 60.0)
+    spec = EAwait(jobs=[JobSpec(fn_name="child")], scalar=True)
+    list(suspension.suspend(spec, parent, b"me"))
+
+    gen = _handle_idle(suspension, None, b"me", _handlers())
+    next(gen)  # EGetJob
+    with pytest.raises(StopIteration) as exc:
+        gen.send(None)
+
+    assert isinstance(exc.value.value, _Idle)
+
+
 # evaluate_job — acquired tracking
 
 
 def _drive_with_acquire_result(gen, granted: bool):
-    """Drive evaluate_job, intercepting EAcquireSlot and feeding back the granted value."""
+    """Drive evaluate_job, intercepting EStorageAcquire and feeding back the granted value."""
     effects, _value = [], None
     try:
         effect = next(gen)
         while True:
-            if isinstance(effect, EAcquireSlot):
+            if isinstance(effect, EStorageAcquire):
                 effect = gen.send(granted)
             else:
                 effects.append(effect)
@@ -148,6 +211,38 @@ def test_evaluate_job_does_not_track_denied_slots():
     assert acquired == []
 
 
+def test_release_slot_frees_slot_before_job_exit():
+    """Proves EReleaseSlot releases the slot immediately and removes it from exit cleanup."""
+
+    acquired = []
+    locals_ = _make_locals(acquired)
+
+    def job():
+        yield EAcquire(name="gate", limit=1)
+        yield EReleaseSlot(name="gate")
+
+    job_gen = evaluate_job(job(), make_job_handlers(locals_, []), None)
+    effects, _ = _drive_with_acquire_result(job_gen, granted=True)
+
+    assert acquired == []
+    releases = [effect for effect in effects if isinstance(effect, EStorageRelease)]
+    assert [release.name for release in releases] == ["gate"]
+
+
+def test_release_slot_of_unheld_slot_is_a_noop():
+    """Proves EReleaseSlot for a slot the job never acquired releases nothing."""
+
+    locals_ = _make_locals([])
+
+    def job():
+        yield EReleaseSlot(name="never-acquired")
+
+    job_gen = evaluate_job(job(), make_job_handlers(locals_, []), None)
+    effects, _ = drain_to(job_gen)
+
+    assert not any(isinstance(effect, EStorageRelease) for effect in effects)
+
+
 # _handle_running — slot release on failure
 
 
@@ -174,12 +269,12 @@ def test_slots_released_on_unhandled_exception():
     state, locals_ = _make_running(failing_job, ["workers", "io"])
     effects, _ = drain_to(_handle_running(state, locals_))
 
-    released = {e.name for e in effects if isinstance(e, ERelease)}
+    released = {e.name for e in effects if isinstance(e, EStorageRelease)}
     assert released == {"workers", "io"}
 
 
 def test_slots_released_before_job_fail_reported():
-    """Proves ERelease effects all precede EJobFail in the output stream."""
+    """Proves EStorageRelease effects all precede EJobFail in the output stream."""
 
     def failing_job():
         raise RuntimeError("boom")
@@ -189,7 +284,7 @@ def test_slots_released_before_job_fail_reported():
     effects, _ = drain_to(_handle_running(state, locals_))
 
     indices = {type(e): idx for idx, e in enumerate(effects)}
-    release_indices = [idx for idx, e in enumerate(effects) if isinstance(e, ERelease)]
+    release_indices = [idx for idx, e in enumerate(effects) if isinstance(e, EStorageRelease)]
     fail_idx = indices[EJobFail]
     assert all(idx < fail_idx for idx in release_indices)
 
@@ -205,7 +300,50 @@ def test_no_slots_held_job_fail_still_reported():
     effects, _ = drain_to(_handle_running(state, locals_))
 
     assert any(isinstance(e, EJobFail) for e in effects)
-    assert not any(isinstance(e, ERelease) for e in effects)
+    assert not any(isinstance(e, EStorageRelease) for e in effects)
+
+
+# _handle_running — worker-level handler failures
+
+
+def test_handler_error_during_effect_is_thrown_into_job():
+    """Proves a worker-level handler failure is thrown into the job, not out of the worker."""
+
+    def sleeping_job():
+        yield ESleep(ms=1)
+
+    state, locals_ = _make_running(sleeping_job, [])
+    gen = _handle_running(state, locals_)
+    next(gen)  # the ESleep effect, yielded to worker-level handlers
+
+    boom = RuntimeError("handler exploded")
+    with pytest.raises(StopIteration) as exc:
+        gen.throw(boom)
+
+    next_state = exc.value.value
+    assert isinstance(next_state, _Running)
+    assert next_state.pending_throw is boom
+
+
+def test_failed_completion_report_reports_failure_instead():
+    """Proves a failing EJobComplete handler degrades to EJobFail rather than a dead worker."""
+
+    def finishing_job():
+        return "unpicklable-result"
+        yield
+
+    state, locals_ = _make_running(finishing_job, [])
+    gen = _handle_running(state, locals_)
+
+    effect = next(gen)  # EJobComplete
+    assert isinstance(effect, EJobComplete)
+
+    effect = gen.throw(RuntimeError("cannot pickle result"))
+    assert isinstance(effect, EJobFail)
+
+    with pytest.raises(StopIteration) as exc:
+        gen.send(None)
+    assert isinstance(exc.value.value, _Idle)
 
 
 # evaluate_job — unhandled exceptions

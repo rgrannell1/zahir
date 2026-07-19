@@ -34,6 +34,11 @@ type ConcurrencyMap = dict[str, tuple[int, int]]
 # Per-worker buffered results: worker_pid_bytes -> deque of (sequence_number, body)
 type PendingResults = dict[bytes, deque[tuple[int, Any]]]
 
+# Per-worker outstanding work handout: worker_pid_bytes -> (lease_id, work item).
+# Held until the worker acks the lease on its next get-job request, so a reply
+# lost to a heartbeat timeout is re-delivered rather than destroyed.
+type LeaseMap = dict[bytes, tuple[int, Any]]
+
 # A handler: takes an effect, optionally yields further effects, returns a value
 type HandlerCallable = Callable[..., Generator[Any, Any, Any]]
 
@@ -72,21 +77,21 @@ class JobHandlerMap(TypedDict, closed=True):
 
 
 class CoordinationHandlerMap(TypedDict, closed=True):
-    """Handler map for coordination effects"""
+    """Handler map for coordination effects and transported storage effects."""
 
     __extra_items__: HandlerCallable
 
-    acquire_slot: HandlerCallable
     enqueue: HandlerCallable
-    get_error: HandlerCallable
     get_job: HandlerCallable
-    get_result: HandlerCallable
-    is_done: HandlerCallable
     job_complete: HandlerCallable
     job_fail: HandlerCallable
-    release: HandlerCallable
-    set_semaphore_state: HandlerCallable
-    signal: HandlerCallable
+    get_state: HandlerCallable
+    set_state: HandlerCallable
+    storage_acquire: HandlerCallable
+    storage_release: HandlerCallable
+    storage_is_done: HandlerCallable
+    storage_get_error: HandlerCallable
+    storage_get_result: HandlerCallable
 
 
 @dataclass
@@ -95,6 +100,40 @@ class JobSpec:
 
     fn_name: str
     args: tuple[Any, ...] = field(default_factory=tuple)
+    kwargs: dict[str, Any] = field(default_factory=dict)
     timeout_ms: int | None = None
     reply_to: bytes | None = None
     sequence_number: int | None = None
+
+
+@dataclass
+class ResultItem:
+    """A child job's result routed back to its suspended parent's worker."""
+
+    sequence_number: int
+    body: Any
+
+
+# A unit of work handed to a worker: a job to run, or a buffered child result
+type WorkItem = JobSpec | ResultItem
+
+
+@dataclass
+class LeaseTracker:
+    """Lease id of the last work item this worker received; acked on the next get-job request.
+
+    None until the first work item arrives.
+    """
+
+    ack: int | None = None
+
+
+@dataclass
+class SilenceTracker:
+    """Accumulated reply-less park windows — detects a dead overseer on remote workers.
+
+    max_silence_ms None means never raise; local workers are killed by the vm instead.
+    """
+
+    max_silence_ms: int | None = None
+    silent_ms: int = 0

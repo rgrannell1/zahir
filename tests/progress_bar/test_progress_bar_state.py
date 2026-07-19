@@ -107,3 +107,46 @@ def test_processed_is_completed_plus_failed():
     state.update(_end("job_a", job_id="j1"))
     state.update(_end("job_a", error="boom", job_id="j2"))
     assert state.jobs["job_a"].processed == 2
+
+
+# intra-job progress
+
+
+def _execute_on_pid(fn_name, pid):
+    event_data = {
+        "tag": [JobTag.EXECUTE],
+        "fn": [fn_name],
+        "id": ["e"],
+        "pid": [str(pid)],
+        "phase": [Phase.START],
+    }
+    return point(event_data, at=0.0)
+
+
+def _progress_on_pid(pid, completed, total):
+    event_data = {
+        "tag": [JobTag.JOB_PROGRESS],
+        "id": ["p"],
+        "pid": [str(pid)],
+        "completed": [str(completed)],
+        "total": [str(total)],
+    }
+    return point(event_data, at=0.0)
+
+
+def test_zero_total_progress_does_not_crash_the_display():
+    """Proves a progress report over an empty batch (total=0) is treated as no known total."""
+    state = ProgressBarState()
+    state.update(_execute_on_pid("job_a", pid=7))
+    state.update(_progress_on_pid(pid=7, completed=0, total=0))
+
+    assert state.job_progress("job_a") == (0.0, None)
+
+
+def test_known_total_progress_reports_mean_fraction():
+    """Proves a progress report with a real total yields (fraction, total)."""
+    state = ProgressBarState()
+    state.update(_execute_on_pid("job_a", pid=7))
+    state.update(_progress_on_pid(pid=7, completed=2, total=4))
+
+    assert state.job_progress("job_a") == (0.5, 4)

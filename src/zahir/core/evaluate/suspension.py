@@ -6,15 +6,13 @@ complete.
 
 import itertools
 from collections.abc import Generator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from zahir.core.effects import EAwait, EEnqueue
 from zahir.core.exceptions import JobError, JobTimeoutError
 from zahir.core.fp_types import Err, Ok, Result
-
-# (tag, sequence_number, body) — the raw work item delivered to a waiting parent
-type WorkItem = tuple[str, int | None, Any]
+from zahir.core.zahir_types import ResultItem
 
 # Return type of SuspensionTable.resume. None when children are still outstanding
 type ResumeResult = tuple[RunningJob, Result[Any, Exception]] | None
@@ -38,6 +36,9 @@ class RunningJob:
 
     # concurrency slots held by this job
     acquired: list[str] = field(default_factory=list)
+
+    # monotonic-clock instant after which this job has timed out; None means no timeout
+    deadline: float | None = None
 
 
 @dataclass
@@ -78,6 +79,7 @@ class SuspendedJob(RunningJob):
             reply_to=job.reply_to,
             parent_sequence_number=job.parent_sequence_number,
             acquired=job.acquired,
+            deadline=job.deadline,
             awaiting=set(child_sequence_numbers),
             results={},
             result_order=result_order,
@@ -147,42 +149,68 @@ class SuspensionTable:
     def suspend(
         self, effect: EAwait, job: RunningJob, me_bytes: bytes
     ) -> Generator[Any, Any, None]:
-        """Suspend job, enqueue all child jobs, and record the fan-out in the table."""
+        """Suspend job, enqueue all child jobs, and record the fan-out in the table.
+
+        A failed enqueue mid-fan-out unregisters the whole fan-out before re-raising,
+        so results from children that did enqueue are discarded by resume rather than
+        crashing the worker on a missing parent.
+        """
 
         child_sequence_numbers = [self._alloc() for _ in effect.jobs]
         parent_key = self._alloc()
 
-        for cn, spec in zip(child_sequence_numbers, effect.jobs):
-            self.child_to_parent[cn] = parent_key
-            yield EEnqueue(
-                fn_name=spec.fn_name,
-                args=spec.args,
-                reply_to=me_bytes,
-                timeout_ms=spec.timeout_ms,
-                sequence_number=cn,
-            )
+        try:
+            for cn, spec in zip(child_sequence_numbers, effect.jobs):
+                self.child_to_parent[cn] = parent_key
+                yield EEnqueue(job=replace(spec, reply_to=me_bytes, sequence_number=cn))
+        except BaseException:
+            for cn in child_sequence_numbers:
+                self.child_to_parent.pop(cn, None)
+            raise
 
         self.waiting[parent_key] = SuspendedJob.from_job(job, child_sequence_numbers, effect)
 
-    def resume(self, work: WorkItem) -> ResumeResult:
+    def resume(self, work: ResultItem) -> ResumeResult:
         """Record a child result.
 
         Returns (job, result) when all children are done, None if still
-        waiting.
+        waiting. Results for unregistered children — e.g. late arrivals for an
+        expired parent — are discarded.
         """
 
-        _, child_sequence_number, body = work
-
-        assert child_sequence_number is not None
-
-        parent_key = self.child_to_parent.pop(child_sequence_number)
+        parent_key = self.child_to_parent.pop(work.sequence_number, None)
+        if parent_key is None:
+            return None
 
         job = self.waiting[parent_key]
-        job.results[child_sequence_number] = body
-        job.awaiting.remove(child_sequence_number)
+        job.results[work.sequence_number] = work.body
+        job.awaiting.remove(work.sequence_number)
 
         if job.awaiting:
             return None
 
         current = self.waiting.pop(parent_key)
-        return current, _collect_result(current, body)
+        return current, _collect_result(current, work.body)
+
+    def pop_expired(self, now: float) -> SuspendedJob | None:
+        """Remove and return one suspended job whose deadline has passed, or None.
+
+        The expired job's outstanding children are unregistered so their late
+        results are discarded by resume.
+        """
+
+        expired_key = next(
+            (
+                parent_key
+                for parent_key, job in self.waiting.items()
+                if job.deadline is not None and now >= job.deadline
+            ),
+            None,
+        )
+        if expired_key is None:
+            return None
+
+        job = self.waiting.pop(expired_key)
+        for child_sequence_number in job.awaiting:
+            self.child_to_parent.pop(child_sequence_number, None)
+        return job

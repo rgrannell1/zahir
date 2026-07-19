@@ -1,4 +1,6 @@
+import time
 from datetime import timedelta
+from unittest.mock import patch
 
 import time_machine
 from tertius import EEmit, ESleep
@@ -106,6 +108,29 @@ def test_impossible_condition_returns_impossible_tuple():
 
 
 @time_machine.travel(NOW, tick=False)
+def test_wall_clock_step_does_not_expire_timeout():
+    """Proves deadlines use the monotonic clock, so a wall-clock step cannot fire them early."""
+
+    polls = []
+
+    def _cond():
+        polls.append(True)
+        if len(polls) >= 2:
+            return (DependencyState.SATISFIED, None)
+        return (DependencyState.UNSATISFIED, None)
+        yield
+
+    gen = dependency(_cond, timeout_ms=60_000)
+    next(gen)  # advance through one retry: EEmit(waiting)
+    next(gen)  # advance through one retry: ESleep
+
+    # a suspend/resume or NTP step moves the wall clock hours ahead mid-poll
+    with time_machine.travel(NOW + timedelta(hours=2), tick=False):
+        emits, _ = drain_to(gen, EEmit)
+
+    assert emits[0].body[0] == "satisfied"
+
+
 def test_timeout_emits_impossible():
     """Proves exceeding timeout_ms emits impossible."""
 
@@ -117,7 +142,7 @@ def test_timeout_emits_impossible():
     next(gen)  # advance through one retry: EEmit(waiting)
     next(gen)  # advance through one retry: ESleep
 
-    with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
+    with patch("time.monotonic", return_value=time.monotonic() + 2.0):
         emits, _ = drain_to(gen, EEmit)
 
     assert emits[0].body[0] == "impossible"
@@ -125,7 +150,6 @@ def test_timeout_emits_impossible():
     assert "1000" in emits[0].body[1]["reason"]
 
 
-@time_machine.travel(NOW, tick=False)
 def test_timeout_label_appears_in_reason():
     """Proves the label parameter appears in the timeout impossible reason."""
 
@@ -137,13 +161,12 @@ def test_timeout_label_appears_in_reason():
     next(gen)  # advance through one retry: EEmit(waiting)
     next(gen)  # advance through one retry: ESleep
 
-    with time_machine.travel(NOW + timedelta(seconds=2), tick=False):
+    with patch("time.monotonic", return_value=time.monotonic() + 2.0):
         emits, _ = drain_to(gen, EEmit)
 
     assert "my-condition" in emits[0].body[1]["reason"]
 
 
-@time_machine.travel(NOW, tick=False)
 def test_zero_timeout_expires_immediately():
     """Proves timeout_ms=0 times out before the first poll rather than never expiring."""
 

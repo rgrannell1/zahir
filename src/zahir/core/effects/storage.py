@@ -5,6 +5,8 @@ from typing import Any, ClassVar, LiteralString
 
 from orbis import Effect
 
+from zahir.core.zahir_types import JobSpec
+
 
 class ZahirStorageEffect[ReturnT](Effect[ReturnT], abstract=True):
     """Base class for storage effects yielded by the overseer gen_server.
@@ -15,10 +17,15 @@ class ZahirStorageEffect[ReturnT](Effect[ReturnT], abstract=True):
 
 @dataclass
 class EStorageGetJob(ZahirStorageEffect[Any]):
-    """Return the next work item for a worker from the backend."""
+    """Return the next work item for a worker from the backend.
+
+    ack carries the lease id of the last work item the worker received, confirming
+    delivery so the backend can drop its copy and hand out the next item.
+    """
 
     tag: ClassVar[LiteralString] = "storage_get_job"
     worker_pid_bytes: bytes
+    ack: int | None = None
 
 
 @dataclass
@@ -26,11 +33,7 @@ class EStorageEnqueue(ZahirStorageEffect[None]):
     """Enqueue a child job and increment pending."""
 
     tag: ClassVar[LiteralString] = "storage_enqueue"
-    fn_name: str
-    args: tuple[Any, ...]
-    reply_to: bytes | None
-    timeout_ms: int | None
-    sequence_number: int | None
+    job: JobSpec
 
 
 @dataclass

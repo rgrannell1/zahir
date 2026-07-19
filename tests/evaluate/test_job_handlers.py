@@ -1,7 +1,8 @@
 from tests.shared import drain_to
 from zahir.core.effects import (
     EAcquire,
-    EAcquireSlot,
+    EReleaseSlot,
+    EStorageAcquire,
 )
 from zahir.core.evaluate.job_handlers import (
     _handle_acquire,
@@ -26,12 +27,12 @@ def _make_locals(acquired: list | None = None) -> WorkerLocals:
 # _handle_acquire
 
 
-def test_handle_acquire_yields_eacquire_slot():
-    """Proves _handle_acquire yields EAcquireSlot with the correct name and limit."""
+def test_handle_acquire_yields_storage_acquire():
+    """Proves _handle_acquire yields EStorageAcquire with the correct name and limit."""
 
     gen = _handle_acquire(_make_locals(), EAcquire(name="workers", limit=4))
     effect = next(gen)
-    assert effect == EAcquireSlot(name="workers", limit=4)
+    assert effect == EStorageAcquire(name="workers", limit=4)
 
 
 def test_handle_acquire_returns_true_and_tracks_name():
@@ -39,7 +40,7 @@ def test_handle_acquire_returns_true_and_tracks_name():
 
     acquired = []
     gen = _handle_acquire(_make_locals(acquired), EAcquire(name="workers", limit=4))
-    _, return_value = drain_to(gen, responses={EAcquireSlot: True})
+    _, return_value = drain_to(gen, responses={EStorageAcquire: True})
     assert return_value is True
     assert acquired == ["workers"]
 
@@ -49,7 +50,7 @@ def test_handle_acquire_returns_false_and_does_not_track():
 
     acquired = []
     gen = _handle_acquire(_make_locals(acquired), EAcquire(name="workers", limit=4))
-    _, return_value = drain_to(gen, responses={EAcquireSlot: False})
+    _, return_value = drain_to(gen, responses={EStorageAcquire: False})
     assert return_value is False
     assert acquired == []
 
@@ -63,6 +64,7 @@ def test_make_handlers_contains_all_effect_types():
     handlers = make_job_handlers(_make_locals(), [])
     assert set(handlers.keys()) == {
         EAcquire.tag,
+        EReleaseSlot.tag,
     }
 
 

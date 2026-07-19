@@ -9,11 +9,11 @@ from zahir.core.exceptions import InvalidEffectError, JobError, JobTimeoutError
 # How often should we poll for dependency state-changes?
 DEPENDENCY_DELAY_MS = 1_000
 
-# How long should idle workers pause before polling for new work?
-WORKER_POLL_MS = 100
+# How long a parked get-job call waits before the worker heartbeats a fresh request
+WORKER_PARK_TIMEOUT_MS = 5_000
 
-# How long to pause while checking for completion
-COMPLETION_POLL_MS = 500
+# How long a parked is-done call waits before the runner heartbeats a fresh request
+COMPLETION_PARK_TIMEOUT_MS = 5_000
 
 # How long to wait between CPU usage samples when checking resource availability
 CPU_SAMPLE_INTERVAL_S = 0.1
@@ -67,10 +67,16 @@ class DependencyTag(StrEnum):
     SATISFIED = "dep:satisfied"  # emitted when the dependency is finally met or abandoned
 
 
+# Tags on telemetry events emitted by overseer parking transitions
+class ParkTag(StrEnum):
+    PARKED = "park:parked"  # a caller parked at the overseer awaiting work or completion
+    WOKEN = "park:woken"  # a parked caller was acked awake
+
+
 # Tags on work items returned by the overseer to workers
 class WorkItemTag(StrEnum):
-    JOB = "job"
-    RESULT = "result"
+    # bare ack waking a parked worker or answering a heartbeat — re-request, no payload
+    NO_WORK = "no_work"
 
 
 # Exceptions that evaluate_job throws back into the running job rather than

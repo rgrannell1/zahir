@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from bookman.bookman_types import Message
 from bookman.events import Dims, Event, point, span
 
-from zahir.core.constants import JobTag, Phase
+from zahir.core.constants import JobTag, ParkTag, Phase
 
 
 @dataclass
@@ -19,26 +19,31 @@ class TimeSpan:
 
 
 def get_fn_name(effect) -> str | None:
-    """Get the function name from the effect."""
+    """Get the function name from the effect, looking inside a carried JobSpec."""
 
     if hasattr(effect, "jobs") and effect.scalar and len(effect.jobs) == 1:
         return effect.jobs[0].fn_name
 
-    if hasattr(effect, "fn_name"):
-        return effect.fn_name
+    target = getattr(effect, "job", effect)
+    if hasattr(target, "fn_name"):
+        return target.fn_name
 
     return None
 
 
 def get_job_id(effect) -> str | None:
-    """Form a globally unique job identifier from the sequence_number and reply_to."""
+    """Form a globally unique job identifier from the sequence_number and reply_to.
 
-    seq = getattr(effect, "sequence_number", None)
-    reply_to = getattr(effect, "reply_to", None)
+    Enqueue effects carry these on their JobSpec; completion effects carry them directly.
+    """
+
+    target = getattr(effect, "job", effect)
+    seq = getattr(target, "sequence_number", None)
+    reply_to = getattr(target, "reply_to", None)
 
     if seq is not None and isinstance(reply_to, bytes):
         return f"{reply_to.hex()}:{seq}"
-    if seq is None and reply_to is None and hasattr(effect, "fn_name"):
+    if seq is None and reply_to is None and hasattr(target, "fn_name"):
         return "root"
 
     return None
@@ -117,6 +122,22 @@ def job_progress_event(completed: int, total: int | None = None) -> Event:
     }
     if total is not None:
         dims["total"] = [str(total)]
+    return point(dims, at=time.time())
+
+
+def park_event(tag: ParkTag, kind: str, caller_pid_hex: str) -> Event:
+    """Point event marking an overseer parking transition (parked or woken).
+
+    kind is "worker" (awaiting work) or "completion" (awaiting workflow end).
+    """
+
+    dims: Dims = {
+        "id": [str(uuid.uuid4())],
+        "tag": [tag],
+        "pid": [str(os.getpid())],
+        "kind": [kind],
+        "caller": [caller_pid_hex],
+    }
     return point(dims, at=time.time())
 
 

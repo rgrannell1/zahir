@@ -2,6 +2,7 @@ import pytest
 from tertius import EEmit, EReceive
 
 from tests.shared import user_events
+from zahir.core.effects import EStorageAcquire
 from zahir.core.evaluate import JobContext, evaluate, setup
 from zahir.core.exceptions import InvalidEffectError
 
@@ -12,6 +13,10 @@ def job_yielding_non_effect(ctx: JobContext):
 
 def job_yielding_receive(ctx: JobContext):
     yield EReceive()
+
+
+def job_yielding_storage_effect(ctx: JobContext):
+    yield EStorageAcquire(name="workers", limit=4)
 
 
 def job_catching_invalid_effect(ctx: JobContext):
@@ -45,6 +50,21 @@ def test_yielding_ereceive_raises_invalid_effect():
                 "job_yielding_receive",
                 (),
                 {"job_yielding_receive": job_yielding_receive},
+            )
+        )
+
+
+def test_yielding_storage_effect_raises_invalid_effect():
+    """Proves a job that yields a storage effect directly raises InvalidEffectError,
+    so slot bookkeeping cannot be bypassed."""
+
+    with pytest.raises(InvalidEffectError):
+        list(
+            evaluate(
+                setup(n_workers=1),
+                "job_yielding_storage_effect",
+                (),
+                {"job_yielding_storage_effect": job_yielding_storage_effect},
             )
         )
 
