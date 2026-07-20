@@ -7,7 +7,7 @@ from typing import Any, Literal
 import psutil
 
 from zahir.core.constants import CPU_SAMPLE_INTERVAL_S, DependencyState
-from zahir.core.dependencies.dependency import check, dependency
+from zahir.core.dependencies.dependency import dependency
 from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 type ResourceType = Literal["cpu", "memory"]
@@ -31,17 +31,6 @@ def resource_condition(
         return (DependencyState.SATISFIED, metadata)
     yield from ()
     return (DependencyState.UNSATISFIED, metadata)
-
-
-def check_resource_dependency(
-    resource: ResourceType,
-    max_percent: float,
-) -> Generator[Any, Any, DependencyResult]:
-    """Evaluate resource usage once; return satisfied or impossible without retrying."""
-    return check(
-        partial(resource_condition, resource, max_percent),
-        label=f"{resource} resource",
-    )
 
 
 def resource_dependency(

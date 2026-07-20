@@ -3,7 +3,7 @@
 import time
 from collections.abc import Generator, Sequence
 from functools import partial
-from typing import Any, cast
+from typing import Any
 
 from zahir.core.combinators import build_handler_map
 from zahir.core.constants import BLOCKED_EFFECTS, THROWABLE
@@ -17,7 +17,7 @@ from zahir.core.effects import (
 )
 from zahir.core.evaluate.suspension import WorkerLocals
 from zahir.core.exceptions import InvalidEffectError, JobTimeoutError
-from zahir.core.zahir_types import JobHandlerMap
+from zahir.core.zahir_types import HandlerMap
 
 
 def _validate_effect(effect) -> InvalidEffectError | None:
@@ -45,7 +45,7 @@ def _advance(
         return (None, True, stop.value)
 
 
-def _dispatch(handlers: JobHandlerMap, effect: Any) -> Generator:
+def _dispatch(handlers: HandlerMap, effect: Any) -> Generator:
     """Route an effect to its job-level handler, or bubble it up."""
 
     if effect.tag in handlers:
@@ -53,7 +53,7 @@ def _dispatch(handlers: JobHandlerMap, effect: Any) -> Generator:
     return (yield effect)
 
 
-def job_guard(gen: Generator, handlers: JobHandlerMap) -> Generator:
+def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
     """Drive gen: reject disallowed effects, dispatch job-level effects to
     handlers, bubble the rest."""
 
@@ -103,7 +103,7 @@ def timeout_guard(gen: Generator, deadline: float | None) -> Generator:
 
 def evaluate_job(
     job_gen: Generator[Any, Any, Any],
-    handlers: JobHandlerMap,
+    handlers: HandlerMap,
     deadline: float | None,
 ) -> Generator[Any, Any, Any]:
     """Wrap job_gen in job_guard and timeout_guard using pre-built handlers."""
@@ -139,7 +139,7 @@ def _handle_release_slot(
     yield EStorageRelease(name=effect.name)
 
 
-def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> JobHandlerMap:
+def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> HandlerMap:
     """Create job-effect handlers keyed by effect tag, with any
     user-supplied wrappers applied."""
 
@@ -147,4 +147,4 @@ def make_job_handlers(locals_: WorkerLocals, handler_wrappers: Sequence) -> JobH
         EAcquire.tag: partial(_handle_acquire, locals_),
         EReleaseSlot.tag: partial(_handle_release_slot, locals_),
     }
-    return cast(JobHandlerMap, build_handler_map(bindings, handler_wrappers))
+    return build_handler_map(bindings, handler_wrappers)

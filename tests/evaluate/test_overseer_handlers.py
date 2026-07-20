@@ -278,38 +278,38 @@ def test_release_ignores_unknown_name():
     assert "unknown" not in backend.concurrency
 
 
-# signal
+# get_state
 
 
-def test_signal_returns_stored_state():
-    """Proves signal returns the current semaphore state."""
+def test_get_state_returns_stored_state():
+    """Proves get_state returns the current KV state."""
 
-    assert _backend(semaphores={"db": "satisfied"}).signal("db") == "satisfied"
-
-
-def test_signal_returns_none_for_unknown_name():
-    """Proves signal returns None for a semaphore that has not been set."""
-
-    assert _backend().signal("unknown") is None
+    assert _backend(state={"db": "satisfied"}).get_state("db") == "satisfied"
 
 
-# set_semaphore
+def test_get_state_returns_none_for_unknown_name():
+    """Proves get_state returns None for a name that has not been set."""
+
+    assert _backend().get_state("unknown") is None
 
 
-def test_set_semaphore_stores_state():
-    """Proves set_semaphore records the semaphore state by name."""
+# set_state
+
+
+def test_set_state_stores_state():
+    """Proves set_state records the KV state by name."""
 
     backend = _backend()
-    backend.set_semaphore("db", "impossible")
-    assert backend.semaphores["db"] == "impossible"
+    backend.set_state("db", "impossible")
+    assert backend.state["db"] == "impossible"
 
 
-def test_set_semaphore_overwrites_existing_state():
-    """Proves set_semaphore replaces a previously stored semaphore state."""
+def test_set_state_overwrites_existing_state():
+    """Proves set_state replaces a previously stored value."""
 
-    backend = _backend(semaphores={"db": "unsatisfied"})
-    backend.set_semaphore("db", "satisfied")
-    assert backend.semaphores["db"] == "satisfied"
+    backend = _backend(state={"db": "unsatisfied"})
+    backend.set_state("db", "satisfied")
+    assert backend.state["db"] == "satisfied"
 
 
 # is_done

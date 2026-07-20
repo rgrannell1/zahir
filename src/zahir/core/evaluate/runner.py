@@ -4,7 +4,7 @@ Spawns overseer and workers, seeds root job, long-polls for completion.
 """
 
 from collections.abc import Generator, Sequence
-from typing import Any, cast
+from typing import Any
 
 from orbis import handle
 from tertius import EEmit, ESpawn, Pid, Scope, SpawnMode, run
@@ -19,7 +19,9 @@ from zahir.core.evaluate.worker import worker
 from zahir.core.zahir_types import HandlerMap, JobSpec
 
 type EvaluationInputs = tuple[str, tuple, Scope]
-type RuntimeBindings = tuple[Sequence, HandlerMap]
+
+# (handler_wrappers, overseer bag: storage+user, worker/root bag: user only)
+type RuntimeBindings = tuple[Sequence, HandlerMap, HandlerMap]
 
 
 def _poll_completion() -> Generator[Any, Any, None]:
@@ -61,9 +63,11 @@ def _evaluate_runner(
 
     _, _transport, n_workers, n_thread_workers = runtime
     fn_name, args, scope = inputs
-    handler_wrappers, handlers = bindings
+    handler_wrappers, overseer_handlers, handlers = bindings
 
-    overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(handlers,))
+    # Only the overseer holds the storage backend; workers and the root carry
+    # user handlers plus transport bindings.
+    overseer: Pid = yield ESpawn(fn_name="run_overseer", args=(overseer_handlers,))
 
     worker_args = (
         bytes(overseer),
@@ -78,8 +82,8 @@ def _evaluate_runner(
     for _ in range(n_thread_workers):
         yield ESpawn(fn_name="worker", args=worker_args, mode=SpawnMode.THREAD)
 
-    # Coordination merged last: the root's transported storage tags must beat the
-    # memory backend present in the shared bag, which belongs to the overseer.
+    # Coordination merged last: transported storage tags must beat any storage
+    # handlers a user-supplied bag might contain.
     root_handlers = merge_handlers(
         handlers,
         make_coordination_handlers(overseer, handler_wrappers),
@@ -103,7 +107,7 @@ def evaluate(  # noqa: PLR0913
         raise KeyError(f"job {fn_name!r} not found in scope")
 
     memory_handlers = make_memory_storage_handlers(handler_wrappers)
-    merged_handlers = cast(HandlerMap, merge_handlers(memory_handlers, handlers or {}))
+    overseer_handlers = merge_handlers(memory_handlers, handlers or {})
     full_scope: Scope = {
         "run_overseer": run_overseer,
         "worker": worker,
@@ -114,7 +118,7 @@ def evaluate(  # noqa: PLR0913
         _evaluate_runner,
         runtime,
         (fn_name, args, scope),
-        (handler_wrappers, merged_handlers),
+        (handler_wrappers, overseer_handlers, handlers or {}),
         scope=full_scope,
         transport=transport,
     )

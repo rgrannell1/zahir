@@ -2,9 +2,6 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable, Generator, Literal
 
-# TypedDict from typing_extensions for PEP 728 closed maps; stdlib lacks it on 3.14.
-from typing_extensions import TypedDict
-
 from zahir.core.constants import DependencyState
 
 
@@ -43,55 +40,10 @@ type LeaseMap = dict[bytes, tuple[int, Any]]
 type HandlerCallable = Callable[..., Generator[Any, Any, Any]]
 
 
-# Effect tag -> handler callable, as returned by handler factory functions
-# TODO deprecate this
-class HandlerMap(TypedDict, closed=True):
-    __extra_items__: HandlerCallable
-
-
-class StorageHandlerMap(TypedDict, closed=True):
-    """Handler map for storage effects."""
-
-    __extra_items__: HandlerCallable
-    storage_get_job: HandlerCallable
-    storage_enqueue: HandlerCallable
-    storage_job_done: HandlerCallable
-    storage_job_failed: HandlerCallable
-    storage_acquire: HandlerCallable
-    storage_release: HandlerCallable
-    storage_signal: HandlerCallable
-    storage_set_semaphore: HandlerCallable
-    storage_is_done: HandlerCallable
-    storage_get_error: HandlerCallable
-    storage_get_result: HandlerCallable
-
-
-class JobHandlerMap(TypedDict, closed=True):
-    """Handler map for job emittable effects"""
-
-    __extra_items__: HandlerCallable
-
-    acquire: HandlerCallable
-    get_semaphore: HandlerCallable
-    set_semaphore: HandlerCallable
-
-
-class CoordinationHandlerMap(TypedDict, closed=True):
-    """Handler map for coordination effects and transported storage effects."""
-
-    __extra_items__: HandlerCallable
-
-    enqueue: HandlerCallable
-    get_job: HandlerCallable
-    job_complete: HandlerCallable
-    job_fail: HandlerCallable
-    get_state: HandlerCallable
-    set_state: HandlerCallable
-    storage_acquire: HandlerCallable
-    storage_release: HandlerCallable
-    storage_is_done: HandlerCallable
-    storage_get_error: HandlerCallable
-    storage_get_result: HandlerCallable
+# Effect tag -> handler callable, as returned by every handler factory function.
+# One alias for all layers: which tags a bag holds is decided by its factory,
+# not encoded in the type.
+type HandlerMap = dict[str, HandlerCallable]
 
 
 @dataclass

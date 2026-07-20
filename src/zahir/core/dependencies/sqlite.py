@@ -7,7 +7,7 @@ from functools import partial
 from typing import Any
 
 from zahir.core.constants import DependencyState
-from zahir.core.dependencies.dependency import check, dependency
+from zahir.core.dependencies.dependency import dependency
 from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 _DEFAULT_TIMEOUT_SECONDS = 5.0
@@ -107,15 +107,3 @@ def sqlite_dependency(  # noqa: PLR0913
     )
 
 
-def check_sqlite_dependency(
-    db_path: str,
-    query: str,
-    params: tuple[Any, ...] | None = None,
-    connection_timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
-) -> Generator[Any, Any, DependencyResult]:
-    """Evaluate the sqlite condition once; return satisfied or impossible without retrying."""
-    _validate_db_path(db_path)
-    return check(
-        partial(sqlite_condition, db_path, query, params, connection_timeout_seconds),
-        label=f"sqlite '{db_path}'",
-    )

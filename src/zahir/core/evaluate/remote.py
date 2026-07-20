@@ -7,12 +7,10 @@ runs the standard worker loop, pulling jobs until the swarm shuts down.
 """
 
 from collections.abc import Generator, Sequence
-from typing import Any, cast
+from typing import Any
 
 from tertius import CurveSecurity, ESleep, EWhereis, Pid, Scope, TcpTransport, join
 
-from zahir.core.backends.memory import make_memory_storage_handlers
-from zahir.core.combinators import merge_handlers
 from zahir.core.constants import (
     OVERSEER_NAME,
     OVERSEER_WHEREIS_POLL_MS,
@@ -83,14 +81,12 @@ def join_worker(  # noqa: PLR0913
         control_port=control_port,
         security=security,
     )
-    memory_handlers = make_memory_storage_handlers(handler_wrappers)
-    merged_handlers = cast(HandlerMap, merge_handlers(memory_handlers, handlers or {}))
 
     join(
         _joined_worker,
         scope,
         handler_wrappers,
-        merged_handlers,
+        handlers or {},
         (overseer_timeout_ms, recv_timeout_ms),
         transport=transport,
         recv_timeout_ms=recv_timeout_ms,

@@ -4,7 +4,7 @@ import time_machine
 from tertius import EEmit, ESleep
 
 from tests.shared import FUTURE, NOW, PAST, drain_to
-from zahir.core.dependencies.time import check_time_dependency, time_dependency
+from zahir.core.dependencies.time import time_dependency
 
 
 @time_machine.travel(NOW, tick=False)
@@ -96,55 +96,3 @@ def test_satisfied_returns_tuple_as_generator_value():
 
     emits, return_value = drain_to(time_dependency(before=FUTURE), EEmit)
     assert return_value is emits[0].body
-
-
-# check_time_dependency
-
-
-@time_machine.travel(NOW, tick=False)
-def test_check_time_no_constraints_emits_satisfied():
-    """Proves check_time_dependency with no constraints is immediately satisfied."""
-
-    emit = next(check_time_dependency())
-    assert emit.body[0] == "satisfied"
-
-
-@time_machine.travel(NOW, tick=False)
-def test_check_time_before_not_yet_passed_emits_satisfied():
-    """Proves check_time_dependency satisfies when before is in the future."""
-
-    emit = next(check_time_dependency(before=FUTURE))
-    assert emit.body[0] == "satisfied"
-
-
-@time_machine.travel(NOW, tick=False)
-def test_check_time_before_passed_emits_impossible():
-    """Proves check_time_dependency emits impossible when before is in the past."""
-
-    emit = next(check_time_dependency(before=PAST))
-    assert emit.body[0] == "impossible"
-
-
-@time_machine.travel(NOW, tick=False)
-def test_check_time_after_not_yet_reached_emits_impossible():
-    """Proves check_time_dependency emits impossible when after has not arrived yet."""
-
-    emit = next(check_time_dependency(after=FUTURE))
-    assert emit.body[0] == "impossible"
-
-
-@time_machine.travel(NOW, tick=False)
-def test_check_time_after_not_yet_reached_does_not_sleep():
-    """Proves check_time_dependency never yields ESleep when after is in the future."""
-
-    gen = check_time_dependency(after=FUTURE)
-    effect = next(gen)
-    assert isinstance(effect, EEmit)
-
-
-@time_machine.travel(NOW, tick=False)
-def test_check_time_after_already_passed_emits_satisfied():
-    """Proves check_time_dependency satisfies when after is in the past."""
-
-    emit = next(check_time_dependency(after=PAST))
-    assert emit.body[0] == "satisfied"

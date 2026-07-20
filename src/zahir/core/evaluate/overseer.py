@@ -186,4 +186,4 @@ def run_overseer(
         handle_cast=partial(emitting_wakes, _handle_cast),
     )
 
-    yield from handle(overseer(), **handlers)
+    yield from handle(overseer(), handlers)

@@ -5,10 +5,7 @@ import time_machine
 from tertius import EEmit, ESleep
 
 from tests.shared import NOW, drain_to
-from zahir.core.dependencies.resources import (
-    check_resource_dependency,
-    resource_dependency,
-)
+from zahir.core.dependencies.resources import resource_dependency
 
 
 def _low_usage(_resource):
@@ -143,46 +140,3 @@ def test_impossible_returns_tuple_as_generator_value():
             emits, return_value = drain_to(gen, EEmit)
 
     assert return_value is emits[0].body
-
-
-# check_resource_dependency
-
-
-def test_check_resource_low_usage_emits_satisfied():
-    """Proves check_resource_dependency emits satisfied when usage is within limit."""
-
-    with patch("zahir.core.dependencies.resources._get_usage", _low_usage):
-        emit = next(check_resource_dependency("cpu", max_percent=50.0))
-    assert emit.body[0] == "satisfied"
-
-
-def test_check_resource_high_usage_emits_impossible():
-    """Proves check_resource_dependency emits impossible when usage exceeds the limit."""
-
-    with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
-        emit = next(check_resource_dependency("cpu", max_percent=50.0))
-    assert emit.body[0] == "impossible"
-
-
-def test_check_resource_high_usage_does_not_sleep():
-    """Proves check_resource_dependency never yields ESleep on high usage."""
-
-    calls = 0
-
-    def _counting_usage(_r):
-        nonlocal calls
-        calls += 1
-        return 90.0
-
-    with patch("zahir.core.dependencies.resources._get_usage", _counting_usage):
-        drain_to(check_resource_dependency("cpu", max_percent=50.0))
-
-    assert calls == 1
-
-
-def test_check_resource_metadata_contains_resource_type():
-    """Proves the resource type appears in the impossible metadata when check fails."""
-
-    with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
-        emit = next(check_resource_dependency("memory", max_percent=50.0))
-    assert emit.body[1]["resource"] == "memory"

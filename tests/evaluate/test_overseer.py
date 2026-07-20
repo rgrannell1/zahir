@@ -269,9 +269,9 @@ def test_init_cast_seeds_backend_via_storage_handlers():
 
     handlers = _make_handlers()
     enqueue_effect = EStorageEnqueue(job=JobSpec(fn_name="start", args=(1, 2)))
-    complete(handle(_handle_cast(make_lot(), enqueue_effect), **handlers))
+    complete(handle(_handle_cast(make_lot(), enqueue_effect), handlers))
     is_done_call = _handle_call(make_lot(), EStorageIsDone(), WAITER_CALLER)
-    _, result = complete(handle(is_done_call, **handlers))
+    _, result = complete(handle(is_done_call, handlers))
     assert result is NoReply
 
 
@@ -283,14 +283,14 @@ def test_round_trip_enqueue_then_get_job():
 
     # enqueue root job, enqueue a child job, then fetch them
     root_enqueue = EStorageEnqueue(job=JobSpec(fn_name="root"))
-    complete(handle(_handle_cast(lot, root_enqueue), **handlers))
+    complete(handle(_handle_cast(lot, root_enqueue), handlers))
     child_enqueue = EStorageEnqueue(job=JobSpec(fn_name="child", args=(42,)))
-    complete(handle(_handle_cast(lot, child_enqueue), **handlers))
+    complete(handle(_handle_cast(lot, child_enqueue), handlers))
     # root job is first in queue; consume it, then ack its lease to fetch the child
     get_job = EStorageGetJob(b"worker")
     _, (root_lease_id, _root_work) = complete(
-        handle(_handle_call(lot, get_job, WORKER_CALLER), **handlers)
+        handle(_handle_call(lot, get_job, WORKER_CALLER), handlers)
     )
     ack_get_job = EStorageGetJob(b"worker", ack=root_lease_id)
-    _, (_, work) = complete(handle(_handle_call(lot, ack_get_job, WORKER_CALLER), **handlers))
+    _, (_, work) = complete(handle(_handle_call(lot, ack_get_job, WORKER_CALLER), handlers))
     assert work.fn_name == "child"

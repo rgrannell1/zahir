@@ -4,7 +4,7 @@ import time
 from collections.abc import Generator, Sequence
 from dataclasses import dataclass
 from functools import partial
-from typing import Any, cast
+from typing import Any
 
 from orbis import handle
 from tertius import EEmit, ESelf, Pid, Scope
@@ -29,7 +29,7 @@ from zahir.core.exceptions import JobError, JobTimeoutError, ZahirError
 from zahir.core.fp_types import Err, Ok
 from zahir.core.scope_proxy import ScopeProxy
 from zahir.core.telemetry import record_execute_start, record_execute_start_id
-from zahir.core.zahir_types import HandlerMap, JobContext, JobHandlerMap, JobSpec, ResultItem
+from zahir.core.zahir_types import HandlerMap, JobContext, JobSpec, ResultItem
 
 # Sentinel returned by the EAwait handler to signal that the job was suspended.
 # _handle_running checks for this to transition to _Idle rather than _Running.
@@ -53,7 +53,7 @@ class _Running:
 type WorkerState = _Idle | _Running
 
 
-def _build_job(spec: JobSpec, ctx: Any, job_handlers: JobHandlerMap) -> RunningJob:
+def _build_job(spec: JobSpec, ctx: Any, job_handlers: HandlerMap) -> RunningJob:
     """Construct a RunningJob from a dequeued JobSpec."""
 
     deadline = monotonic_deadline(spec.timeout_ms)
@@ -114,7 +114,7 @@ def _handle_result_work_item(suspension: SuspensionTable, work) -> WorkerState:
 
 
 def _handle_job_work_item(
-    spec: JobSpec, ctx: Any, job_handlers: JobHandlerMap
+    spec: JobSpec, ctx: Any, job_handlers: HandlerMap
 ) -> Generator[Any, Any, WorkerState]:
     """Validate scope membership and build a RunningJob from a dequeued JobSpec."""
     if spec.fn_name not in ctx._scope:
@@ -141,7 +141,7 @@ def _expire_or_idle(suspension: SuspensionTable) -> WorkerState:
 
 
 def _handle_idle(
-    suspension: SuspensionTable, ctx: Any, me_bytes: bytes, job_handlers: JobHandlerMap
+    suspension: SuspensionTable, ctx: Any, me_bytes: bytes, job_handlers: HandlerMap
 ) -> Generator[Any, Any, WorkerState]:
     """Fetch the next work item and transition to the appropriate state.
 
@@ -185,7 +185,7 @@ def make_worker_handlers(
     """EAwait handler with wrappers applied — merged last so it cannot be overridden."""
 
     bindings = {EAwait.tag: partial(_handle_eawait, suspension, locals_)}
-    return cast(HandlerMap, build_handler_map(bindings, handler_wrappers))
+    return build_handler_map(bindings, handler_wrappers)
 
 
 def advance_job(
@@ -241,7 +241,7 @@ def _handle_running(state: _Running, locals_: WorkerLocals) -> Generator[Any, An
 def _worker_body(
     suspension: SuspensionTable,
     locals_: WorkerLocals,
-    job_handlers: JobHandlerMap,
+    job_handlers: HandlerMap,
     _overseer_pid: Pid,
     ctx: Any,
 ) -> Generator[Any, Any, None]:

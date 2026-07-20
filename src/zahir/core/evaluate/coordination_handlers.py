@@ -1,6 +1,6 @@
 from collections.abc import Generator, Sequence
 from functools import partial
-from typing import Any, cast
+from typing import Any
 
 from tertius import Pid, mcall, mcall_timeout, mcast
 
@@ -31,7 +31,7 @@ from zahir.core.effects import (
     ZahirStorageEffect,
 )
 from zahir.core.exceptions import OverseerSilentError
-from zahir.core.zahir_types import CoordinationHandlerMap, LeaseTracker, SilenceTracker
+from zahir.core.zahir_types import HandlerMap, LeaseTracker, SilenceTracker
 
 
 def _handle_enqueue(overseer: Pid, effect: EEnqueue) -> Generator[Any, Any, None]:
@@ -151,7 +151,7 @@ def make_coordination_handlers(
     overseer: Pid,
     handler_wrappers: Sequence,
     max_silence_ms: int | None = None,
-) -> CoordinationHandlerMap:
+) -> HandlerMap:
     """Create handlers for all coordination and transported storage effects.
 
     Handles job lifecycle (worker) and completion long-polling (root). Callers merge
@@ -179,7 +179,4 @@ def make_coordination_handlers(
         EStorageGetResult.tag: partial(_call_overseer, overseer),
     }
 
-    return cast(
-        CoordinationHandlerMap,
-        build_handler_map(bindings, handler_wrappers),
-    )
+    return build_handler_map(bindings, handler_wrappers)

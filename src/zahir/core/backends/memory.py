@@ -4,7 +4,7 @@ from collections import deque
 from collections.abc import Generator, Sequence
 from dataclasses import dataclass, field
 from functools import partial
-from typing import Any, cast
+from typing import Any
 
 from zahir.core.combinators import build_handler_map
 from zahir.core.effects import (
@@ -22,11 +22,11 @@ from zahir.core.effects import (
 )
 from zahir.core.zahir_types import (
     ConcurrencyMap,
+    HandlerMap,
     JobSpec,
     LeaseMap,
     PendingResults,
     ResultItem,
-    StorageHandlerMap,
     WorkItem,
 )
 
@@ -41,7 +41,7 @@ class MemoryBackend:
 
     queue: deque = field(default_factory=deque)
     concurrency: ConcurrencyMap = field(default_factory=dict)
-    semaphores: dict = field(default_factory=dict)
+    state: dict = field(default_factory=dict)
     pending: int = 0
     root_error: Exception | None = None
     root_result: Any = None
@@ -142,13 +142,13 @@ class MemoryBackend:
             current_limit, count = self.concurrency[name]
             self.concurrency[name] = (current_limit, max(0, count - 1))
 
-    def signal(self, name: str) -> str | None:
-        """Return the current semaphore state, or None if unset."""
-        return self.semaphores.get(name)
+    def get_state(self, name: str) -> str | None:
+        """Return the current KV state, or None if unset."""
+        return self.state.get(name)
 
-    def set_semaphore(self, name: str, state: str) -> None:
-        """Set the semaphore state for the given name."""
-        self.semaphores[name] = state
+    def set_state(self, name: str, value: str) -> None:
+        """Set the KV state for the given name."""
+        self.state[name] = value
 
     def is_done(self) -> bool:
         """Return True when pending is zero and the queue is empty."""
@@ -163,104 +163,66 @@ class MemoryBackend:
         return self.root_result
 
 
-# Storage effect handler functions — each takes a MemoryBackend instance and a storage effect.
+# Plain (backend, effect) -> value functions, lifted into generator handlers by as_handler.
 
 
-def _handle_storage_get_job(backend: MemoryBackend, effect: EStorageGetJob) -> Any:
-    """Return the next work item for the requesting worker."""
-    yield from ()
+def get_job_value(backend: MemoryBackend, effect: EStorageGetJob) -> Any:
     return backend.get_job(effect.worker_pid_bytes, effect.ack)
 
 
-def _handle_storage_enqueue(
-    backend: MemoryBackend,
-    effect: EStorageEnqueue,
-) -> Generator[Any, Any, None]:
-    """Add a child job to the queue."""
+def enqueue_value(backend: MemoryBackend, effect: EStorageEnqueue) -> None:
     backend.enqueue(effect.job)
-    yield from ()
-    return
 
 
-def _handle_storage_job_done(
-    backend: MemoryBackend,
-    effect: EStorageJobDone,
-) -> Generator[Any, Any, bool]:
-    """Record job completion and route the result. Returns True when the workflow is done,
-    so the overseer can wake completion waiters without a second dispatch."""
+def job_done_value(backend: MemoryBackend, effect: EStorageJobDone) -> bool:
+    """Returns the workflow's done flag so the overseer can wake completion
+    waiters without a second dispatch."""
     backend.job_done(effect.reply_to, effect.sequence_number, effect.body)
-    yield from ()
     return backend.is_done()
 
 
-def _handle_storage_job_failed(
-    backend: MemoryBackend,
-    effect: EStorageJobFailed,
-) -> Generator[Any, Any, bool]:
-    """Record a root-level job failure. Returns True when the workflow is done,
-    so the overseer can wake completion waiters without a second dispatch."""
+def job_failed_value(backend: MemoryBackend, effect: EStorageJobFailed) -> bool:
+    """Returns the workflow's done flag so the overseer can wake completion
+    waiters without a second dispatch."""
     backend.job_failed(effect.error)
-    yield from ()
     return backend.is_done()
 
 
-def _handle_storage_acquire(
-    backend: MemoryBackend,
-    effect: EStorageAcquire,
-) -> Generator[Any, Any, bool]:
-    """Try to acquire a concurrency slot."""
-    yield from ()
+def acquire_value(backend: MemoryBackend, effect: EStorageAcquire) -> bool:
     return backend.acquire(effect.name, effect.limit)
 
 
-def _handle_storage_release(
-    backend: MemoryBackend,
-    effect: EStorageRelease,
-) -> Generator[Any, Any, None]:
-    """Release a concurrency slot."""
+def release_value(backend: MemoryBackend, effect: EStorageRelease) -> None:
     backend.release(effect.name)
-    yield from ()
-    return
 
 
-def _handle_storage_get_state(backend: MemoryBackend, effect: EStorageGetState) -> Any:
-    """Return the current KV state."""
-    yield from ()
-    return backend.signal(effect.name)
+def get_state_value(backend: MemoryBackend, effect: EStorageGetState) -> Any:
+    return backend.get_state(effect.name)
 
 
-def _handle_storage_set_state(
-    backend: MemoryBackend,
-    effect: EStorageSetState,
-) -> Generator[Any, Any, None]:
-    """Set the KV state."""
-    backend.set_semaphore(effect.name, effect.state)
-    yield from ()
-    return
+def set_state_value(backend: MemoryBackend, effect: EStorageSetState) -> None:
+    backend.set_state(effect.name, effect.state)
 
 
-def _handle_storage_is_done(
-    backend: MemoryBackend,
-    effect: EStorageIsDone,
-) -> Generator[Any, Any, bool]:
-    """Return True when all jobs have completed."""
-    yield from ()
+def is_done_value(backend: MemoryBackend, effect: EStorageIsDone) -> bool:
     return backend.is_done()
 
 
-def _handle_storage_get_error(backend: MemoryBackend, effect: EStorageGetError) -> Any:
-    """Return the root error, if any."""
-    yield from ()
+def get_error_value(backend: MemoryBackend, effect: EStorageGetError) -> Any:
     return backend.get_error()
 
 
-def _handle_storage_get_result(backend: MemoryBackend, effect: EStorageGetResult) -> Any:
-    """Return the root job's return value."""
-    yield from ()
+def get_result_value(backend: MemoryBackend, effect: EStorageGetResult) -> Any:
     return backend.get_result()
 
 
-def make_memory_storage_handlers(handler_wrappers: Sequence = ()) -> StorageHandlerMap:
+def as_handler(fn, backend: MemoryBackend, effect) -> Generator[Any, Any, Any]:
+    """Lift a plain (backend, effect) -> value function into a generator handler."""
+    yield from ()
+    return fn(backend, effect)
+
+
+def make_memory_storage_handlers(handler_wrappers: Sequence = ()) -> HandlerMap:
     """Create a complete set of storage handlers backed by a fresh in-memory backend,
     with any user-supplied wrappers applied.
 
@@ -269,17 +231,18 @@ def make_memory_storage_handlers(handler_wrappers: Sequence = ()) -> StorageHand
     """
     backend = MemoryBackend()
 
-    bindings = {
-        EStorageGetJob.tag: partial(_handle_storage_get_job, backend),
-        EStorageEnqueue.tag: partial(_handle_storage_enqueue, backend),
-        EStorageJobDone.tag: partial(_handle_storage_job_done, backend),
-        EStorageJobFailed.tag: partial(_handle_storage_job_failed, backend),
-        EStorageAcquire.tag: partial(_handle_storage_acquire, backend),
-        EStorageRelease.tag: partial(_handle_storage_release, backend),
-        EStorageGetState.tag: partial(_handle_storage_get_state, backend),
-        EStorageSetState.tag: partial(_handle_storage_set_state, backend),
-        EStorageIsDone.tag: partial(_handle_storage_is_done, backend),
-        EStorageGetError.tag: partial(_handle_storage_get_error, backend),
-        EStorageGetResult.tag: partial(_handle_storage_get_result, backend),
+    plain_handlers = {
+        EStorageGetJob.tag: get_job_value,
+        EStorageEnqueue.tag: enqueue_value,
+        EStorageJobDone.tag: job_done_value,
+        EStorageJobFailed.tag: job_failed_value,
+        EStorageAcquire.tag: acquire_value,
+        EStorageRelease.tag: release_value,
+        EStorageGetState.tag: get_state_value,
+        EStorageSetState.tag: set_state_value,
+        EStorageIsDone.tag: is_done_value,
+        EStorageGetError.tag: get_error_value,
+        EStorageGetResult.tag: get_result_value,
     }
-    return cast(StorageHandlerMap, build_handler_map(bindings, handler_wrappers))
+    bindings = {tag: partial(as_handler, fn, backend) for tag, fn in plain_handlers.items()}
+    return build_handler_map(bindings, handler_wrappers)

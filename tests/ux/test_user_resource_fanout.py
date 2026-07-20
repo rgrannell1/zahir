@@ -2,12 +2,14 @@
 
 import os
 import time
+from functools import partial
 
 import pytest
 from tertius import EEmit, ESleep
 
 from tests.shared import peak_concurrent, user_events
-from zahir.core.dependencies.resources import check_resource_dependency
+from zahir.core.dependencies.dependency import check
+from zahir.core.dependencies.resources import resource_condition
 from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate, setup
 
@@ -26,7 +28,8 @@ _MIN_FANOUT_FRACTION = 0.8
 
 def ram_limited_job(ctx: JobContext, max_percent: float):
     """A job gated behind a memory resource check. Returns (pid, start, end) on success."""
-    result = yield from check_resource_dependency("memory", max_percent=max_percent)
+    condition = partial(resource_condition, "memory", max_percent)
+    result = yield from check(condition, label="memory resource")
     match result:
         case ("satisfied", _):
             start = time.time()

@@ -5,7 +5,7 @@ from functools import partial
 from typing import Any
 
 from zahir.core.constants import DependencyState
-from zahir.core.dependencies.dependency import check, dependency
+from zahir.core.dependencies.dependency import dependency
 from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 
@@ -25,14 +25,6 @@ def time_condition(
 
     yield from ()
     return (DependencyState.SATISFIED, {})
-
-
-def check_time_dependency(
-    before: datetime | None = None,
-    after: datetime | None = None,
-) -> Generator[Any, Any, DependencyResult]:
-    """Evaluate the time condition once; return satisfied or impossible without sleeping."""
-    return check(partial(time_condition, before, after), label="time")
 
 
 def time_dependency(

@@ -19,7 +19,7 @@ from zahir.core.evaluate.job_handlers import evaluate_job, make_job_handlers
 from zahir.core.evaluate.suspension import RunningJob, SuspensionTable, WorkerLocals
 from zahir.core.evaluate.worker import _build_job, _handle_idle, _handle_running, _Idle, _Running
 from zahir.core.exceptions import JobTimeoutError
-from zahir.core.zahir_types import JobContext, JobHandlerMap
+from zahir.core.zahir_types import HandlerMap, JobContext
 
 
 def _make_locals(acquired: list | None = None) -> WorkerLocals:
@@ -35,7 +35,7 @@ def _make_locals(acquired: list | None = None) -> WorkerLocals:
     return WorkerLocals(current_job=job)
 
 
-def _handlers(locals_: WorkerLocals | None = None) -> JobHandlerMap:
+def _handlers(locals_: WorkerLocals | None = None) -> HandlerMap:
     """Return pre-built job handlers for use with evaluate_job."""
     return make_job_handlers(locals_ or _make_locals(), [])
 
