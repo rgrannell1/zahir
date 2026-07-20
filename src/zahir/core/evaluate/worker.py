@@ -18,7 +18,7 @@ from zahir.core.effects import (
     EJobFail,
     EStorageRelease,
 )
-from zahir.core.emit import execute_start_event
+from zahir.core.emit import execute_start_event, format_job_id
 from zahir.core.evaluate.coordination_handlers import make_coordination_handlers
 from zahir.core.evaluate.job_handlers import (
     evaluate_job,
@@ -28,7 +28,7 @@ from zahir.core.evaluate.suspension import RunningJob, SuspensionTable, WorkerLo
 from zahir.core.exceptions import JobError, JobTimeoutError, ZahirError
 from zahir.core.fp_types import Err, Ok
 from zahir.core.scope_proxy import ScopeProxy
-from zahir.core.telemetry import record_execute_start, record_execute_start_id
+from zahir.core.telemetry import record_execute_start
 from zahir.core.zahir_types import HandlerMap, JobContext, JobSpec, ResultItem
 
 # Sentinel returned by the EAwait handler to signal that the job was suspended.
@@ -121,12 +121,11 @@ def _handle_job_work_item(
         err = JobError(KeyError(f"job {spec.fn_name!r} not found in scope"))
         yield EJobFail(error=err, reply_to=spec.reply_to, sequence_number=spec.sequence_number)
         return _Idle()
-    record_execute_start(spec.reply_to, spec.sequence_number)
     if isinstance(spec.reply_to, bytes) and spec.sequence_number is not None:
-        job_id = f"{spec.reply_to.hex()}:{spec.sequence_number}"
+        job_id = format_job_id(spec.reply_to, spec.sequence_number)
     else:
         job_id = "root"
-        record_execute_start_id(job_id)
+    record_execute_start(job_id)
     yield EEmit(execute_start_event(spec.fn_name, job_id))
     return _Running(job=_build_job(spec, ctx, job_handlers))
 
@@ -270,7 +269,7 @@ def worker(  # noqa: PLR0913
     """zahir worker main loop"""
 
     overseer = Pid.from_bytes(overseer_pid_bytes)
-    ctx: JobContext[Any] = JobContext(
+    ctx: JobContext = JobContext(
         _scope=scope,
         scope=ScopeProxy(scope),
     )

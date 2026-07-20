@@ -53,14 +53,9 @@ def check(
     state, metadata = yield from condition_fn()
     if state == DependencyState.SATISFIED:
         result: DependencyResult = (DependencyState.SATISFIED, metadata)
-        yield EEmit(result)
-        return result
-    if state == DependencyState.IMPOSSIBLE:
+    else:
+        # unsatisfied maps to impossible: there is no retry in one-shot mode
         result = (DependencyState.IMPOSSIBLE, metadata)
-        yield EEmit(result)
-        return result
-    # UNSATISFIED: maps to impossible in one-shot mode
-    result = (DependencyState.IMPOSSIBLE, metadata)
     yield EEmit(result)
     return result
 

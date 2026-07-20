@@ -1,21 +1,17 @@
 """Functional programming primitives"""
 
 from dataclasses import dataclass
-from typing import Generic, TypeVar
-
-ValueT = TypeVar("ValueT")
-ErrorT = TypeVar("ErrorT")
 
 
 @dataclass(frozen=True)
-class Ok(Generic[ValueT]):
+class Ok[ValueT]:
     """Represents a successful result."""
 
     value: ValueT
 
 
 @dataclass(frozen=True)
-class Err(Generic[ErrorT]):
+class Err[ErrorT]:
     """Represents a failed result."""
 
     error: ErrorT

@@ -5,7 +5,7 @@ from typing import Any, Callable, Generator, Literal
 from zahir.core.constants import DependencyState
 
 
-class JobContext[T]:
+class JobContext:
     """Context object passed as the first argument to every job function."""
 
     __slots__ = ("_scope", "scope")

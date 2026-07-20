@@ -61,7 +61,6 @@ def _evaluate_runner(
 ) -> Generator[Any, Any, None]:
     """Run the root job and wait for completion."""
 
-    _, _transport, n_workers, n_thread_workers = runtime
     fn_name, args, scope = inputs
     handler_wrappers, overseer_handlers, handlers = bindings
 
@@ -76,10 +75,10 @@ def _evaluate_runner(
         handlers,
     )
 
-    for _ in range(n_workers):
+    for _ in range(runtime.n_workers):
         yield ESpawn(fn_name="worker", args=worker_args, mode=SpawnMode.PROCESS)
 
-    for _ in range(n_thread_workers):
+    for _ in range(runtime.n_thread_workers):
         yield ESpawn(fn_name="worker", args=worker_args, mode=SpawnMode.THREAD)
 
     # Coordination merged last: transported storage tags must beat any storage
@@ -113,12 +112,11 @@ def evaluate(  # noqa: PLR0913
         "worker": worker,
         **scope,
     }
-    _, transport, _n_workers, _n_thread_workers = runtime
     yield from run(
         _evaluate_runner,
         runtime,
         (fn_name, args, scope),
         (handler_wrappers, overseer_handlers, handlers or {}),
         scope=full_scope,
-        transport=transport,
+        transport=runtime.transport,
     )

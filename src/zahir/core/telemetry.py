@@ -35,15 +35,8 @@ _execute_times: dict[str, float] = {}
 _JOB_END_TAGS = {JobTag.JOB_COMPLETE, JobTag.JOB_FAIL}
 
 
-def record_execute_start(reply_to: bytes | None, sequence_number: int | None) -> None:
+def record_execute_start(job_id: str) -> None:
     """Record when a worker begins executing a job. Called from the worker loop on job pickup."""
-
-    if isinstance(reply_to, bytes) and sequence_number is not None:
-        _execute_times[f"{reply_to.hex()}:{sequence_number}"] = time.time()
-
-
-def record_execute_start_id(job_id: str) -> None:
-    """Record when a worker begins executing a job with an already-derived id."""
 
     _execute_times[job_id] = time.time()
 

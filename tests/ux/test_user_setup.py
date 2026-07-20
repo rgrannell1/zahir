@@ -56,7 +56,7 @@ def test_setup_remote_evaluates_over_tcp_transport():
         n_workers=1,
     )
 
-    assert isinstance(runtime[1], TcpTransport)
+    assert isinstance(runtime.transport, TcpTransport)
 
     events = user_events(evaluate(runtime, "setup_returning_root", (), _SCOPE))
 

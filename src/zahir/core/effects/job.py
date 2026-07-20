@@ -16,6 +16,7 @@ class ZahirJobEvent(ZahirJobEffect[None], Event, abstract=True):
     """Base class for fire-and-forget effects yielded by job generators."""
 
 
+@dataclass(kw_only=True)
 class EAwait(ZahirJobEffect[Any]):
     """Dispatch one or more jobs concurrently.
 
@@ -32,25 +33,8 @@ class EAwait(ZahirJobEffect[Any]):
 
     tag: ClassVar[LiteralString] = "await"
     jobs: list[JobSpec]
-    scalar: bool
-    gather: bool
-
-    def __init__(self, *, jobs: list[JobSpec], scalar: bool = True, gather: bool = False):
-        self.jobs = jobs
-        self.scalar = scalar
-        self.gather = gather
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, EAwait):
-            return NotImplemented
-        return (
-            self.jobs == other.jobs
-            and self.scalar == other.scalar
-            and self.gather == other.gather
-        )
-
-    def __repr__(self) -> str:
-        return f"EAwait(jobs={self.jobs!r}, scalar={self.scalar!r}, gather={self.gather!r})"
+    scalar: bool = True
+    gather: bool = False
 
 
 def await_all(specs: list[EAwait]) -> EAwait:

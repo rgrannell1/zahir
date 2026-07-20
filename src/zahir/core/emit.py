@@ -18,6 +18,12 @@ class TimeSpan:
     end: float
 
 
+def format_job_id(reply_to: bytes, sequence_number: int) -> str:
+    """Form the globally unique job identifier used across telemetry."""
+
+    return f"{reply_to.hex()}:{sequence_number}"
+
+
 def get_fn_name(effect) -> str | None:
     """Get the function name from the effect, looking inside a carried JobSpec."""
 
@@ -42,7 +48,7 @@ def get_job_id(effect) -> str | None:
     reply_to = getattr(target, "reply_to", None)
 
     if seq is not None and isinstance(reply_to, bytes):
-        return f"{reply_to.hex()}:{seq}"
+        return format_job_id(reply_to, seq)
     if seq is None and reply_to is None and hasattr(target, "fn_name"):
         return "root"
 
