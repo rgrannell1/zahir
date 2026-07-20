@@ -6,9 +6,9 @@ import time_machine
 from tertius import EEmit, ESleep
 
 from tests.shared import NOW, drain_to
-from zahir.core.constants import DependencyState
+from zahir.core.commons.constants import DependencyState
+from zahir.core.commons.zahir_types import ConditionResult
 from zahir.core.dependencies.dependency import check, dependency
-from zahir.core.zahir_types import ConditionResult
 
 # condition returns satisfied immediately
 

@@ -7,7 +7,8 @@ from tertius import EEmit
 from tests.evaluate.mocks import ME, OVERSEER, mock_mcall, mock_mcall_timeout, mock_mcast
 from tests.shared import drain_to
 from zahir.core.combinators import wrap
-from zahir.core.constants import WORKER_PARK_TIMEOUT_MS, WorkItemTag
+from zahir.core.commons.constants import WORKER_PARK_TIMEOUT_MS, WorkItemTag
+from zahir.core.commons.zahir_types import JobSpec, LeaseTracker, SilenceTracker
 from zahir.core.effects import (
     EEnqueue,
     EGetJob,
@@ -40,7 +41,6 @@ from zahir.core.evaluate.coordination_handlers import (
 )
 from zahir.core.exceptions import JobError, OverseerSilentError
 from zahir.core.telemetry import make_telemetry
-from zahir.core.zahir_types import JobSpec, LeaseTracker, SilenceTracker
 
 REPLY_TO = bytes(ME)
 WORKER_PID = b"worker-pid"
@@ -164,9 +164,7 @@ def test_handle_job_complete_mcasts_storage_job_done_with_result():
         return None
         yield
 
-    job_complete_effect = EJobComplete(
-        result="done", reply_to=REPLY_TO, sequence_number=7
-    )
+    job_complete_effect = EJobComplete(result="done", reply_to=REPLY_TO, sequence_number=7)
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         drain_to(_handle_job_complete(OVERSEER, job_complete_effect))
 
@@ -183,9 +181,7 @@ def test_handle_job_complete_with_none_reply_to():
         return None
         yield
 
-    job_complete_root = EJobComplete(
-        result="done", reply_to=None, sequence_number=None
-    )
+    job_complete_root = EJobComplete(result="done", reply_to=None, sequence_number=None)
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         drain_to(_handle_job_complete(OVERSEER, job_complete_root))
 

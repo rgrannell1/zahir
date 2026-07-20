@@ -6,9 +6,9 @@ from contextlib import closing
 from functools import partial
 from typing import Any
 
-from zahir.core.constants import DependencyState
+from zahir.core.commons.constants import DependencyState
+from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.dependencies.dependency import dependency
-from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 _DEFAULT_TIMEOUT_SECONDS = 5.0
 _BUSY_TIMEOUT_MS = 5000
@@ -105,5 +105,3 @@ def sqlite_dependency(  # noqa: PLR0913
         timeout_ms=poll_timeout_ms,
         label=f"sqlite '{db_path}'",
     )
-
-

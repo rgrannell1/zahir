@@ -74,13 +74,11 @@ def scan_media(ctx: JobContext, input: dict):
     """Mirrors scan.scan_media: sequential scan then parallel reads then wikidata."""
     yield ctx.scope.media_scan({})
 
-    yield await_all(
-        [
-            ctx.scope.read_albums({"markdown_path": input.get("albums_markdown_path")}),
-            ctx.scope.read_photos({"markdown_path": input.get("photos_markdown_path")}),
-            ctx.scope.read_videos({}),
-        ]
-    )
+    yield await_all([
+        ctx.scope.read_albums({"markdown_path": input.get("albums_markdown_path")}),
+        ctx.scope.read_photos({"markdown_path": input.get("photos_markdown_path")}),
+        ctx.scope.read_videos({}),
+    ])
 
     yield ctx.scope.wikidata_scan({})
 
@@ -103,9 +101,7 @@ def upload_media(ctx: JobContext, input: dict):
         yield await_all(mosaic_effects)
 
     if input.get("upload_images"):
-        photo_effects = [
-            ctx.scope.upload_missing_photos({"fpath": fpath}) for fpath in fpaths
-        ]
+        photo_effects = [ctx.scope.upload_missing_photos({"fpath": fpath}) for fpath in fpaths]
         if photo_effects:
             yield await_all(photo_effects)
 
@@ -117,24 +113,20 @@ def upload_media(ctx: JobContext, input: dict):
 def mirror_workflow(ctx: JobContext, input: dict):
     """Mirrors workflow.mirror_workflow: the top-level orchestrator."""
     try:
-        yield ctx.scope.scan_media(
-            {
-                "albums_markdown_path": input.get("albums_markdown_path"),
-                "photos_markdown_path": input.get("photos_markdown_path"),
-            }
-        )
+        yield ctx.scope.scan_media({
+            "albums_markdown_path": input.get("albums_markdown_path"),
+            "photos_markdown_path": input.get("photos_markdown_path"),
+        })
     except Exception as err:  # noqa: BLE001
         print(f"WARNING: scan_media failed, continuing to publish: {err}")
 
-    yield ctx.scope.upload_media(
-        {
-            "force_recompute_grey": input.get("force_recompute_grey", False),
-            "force_recompute_mosaic": input.get("force_recompute_mosaic", False),
-            "upload_images": input.get("upload_images"),
-            "upload_videos": input.get("upload_videos"),
-            "fpaths": input.get("fpaths", []),
-        }
-    )
+    yield ctx.scope.upload_media({
+        "force_recompute_grey": input.get("force_recompute_grey", False),
+        "force_recompute_mosaic": input.get("force_recompute_mosaic", False),
+        "upload_images": input.get("upload_images"),
+        "upload_videos": input.get("upload_videos"),
+        "fpaths": input.get("fpaths", []),
+    })
 
     yield ctx.scope.publish_artifacts({})
 
@@ -250,9 +242,7 @@ def test_mirror_workflow_parallel_scan_reads():
         "read_videos": emitting_read_videos,
     }
 
-    events = list(
-        evaluate(setup(n_workers=4), "mirror_workflow", ({"publish_d1": False},), scope)
-    )
+    events = list(evaluate(setup(n_workers=4), "mirror_workflow", ({"publish_d1": False},), scope))
 
     assert sorted(event for event in events if isinstance(event, str)) == [
         "read_albums",

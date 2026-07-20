@@ -5,7 +5,7 @@ from collections.abc import Set as AbstractSet
 from functools import partial, reduce
 from typing import Any
 
-from zahir.core.zahir_types import HandlerCallable
+from zahir.core.commons.zahir_types import HandlerCallable
 
 
 def apply_wrapper(handler: Any, wrapper: Any) -> Any:

@@ -15,7 +15,7 @@ from typing import Any
 from orbis import handle, tap
 from tertius import Caller, EEmit, ERegister, ESend, NoReply, ReplyMsg, gen_server, reply_to
 
-from zahir.core.constants import OVERSEER_NAME, ParkTag, WorkItemTag
+from zahir.core.commons.constants import OVERSEER_NAME, ParkTag, WorkItemTag
 from zahir.core.effects import (
     EStorageEnqueue,
     EStorageGetJob,
@@ -23,7 +23,7 @@ from zahir.core.effects import (
     EStorageJobDone,
     EStorageJobFailed,
 )
-from zahir.core.emit import park_event
+from zahir.core.telemetry import park_event
 
 
 @dataclass

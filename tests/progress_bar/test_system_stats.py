@@ -2,7 +2,7 @@ import time
 
 from bookman.events import point
 
-from zahir.core.constants import JobTag, Phase
+from zahir.core.commons.constants import JobTag, Phase
 from zahir.progress_bar.descriptions_view import system_description
 from zahir.progress_bar.system_stats_service import SystemStats
 

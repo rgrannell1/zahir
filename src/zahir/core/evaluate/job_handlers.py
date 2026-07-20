@@ -6,7 +6,8 @@ from functools import partial
 from typing import Any
 
 from zahir.core.combinators import build_handler_map
-from zahir.core.constants import BLOCKED_EFFECTS, THROWABLE
+from zahir.core.commons.constants import BLOCKED_EFFECTS, THROWABLE
+from zahir.core.commons.zahir_types import HandlerMap
 from zahir.core.effects import (
     EAcquire,
     EReleaseSlot,
@@ -17,7 +18,6 @@ from zahir.core.effects import (
 )
 from zahir.core.evaluate.suspension import WorkerLocals
 from zahir.core.exceptions import InvalidEffectError, JobTimeoutError
-from zahir.core.zahir_types import HandlerMap
 
 
 def _validate_effect(effect) -> InvalidEffectError | None:
@@ -122,9 +122,7 @@ def _handle_acquire(locals_: WorkerLocals, effect: EAcquire) -> Generator[Any, A
     return result
 
 
-def _handle_release_slot(
-    locals_: WorkerLocals, effect: EReleaseSlot
-) -> Generator[Any, Any, None]:
+def _handle_release_slot(locals_: WorkerLocals, effect: EReleaseSlot) -> Generator[Any, Any, None]:
     """Release a held concurrency slot immediately and remove it from job-exit cleanup.
 
     A slot the job does not hold is a no-op — forwarding a release for it would

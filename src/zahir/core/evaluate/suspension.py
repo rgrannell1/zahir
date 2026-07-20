@@ -9,10 +9,10 @@ from collections.abc import Generator
 from dataclasses import dataclass, field, replace
 from typing import Any
 
+from zahir.core.commons.fp_types import Err, Ok, Result
+from zahir.core.commons.zahir_types import ResultItem
 from zahir.core.effects import EAwait, EEnqueue
 from zahir.core.exceptions import JobError, JobTimeoutError
-from zahir.core.fp_types import Err, Ok, Result
-from zahir.core.zahir_types import ResultItem
 
 # Return type of SuspensionTable.resume. None when children are still outstanding
 type ResumeResult = tuple[RunningJob, Result[Any, Exception]] | None

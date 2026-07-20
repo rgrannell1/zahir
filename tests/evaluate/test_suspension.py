@@ -3,19 +3,17 @@
 import pytest
 
 from tests.evaluate.mocks import make_deadlined_parent
+from zahir.core.commons.fp_types import Err, Ok
+from zahir.core.commons.zahir_types import ResultItem
 from zahir.core.effects import EAwait, JobSpec, await_all, gather_all
 from zahir.core.evaluate.suspension import RunningJob, SuspensionTable
 from zahir.core.exceptions import JobError, JobTimeoutError
-from zahir.core.fp_types import Err, Ok
-from zahir.core.zahir_types import ResultItem
 
 
 def make_parent() -> RunningJob:
     """Build a minimal parent job to suspend."""
 
-    return RunningJob(
-        fn_name="parent", eval_gen=None, reply_to=None, parent_sequence_number=None
-    )
+    return RunningJob(fn_name="parent", eval_gen=None, reply_to=None, parent_sequence_number=None)
 
 
 def make_scalar(fn_name: str) -> EAwait:

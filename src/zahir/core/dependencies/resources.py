@@ -6,9 +6,9 @@ from typing import Any, Literal
 
 import psutil
 
-from zahir.core.constants import CPU_SAMPLE_INTERVAL_S, DependencyState
+from zahir.core.commons.constants import CPU_SAMPLE_INTERVAL_S, DependencyState
+from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.dependencies.dependency import dependency
-from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 type ResourceType = Literal["cpu", "memory"]
 

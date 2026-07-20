@@ -7,7 +7,7 @@ import pytest
 from tertius import EEmit, ESleep
 
 from tests.shared import drain_to
-from zahir.core.constants import DependencyState
+from zahir.core.commons.constants import DependencyState
 from zahir.core.dependencies.sqlite import sqlite_condition, sqlite_dependency
 
 

@@ -2,7 +2,7 @@
 from collections import deque
 
 from zahir.core.backends.memory import MemoryBackend
-from zahir.core.zahir_types import JobSpec, ResultItem
+from zahir.core.commons.zahir_types import JobSpec, ResultItem
 
 WORKER = b"worker-pid"
 

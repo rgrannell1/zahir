@@ -1,3 +1,8 @@
+from zahir.core.commons.zahir_types import ConditionResult as ConditionResult
+from zahir.core.commons.zahir_types import DependencyResult as DependencyResult
+from zahir.core.commons.zahir_types import Impossible as Impossible
+from zahir.core.commons.zahir_types import Satisfied as Satisfied
+from zahir.core.commons.zahir_types import Unsatisfied as Unsatisfied
 from zahir.core.dependencies.concurrency import concurrency_condition as concurrency_condition
 from zahir.core.dependencies.concurrency import concurrency_dependency as concurrency_dependency
 from zahir.core.dependencies.dependency import check as check
@@ -25,8 +30,3 @@ from zahir.core.dependencies.sqlite import sqlite_dependency as sqlite_dependenc
 from zahir.core.dependencies.time import time_condition as time_condition
 from zahir.core.dependencies.time import time_dependency as time_dependency
 from zahir.core.exceptions import ImpossibleError as ImpossibleError
-from zahir.core.zahir_types import ConditionResult as ConditionResult
-from zahir.core.zahir_types import DependencyResult as DependencyResult
-from zahir.core.zahir_types import Impossible as Impossible
-from zahir.core.zahir_types import Satisfied as Satisfied
-from zahir.core.zahir_types import Unsatisfied as Unsatisfied

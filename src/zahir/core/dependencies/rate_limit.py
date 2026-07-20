@@ -8,10 +8,10 @@ from typing import Any
 from bookman.events import point
 from tertius import EEmit, ESleep
 
-from zahir.core.constants import DependencyState, DependencyTag
+from zahir.core.commons.constants import DependencyState, DependencyTag
+from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.dependencies.dependency import dependency
 from zahir.core.effects import EAcquire, EGetState, EReleaseSlot, ESetState
-from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 
 def _waiting_point(label: str) -> object:
@@ -38,22 +38,22 @@ def rate_limit_condition(
     only serialises the gap check — not the whole job that passes through it.
     Emits a WAITING point before each sleep so the progress bar can show the blocked state.
     """
-    acquired = yield EAcquire(name=f'rate_limit:{name}', limit=1)
+    acquired = yield EAcquire(name=f"rate_limit:{name}", limit=1)
     if not acquired:
-        return (DependencyState.UNSATISFIED, {'name': name, 'reason': 'slot busy'})
+        return (DependencyState.UNSATISFIED, {"name": name, "reason": "slot busy"})
 
     elapsed = yield from wait_for_gap(name, min_seconds, label)
 
-    yield ESetState(name=f'rate_limit:last_at:{name}', value=str(time.time()))
-    yield EReleaseSlot(name=f'rate_limit:{name}')
-    return (DependencyState.SATISFIED, {'name': name, 'elapsed': elapsed})
+    yield ESetState(name=f"rate_limit:last_at:{name}", value=str(time.time()))
+    yield EReleaseSlot(name=f"rate_limit:{name}")
+    return (DependencyState.SATISFIED, {"name": name, "elapsed": elapsed})
 
 
 def wait_for_gap(name: str, min_seconds: float, label: str) -> Generator[Any, Any, float]:
     """Sleep inside the gate until min_seconds have passed since the last stamp."""
 
     while True:
-        raw = yield EGetState(name=f'rate_limit:last_at:{name}')
+        raw = yield EGetState(name=f"rate_limit:last_at:{name}")
         last_at = float(raw) if raw else 0.0
         elapsed = time.time() - last_at
         if elapsed >= min_seconds:

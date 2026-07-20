@@ -7,9 +7,9 @@ from typing import Any
 from bookman.events import point
 from tertius import EEmit, ESleep
 
-from zahir.core.clock import monotonic_deadline
-from zahir.core.constants import DEPENDENCY_DELAY_MS, DependencyState, DependencyTag
-from zahir.core.zahir_types import ConditionResult, DependencyResult
+from zahir.core.commons.clock import monotonic_deadline
+from zahir.core.commons.constants import DEPENDENCY_DELAY_MS, DependencyState, DependencyTag
+from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 
 
 def _waiting_event(label: str) -> object:

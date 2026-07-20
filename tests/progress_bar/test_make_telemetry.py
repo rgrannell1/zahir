@@ -3,9 +3,9 @@ from bookman.events import Event
 from tertius import EEmit
 
 from tests.shared import drain_to
+from zahir.core.commons.zahir_types import JobSpec
 from zahir.core.effects import EAwait
 from zahir.core.telemetry import make_telemetry
-from zahir.core.zahir_types import JobSpec
 
 
 def _make_handler(return_value):

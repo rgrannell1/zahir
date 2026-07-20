@@ -17,13 +17,11 @@ def slow_double(ctx: JobContext, value: int):
 
 
 def fan_out(ctx: JobContext):
-    results = yield await_all(
-        [
-            ctx.scope.double(1),
-            ctx.scope.double(2),
-            ctx.scope.double(3),
-        ]
-    )
+    results = yield await_all([
+        ctx.scope.double(1),
+        ctx.scope.double(2),
+        ctx.scope.double(3),
+    ])
     yield EEmit(results)
 
 
@@ -34,24 +32,20 @@ def failing_job(ctx: JobContext):
 
 def fan_out_with_failure(ctx: JobContext):
     try:
-        yield await_all(
-            [
-                ctx.scope.double(1),
-                ctx.scope.failing_job(),
-                ctx.scope.double(3),
-            ]
-        )
+        yield await_all([
+            ctx.scope.double(1),
+            ctx.scope.failing_job(),
+            ctx.scope.double(3),
+        ])
     except JobError as err:
         yield EEmit({"error": str(err.cause)})
 
 
 def fan_out_mixed(ctx: JobContext):
-    results = yield await_all(
-        [
-            ctx.scope.slow_double(1),
-            ctx.scope.double(2),
-        ]
-    )
+    results = yield await_all([
+        ctx.scope.slow_double(1),
+        ctx.scope.double(2),
+    ])
     yield EEmit(results)
 
 

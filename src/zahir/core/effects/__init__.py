@@ -1,3 +1,4 @@
+from zahir.core.commons.zahir_types import JobSpec as JobSpec
 from zahir.core.effects.coordination import (
     EEnqueue as EEnqueue,
 )
@@ -76,4 +77,3 @@ from zahir.core.effects.storage import (
 from zahir.core.effects.storage import (
     ZahirStorageEffect as ZahirStorageEffect,
 )
-from zahir.core.zahir_types import JobSpec as JobSpec

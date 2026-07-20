@@ -6,8 +6,8 @@ from typing import Any
 from tertius import EEmit, ESleep
 
 from zahir.core.effects import EAwait
-from zahir.core.emit import retry_event
 from zahir.core.exceptions import JobError, JobTimeoutError
+from zahir.core.telemetry import retry_event
 
 
 def retried(spec: EAwait, attempts: int, backoff_ms: int) -> Generator[Any, Any, Any]:

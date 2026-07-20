@@ -64,7 +64,8 @@ def main():
             (str(FILE_PATH),),
             scope=_SCOPE,
             handler_wrappers=[make_telemetry()],
-        ))
+        )
+    )
 
     return res
 

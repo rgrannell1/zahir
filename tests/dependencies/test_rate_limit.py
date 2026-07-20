@@ -8,9 +8,9 @@ from bookman.events import Event
 from tertius import EEmit, ESleep
 
 from tests.shared import drain_to
+from zahir.core.commons.zahir_types import ConditionResult
 from zahir.core.dependencies.rate_limit import rate_limit_condition
 from zahir.core.effects import EAcquire, EGetState, EReleaseSlot, ESetState
-from zahir.core.zahir_types import ConditionResult
 
 _NAME = "fetch"
 _MIN_SECONDS = 1.0
@@ -107,14 +107,14 @@ def test_elapsed_too_short_emits_waiting_point_then_sleeps():
     with patch("zahir.core.dependencies.rate_limit.time") as mock_time:
         mock_time.time.return_value = _NOW
         gen = _make_gen()
-        next(gen)               # EAcquire
-        gen.send(True)          # acquired → EGetState
-        emit_effect = gen.send(last_at)   # elapsed=0.1s → EEmit(waiting point)
-        sleep_effect = gen.send(None)     # emit done → ESleep
+        next(gen)  # EAcquire
+        gen.send(True)  # acquired → EGetState
+        emit_effect = gen.send(last_at)  # elapsed=0.1s → EEmit(waiting point)
+        sleep_effect = gen.send(None)  # emit done → ESleep
 
-    assert isinstance(emit_effect, EEmit) and isinstance(emit_effect.body, Event), (
-        "expected EEmit wrapping a bookman Event (waiting point) before ESleep"
-    )
+    assert isinstance(emit_effect, EEmit) and isinstance(
+        emit_effect.body, Event
+    ), "expected EEmit wrapping a bookman Event (waiting point) before ESleep"
     assert isinstance(sleep_effect, ESleep)
     assert sleep_effect.ms == pytest.approx(900, abs=10)
 
@@ -136,12 +136,10 @@ def test_sleep_duration_covers_remaining_gap():
             gen = _make_gen(case["min_seconds"])
             next(gen)
             gen.send(True)
-            gen.send(last_at)       # elapsed too short → EEmit waiting point
+            gen.send(last_at)  # elapsed too short → EEmit waiting point
             sleep_effect = gen.send(None)  # emit done → ESleep
 
-        assert isinstance(sleep_effect, ESleep), (
-            f"expected ESleep for elapsed={case['elapsed']}"
-        )
+        assert isinstance(sleep_effect, ESleep), f"expected ESleep for elapsed={case['elapsed']}"
         expected_ms = case["expected_ms"]
         within_tolerance = abs(sleep_effect.ms - expected_ms) <= 10
         assert within_tolerance, (
@@ -158,13 +156,13 @@ def test_satisfied_after_sleep_re_reads_state():
     with patch("zahir.core.dependencies.rate_limit.time") as mock_time:
         mock_time.time.return_value = _NOW
         gen = _make_gen()
-        next(gen)                       # EAcquire
-        gen.send(True)                  # acquired → EGetState
-        gen.send(last_at_initial)       # elapsed=0.1 → EEmit waiting point
-        gen.send(None)                  # emit done → ESleep
+        next(gen)  # EAcquire
+        gen.send(True)  # acquired → EGetState
+        gen.send(last_at_initial)  # elapsed=0.1 → EEmit waiting point
+        gen.send(None)  # emit done → ESleep
 
         # Advance time so elapsed is now sufficient
         mock_time.time.return_value = _NOW + 1.0
-        get_state_effect = gen.send(None)   # sleep done → re-read EGetState
+        get_state_effect = gen.send(None)  # sleep done → re-read EGetState
 
     assert isinstance(get_state_effect, EGetState), "expected re-read of state after sleep"

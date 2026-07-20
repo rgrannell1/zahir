@@ -2,7 +2,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from typing import Any, Callable, Generator, Literal
 
-from zahir.core.constants import DependencyState
+from zahir.core.commons.constants import DependencyState
 
 
 class JobContext:

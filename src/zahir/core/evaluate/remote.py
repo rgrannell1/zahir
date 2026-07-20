@@ -11,15 +11,15 @@ from typing import Any
 
 from tertius import CurveSecurity, ESleep, EWhereis, Pid, Scope, TcpTransport, join
 
-from zahir.core.constants import (
+from zahir.core.commons.constants import (
     OVERSEER_NAME,
     OVERSEER_WHEREIS_POLL_MS,
     OVERSEER_WHEREIS_TIMEOUT_MS,
     REMOTE_RECV_TIMEOUT_MS,
 )
+from zahir.core.commons.zahir_types import HandlerMap
 from zahir.core.evaluate.worker import worker
 from zahir.core.exceptions import OverseerNotFoundError
-from zahir.core.zahir_types import HandlerMap
 
 
 def resolve_overseer(timeout_ms: int) -> Generator[Any, Any, Pid]:
@@ -34,9 +34,7 @@ def resolve_overseer(timeout_ms: int) -> Generator[Any, Any, Pid]:
         yield ESleep(ms=OVERSEER_WHEREIS_POLL_MS)
         waited_ms += OVERSEER_WHEREIS_POLL_MS
 
-    raise OverseerNotFoundError(
-        f"overseer {OVERSEER_NAME!r} not registered within {timeout_ms}ms"
-    )
+    raise OverseerNotFoundError(f"overseer {OVERSEER_NAME!r} not registered within {timeout_ms}ms")
 
 
 def _joined_worker(

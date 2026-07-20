@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from bookman.bookman_types import Message
 from bookman.events import Dims, Event, point, span
 
-from zahir.core.constants import JobTag, ParkTag, Phase
+from zahir.core.commons.constants import JobTag, ParkTag, Phase
 
 
 @dataclass

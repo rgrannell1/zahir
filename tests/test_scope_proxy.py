@@ -4,10 +4,10 @@ import pytest
 from tertius import EEmit
 
 from tests.shared import user_events
+from zahir.core.commons.zahir_types import JobSpec
 from zahir.core.effects import EAwait
 from zahir.core.evaluate import JobContext, evaluate, setup
 from zahir.core.scope_proxy import ScopeProxy
-from zahir.core.zahir_types import JobSpec
 
 
 def child_job(ctx: JobContext, value: int):

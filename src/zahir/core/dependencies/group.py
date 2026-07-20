@@ -4,8 +4,8 @@ from typing import Any
 
 from tertius import EEmit
 
-from zahir.core.constants import DependencyState
-from zahir.core.zahir_types import DependencyResult
+from zahir.core.commons.constants import DependencyState
+from zahir.core.commons.zahir_types import DependencyResult
 
 
 def group_dependency(

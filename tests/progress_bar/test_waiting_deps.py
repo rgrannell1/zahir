@@ -4,7 +4,7 @@ import time
 
 from bookman.events import point
 
-from zahir.core.constants import DependencyTag, JobTag, Phase
+from zahir.core.commons.constants import DependencyTag, JobTag, Phase
 from zahir.progress_bar.dep_labels import short_label
 from zahir.progress_bar.descriptions_view import JobDisplayContext, job_description
 from zahir.progress_bar.progress_bar_state_model import JobStats, ProgressBarState

@@ -5,7 +5,7 @@ from typing import Any, ClassVar, LiteralString
 
 from orbis import Effect
 
-from zahir.core.zahir_types import JobSpec
+from zahir.core.commons.zahir_types import JobSpec
 
 
 class ZahirCoordinationEffect[ReturnT](Effect[ReturnT], abstract=True):

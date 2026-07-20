@@ -4,7 +4,7 @@ from typing import Any
 
 from bookman.events import Event
 
-from zahir.core.constants import Phase
+from zahir.core.commons.constants import Phase
 from zahir.progress_bar.progress_bar_service import ProgressBarService
 from zahir.progress_bar.rich_display_service import RichDisplayService
 

@@ -3,7 +3,8 @@ from tertius import Caller, EEmit, ESend, NoReply, Pid, ReplyMsg
 
 from tests.shared import drain_to
 from zahir.core.backends.memory import make_memory_storage_handlers
-from zahir.core.constants import ParkTag, WorkItemTag
+from zahir.core.commons.constants import ParkTag, WorkItemTag
+from zahir.core.commons.zahir_types import JobSpec
 from zahir.core.effects import (
     EStorageAcquire,
     EStorageEnqueue,
@@ -20,7 +21,6 @@ from zahir.core.evaluate.overseer import (
     emitting_parks,
     emitting_wakes,
 )
-from zahir.core.zahir_types import JobSpec
 
 WORKER_PID = Pid(node_id=0, id=1)
 WAITER_PID = Pid(node_id=0, id=2)

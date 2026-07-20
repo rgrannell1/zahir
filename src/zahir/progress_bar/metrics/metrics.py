@@ -41,14 +41,12 @@ def job_stats_agg() -> Aggregator:
     completed and failed count their respective end events.
     """
 
-    return zip_all(
-        [
-            filter_events(is_enqueue_start, count_distinct(get_job_id)),
-            filter_events(is_execute_start, count_distinct(get_job_id)),
-            filter_events(is_job_complete, count_distinct(get_job_id)),
-            filter_events(is_job_fail, count_distinct(get_job_id)),
-        ]
-    )
+    return zip_all([
+        filter_events(is_enqueue_start, count_distinct(get_job_id)),
+        filter_events(is_execute_start, count_distinct(get_job_id)),
+        filter_events(is_job_complete, count_distinct(get_job_id)),
+        filter_events(is_job_fail, count_distinct(get_job_id)),
+    ])
 
 
 def job_duration_mean_agg() -> Aggregator:

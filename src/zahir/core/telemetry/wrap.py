@@ -8,8 +8,8 @@ from bookman.bookman_types import Message
 from tertius import EEmit
 
 from zahir.core.combinators import wrap
-from zahir.core.constants import JobTag
-from zahir.core.emit import (
+from zahir.core.commons.constants import JobTag
+from zahir.core.telemetry.events import (
     TimeSpan,
     end_effect_error_telemetry,
     end_effect_success_telemetry,

@@ -8,7 +8,7 @@ from bookman.events import Event
 from tertius import EEmit, ESleep
 
 from tests.shared import user_events
-from zahir.core.constants import JobTag, Phase
+from zahir.core.commons.constants import JobTag, Phase
 from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate, setup
 from zahir.core.telemetry import make_telemetry

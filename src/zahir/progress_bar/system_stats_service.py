@@ -4,7 +4,7 @@ from collections import deque
 import psutil
 from bookman.events import Event
 
-from zahir.core.constants import JobTag, Phase
+from zahir.core.commons.constants import JobTag, Phase
 
 # Tags that signal a job has finished, regardless of outcome
 _JOB_END_TAGS = {JobTag.JOB_COMPLETE, JobTag.JOB_FAIL}

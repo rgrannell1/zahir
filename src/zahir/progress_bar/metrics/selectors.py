@@ -2,7 +2,7 @@
 
 from bookman.events import Event
 
-from zahir.core.constants import JobTag, Phase
+from zahir.core.commons.constants import JobTag, Phase
 
 
 def has_fn(ev: Event) -> bool:

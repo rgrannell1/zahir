@@ -5,6 +5,7 @@ from tertius import ESleep
 
 from tests.evaluate.mocks import make_deadlined_parent
 from tests.shared import drain_to
+from zahir.core.commons.zahir_types import HandlerMap, JobContext
 from zahir.core.effects import (
     EAcquire,
     EAwait,
@@ -19,7 +20,6 @@ from zahir.core.evaluate.job_handlers import evaluate_job, make_job_handlers
 from zahir.core.evaluate.suspension import RunningJob, SuspensionTable, WorkerLocals
 from zahir.core.evaluate.worker import _build_job, _handle_idle, _handle_running, _Idle, _Running
 from zahir.core.exceptions import JobTimeoutError
-from zahir.core.zahir_types import HandlerMap, JobContext
 
 
 def _make_locals(acquired: list | None = None) -> WorkerLocals:

@@ -4,9 +4,9 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import Any
 
-from zahir.core.constants import DependencyState
+from zahir.core.commons.constants import DependencyState
+from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.dependencies.dependency import dependency
-from zahir.core.zahir_types import ConditionResult, DependencyResult
 
 
 def time_condition(
