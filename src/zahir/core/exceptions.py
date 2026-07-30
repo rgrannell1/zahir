@@ -18,8 +18,6 @@ class JobError(ZahirError):
 class InvalidEffectError(ZahirError):
     """Not an effect."""
 
-    pass
-
 
 class ImpossibleError(ZahirError):
     """Raised by a condition function to signal the dependency can never be satisfied."""

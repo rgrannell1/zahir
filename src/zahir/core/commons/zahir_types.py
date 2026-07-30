@@ -1,6 +1,7 @@
 from collections import deque
+from collections.abc import Callable, Generator
 from dataclasses import dataclass, field
-from typing import Any, Callable, Generator, Literal
+from typing import Any, Literal
 
 from zahir.core.commons.constants import DependencyState
 

@@ -99,7 +99,7 @@ def evaluate(  # noqa: PLR0913
     *,
     handler_wrappers: Sequence = (),
     handlers: HandlerMap | None = None,
-) -> Generator[Any, None, None]:
+) -> Generator[Any]:
     """Entry point. Run a job and wait for completion."""
 
     if fn_name not in scope:
