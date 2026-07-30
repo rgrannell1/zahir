@@ -6,6 +6,7 @@ from typing import Any, Literal
 
 import psutil
 
+from zahir.core.combinators import lift
 from zahir.core.commons.constants import CPU_SAMPLE_INTERVAL_S, DependencyState
 from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.dependencies.dependency import dependency
@@ -24,12 +25,11 @@ def _get_usage(resource: ResourceType) -> float:
 def resource_condition(
     resource: ResourceType,
     max_percent: float,
-) -> Generator[Any, Any, ConditionResult]:
+) -> ConditionResult:
     """Returns satisfied if resource usage is within the limit, unsatisfied otherwise."""
     metadata = {"resource": resource, "max_percent": max_percent}
     if _get_usage(resource) <= max_percent:
         return (DependencyState.SATISFIED, metadata)
-    yield from ()
     return (DependencyState.UNSATISFIED, metadata)
 
 
@@ -41,7 +41,7 @@ def resource_dependency(
     timeout_ms = int(timeout * 1000) if timeout is not None else None
 
     return dependency(
-        partial(resource_condition, resource, max_percent),
+        partial(lift, resource_condition, resource, max_percent),
         timeout_ms=timeout_ms,
         label=f"{resource} resource",
     )

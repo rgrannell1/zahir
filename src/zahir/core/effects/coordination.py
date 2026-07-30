@@ -29,7 +29,7 @@ class EGetJob(ZahirCoordinationEffect[Any]):
     """Internal: request work from the overseer — returns a new job, a buffered result, or None."""
 
     tag: ClassVar[LiteralString] = "get_job"
-    worker_pid_bytes: bytes = b""
+    worker_pid_bytes: bytes
 
 
 @dataclass
@@ -39,7 +39,7 @@ class EJobComplete(ZahirCoordinationEffect[None]):
     tag: ClassVar[LiteralString] = "job_complete"
     result: Any
     reply_to: bytes | None
-    sequence_number: Any
+    sequence_number: int | None
     fn_name: str = ""
 
 
@@ -50,5 +50,5 @@ class EJobFail(ZahirCoordinationEffect[None]):
     tag: ClassVar[LiteralString] = "job_fail"
     error: Exception
     reply_to: bytes | None
-    sequence_number: Any
+    sequence_number: int | None
     fn_name: str = ""

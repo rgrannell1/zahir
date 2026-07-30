@@ -40,6 +40,17 @@ def merge_handlers(*handler_maps: Mapping[str, HandlerCallable]) -> dict[str, Ha
     return merged
 
 
+def lift(fn, *args) -> Generator[Any, Any, Any]:
+    """Lift a plain call into a no-effect generator.
+
+    Used with partial to turn plain functions into effect handlers or
+    dependency conditions without each site hand-rolling a yield-less generator.
+    """
+
+    yield from ()
+    return fn(*args)
+
+
 def _drive_setup(gen) -> Generator[Any, Any, None]:
     """Propagate fn setup yields to the caller until the seam (bare yield -> None)."""
 

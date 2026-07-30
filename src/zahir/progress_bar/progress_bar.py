@@ -28,7 +28,7 @@ def with_progress(events: Iterable[Any]) -> Generator[Any]:
     """Wrap any event iterable (e.g. evaluate(...)) and render a live progress bar.
 
     Telemetry events are consumed for display; all events are passed through unchanged.
-    cpu/ram are polled at most once per second, independent of event rate.
+    cpu/ram are polled at most every 0.25 seconds, independent of event rate.
     """
     bar = ZahirProgressBar()
     last_poll = time.monotonic()

@@ -190,15 +190,13 @@ def testsqlite_condition_unsatisfied_returns_unsatisfied():
     """Proves sqlite_condition returns unsatisfied ConditionResult for status=unsatisfied row."""
 
     db = _make_db([("unsatisfied",)])
-    with pytest.raises(StopIteration) as exc:
-        next(sqlite_condition(db, "SELECT status FROM state", None, 5.0))
-    assert exc.value.value[0] == DependencyState.UNSATISFIED
+    result = sqlite_condition(db, "SELECT status FROM state", None, 5.0)
+    assert result[0] == DependencyState.UNSATISFIED
 
 
 def testsqlite_condition_impossible_returns_impossible():
     """Proves sqlite_condition returns an impossible ConditionResult for a status=impossible row."""
 
     db = _make_db([("impossible",)])
-    with pytest.raises(StopIteration) as exc:
-        next(sqlite_condition(db, "SELECT status FROM state", None, 5.0))
-    assert exc.value.value[0] == DependencyState.IMPOSSIBLE
+    result = sqlite_condition(db, "SELECT status FROM state", None, 5.0)
+    assert result[0] == DependencyState.IMPOSSIBLE

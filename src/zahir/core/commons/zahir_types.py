@@ -7,12 +7,16 @@ from zahir.core.commons.constants import DependencyState
 
 
 class JobContext:
-    """Context object passed as the first argument to every job function."""
+    """Context object passed as the first argument to every job function.
 
-    __slots__ = ("_scope", "scope")
+    scope proxies attribute access into EAwait factories; fns is the raw
+    name -> job-function mapping the worker dispatches from.
+    """
 
-    def __init__(self, _scope, scope) -> None:
-        self._scope = _scope
+    __slots__ = ("fns", "scope")
+
+    def __init__(self, fns, scope) -> None:
+        self.fns = fns
         self.scope = scope
 
 
@@ -61,10 +65,21 @@ class JobSpec:
 
 @dataclass
 class ResultItem:
-    """A child job's result routed back to its suspended parent's worker."""
+    """A child job's Ok/Err result routed back to its suspended parent's worker."""
 
     sequence_number: int
     body: Any
+
+
+@dataclass(frozen=True)
+class RootResult:
+    """Marks the root job's return value on the evaluate() event stream.
+
+    Without this wrapper the root result is indistinguishable from any other
+    user-emitted value, and a None return would vanish entirely.
+    """
+
+    value: Any
 
 
 # A unit of work handed to a worker: a job to run, or a buffered child result

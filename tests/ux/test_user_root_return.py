@@ -2,7 +2,8 @@
 
 from tertius import EEmit
 
-from tests.shared import user_events
+from tests.shared import root_value, user_events
+from zahir.core.commons.zahir_types import RootResult
 from zahir.core.evaluate import JobContext, evaluate, setup
 
 
@@ -22,18 +23,18 @@ def returning_none_root(ctx: JobContext):
 
 
 def test_root_return_value_is_yielded_by_evaluate():
-    """Proves evaluate yields the root job's return value as the final event."""
+    """Proves evaluate yields the root job's return value wrapped in RootResult."""
 
     scope = {"returning_root": returning_root}
-    events = user_events(evaluate(setup(n_workers=1), "returning_root", (), scope))
+    result = root_value(evaluate(setup(n_workers=1), "returning_root", (), scope))
 
-    assert events == [{"result": 42}]
+    assert result == {"result": 42}
 
 
 def test_root_return_value_comes_after_emitted_events():
     """Proves the root return value appears after any EEmit events in the stream."""
 
-    events = user_events(
+    stream = list(
         evaluate(
             setup(n_workers=1),
             "returning_root_with_emit",
@@ -42,13 +43,14 @@ def test_root_return_value_comes_after_emitted_events():
         )
     )
 
-    assert events == ["before", {"result": 42}]
+    assert user_events(stream) == ["before"]
+    assert stream.index("before") < stream.index(RootResult({"result": 42}))
 
 
-def test_root_return_none_yields_nothing_extra():
-    """Proves a root job returning None does not add anything to the event stream."""
+def test_root_return_none_is_still_surfaced():
+    """Proves a root job returning None still yields a RootResult, so None is observable."""
 
-    events = user_events(
+    result = root_value(
         evaluate(
             setup(n_workers=1),
             "returning_none_root",
@@ -57,4 +59,4 @@ def test_root_return_none_yields_nothing_extra():
         )
     )
 
-    assert events == []
+    assert result is None

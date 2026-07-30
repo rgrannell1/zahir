@@ -7,6 +7,7 @@ from typing import Any
 
 from zahir.core.combinators import build_handler_map
 from zahir.core.commons.constants import BLOCKED_EFFECTS, THROWABLE
+from zahir.core.commons.generators import resume
 from zahir.core.commons.zahir_types import HandlerMap
 from zahir.core.effects import (
     EAcquire,
@@ -31,20 +32,6 @@ def _validate_effect(effect) -> InvalidEffectError | None:
     return None
 
 
-def _advance(
-    gen: Generator,
-    send_value: Any,
-    pending_throw: Exception | None,
-) -> tuple[Any, bool, Any]:
-    """Resume gen with a value or a throw; return (effect, done, return_value)."""
-
-    try:
-        effect = gen.throw(pending_throw) if pending_throw else gen.send(send_value)
-        return (effect, False, None)
-    except StopIteration as stop:
-        return (None, True, stop.value)
-
-
 def _dispatch(handlers: HandlerMap, effect: Any) -> Generator:
     """Route an effect to its job-level handler, or bubble it up."""
 
@@ -61,7 +48,7 @@ def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
     pending_throw: Exception | None = None
 
     while True:
-        effect, done, return_value = _advance(gen, send_value, pending_throw)
+        effect, done, return_value = resume(gen, send_value, pending_throw)
         if done:
             return return_value
 
@@ -86,7 +73,7 @@ def timeout_guard(gen: Generator, deadline: float | None) -> Generator:
     pending_throw: Exception | None = None
 
     while True:
-        effect, done, return_value = _advance(gen, send_value, pending_throw)
+        effect, done, return_value = resume(gen, send_value, pending_throw)
         if done:
             return return_value
 

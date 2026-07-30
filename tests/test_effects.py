@@ -1,3 +1,4 @@
+import pytest
 from orbis import Effect
 
 from zahir.core.effects import (
@@ -48,6 +49,22 @@ def test_await_all_preserves_job_order():
     specs = [EAwait(jobs=[_spec("a")]), EAwait(jobs=[_spec("b")])]
     effect = await_all(specs)
     assert [j.fn_name for j in effect.jobs] == ["a", "b"]
+
+
+def test_await_all_rejects_non_scalar_inputs():
+    """Proves await_all refuses non-scalar EAwaits rather than silently dropping jobs."""
+
+    batch = await_all([EAwait(jobs=[_spec("a")]), EAwait(jobs=[_spec("b")])])
+    with pytest.raises(ValueError):
+        await_all([batch])
+
+
+def test_gather_all_rejects_non_scalar_inputs():
+    """Proves gather_all refuses non-scalar EAwaits rather than silently dropping jobs."""
+
+    batch = await_all([EAwait(jobs=[_spec("a")]), EAwait(jobs=[_spec("b")])])
+    with pytest.raises(ValueError):
+        gather_all([batch])
 
 
 def test_eawait_gather_defaults_to_false():

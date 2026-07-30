@@ -10,13 +10,24 @@ from orbis import handle
 from tertius import EEmit, ESpawn, Pid, Scope, SpawnMode, run
 
 from zahir.core.backends.memory import make_memory_storage_handlers
-from zahir.core.combinators import merge_handlers
-from zahir.core.commons.zahir_types import HandlerMap, JobSpec
-from zahir.core.effects import EEnqueue, EStorageGetError, EStorageGetResult, EStorageIsDone
-from zahir.core.evaluate.coordination_handlers import make_coordination_handlers
+from zahir.core.combinators import build_handler_map, merge_handlers
+from zahir.core.commons.fp_types import Ok
+from zahir.core.commons.zahir_types import HandlerMap, JobSpec, RootResult
+from zahir.core.effects import (
+    STORAGE_TAGS,
+    EEnqueue,
+    EStorageGetError,
+    EStorageGetResult,
+    EStorageIsDone,
+)
+from zahir.core.evaluate.coordination_handlers import (
+    make_coordination_handlers,
+    require_storage_transported,
+)
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.runtime import Runtime
 from zahir.core.evaluate.worker import worker
+from zahir.core.exceptions import ZahirError
 
 type EvaluationInputs = tuple[str, tuple, Scope]
 
@@ -28,7 +39,9 @@ def _poll_completion() -> Generator[Any, Any, None]:
     """Long-poll the overseer until all jobs finish, then surface the root result.
 
     EStorageIsDone parks at the overseer until completion; False means a heartbeat
-    or a not-done ack, so the loop simply asks again — no sleep.
+    or a not-done ack, so the loop simply asks again — no sleep. The root result
+    arrives as an Ok and is emitted wrapped in RootResult, so consumers can pick
+    it out of the stream — including a root job that returned None.
     """
 
     while True:
@@ -42,8 +55,9 @@ def _poll_completion() -> Generator[Any, Any, None]:
             raise error
 
         result = yield EStorageGetResult()
-        if result is not None:
-            yield EEmit(result)
+        match result:
+            case Ok(value):
+                yield EEmit(RootResult(value))
         return
 
 
@@ -83,10 +97,9 @@ def _evaluate_runner(
 
     # Coordination merged last: transported storage tags must beat any storage
     # handlers a user-supplied bag might contain.
-    root_handlers = merge_handlers(
-        handlers,
-        make_coordination_handlers(overseer, handler_wrappers),
-    )
+    coordination = make_coordination_handlers(overseer, handler_wrappers)
+    root_handlers = merge_handlers(build_handler_map(handlers, handler_wrappers), coordination)
+    require_storage_transported(root_handlers, coordination)
 
     yield from handle(_kickoff(fn_name, args), root_handlers)
 
@@ -105,8 +118,14 @@ def evaluate(  # noqa: PLR0913
     if fn_name not in scope:
         raise KeyError(f"job {fn_name!r} not found in scope")
 
+    user_storage_tags = [tag for tag in handlers or {} if tag in STORAGE_TAGS]
+    if user_storage_tags:
+        raise ZahirError(f"user handlers may not bind storage tags: {user_storage_tags}")
+
     memory_handlers = make_memory_storage_handlers(handler_wrappers)
-    overseer_handlers = merge_handlers(memory_handlers, handlers or {})
+    overseer_handlers = merge_handlers(
+        memory_handlers, build_handler_map(handlers or {}, handler_wrappers)
+    )
     full_scope: Scope = {
         "run_overseer": run_overseer,
         "worker": worker,

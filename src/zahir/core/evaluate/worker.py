@@ -12,6 +12,7 @@ from tertius import EEmit, ESelf, Pid, Scope
 from zahir.core.combinators import build_handler_map, merge_handlers
 from zahir.core.commons.clock import monotonic_deadline
 from zahir.core.commons.fp_types import Err, Ok
+from zahir.core.commons.generators import resume
 from zahir.core.commons.zahir_types import HandlerMap, JobContext, JobSpec, ResultItem
 from zahir.core.effects import (
     EAwait,
@@ -20,7 +21,10 @@ from zahir.core.effects import (
     EJobFail,
     EStorageRelease,
 )
-from zahir.core.evaluate.coordination_handlers import make_coordination_handlers
+from zahir.core.evaluate.coordination_handlers import (
+    make_coordination_handlers,
+    require_storage_transported,
+)
 from zahir.core.evaluate.job_handlers import (
     evaluate_job,
     make_job_handlers,
@@ -56,7 +60,7 @@ def _build_job(spec: JobSpec, ctx: Any, job_handlers: HandlerMap) -> RunningJob:
     """Construct a RunningJob from a dequeued JobSpec."""
 
     deadline = monotonic_deadline(spec.timeout_ms)
-    job_call: Generator = ctx._scope[spec.fn_name](ctx, *spec.args, **spec.kwargs)
+    job_call: Generator = ctx.fns[spec.fn_name](ctx, *spec.args, **spec.kwargs)
     eval_gen: Generator = evaluate_job(job_call, job_handlers, deadline)
 
     return RunningJob(
@@ -116,7 +120,7 @@ def _handle_job_work_item(
     spec: JobSpec, ctx: Any, job_handlers: HandlerMap
 ) -> Generator[Any, Any, WorkerState]:
     """Validate scope membership and build a RunningJob from a dequeued JobSpec."""
-    if spec.fn_name not in ctx._scope:
+    if spec.fn_name not in ctx.fns:
         err = JobError(KeyError(f"job {spec.fn_name!r} not found in scope"))
         yield EJobFail(error=err, reply_to=spec.reply_to, sequence_number=spec.sequence_number)
         return _Idle()
@@ -171,7 +175,6 @@ def _handle_eawait(
     if not effect.jobs:
         # Empty fan-out: nothing to enqueue, so no child can ever complete and resume the parent.
         # Return immediately with an empty result list rather than suspending forever.
-        yield from ()  # unreachable: required to make this function a generator
         return []
     yield from suspension.suspend(effect, locals_.current_job, locals_.me_bytes)
     return _SUSPENDED
@@ -184,13 +187,6 @@ def make_worker_handlers(
 
     bindings = {EAwait.tag: partial(_handle_eawait, suspension, locals_)}
     return build_handler_map(bindings, handler_wrappers)
-
-
-def advance_job(job: RunningJob, pending_throw: Exception | None, handler_value: Any) -> Any:
-    """Drive job generator one step, throwing exception if pending."""
-    if pending_throw:
-        return job.eval_gen.throw(pending_throw)
-    return job.eval_gen.send(handler_value)
 
 
 def _guarded_success(job: RunningJob, value: Any) -> Generator[Any, Any, None]:
@@ -216,12 +212,12 @@ def _handle_running(state: _Running, locals_: WorkerLocals) -> Generator[Any, An
     job = state.job
     locals_.current_job = job
     try:
-        effect = advance_job(job, state.pending_throw, state.handler_value)
-    except StopIteration as exc:
-        yield from _guarded_success(job, exc.value)
-        return _Idle()
+        effect, done, return_value = resume(job.eval_gen, state.handler_value, state.pending_throw)
     except Exception as exc:  # noqa: BLE001
         yield from _failed_job(job, exc)
+        return _Idle()
+    if done:
+        yield from _guarded_success(job, return_value)
         return _Idle()
 
     try:
@@ -267,7 +263,7 @@ def worker(  # noqa: PLR0913
 
     overseer = Pid.from_bytes(overseer_pid_bytes)
     ctx: JobContext = JobContext(
-        _scope=scope,
+        fns=scope,
         scope=ScopeProxy(scope),
     )
 
@@ -279,7 +275,9 @@ def worker(  # noqa: PLR0913
     # general coordination handlers — merged last so transported storage tags beat
     # any storage handlers present in the shared bag (they belong to the overseer)
     coordination = make_coordination_handlers(overseer, handler_wrappers, max_silence_ms)
-    base_handlers = merge_handlers(handlers, coordination)
+    user_handlers = build_handler_map(handlers, handler_wrappers)
+    base_handlers = merge_handlers(user_handlers, coordination)
+    require_storage_transported(base_handlers, coordination)
     # eawait handler, which uses locals_ for local state
     worker_handlers = make_worker_handlers(suspension, locals_, handler_wrappers)
 

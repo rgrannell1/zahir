@@ -2,7 +2,7 @@
 
 from tertius import TcpTransport
 
-from tests.shared import free_ports, user_events
+from tests.shared import free_ports, root_value
 from zahir.core.evaluate import JobContext, evaluate, setup, setup_remote
 
 
@@ -20,9 +20,9 @@ def test_setup_runtime_runs_the_existing_local_path():
 
     runtime = setup(n_workers=1)
 
-    events = user_events(evaluate(runtime, "setup_returning_root", (), _SCOPE))
+    result = root_value(evaluate(runtime, "setup_returning_root", (), _SCOPE))
 
-    assert events == [{"result": 42}]
+    assert result == {"result": 42}
 
 
 def test_setup_thread_workers_evaluate_jobs():
@@ -30,9 +30,9 @@ def test_setup_thread_workers_evaluate_jobs():
 
     runtime = setup(n_workers=0, n_thread_workers=2)
 
-    events = user_events(evaluate(runtime, "setup_returning_root", (), _SCOPE))
+    result = root_value(evaluate(runtime, "setup_returning_root", (), _SCOPE))
 
-    assert events == [{"result": 42}]
+    assert result == {"result": 42}
 
 
 def test_setup_mixed_pool_evaluates_jobs():
@@ -40,9 +40,9 @@ def test_setup_mixed_pool_evaluates_jobs():
 
     runtime = setup(n_workers=1, n_thread_workers=1)
 
-    events = user_events(evaluate(runtime, "setup_returning_root", (), _SCOPE))
+    result = root_value(evaluate(runtime, "setup_returning_root", (), _SCOPE))
 
-    assert events == [{"result": 42}]
+    assert result == {"result": 42}
 
 
 def test_setup_remote_evaluates_over_tcp_transport():
@@ -58,6 +58,6 @@ def test_setup_remote_evaluates_over_tcp_transport():
 
     assert isinstance(runtime.transport, TcpTransport)
 
-    events = user_events(evaluate(runtime, "setup_returning_root", (), _SCOPE))
+    result = root_value(evaluate(runtime, "setup_returning_root", (), _SCOPE))
 
-    assert events == [{"result": 42}]
+    assert result == {"result": 42}

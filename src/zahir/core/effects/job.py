@@ -37,8 +37,16 @@ class EAwait(ZahirJobEffect[Any]):
     gather: bool = False
 
 
+def require_scalar_specs(specs: list[EAwait]) -> None:
+    """Reject non-scalar EAwaits: flattening one would silently drop its extra jobs."""
+
+    if any(not spec.scalar for spec in specs):
+        raise ValueError("await_all/gather_all accept only scalar EAwaits from ctx.scope.<job>()")
+
+
 def await_all(specs: list[EAwait]) -> EAwait:
     """Dispatch multiple jobs concurrently; returns results as a list in input order."""
+    require_scalar_specs(specs)
     return EAwait(jobs=[spec.jobs[0] for spec in specs], scalar=False)
 
 
@@ -48,6 +56,7 @@ def gather_all(specs: list[EAwait]) -> EAwait:
     Unlike await_all, a child failure does not raise in the awaiting job — each
     child's outcome arrives as an Ok(value) or Err(error) in the returned list.
     """
+    require_scalar_specs(specs)
     return EAwait(jobs=[spec.jobs[0] for spec in specs], scalar=False, gather=True)
 
 

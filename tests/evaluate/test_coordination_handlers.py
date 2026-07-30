@@ -8,6 +8,7 @@ from tests.evaluate.mocks import ME, OVERSEER, mock_mcall, mock_mcall_timeout, m
 from tests.shared import drain_to
 from zahir.core.combinators import wrap
 from zahir.core.commons.constants import WORKER_PARK_TIMEOUT_MS, WorkItemTag
+from zahir.core.commons.fp_types import Err, Ok
 from zahir.core.commons.zahir_types import JobSpec, LeaseTracker, SilenceTracker
 from zahir.core.effects import (
     EEnqueue,
@@ -38,8 +39,9 @@ from zahir.core.evaluate.coordination_handlers import (
     _handle_job_fail,
     _handle_set_state,
     make_coordination_handlers,
+    require_storage_transported,
 )
-from zahir.core.exceptions import JobError, OverseerSilentError
+from zahir.core.exceptions import JobError, OverseerSilentError, ZahirError
 from zahir.core.telemetry import make_telemetry
 
 REPLY_TO = bytes(ME)
@@ -168,7 +170,8 @@ def test_handle_job_complete_mcasts_storage_job_done_with_result():
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         drain_to(_handle_job_complete(OVERSEER, job_complete_effect))
 
-    assert sent[0] == (OVERSEER, EStorageJobDone(reply_to=REPLY_TO, sequence_number=7, body="done"))
+    expected = EStorageJobDone(reply_to=REPLY_TO, sequence_number=7, body=Ok("done"))
+    assert sent[0] == (OVERSEER, expected)
 
 
 def test_handle_job_complete_with_none_reply_to():
@@ -185,7 +188,8 @@ def test_handle_job_complete_with_none_reply_to():
     with patch("zahir.core.evaluate.coordination_handlers.mcast", _capturing):
         drain_to(_handle_job_complete(OVERSEER, job_complete_root))
 
-    assert sent[0] == (OVERSEER, EStorageJobDone(reply_to=None, sequence_number=None, body="done"))
+    expected = EStorageJobDone(reply_to=None, sequence_number=None, body=Ok("done"))
+    assert sent[0] == (OVERSEER, expected)
 
 
 # _handle_job_fail
@@ -207,7 +211,8 @@ def test_handle_job_fail_routes_error_to_parent_via_overseer():
             _handle_job_fail(OVERSEER, EJobFail(error=err, reply_to=REPLY_TO, sequence_number=5))
         )
 
-    assert sent[0] == (OVERSEER, EStorageJobDone(reply_to=REPLY_TO, sequence_number=5, body=err))
+    expected = EStorageJobDone(reply_to=REPLY_TO, sequence_number=5, body=Err(err))
+    assert sent[0] == (OVERSEER, expected)
 
 
 def test_handle_job_fail_sends_storage_job_failed_for_root_job():
@@ -436,3 +441,26 @@ def test_make_coordination_handlers_emits_telemetry_events_for_is_done():
 
     telemetry = [e.body for e in emitted if isinstance(e, EEmit) and isinstance(e.body, Event)]
     assert len(telemetry) == 2  # start point + end span
+
+
+# require_storage_transported
+
+
+def stub_handler(effect):
+    yield from ()
+
+
+def test_require_storage_transported_accepts_transport_bound_tags():
+    """Proves a bag whose storage tags come from the transport map passes the check."""
+
+    transport = {EStorageAcquire.tag: stub_handler}
+    merged = {"user_tag": stub_handler, EStorageAcquire.tag: transport[EStorageAcquire.tag]}
+
+    require_storage_transported(merged, transport)
+
+
+def test_require_storage_transported_rejects_local_storage_handlers():
+    """Proves a locally-bound storage tag in a worker or root bag raises loudly."""
+
+    with pytest.raises(ZahirError):
+        require_storage_transported({EStorageAcquire.tag: stub_handler}, {})

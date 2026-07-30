@@ -1,6 +1,12 @@
 from zahir.core.telemetry.events import TimeSpan as TimeSpan
 from zahir.core.telemetry.events import base_dimensions as base_dimensions
 from zahir.core.telemetry.events import (
+    dependency_satisfied_event as dependency_satisfied_event,
+)
+from zahir.core.telemetry.events import (
+    dependency_waiting_event as dependency_waiting_event,
+)
+from zahir.core.telemetry.events import (
     end_effect_error_telemetry as end_effect_error_telemetry,
 )
 from zahir.core.telemetry.events import (

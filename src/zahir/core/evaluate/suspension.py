@@ -12,7 +12,6 @@ from typing import Any
 from zahir.core.commons.fp_types import Err, Ok, Result
 from zahir.core.commons.zahir_types import ResultItem
 from zahir.core.effects import EAwait, EEnqueue
-from zahir.core.exceptions import JobError, JobTimeoutError
 
 # Return type of SuspensionTable.resume. None when children are still outstanding
 type ResumeResult = tuple[RunningJob, Result[Any, Exception]] | None
@@ -31,8 +30,8 @@ class RunningJob:
     # where to send our result when we finish
     reply_to: bytes | None
 
-    # the sequence_number our parent assigned us
-    parent_sequence_number: Any
+    # the sequence_number our parent assigned us; None for the root job
+    parent_sequence_number: int | None
 
     # concurrency slots held by this job
     acquired: list[str] = field(default_factory=list)
@@ -56,8 +55,8 @@ class SuspendedJob(RunningJob):
     # child local sequence_numbers still outstanding
     awaiting: set[int] = field(default_factory=set)
 
-    # local sequence_number -> body (result or error)
-    results: dict[int, Any] = field(default_factory=dict)
+    # local sequence_number -> the child's Ok/Err result
+    results: dict[int, Result[Any, Exception]] = field(default_factory=dict)
 
     # None for scalar dispatch; ordered sequence_number list for multi-job dispatch
     result_order: list[int] | None = None
@@ -87,32 +86,23 @@ class SuspendedJob(RunningJob):
         )
 
 
-def _unwrap_reply(body: Any) -> Result[Any, Exception]:
-    """Unwrap the reply from a job, returning Ok(value) or Err(error)."""
-
-    if isinstance(body, (JobTimeoutError, JobError)):
-        return Err(body)
-
-    return Ok(body)
-
-
 def _collect_gather(job: SuspendedJob) -> Result[list, Exception]:
     """Collect ordered multi-job results as a list of Ok/Err; never a top-level Err."""
 
     assert job.result_order is not None
 
-    gathered = [_unwrap_reply(job.results[seq]) for seq in job.result_order]
+    gathered = [job.results[seq] for seq in job.result_order]
     return Ok(gathered)
 
 
-def _collect_result(job: SuspendedJob, body: Any) -> Result[Any, Exception]:
+def _collect_result(job: SuspendedJob, body: Result[Any, Exception]) -> Result[Any, Exception]:
     """Choose the collection strategy matching the completed fan-out's dispatch mode."""
 
     if job.gather:
         return _collect_gather(job)
     if job.result_order is not None:
         return _collect_await_many(job)
-    return _unwrap_reply(body)
+    return body
 
 
 def _collect_await_many(job: SuspendedJob) -> Result[list, Exception]:
@@ -124,7 +114,7 @@ def _collect_await_many(job: SuspendedJob) -> Result[list, Exception]:
     first_error: Exception | None = None
 
     for sequence_number in job.result_order:
-        match _unwrap_reply(job.results[sequence_number]):
+        match job.results[sequence_number]:
             case Ok(value):
                 results.append(value)
             case Err(error) if first_error is None:

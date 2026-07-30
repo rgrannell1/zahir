@@ -1,12 +1,12 @@
 """In-memory coordination backend — the default storage backend for the overseer gen_server."""
 
 from collections import deque
-from collections.abc import Generator, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from functools import partial
 from typing import Any
 
-from zahir.core.combinators import build_handler_map
+from zahir.core.combinators import build_handler_map, lift
 from zahir.core.commons.zahir_types import (
     ConcurrencyMap,
     HandlerMap,
@@ -109,7 +109,7 @@ class MemoryBackend:
     def job_done(
         self,
         reply_to_bytes: bytes | None,
-        sequence_number: Any,
+        sequence_number: int | None,
         body: Any,
     ) -> None:
         """Decrement pending and buffer result for waiting parent, or store as
@@ -118,9 +118,9 @@ class MemoryBackend:
         if reply_to_bytes is None:
             self.root_result = body
         else:
-            if reply_to_bytes not in self.pending_results:
-                self.pending_results[reply_to_bytes] = deque()
-            self.pending_results[reply_to_bytes].append((sequence_number, body))
+            # a parented result always carries the sequence_number its parent assigned
+            assert sequence_number is not None
+            self.pending_results.setdefault(reply_to_bytes, deque()).append((sequence_number, body))
 
     def job_failed(self, error: Exception) -> None:
         """Decrement pending and record the first root error."""
@@ -163,7 +163,7 @@ class MemoryBackend:
         return self.root_result
 
 
-# Plain (backend, effect) -> value functions, lifted into generator handlers by as_handler.
+# Plain (backend, effect) -> value functions, lifted into generator handlers by lift.
 
 
 def get_job_value(backend: MemoryBackend, effect: EStorageGetJob) -> Any:
@@ -216,12 +216,6 @@ def get_result_value(backend: MemoryBackend, effect: EStorageGetResult) -> Any:
     return backend.get_result()
 
 
-def as_handler(fn, backend: MemoryBackend, effect) -> Generator[Any, Any, Any]:
-    """Lift a plain (backend, effect) -> value function into a generator handler."""
-    yield from ()
-    return fn(backend, effect)
-
-
 def make_memory_storage_handlers(handler_wrappers: Sequence = ()) -> HandlerMap:
     """Create a complete set of storage handlers backed by a fresh in-memory backend,
     with any user-supplied wrappers applied.
@@ -244,5 +238,5 @@ def make_memory_storage_handlers(handler_wrappers: Sequence = ()) -> HandlerMap:
         EStorageGetError.tag: get_error_value,
         EStorageGetResult.tag: get_result_value,
     }
-    bindings = {tag: partial(as_handler, fn, backend) for tag, fn in plain_handlers.items()}
+    bindings = {tag: partial(lift, fn, backend) for tag, fn in plain_handlers.items()}
     return build_handler_map(bindings, handler_wrappers)

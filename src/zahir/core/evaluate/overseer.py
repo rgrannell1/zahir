@@ -113,7 +113,6 @@ def wake_any_worker(lot: ParkingLot) -> Generator[Any, Any, None]:
 def wake_completion_waiters(lot: ParkingLot, done: bool) -> Generator[Any, Any, None]:
     """Reply True to every parked completion waiter once the workflow is finished."""
 
-    yield from ()
     if not done or not lot.completion:
         return
     for caller in lot.completion.values():

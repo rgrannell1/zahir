@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from functools import partial
 from typing import Any
 
+from zahir.core.combinators import lift
 from zahir.core.commons.constants import DependencyState
 from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.dependencies.dependency import dependency
@@ -12,8 +13,9 @@ from zahir.core.dependencies.dependency import dependency
 def time_condition(
     before: datetime | None,
     after: datetime | None,
-) -> Generator[Any, Any, ConditionResult]:
-    """Returns satisfied if now is within the time window, unsatisfied if after hasn't arrived, impossible if before has passed."""  # noqa: E501
+) -> ConditionResult:
+    """Satisfied inside the window, unsatisfied before it opens, impossible after it closes."""
+
     now = datetime.now(tz=UTC)
 
     if before is not None and now >= before:
@@ -23,7 +25,6 @@ def time_condition(
     if after is not None and now < after:
         return (DependencyState.UNSATISFIED, {"after": after.isoformat()})
 
-    yield from ()
     return (DependencyState.SATISFIED, {})
 
 
@@ -31,4 +32,4 @@ def time_dependency(
     before: datetime | None = None,
     after: datetime | None = None,
 ) -> Generator[Any, Any, DependencyResult]:
-    return dependency(partial(time_condition, before, after), label="time")
+    return dependency(partial(lift, time_condition, before, after), label="time")

@@ -1,26 +1,16 @@
 # Dependency that blocks until at least N seconds have passed since the last satisfied occurrence.
-import os
 import time
 from collections.abc import Generator
 from functools import partial
 from typing import Any
 
-from bookman.events import point
 from tertius import EEmit, ESleep
 
-from zahir.core.commons.constants import DependencyState, DependencyTag
+from zahir.core.commons.constants import DependencyState
 from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.dependencies.dependency import dependency
 from zahir.core.effects import EAcquire, EGetState, EReleaseSlot, ESetState
-
-
-def _waiting_point(label: str) -> object:
-    data = {
-        "tag": [DependencyTag.WAITING],
-        "pid": [str(os.getpid())],
-        "dep": [label],
-    }
-    return point(data, at=time.time())
+from zahir.core.telemetry import dependency_waiting_event
 
 
 def rate_limit_condition(
@@ -58,7 +48,7 @@ def wait_for_gap(name: str, min_seconds: float, label: str) -> Generator[Any, An
         elapsed = time.time() - last_at
         if elapsed >= min_seconds:
             return elapsed
-        yield EEmit(_waiting_point(label))
+        yield EEmit(dependency_waiting_event(label))
         remaining_ms = max(1, int((min_seconds - elapsed) * 1000))
         yield ESleep(ms=remaining_ms)
 

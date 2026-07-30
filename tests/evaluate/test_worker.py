@@ -119,7 +119,7 @@ def test_build_job_zero_timeout_sets_immediate_deadline():
         yield ESleep(ms=1)
         yield ESleep(ms=1)
 
-    ctx = JobContext(_scope={"zero_job": zero_job}, scope=None)
+    ctx = JobContext(fns={"zero_job": zero_job}, scope=None)
     spec = JobSpec(fn_name="zero_job", timeout_ms=0)
     job = _build_job(spec, ctx, _handlers())
 

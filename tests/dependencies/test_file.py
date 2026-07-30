@@ -1,7 +1,6 @@
 import pathlib
 import tempfile
 
-import pytest
 from tertius import EEmit, ESleep
 
 from tests.shared import drain_to
@@ -82,17 +81,14 @@ def test_file_appears_after_check_satisfies_dependency():
 def testfile_condition_returns_unsatisfied_for_missing_file():
     """Proves file_condition returns unsatisfied when file does not exist."""
 
-    with pytest.raises(StopIteration) as exc:
-        next(file_condition("/tmp/zahir_no_such_file.json"))
-    assert exc.value.value[0] == "unsatisfied"
+    result = file_condition("/tmp/zahir_no_such_file.json")
+    assert result[0] == "unsatisfied"
 
 
 def testfile_condition_returns_satisfied_tuple_for_existing_file():
     """Proves file_condition returns a satisfied ConditionResult when file exists."""
 
     with tempfile.NamedTemporaryFile() as tmp:
-        with pytest.raises(StopIteration) as exc:
-            next(file_condition(tmp.name))
-        result = exc.value.value
+        result = file_condition(tmp.name)
         assert result[0] == "satisfied"
         assert result[1]["path"] == tmp.name

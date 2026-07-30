@@ -6,7 +6,7 @@ import os
 import pytest
 from tertius import JoinTimeoutError
 
-from tests.shared import free_ports, user_events
+from tests.shared import free_ports, root_value
 from zahir.core.effects import await_all
 from zahir.core.evaluate import JobContext, evaluate, join_worker, setup_remote
 
@@ -48,7 +48,7 @@ def _run_join_worker(data_port: int, control_port: int) -> None:
 
 
 def _evaluate_with_joined_worker(values: tuple) -> tuple[list, int]:
-    """Run a remote swarm with one joined worker; return (user events, joiner OS pid)."""
+    """Run a remote swarm with one joined worker; return (root results, joiner OS pid)."""
 
     data_port, control_port = free_ports(2)
     joiner = _SPAWN_CTX.Process(target=_run_join_worker, args=(data_port, control_port))
@@ -57,22 +57,20 @@ def _evaluate_with_joined_worker(values: tuple) -> tuple[list, int]:
 
     runtime = setup_remote(host="127.0.0.1", data_port=data_port, control_port=control_port)
     try:
-        events = user_events(evaluate(runtime, "remote_root", (values,), _SCOPE))
+        results = root_value(evaluate(runtime, "remote_root", (values,), _SCOPE))
     finally:
         joiner.join(timeout=15)
         if joiner.is_alive():
             joiner.terminate()
 
-    return events, joiner.pid
+    return results, joiner.pid
 
 
 def test_remote_worker_executes_jobs_from_another_process():
     """Proves a join_worker() process executes a remote swarm's jobs with n_workers=0."""
 
-    events, joiner_pid = _evaluate_with_joined_worker((1, 2, 3))
+    results, joiner_pid = _evaluate_with_joined_worker((1, 2, 3))
 
-    assert len(events) == 1
-    results = events[0]
     assert [result["value"] for result in results] == [2, 4, 6]
 
     worker_os_pids = {result["worker_os_pid"] for result in results}

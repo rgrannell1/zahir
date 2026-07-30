@@ -10,8 +10,10 @@ from zahir.core.commons.constants import (
     WORKER_PARK_TIMEOUT_MS,
     WorkItemTag,
 )
+from zahir.core.commons.fp_types import Err, Ok
 from zahir.core.commons.zahir_types import HandlerMap, LeaseTracker, SilenceTracker
 from zahir.core.effects import (
+    STORAGE_TAGS,
     EEnqueue,
     EGetJob,
     EGetState,
@@ -31,7 +33,22 @@ from zahir.core.effects import (
     EStorageSetState,
     ZahirStorageEffect,
 )
-from zahir.core.exceptions import OverseerSilentError
+from zahir.core.exceptions import OverseerSilentError, ZahirError
+
+
+def require_storage_transported(handlers: HandlerMap, transport: HandlerMap) -> None:
+    """Raise if a storage tag in a worker or root bag is not bound to its transport handler.
+
+    A locally-bound storage handler would run against a private backend and
+    silently diverge from the overseer's state. Merge order normally guarantees
+    transport wins; this turns a misordering into a loud failure.
+    """
+
+    local_tags = [
+        tag for tag in handlers if tag in STORAGE_TAGS and handlers[tag] is not transport.get(tag)
+    ]
+    if local_tags:
+        raise ZahirError(f"storage tags bound to non-transport handlers: {local_tags}")
 
 
 def _handle_enqueue(overseer: Pid, effect: EEnqueue) -> Generator[Any, Any, None]:
@@ -80,20 +97,27 @@ def _handle_get_job(
 
 
 def _handle_job_complete(overseer: Pid, effect: EJobComplete) -> Generator[Any, Any, None]:
-    """Route the result to the parent worker via the overseer and decrement pending."""
+    """Route the result to the parent worker via the overseer and decrement pending.
+
+    The result travels as an explicit Ok so the receiving side never has to guess
+    whether an exception-typed body is a value or a failure.
+    """
 
     yield from mcast(
         overseer,
         EStorageJobDone(
             reply_to=effect.reply_to,
             sequence_number=effect.sequence_number,
-            body=effect.result,
+            body=Ok(effect.result),
         ),
     )
 
 
 def _handle_job_fail(overseer: Pid, effect: EJobFail) -> Generator[Any, Any, None]:
-    """Route the failure to the parent worker via the overseer, or record it as root error."""
+    """Route the failure to the parent worker via the overseer, or record it as root error.
+
+    A parented failure travels as an explicit Err on the same channel as results.
+    """
 
     if effect.reply_to is None:
         yield from mcast(overseer, EStorageJobFailed(error=effect.error))
@@ -104,7 +128,7 @@ def _handle_job_fail(overseer: Pid, effect: EJobFail) -> Generator[Any, Any, Non
         EStorageJobDone(
             reply_to=effect.reply_to,
             sequence_number=effect.sequence_number,
-            body=effect.error,
+            body=Err(effect.error),
         ),
     )
 

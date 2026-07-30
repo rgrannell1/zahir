@@ -5,6 +5,8 @@ from typing import Any
 
 from bookman.events import Event
 
+from zahir.core.commons.zahir_types import RootResult
+
 _DEFAULT_WINDOW_MS = 50.0
 
 type Interval = tuple[float, float]
@@ -90,10 +92,19 @@ def user_events(events_iter: Iterable[Any]) -> list[Any]:
     """Filter an evaluate() stream to only user-emitted values.
 
     Tertius now emits infrastructure Event objects (spawn, process lifecycle, etc.)
-    alongside user-emitted values. This strips the infrastructure layer so tests
-    can assert on application-level output without breaking as event counts grow.
+    alongside user-emitted values. This strips the infrastructure layer — including
+    the RootResult marker — so tests can assert on application-level output without
+    breaking as event counts grow.
     """
-    return [event for event in events_iter if not isinstance(event, Event)]
+    return [event for event in events_iter if not isinstance(event, (Event, RootResult))]
+
+
+def root_value(events_iter: Iterable[Any]) -> Any:
+    """Return the workflow result carried by the stream's single RootResult marker."""
+
+    roots = [event for event in events_iter if isinstance(event, RootResult)]
+    assert len(roots) == 1, f"expected exactly one RootResult, got {len(roots)}"
+    return roots[0].value
 
 
 def free_ports(count: int) -> list[int]:

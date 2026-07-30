@@ -6,6 +6,7 @@ from contextlib import closing
 from functools import partial
 from typing import Any
 
+from zahir.core.combinators import lift
 from zahir.core.commons.constants import DependencyState
 from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.dependencies.dependency import dependency
@@ -67,7 +68,7 @@ def sqlite_condition(
     query: str,
     params: tuple[Any, ...] | None,
     timeout_seconds: float,
-) -> Generator[Any, Any, ConditionResult]:
+) -> ConditionResult:
     """Returns satisfied if the query returns rows (or a satisfied status), unsatisfied if not yet, impossible if the status row is impossible."""  # noqa: E501
     metadata = {
         "db_path": db_path,
@@ -87,7 +88,6 @@ def sqlite_condition(
         if status == DependencyState.IMPOSSIBLE:
             return (DependencyState.IMPOSSIBLE, metadata)
 
-    yield from ()  # make it a generator function
     return (DependencyState.SATISFIED, metadata)
 
 
@@ -101,7 +101,7 @@ def sqlite_dependency(  # noqa: PLR0913
 ) -> Generator[Any, Any, DependencyResult]:
     _validate_db_path(db_path)
     return dependency(
-        partial(sqlite_condition, db_path, query, params, connection_timeout_seconds),
+        partial(lift, sqlite_condition, db_path, query, params, connection_timeout_seconds),
         timeout_ms=poll_timeout_ms,
         label=f"sqlite '{db_path}'",
     )

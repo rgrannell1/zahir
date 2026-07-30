@@ -9,6 +9,8 @@ from tertius import EEmit
 
 from zahir.core.combinators import wrap
 from zahir.core.commons.constants import JobTag
+from zahir.core.effects import EJobFail, EStorageJobFailed
+from zahir.core.exceptions import JobError
 from zahir.core.telemetry.events import (
     TimeSpan,
     end_effect_error_telemetry,
@@ -61,15 +63,18 @@ def _setup_phase(effect, ctx: SpanContext, start: float):
 def _format_effect_error(err: Exception) -> str:
     """Format an effect's error field as a full traceback, unwrapping JobError.cause if present."""
 
-    cause = getattr(err, "cause", err)
+    cause = err.cause if isinstance(err, JobError) else err
     return "".join(traceback.format_exception(cause))
 
 
 def _success_teardown(effect, ctx: SpanContext, tspan: TimeSpan, result):
     """Emit handler-end event and any lifecycle span that applies."""
 
-    err = getattr(effect, "error", None)
-    value = Message(_format_effect_error(err)) if err is not None else None
+    match effect:
+        case EJobFail(error=err) | EStorageJobFailed(error=err):
+            value = Message(_format_effect_error(err))
+        case _:
+            value = None
     yield EEmit(end_effect_success_telemetry(effect, ctx.span_id, tspan, value=value))
     lifecycle = _resolve_lifecycle(effect, ctx.job_id, tspan.end)
     if lifecycle:

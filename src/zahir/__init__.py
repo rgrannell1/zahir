@@ -1,7 +1,7 @@
 # Public API surface for zahir.
 from zahir.core.backends.memory import make_memory_storage_handlers
 from zahir.core.commons.fp_types import Err, Ok, Result
-from zahir.core.commons.zahir_types import JobContext
+from zahir.core.commons.zahir_types import JobContext, RootResult
 from zahir.core.dependencies import (
     ConditionResult,
     DependencyResult,
@@ -55,6 +55,7 @@ __all__ = [
     "JobContext",
     "Ok",
     "Result",
+    "RootResult",
     "Satisfied",
     "Unsatisfied",
     "await_all",

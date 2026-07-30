@@ -38,14 +38,14 @@ class EStorageEnqueue(ZahirStorageEffect[None]):
 
 @dataclass
 class EStorageJobDone(ZahirStorageEffect[None]):
-    """Decrement pending and route a result or error to the parent worker.
+    """Decrement pending and route the child's Ok/Err body to the parent worker.
 
     If there is no parent, stores as root result.
     """
 
     tag: ClassVar[LiteralString] = "storage_job_done"
     reply_to: bytes | None
-    sequence_number: Any
+    sequence_number: int | None
     body: Any
 
 
@@ -110,3 +110,10 @@ class EStorageGetResult(ZahirStorageEffect[Any]):
     """Return the root job's return value."""
 
     tag: ClassVar[LiteralString] = "storage_get_result"
+
+
+# Every storage-effect tag. Worker and root bags must bind these to transport
+# handlers only; the overseer alone binds them to the backend.
+STORAGE_TAGS: frozenset[str] = frozenset(
+    subclass.tag for subclass in ZahirStorageEffect.__subclasses__()
+)
