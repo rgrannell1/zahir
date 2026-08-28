@@ -68,6 +68,16 @@ def _kickoff(fn_name: str, args: tuple) -> Generator[Any, Any, None]:
     yield from _poll_completion()
 
 
+def spawn_workers(runtime: Runtime, worker_args: tuple) -> Generator[Any, Any, None]:
+    """Spawn the configured process and thread workers."""
+
+    for _ in range(runtime.n_workers):
+        yield ESpawn(fn_name="worker", args=worker_args, mode=SpawnMode.PROCESS)
+
+    for _ in range(runtime.n_thread_workers):
+        yield ESpawn(fn_name="worker", args=worker_args, mode=SpawnMode.THREAD)
+
+
 def _evaluate_runner(
     runtime: Runtime,
     inputs: EvaluationInputs,
@@ -89,11 +99,7 @@ def _evaluate_runner(
         handlers,
     )
 
-    for _ in range(runtime.n_workers):
-        yield ESpawn(fn_name="worker", args=worker_args, mode=SpawnMode.PROCESS)
-
-    for _ in range(runtime.n_thread_workers):
-        yield ESpawn(fn_name="worker", args=worker_args, mode=SpawnMode.THREAD)
+    yield from spawn_workers(runtime, worker_args)
 
     # Coordination merged last: transported storage tags must beat any storage
     # handlers a user-supplied bag might contain.

@@ -168,6 +168,30 @@ def _handle_is_done(overseer: Pid, effect: EStorageIsDone) -> Generator[Any, Any
     return bool(done)
 
 
+def make_coordination_bindings(
+    overseer: Pid,
+    silence: SilenceTracker,
+    lease: LeaseTracker,
+) -> HandlerMap:
+    """Bind coordination and transported storage effects to the overseer."""
+
+    return {
+        EEnqueue.tag: partial(_handle_enqueue, overseer),
+        EGetJob.tag: partial(_handle_get_job, overseer, silence, lease),
+        EJobComplete.tag: partial(_handle_job_complete, overseer),
+        EJobFail.tag: partial(_handle_job_fail, overseer),
+        EGetState.tag: partial(_handle_get_state, overseer),
+        ESetState.tag: partial(_handle_set_state, overseer),
+        # Storage effects yielded worker- or runner-side are transported to the
+        # overseer; the overseer's own bag binds these tags to the backend instead.
+        EStorageAcquire.tag: partial(_call_overseer, overseer),
+        EStorageRelease.tag: partial(_cast_overseer, overseer),
+        EStorageIsDone.tag: partial(_handle_is_done, overseer),
+        EStorageGetError.tag: partial(_call_overseer, overseer),
+        EStorageGetResult.tag: partial(_call_overseer, overseer),
+    }
+
+
 # Now, assemble all of the handlers and wrap them with telemetry context.
 # EGetJob is wrapped like everything else: it long-polls at the overseer, so its
 # spans measure per-worker idle time rather than emitting per-tick noise.
@@ -187,20 +211,5 @@ def make_coordination_handlers(
 
     silence = SilenceTracker(max_silence_ms=max_silence_ms)
     lease = LeaseTracker()
-    bindings = {
-        EEnqueue.tag: partial(_handle_enqueue, overseer),
-        EGetJob.tag: partial(_handle_get_job, overseer, silence, lease),
-        EJobComplete.tag: partial(_handle_job_complete, overseer),
-        EJobFail.tag: partial(_handle_job_fail, overseer),
-        EGetState.tag: partial(_handle_get_state, overseer),
-        ESetState.tag: partial(_handle_set_state, overseer),
-        # Storage effects yielded worker- or runner-side are transported to the
-        # overseer; the overseer's own bag binds these tags to the backend instead.
-        EStorageAcquire.tag: partial(_call_overseer, overseer),
-        EStorageRelease.tag: partial(_cast_overseer, overseer),
-        EStorageIsDone.tag: partial(_handle_is_done, overseer),
-        EStorageGetError.tag: partial(_call_overseer, overseer),
-        EStorageGetResult.tag: partial(_call_overseer, overseer),
-    }
-
+    bindings = make_coordination_bindings(overseer, silence, lease)
     return build_handler_map(bindings, handler_wrappers)

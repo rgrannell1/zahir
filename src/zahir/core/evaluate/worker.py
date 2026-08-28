@@ -30,6 +30,7 @@ from zahir.core.evaluate.job_handlers import (
     make_job_handlers,
 )
 from zahir.core.evaluate.suspension import RunningJob, SuspensionTable, WorkerLocals
+from zahir.core.evaluate.worker_types import WorkerHandlerOptions
 from zahir.core.exceptions import JobError, JobTimeoutError, ZahirError
 from zahir.core.scope_proxy import ScopeProxy
 from zahir.core.telemetry import execute_start_event, format_job_id, record_execute_start
@@ -251,10 +252,30 @@ def _worker_body(
                 state = yield from _handle_running(state, locals_)
 
 
+def build_worker_handler_maps(options: WorkerHandlerOptions) -> tuple[HandlerMap, HandlerMap]:
+    """Build job and effect handler maps for one worker."""
+
+    job_handlers = make_job_handlers(options.worker_locals, options.handler_wrappers)
+    coordination = make_coordination_handlers(
+        options.overseer,
+        options.handler_wrappers,
+        options.max_silence_ms,
+    )
+    user_handlers = build_handler_map(options.handlers, options.handler_wrappers)
+    base_handlers = merge_handlers(user_handlers, coordination)
+    require_storage_transported(base_handlers, coordination)
+    suspension_handlers = make_worker_handlers(
+        options.suspension,
+        options.worker_locals,
+        options.handler_wrappers,
+    )
+    return job_handlers, merge_handlers(base_handlers, suspension_handlers)
+
+
 def worker(  # noqa: PLR0913
     overseer_pid_bytes: bytes,
     scope: Scope,
-    handler_wrappers,
+    handler_wrappers: Sequence,
     handlers: HandlerMap,
     *,
     max_silence_ms: int | None = None,
@@ -269,19 +290,14 @@ def worker(  # noqa: PLR0913
 
     suspension = SuspensionTable()
     locals_ = WorkerLocals()
-
-    # acquire & similar
-    job_handlers = make_job_handlers(locals_, handler_wrappers)
-    # general coordination handlers — merged last so transported storage tags beat
-    # any storage handlers present in the shared bag (they belong to the overseer)
-    coordination = make_coordination_handlers(overseer, handler_wrappers, max_silence_ms)
-    user_handlers = build_handler_map(handlers, handler_wrappers)
-    base_handlers = merge_handlers(user_handlers, coordination)
-    require_storage_transported(base_handlers, coordination)
-    # eawait handler, which uses locals_ for local state
-    worker_handlers = make_worker_handlers(suspension, locals_, handler_wrappers)
-
-    yield from handle(
-        _worker_body(suspension, locals_, job_handlers, overseer, ctx),
-        merge_handlers(base_handlers, worker_handlers),
+    options = WorkerHandlerOptions(
+        suspension=suspension,
+        worker_locals=locals_,
+        overseer=overseer,
+        handler_wrappers=handler_wrappers,
+        handlers=handlers,
+        max_silence_ms=max_silence_ms,
     )
+    job_handlers, worker_handlers = build_worker_handler_maps(options)
+    worker_body = _worker_body(suspension, locals_, job_handlers, overseer, ctx)
+    yield from handle(worker_body, worker_handlers)

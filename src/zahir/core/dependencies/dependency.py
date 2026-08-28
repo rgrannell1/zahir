@@ -40,6 +40,13 @@ def check(
     return (yield from finish(label, result))
 
 
+def make_timeout_result(label: str, timeout_ms: int | None) -> DependencyResult:
+    """Create an impossible result for a dependency timeout."""
+
+    reason = f"{label} timed out after {timeout_ms}ms"
+    return DependencyState.IMPOSSIBLE, {"reason": reason}
+
+
 def dependency(
     condition_fn: Callable[[], Generator[Any, Any, ConditionResult]],
     timeout_ms: int | None = None,
@@ -58,16 +65,13 @@ def dependency(
 
     while True:
         if timeout_at is not None and time.monotonic() >= timeout_at:
-            reason = f"{label} timed out after {timeout_ms}ms"
-            return (yield from finish(label, (DependencyState.IMPOSSIBLE, {"reason": reason})))
+            result = make_timeout_result(label, timeout_ms)
+            return (yield from finish(label, result))
 
         state, metadata = yield from condition_fn()
 
-        if state == DependencyState.SATISFIED:
-            return (yield from finish(label, (DependencyState.SATISFIED, metadata)))
-
-        if state == DependencyState.IMPOSSIBLE:
-            return (yield from finish(label, (DependencyState.IMPOSSIBLE, metadata)))
+        if state != DependencyState.UNSATISFIED:
+            return (yield from finish(label, (state, metadata)))
 
         yield EEmit(dependency_waiting_event(label))
         yield ESleep(ms=poll_ms)

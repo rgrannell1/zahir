@@ -18,6 +18,11 @@ from zahir.core.commons.constants import (
     REMOTE_RECV_TIMEOUT_MS,
 )
 from zahir.core.commons.zahir_types import HandlerMap
+from zahir.core.evaluate.remote_types import (
+    RemoteConnection,
+    RemoteTimeouts,
+    RemoteWorkerOptions,
+)
 from zahir.core.evaluate.worker import worker
 from zahir.core.exceptions import OverseerNotFoundError
 
@@ -52,6 +57,28 @@ def _joined_worker(
     )
 
 
+def run_remote_worker(options: RemoteWorkerOptions) -> None:
+    """Connect to a swarm and run one remote worker until shutdown."""
+
+    connection = options.connection
+    transport = TcpTransport(
+        host=connection.host,
+        data_port=connection.data_port,
+        control_port=connection.control_port,
+        security=connection.security,
+    )
+    timeouts = options.timeouts
+    join(
+        _joined_worker,
+        options.scope,
+        options.handler_wrappers,
+        options.handlers,
+        (timeouts.overseer_ms, timeouts.receive_ms),
+        transport=transport,
+        recv_timeout_ms=timeouts.receive_ms,
+    )
+
+
 def join_worker(  # noqa: PLR0913
     *,
     host: str,
@@ -73,19 +100,11 @@ def join_worker(  # noqa: PLR0913
     stops replying for recv_timeout_ms.
     """
 
-    transport = TcpTransport(
-        host=host,
-        data_port=data_port,
-        control_port=control_port,
-        security=security,
+    options = RemoteWorkerOptions(
+        connection=RemoteConnection(host, data_port, control_port, security),
+        scope=scope,
+        handler_wrappers=handler_wrappers,
+        handlers=handlers or {},
+        timeouts=RemoteTimeouts(overseer_timeout_ms, recv_timeout_ms),
     )
-
-    join(
-        _joined_worker,
-        scope,
-        handler_wrappers,
-        handlers or {},
-        (overseer_timeout_ms, recv_timeout_ms),
-        transport=transport,
-        recv_timeout_ms=recv_timeout_ms,
-    )
+    run_remote_worker(options)
