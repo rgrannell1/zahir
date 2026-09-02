@@ -1,13 +1,14 @@
 # Unit tests for rate_limit_condition and rate_limit_dependency.
 from collections.abc import Generator
+from datetime import UTC, datetime
 from typing import Any
-from unittest.mock import patch
 
 import pytest
 from bookman.events import Event
 from tertius import EEmit, ESleep
 
 from tests.shared import drain_to
+from zahir.core.coeffects import CurrentTime
 from zahir.core.commons.zahir_types import ConditionResult
 from zahir.core.dependencies.rate_limit import rate_limit_condition
 from zahir.core.effects import EAcquire, EGetState, EReleaseSlot, ESetState
@@ -15,6 +16,7 @@ from zahir.core.effects import EAcquire, EGetState, EReleaseSlot, ESetState
 _NAME = "fetch"
 _MIN_SECONDS = 1.0
 _NOW = 1_000_000.0  # arbitrary fixed timestamp
+_NOW_TIME = datetime.fromtimestamp(_NOW, tz=UTC)
 _LABEL = f"rate_limit '{_NAME}' ({_MIN_SECONDS}s)"
 
 
@@ -33,6 +35,18 @@ def test_first_yield_is_eacquire():
     assert effect.limit == 1
 
 
+def test_elapsed_time_comes_from_context():
+    """Proves the condition requests its wall-clock time as context."""
+
+    gen = _make_gen()
+    next(gen)
+    get_state_effect = gen.send(True)
+    assert isinstance(get_state_effect, EGetState)
+
+    current_time = gen.send(str(_NOW - _MIN_SECONDS))
+    assert isinstance(current_time, CurrentTime)
+
+
 def test_slot_busy_returns_unsatisfied():
     """Proves the condition returns unsatisfied immediately when the mutex slot is taken."""
 
@@ -45,11 +59,9 @@ def test_slot_busy_returns_unsatisfied():
 def test_no_prior_run_satisfies_immediately():
     """Proves the condition is satisfied on first run (no last_at → elapsed is very large)."""
 
-    with patch("zahir.core.dependencies.rate_limit.time") as mock_time:
-        mock_time.time.return_value = _NOW
-        gen = _make_gen()
-        responses = {EAcquire: True, EGetState: None, ESetState: None}
-        _effects, result = drain_to(gen, responses=responses)
+    gen = _make_gen()
+    responses = {EAcquire: True, EGetState: None, CurrentTime: _NOW_TIME, ESetState: None}
+    _effects, result = drain_to(gen, responses=responses)
 
     assert result[0] == "satisfied"
     assert isinstance(result[1]["elapsed"], float)
@@ -59,13 +71,13 @@ def test_no_prior_run_satisfies_immediately():
 def test_gate_released_after_satisfaction():
     """Proves the mutex slot is released by the condition itself, not held until job exit."""
 
-    with patch("zahir.core.dependencies.rate_limit.time") as mock_time:
-        mock_time.time.return_value = _NOW
-        gen = _make_gen()
-        responses = {EAcquire: True, EGetState: None, ESetState: None}
-        effects, result = drain_to(gen, responses=responses)
+    gen = _make_gen()
+    responses = {EAcquire: True, EGetState: None, CurrentTime: _NOW_TIME, ESetState: None}
+    effects, result = drain_to(gen, responses=responses)
 
     assert result[0] == "satisfied"
+    stamps = [effect for effect in effects if isinstance(effect, ESetState)]
+    assert [stamp.value for stamp in stamps] == [str(_NOW)]
     releases = [effect for effect in effects if isinstance(effect, EReleaseSlot)]
     assert [release.name for release in releases] == [f"rate_limit:{_NAME}"]
 
@@ -88,11 +100,9 @@ def test_elapsed_sufficient_satisfies_without_sleep():
 
     last_at = str(_NOW - _MIN_SECONDS - 1.0)  # well past the threshold
 
-    with patch("zahir.core.dependencies.rate_limit.time") as mock_time:
-        mock_time.time.return_value = _NOW
-        gen = _make_gen()
-        responses = {EAcquire: True, EGetState: last_at, ESetState: None}
-        effects, result = drain_to(gen, responses=responses)
+    gen = _make_gen()
+    responses = {EAcquire: True, EGetState: last_at, CurrentTime: _NOW_TIME, ESetState: None}
+    effects, result = drain_to(gen, responses=responses)
 
     sleep_effects = [eff for eff in effects if isinstance(eff, ESleep)]
     assert sleep_effects == [], "expected no ESleep when elapsed is already sufficient"
@@ -104,13 +114,13 @@ def test_elapsed_too_short_emits_waiting_point_then_sleeps():
 
     last_at = str(_NOW - 0.1)  # only 0.1s ago, need 1.0s
 
-    with patch("zahir.core.dependencies.rate_limit.time") as mock_time:
-        mock_time.time.return_value = _NOW
-        gen = _make_gen()
-        next(gen)  # EAcquire
-        gen.send(True)  # acquired → EGetState
-        emit_effect = gen.send(last_at)  # elapsed=0.1s → EEmit(waiting point)
-        sleep_effect = gen.send(None)  # emit done → ESleep
+    gen = _make_gen()
+    next(gen)  # EAcquire
+    gen.send(True)  # acquired → EGetState
+    current_time = gen.send(last_at)
+    assert isinstance(current_time, CurrentTime)
+    emit_effect = gen.send(_NOW_TIME)
+    sleep_effect = gen.send(None)  # emit done → ESleep
 
     assert isinstance(emit_effect, EEmit) and isinstance(
         emit_effect.body, Event
@@ -131,13 +141,12 @@ def test_sleep_duration_covers_remaining_gap():
 
     for case in cases:
         last_at = str(_NOW - case["elapsed"])
-        with patch("zahir.core.dependencies.rate_limit.time") as mock_time:
-            mock_time.time.return_value = _NOW
-            gen = _make_gen(case["min_seconds"])
-            next(gen)
-            gen.send(True)
-            gen.send(last_at)  # elapsed too short → EEmit waiting point
-            sleep_effect = gen.send(None)  # emit done → ESleep
+        gen = _make_gen(case["min_seconds"])
+        next(gen)
+        gen.send(True)
+        gen.send(last_at)
+        gen.send(_NOW_TIME)
+        sleep_effect = gen.send(None)  # emit done → ESleep
 
         assert isinstance(sleep_effect, ESleep), f"expected ESleep for elapsed={case['elapsed']}"
         expected_ms = case["expected_ms"]
@@ -153,16 +162,12 @@ def test_satisfied_after_sleep_re_reads_state():
 
     last_at_initial = str(_NOW - 0.1)  # 0.1s ago → need to sleep 0.9s
 
-    with patch("zahir.core.dependencies.rate_limit.time") as mock_time:
-        mock_time.time.return_value = _NOW
-        gen = _make_gen()
-        next(gen)  # EAcquire
-        gen.send(True)  # acquired → EGetState
-        gen.send(last_at_initial)  # elapsed=0.1 → EEmit waiting point
-        gen.send(None)  # emit done → ESleep
-
-        # Advance time so elapsed is now sufficient
-        mock_time.time.return_value = _NOW + 1.0
-        get_state_effect = gen.send(None)  # sleep done → re-read EGetState
+    gen = _make_gen()
+    next(gen)  # EAcquire
+    gen.send(True)  # acquired → EGetState
+    gen.send(last_at_initial)
+    gen.send(_NOW_TIME)  # elapsed=0.1 → EEmit waiting point
+    gen.send(None)  # emit done → ESleep
+    get_state_effect = gen.send(None)  # sleep done → re-read EGetState
 
     assert isinstance(get_state_effect, EGetState), "expected re-read of state after sleep"

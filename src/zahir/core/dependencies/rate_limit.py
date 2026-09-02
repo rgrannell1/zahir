@@ -1,11 +1,11 @@
 # Dependency that blocks until at least N seconds have passed since the last satisfied occurrence.
-import time
 from collections.abc import Generator
 from functools import partial
 from typing import Any
 
 from tertius import EEmit, ESleep
 
+from zahir.core.coeffects import CurrentTime
 from zahir.core.commons.constants import DependencyState
 from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.dependencies.dependency import dependency
@@ -34,7 +34,8 @@ def rate_limit_condition(
 
     elapsed = yield from wait_for_gap(name, min_seconds, label)
 
-    yield ESetState(name=f"rate_limit:last_at:{name}", value=str(time.time()))
+    current_time = yield CurrentTime()
+    yield ESetState(name=f"rate_limit:last_at:{name}", value=str(current_time.timestamp()))
     yield EReleaseSlot(name=f"rate_limit:{name}")
     return (DependencyState.SATISFIED, {"name": name, "elapsed": elapsed})
 
@@ -45,7 +46,8 @@ def wait_for_gap(name: str, min_seconds: float, label: str) -> Generator[Any, An
     while True:
         raw = yield EGetState(name=f"rate_limit:last_at:{name}")
         last_at = float(raw) if raw else 0.0
-        elapsed = time.time() - last_at
+        current_time = yield CurrentTime()
+        elapsed = current_time.timestamp() - last_at
         if elapsed >= min_seconds:
             return elapsed
         yield EEmit(dependency_waiting_event(label))

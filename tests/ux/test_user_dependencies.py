@@ -8,6 +8,7 @@ from zahir import (
     ResourceUsage,
     evaluate,
     file_dependency,
+    rate_limit_dependency,
     resource_dependency,
     setup,
     time_dependency,
@@ -62,6 +63,13 @@ def job_with_resource_dep(ctx):
 def job_with_file_dep(ctx):
     result = yield from file_dependency("/not/present/on/the/worker")
     yield EEmit({"file_state": result[0]})
+
+
+def job_with_rate_limit_dep(ctx):
+    result = yield from rate_limit_dependency("provided-clock", min_seconds=1.0)
+    metadata = result[1]
+    assert metadata is not None
+    yield EEmit({"rate_limit_elapsed": metadata["elapsed"]})
 
 
 def test_impossible_time_dependency_returns_impossible_to_job():
@@ -120,3 +128,15 @@ def test_evaluate_passes_file_provider_to_workers():
     for runtime in runtimes:
         events = evaluate(runtime, "job", (), {"job": job_with_file_dep}, providers=providers)
         assert {"file_state": "satisfied"} in list(events)
+
+
+def test_rate_limit_uses_worker_time_provider():
+    """Proves rate limiting uses the replacement clock in process and thread workers."""
+
+    providers = {CurrentTime.tag: provide_future_time}
+    expected_event = {"rate_limit_elapsed": INJECTED_FUTURE.timestamp()}
+    runtimes = [setup(n_workers=1), setup(n_workers=0, n_thread_workers=1)]
+
+    for runtime in runtimes:
+        events = evaluate(runtime, "job", (), {"job": job_with_rate_limit_dep}, providers=providers)
+        assert expected_event in list(events)
