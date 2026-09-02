@@ -1,10 +1,10 @@
 """Per-job effect handlers: acquire, semaphore read/write, and the job/timeout guard stack."""
 
-import time
 from collections.abc import Generator, Sequence
 from functools import partial
 from typing import Any
 
+from zahir.core.coeffects import MonotonicTime
 from zahir.core.combinators import build_handler_map
 from zahir.core.commons.constants import BLOCKED_EFFECTS, THROWABLE
 from zahir.core.commons.generators import resume
@@ -62,10 +62,21 @@ def job_guard(gen: Generator, handlers: HandlerMap) -> Generator:
             pending_throw = exc
 
 
+def check_job_timeout(deadline: float | None) -> Generator[Any, Any, JobTimeoutError | None]:
+    """Return a timeout error when the supplied deadline has passed."""
+
+    if deadline is None:
+        return None
+    current_time = yield MonotonicTime()
+    if current_time < deadline:
+        return None
+    return JobTimeoutError()
+
+
 def timeout_guard(gen: Generator, deadline: float | None) -> Generator:
     """Wrap gen, injecting JobTimeoutError into the job if the deadline passes between effects.
 
-    deadline is a monotonic-clock instant (time.monotonic() seconds), so wall-clock
+    deadline is a monotonic-clock instant, so wall-clock
     steps from NTP or suspend/resume cannot fire it early or defer it.
     """
 
@@ -77,9 +88,8 @@ def timeout_guard(gen: Generator, deadline: float | None) -> Generator:
         if done:
             return return_value
 
-        pending_throw = None
-        if deadline is not None and time.monotonic() >= deadline:
-            pending_throw = JobTimeoutError()
+        pending_throw = yield from check_job_timeout(deadline)
+        if pending_throw is not None:
             continue
 
         try:

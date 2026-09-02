@@ -1,10 +1,12 @@
 import time
 
 import pytest
+from orbis import Orbis
 from tertius import ESleep
 
 from tests.evaluate.mocks import make_deadlined_parent
 from tests.shared import drain_to
+from zahir.core.coeffects import MonotonicTime, build_default_providers
 from zahir.core.commons.zahir_types import HandlerMap, JobContext
 from zahir.core.effects import (
     EAcquire,
@@ -69,6 +71,27 @@ def test_evaluate_job_passes_through_unknown_effects():
 # evaluate_job — deadline
 
 
+def interpret_job(job, deadline: float):
+    """Apply worker context to a job with a deadline."""
+
+    runtime = Orbis(providers=build_default_providers())
+    return runtime(evaluate_job(job, _handlers(), deadline))
+
+
+def run_single_sleep_job():
+    """Yield one sleep operation."""
+
+    yield ESleep(ms=100)
+
+
+def test_evaluate_job_requests_monotonic_time_for_deadline():
+    """Proves job timeout checks obtain monotonic time through a coeffect."""
+
+    gen = evaluate_job(run_single_sleep_job(), _handlers(), deadline=100.0)
+    assert isinstance(next(gen), MonotonicTime)
+    assert isinstance(gen.send(99.0), ESleep)
+
+
 def test_evaluate_job_throws_job_timeout_when_deadline_exceeded():
     """Proves evaluate_job throws JobTimeoutError into the job when the deadline passes."""
 
@@ -78,7 +101,7 @@ def test_evaluate_job_throws_job_timeout_when_deadline_exceeded():
 
     past_deadline = time.monotonic() - 1.0
     with pytest.raises(JobTimeoutError):
-        drain_to(evaluate_job(job(), _handlers(), past_deadline))
+        drain_to(interpret_job(job(), past_deadline))
 
 
 def test_evaluate_job_job_can_catch_job_timeout():
@@ -93,7 +116,7 @@ def test_evaluate_job_job_can_catch_job_timeout():
             results.append("caught")
 
     past_deadline = time.monotonic() - 1.0
-    drain_to(evaluate_job(job(), _handlers(), past_deadline))
+    drain_to(interpret_job(job(), past_deadline))
 
     assert results == ["caught"]
 
@@ -124,7 +147,8 @@ def test_build_job_zero_timeout_sets_immediate_deadline():
     job = _build_job(spec, ctx, _handlers())
 
     with pytest.raises(JobTimeoutError):
-        drain_to(job.eval_gen)
+        runtime = Orbis(providers=build_default_providers())
+        drain_to(runtime(job.eval_gen))
 
 
 # _handle_idle — suspended-job expiry
