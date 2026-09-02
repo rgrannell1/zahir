@@ -39,6 +39,12 @@ class Phase(StrEnum):
     ERROR = "error"
 
 
+# Operation classes attached to interpreter telemetry.
+class OperationKind(StrEnum):
+    EFFECT = "effect"
+    COEFFECT = "coeffect"
+
+
 # Tags identifying job lifecycle coordination effects
 class JobTag(StrEnum):
     ENQUEUE = "enqueue"

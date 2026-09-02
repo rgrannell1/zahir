@@ -1,5 +1,5 @@
 from collections import deque
-from collections.abc import Callable, Generator
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -41,8 +41,8 @@ type PendingResults = dict[bytes, deque[tuple[int, Any]]]
 # lost to a heartbeat timeout is re-delivered rather than destroyed.
 type LeaseMap = dict[bytes, tuple[int, Any]]
 
-# A handler: takes an effect, optionally yields further effects, returns a value
-type HandlerCallable = Callable[..., Generator[Any, Any, Any]]
+# An interpreter takes an operation, optionally yields more operations, and returns a value.
+type HandlerCallable = Callable[..., Any]
 
 
 # Effect tag -> handler callable, as returned by every handler factory function.

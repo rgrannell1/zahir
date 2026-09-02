@@ -27,12 +27,13 @@ from zahir.core.evaluate.coordination_handlers import (
 from zahir.core.evaluate.overseer import run_overseer
 from zahir.core.evaluate.runtime import Runtime
 from zahir.core.evaluate.worker import worker
+from zahir.core.evaluate.worker_types import InterpreterWrappers
 from zahir.core.exceptions import ZahirError
 
 type EvaluationInputs = tuple[str, tuple, Scope]
 
 # Wrappers, overseer handlers, worker handlers, and worker providers.
-type RuntimeBindings = tuple[Sequence, HandlerMap, HandlerMap, BindingMap]
+type RuntimeBindings = tuple[InterpreterWrappers, HandlerMap, HandlerMap, BindingMap]
 type EvaluationSetup = tuple[RuntimeBindings, Scope]
 
 
@@ -87,7 +88,7 @@ def _evaluate_runner(
     """Run the root job and wait for completion."""
 
     fn_name, args, scope = inputs
-    handler_wrappers, overseer_handlers, handlers, providers = bindings
+    wrappers, overseer_handlers, handlers, providers = bindings
 
     # Only the overseer holds the storage backend; workers and the root carry
     # user handlers plus transport bindings.
@@ -96,7 +97,7 @@ def _evaluate_runner(
     worker_args = (
         bytes(overseer),
         scope,
-        handler_wrappers,
+        wrappers,
         (handlers, providers),
     )
 
@@ -104,8 +105,8 @@ def _evaluate_runner(
 
     # Coordination merged last: transported storage tags must beat any storage
     # handlers a user-supplied bag might contain.
-    coordination = make_coordination_handlers(overseer, handler_wrappers)
-    root_handlers = merge_handlers(build_handler_map(handlers, handler_wrappers), coordination)
+    coordination = make_coordination_handlers(overseer, wrappers.handlers)
+    root_handlers = merge_handlers(build_handler_map(handlers, wrappers.handlers), coordination)
     require_storage_transported(root_handlers, coordination)
 
     yield from handle(_kickoff(fn_name, args), root_handlers)
@@ -124,19 +125,24 @@ def validate_evaluation(fn_name: str, scope: Scope, handlers: HandlerMap | None)
 
 def make_evaluation_setup(
     scope: Scope,
-    handler_wrappers: Sequence,
+    wrappers: InterpreterWrappers,
     handlers: HandlerMap | None,
     providers: BindingMap | None,
 ) -> EvaluationSetup:
     """Build runtime handlers and add internal jobs to the runtime scope."""
 
     user_handlers = handlers or {}
-    memory_handlers = make_memory_storage_handlers(handler_wrappers)
+    memory_handlers = make_memory_storage_handlers(wrappers.handlers)
     overseer_handlers = merge_handlers(
-        memory_handlers, build_handler_map(user_handlers, handler_wrappers)
+        memory_handlers, build_handler_map(user_handlers, wrappers.handlers)
     )
     full_scope: Scope = {"run_overseer": run_overseer, "worker": worker, **scope}
-    bindings = (handler_wrappers, overseer_handlers, user_handlers, providers or {})
+    bindings = (
+        wrappers,
+        overseer_handlers,
+        user_handlers,
+        providers or {},
+    )
     return bindings, full_scope
 
 
@@ -147,15 +153,17 @@ def evaluate(  # noqa: PLR0913
     scope: Scope,
     *,
     handler_wrappers: Sequence = (),
+    provider_wrappers: Sequence = (),
     handlers: HandlerMap | None = None,
     providers: BindingMap | None = None,
 ) -> Generator[Any]:
     """Entry point. Run a job and wait for completion."""
 
     validate_evaluation(fn_name, scope, handlers)
+    wrappers = InterpreterWrappers(handler_wrappers, provider_wrappers)
     bindings, full_scope = make_evaluation_setup(
         scope,
-        handler_wrappers,
+        wrappers,
         handlers,
         providers,
     )

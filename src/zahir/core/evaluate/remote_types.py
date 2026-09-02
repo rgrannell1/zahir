@@ -1,12 +1,12 @@
 """Types for remote worker setup."""
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 
 from orbis import BindingMap
 from tertius import CurveSecurity, Scope
 
 from zahir.core.commons.zahir_types import HandlerMap
+from zahir.core.evaluate.worker_types import InterpreterWrappers
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,7 @@ class RemoteWorkerOptions:
 
     connection: RemoteConnection
     scope: Scope
-    handler_wrappers: Sequence
+    wrappers: InterpreterWrappers
     handlers: HandlerMap
     providers: BindingMap
     timeouts: RemoteTimeouts

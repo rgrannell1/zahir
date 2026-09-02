@@ -25,7 +25,7 @@ from zahir.core.evaluate.remote_types import (
     RemoteWorkerOptions,
 )
 from zahir.core.evaluate.worker import worker
-from zahir.core.evaluate.worker_types import WorkerBindings
+from zahir.core.evaluate.worker_types import InterpreterWrappers, WorkerBindings
 from zahir.core.exceptions import OverseerNotFoundError
 
 
@@ -46,7 +46,7 @@ def resolve_overseer(timeout_ms: int) -> Generator[Any, Any, Pid]:
 
 def _joined_worker(
     scope: Scope,
-    handler_wrappers: Sequence,
+    wrappers: InterpreterWrappers,
     bindings: WorkerBindings,
     timeouts: tuple[int, int],
 ) -> Generator[Any, Any, None]:
@@ -57,7 +57,7 @@ def _joined_worker(
     yield from worker(
         bytes(overseer),
         scope,
-        handler_wrappers,
+        wrappers,
         bindings,
         max_silence_ms=max_silence_ms,
     )
@@ -77,7 +77,7 @@ def run_remote_worker(options: RemoteWorkerOptions) -> None:
     join(
         _joined_worker,
         options.scope,
-        options.handler_wrappers,
+        options.wrappers,
         (options.handlers, options.providers),
         (timeouts.overseer_ms, timeouts.receive_ms),
         transport=transport,
@@ -93,6 +93,7 @@ def join_worker(  # noqa: PLR0913
     scope: Scope,
     security: CurveSecurity | None = None,
     handler_wrappers: Sequence = (),
+    provider_wrappers: Sequence = (),
     handlers: HandlerMap | None = None,
     providers: BindingMap | None = None,
     overseer_timeout_ms: int = OVERSEER_WHEREIS_TIMEOUT_MS,
@@ -110,7 +111,7 @@ def join_worker(  # noqa: PLR0913
     options = RemoteWorkerOptions(
         connection=RemoteConnection(host, data_port, control_port, security),
         scope=scope,
-        handler_wrappers=handler_wrappers,
+        wrappers=InterpreterWrappers(handler_wrappers, provider_wrappers),
         handlers=handlers or {},
         providers=providers or {},
         timeouts=RemoteTimeouts(overseer_timeout_ms, recv_timeout_ms),

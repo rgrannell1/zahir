@@ -5,6 +5,7 @@ import os
 from datetime import UTC, datetime
 
 import pytest
+from bookman.events import Event
 from tertius import JoinTimeoutError
 
 from tests.shared import free_ports, root_value
@@ -15,6 +16,7 @@ from zahir import (
     ResourceUsage,
     evaluate,
     join_worker,
+    make_telemetry,
     setup_remote,
 )
 from zahir.core.effects import await_all
@@ -76,6 +78,7 @@ def _run_join_worker(data_port: int, control_port: int) -> None:
             data_port=data_port,
             control_port=control_port,
             scope=_SCOPE,
+            provider_wrappers=[make_telemetry()],
             providers={
                 CurrentTime.tag: provide_remote_time,
                 FileExists.tag: provide_remote_file,
@@ -88,8 +91,8 @@ def _run_join_worker(data_port: int, control_port: int) -> None:
         return
 
 
-def _evaluate_with_joined_worker(values: tuple) -> tuple[list, int]:
-    """Run a remote swarm with one joined worker; return (root results, joiner OS pid)."""
+def _evaluate_with_joined_worker(values: tuple) -> tuple[list, int, list]:
+    """Run a remote swarm and return its root result, worker process, and events."""
 
     data_port, control_port = free_ports(2)
     joiner = _SPAWN_CTX.Process(target=_run_join_worker, args=(data_port, control_port))
@@ -98,19 +101,20 @@ def _evaluate_with_joined_worker(values: tuple) -> tuple[list, int]:
 
     runtime = setup_remote(host="127.0.0.1", data_port=data_port, control_port=control_port)
     try:
-        results = root_value(evaluate(runtime, "remote_root", (values,), _SCOPE))
+        events = list(evaluate(runtime, "remote_root", (values,), _SCOPE))
+        results = root_value(events)
     finally:
         joiner.join(timeout=15)
         if joiner.is_alive():
             joiner.terminate()
 
-    return results, joiner.pid
+    return results, joiner.pid, events
 
 
 def test_remote_worker_executes_jobs_from_another_process():
     """Proves a join_worker() process executes a remote swarm's jobs with n_workers=0."""
 
-    results, joiner_pid = _evaluate_with_joined_worker((1, 2, 3))
+    results, joiner_pid, events = _evaluate_with_joined_worker((1, 2, 3))
 
     assert [result["value"] for result in results] == [2, 4, 6]
 
@@ -120,6 +124,16 @@ def test_remote_worker_executes_jobs_from_another_process():
     assert {result["current_time"] for result in results} == {REMOTE_TIME}
     assert {result["file_exists"] for result in results} == {True}
     assert {result["resource_usage"] for result in results} == {42.0}
+    provider_events = [
+        event
+        for event in events
+        if isinstance(event, Event) and event.dim("operation_kind") == "coeffect"
+    ]
+    assert {event.dim("tag") for event in provider_events} == {
+        CurrentTime.tag,
+        FileExists.tag,
+        ResourceUsage.tag,
+    }
 
 
 def test_join_worker_fails_fast_without_a_swarm():

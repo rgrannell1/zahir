@@ -1,5 +1,6 @@
-"""Higher-order functions for composing effect handlers"""
+"""Higher-order functions for composing operation interpreters."""
 
+import inspect
 from collections.abc import Generator, Mapping, Sequence
 from collections.abc import Set as AbstractSet
 from functools import partial, reduce
@@ -8,18 +9,18 @@ from typing import Any
 from zahir.core.commons.zahir_types import HandlerCallable
 
 
-def apply_wrapper(handler: Any, wrapper: Any) -> Any:
-    """Apply a single handler wrapper to a handler."""
+def apply_wrapper(interpreter: Any, wrapper: Any) -> Any:
+    """Apply one wrapper to an operation interpreter."""
 
-    return wrapper(handler)
+    return wrapper(interpreter)
 
 
 def build_handler_map(
-    bindings: dict[str, HandlerCallable],
+    bindings: Mapping[str, HandlerCallable],
     wrappers: Sequence[Any] = (),
     skip: AbstractSet[str] = frozenset(),
 ) -> dict[str, HandlerCallable]:
-    """Build an effect-tag -> handler map, applying wrappers to each handler in order.
+    """Build a tag-to-interpreter map and apply each wrapper in order.
 
     Handlers whose tag is in skip are left unwrapped. With no wrappers, handlers
     are returned as-is.
@@ -43,8 +44,8 @@ def merge_handlers(*handler_maps: Mapping[str, HandlerCallable]) -> dict[str, Ha
 def lift(fn, *args) -> Generator[Any, Any, Any]:
     """Lift a plain call into a no-effect generator.
 
-    Used with partial to turn plain functions into effect handlers or
-    dependency conditions without each site hand-rolling a yield-less generator.
+    Used with partial to turn plain functions into operation interpreters or
+    dependency conditions without each site making a yield-less generator.
     """
 
     yield from ()
@@ -79,23 +80,25 @@ def _drive_teardown(gen, exc_caught, result) -> Generator[Any, Any, None]:
         pass
 
 
-def _wrap_call(fn, handler, effect) -> Generator[Any, Any, Any]:
-    """Generator body: run fn's two-phase setup/teardown around one handler call.
+def _wrap_call(wrapper_fn, interpreter, operation) -> Generator[Any, Any, Any]:
+    """Run a two-phase wrapper around one interpreter call.
 
-    fn(effect) is a generator with two phases separated by a bare yield (yields None):
-    - setup:    yields effects (e.g. EEmit) propagated to the caller before the handler runs
-    - teardown: runs after the handler; receives the result via send, or the exception via throw
-                if the handler raised. fn may optionally catch the thrown exception to emit
-                error telemetry — if it does not, the exception propagates normally.
+    wrapper_fn(operation) has two phases separated by a bare yield that yields None:
+    - setup: yields operations propagated to the caller before the interpreter runs
+    - teardown: receives the result via send, or the exception via throw
+                if the interpreter raised. The wrapper may catch the exception to emit
+                error telemetry. Otherwise, the exception propagates normally.
     """
 
-    gen = fn(effect)
+    gen = wrapper_fn(operation)
     yield from _drive_setup(gen)
 
     exc_caught = None
     result = None
     try:
-        result = yield from handler(effect)
+        result = interpreter(operation)
+        if inspect.isgenerator(result):
+            result = yield from result
     except Exception as exc:  # noqa: BLE001
         exc_caught = exc
 
@@ -106,13 +109,13 @@ def _wrap_call(fn, handler, effect) -> Generator[Any, Any, Any]:
     return result
 
 
-def _wrap_handler(fn, handler):
-    """Bind fn to a specific handler, producing an effect-level callable."""
+def _wrap_handler(wrapper_fn, interpreter):
+    """Bind a wrapper to one operation interpreter."""
 
-    return partial(_wrap_call, fn, handler)
+    return partial(_wrap_call, wrapper_fn, interpreter)
 
 
-def wrap(fn):
-    """Combinator that applies fn around each job-effect handler call."""
+def wrap(wrapper_fn):
+    """Apply a two-phase wrapper around an operation interpreter."""
 
-    return partial(_wrap_handler, fn)
+    return partial(_wrap_handler, wrapper_fn)

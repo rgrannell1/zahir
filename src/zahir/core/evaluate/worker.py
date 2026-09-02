@@ -31,7 +31,11 @@ from zahir.core.evaluate.job_handlers import (
     make_job_handlers,
 )
 from zahir.core.evaluate.suspension import RunningJob, SuspensionTable, WorkerLocals
-from zahir.core.evaluate.worker_types import WorkerBindings, WorkerHandlerOptions
+from zahir.core.evaluate.worker_types import (
+    InterpreterWrappers,
+    WorkerBindings,
+    WorkerHandlerOptions,
+)
 from zahir.core.exceptions import JobError, JobTimeoutError, ZahirError
 from zahir.core.scope_proxy import ScopeProxy
 from zahir.core.telemetry import execute_start_event, format_job_id, record_execute_start
@@ -276,7 +280,7 @@ def build_worker_handler_maps(options: WorkerHandlerOptions) -> tuple[HandlerMap
 def worker(  # noqa: PLR0913
     overseer_pid_bytes: bytes,
     scope: Scope,
-    handler_wrappers: Sequence,
+    wrappers: InterpreterWrappers,
     bindings: WorkerBindings,
     *,
     max_silence_ms: int | None = None,
@@ -296,11 +300,12 @@ def worker(  # noqa: PLR0913
         suspension=suspension,
         worker_locals=locals_,
         overseer=overseer,
-        handler_wrappers=handler_wrappers,
+        handler_wrappers=wrappers.handlers,
         handlers=handlers,
         max_silence_ms=max_silence_ms,
     )
     job_handlers, worker_handlers = build_worker_handler_maps(options)
     worker_body = _worker_body(suspension, locals_, job_handlers, overseer, ctx)
-    runtime = Orbis(handlers=worker_handlers, providers=build_providers(providers))
+    worker_providers = build_providers(providers, wrappers.providers)
+    runtime = Orbis(handlers=worker_handlers, providers=worker_providers)
     yield from runtime(worker_body)

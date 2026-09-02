@@ -6,8 +6,9 @@ from dataclasses import dataclass
 
 from bookman.bookman_types import Message
 from bookman.events import Dims, Event, point, span
+from orbis import Coeffect
 
-from zahir.core.commons.constants import DependencyTag, JobTag, ParkTag, Phase
+from zahir.core.commons.constants import DependencyTag, JobTag, OperationKind, ParkTag, Phase
 from zahir.core.effects import (
     EAwait,
     EEnqueue,
@@ -79,21 +80,25 @@ def get_job_id(effect) -> str | None:
             return None
 
 
-def base_dimensions(effect, span_id: str) -> Dims:
+def base_dimensions(operation, span_id: str) -> Dims:
     """We can filter all events by these dimensions."""
 
     pid = str(os.getpid())
+    operation_kind = (
+        OperationKind.COEFFECT if isinstance(operation, Coeffect) else OperationKind.EFFECT
+    )
     dims: Dims = {
         "id": [span_id],
-        "tag": [effect.tag],
+        "operation_kind": [operation_kind.value],
+        "tag": [operation.tag],
         "pid": [pid],
     }
 
-    fn = get_fn_name(effect)
+    fn = get_fn_name(operation)
     if fn:
         dims["fn"] = [fn]
 
-    job_id = get_job_id(effect)
+    job_id = get_job_id(operation)
     if job_id:
         dims["job_id"] = [job_id]
 

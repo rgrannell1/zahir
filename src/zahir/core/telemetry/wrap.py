@@ -54,10 +54,10 @@ def _resolve_lifecycle(effect, job_id: str | None, end: float) -> object | None:
     return job_lifecycle_span(effect, job_id, executed_at, end)
 
 
-def _setup_phase(effect, ctx: SpanContext, start: float):
-    """Emit the handler-start event."""
+def _setup_phase(operation, ctx: SpanContext, start: float):
+    """Emit the interpreter-start event."""
 
-    yield EEmit(start_effect_telemetry(effect, ctx.span_id, start))
+    yield EEmit(start_effect_telemetry(operation, ctx.span_id, start))
 
 
 def _format_effect_error(err: Exception) -> str:
@@ -67,42 +67,42 @@ def _format_effect_error(err: Exception) -> str:
     return "".join(traceback.format_exception(cause))
 
 
-def _success_teardown(effect, ctx: SpanContext, tspan: TimeSpan, result):
-    """Emit handler-end event and any lifecycle span that applies."""
+def _success_teardown(operation, ctx: SpanContext, tspan: TimeSpan, result):
+    """Emit the interpreter-end event and any applicable lifecycle span."""
 
-    match effect:
+    match operation:
         case EJobFail(error=err) | EStorageJobFailed(error=err):
             value = Message(_format_effect_error(err))
         case _:
             value = None
-    yield EEmit(end_effect_success_telemetry(effect, ctx.span_id, tspan, value=value))
-    lifecycle = _resolve_lifecycle(effect, ctx.job_id, tspan.end)
+    yield EEmit(end_effect_success_telemetry(operation, ctx.span_id, tspan, value=value))
+    lifecycle = _resolve_lifecycle(operation, ctx.job_id, tspan.end)
     if lifecycle:
         yield EEmit(lifecycle)
 
 
-def _error_teardown(effect, ctx: SpanContext, start: float, exc: Exception):
-    """Emit a handler-error span event."""
+def _error_teardown(operation, ctx: SpanContext, start: float, exc: Exception):
+    """Emit an interpreter-error span event."""
 
     tspan = TimeSpan(start, time.time())
-    yield EEmit(end_effect_error_telemetry(effect, ctx.span_id, tspan, str(exc)))
+    yield EEmit(end_effect_error_telemetry(operation, ctx.span_id, tspan, str(exc)))
 
 
-def _telemetry_fn(effect):
-    """Emit telemetry events around the handler call."""
+def _telemetry_fn(operation):
+    """Emit telemetry events around an interpreter call."""
 
-    ctx = SpanContext(span_id=str(uuid.uuid4()), job_id=get_job_id(effect))
+    ctx = SpanContext(span_id=str(uuid.uuid4()), job_id=get_job_id(operation))
     start = time.time()
-    yield from _setup_phase(effect, ctx, start)
+    yield from _setup_phase(operation, ctx, start)
 
     try:
         result = yield
-        yield from _success_teardown(effect, ctx, TimeSpan(start, time.time()), result)
+        yield from _success_teardown(operation, ctx, TimeSpan(start, time.time()), result)
     except Exception as exc:  # noqa: BLE001
-        yield from _error_teardown(effect, ctx, start, exc)
+        yield from _error_teardown(operation, ctx, start, exc)
 
 
 def make_telemetry():
-    """Build a handler wrapper that emits bookman Events via EEmit."""
+    """Build an interpreter wrapper that emits bookman Events via EEmit."""
 
     return wrap(_telemetry_fn)

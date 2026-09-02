@@ -36,6 +36,7 @@ def test_emits_start_event_before_handler():
     effects, _ = drain_to(handler(EAwait(jobs=[JobSpec("job_a")])))
     events = _emitted(effects)
     assert events[0].kind == "point"
+    assert events[0].dim("operation_kind") == "effect"
 
 
 def test_emits_span_end_after_handler():

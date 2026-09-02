@@ -1,6 +1,7 @@
 """Defines contextual requests and their default Zahir providers."""
 
 import pathlib
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import ClassVar, Literal, LiteralString
@@ -8,6 +9,7 @@ from typing import ClassVar, Literal, LiteralString
 import psutil
 from orbis import BindingMap, Coeffect
 
+from zahir.core.combinators import build_handler_map
 from zahir.core.commons.constants import CPU_SAMPLE_INTERVAL_S
 
 type ResourceType = Literal["cpu", "memory"]
@@ -68,7 +70,11 @@ def build_default_providers() -> BindingMap:
     }
 
 
-def build_providers(overrides: BindingMap | None = None) -> BindingMap:
-    """Build worker providers with caller overrides applied last."""
+def build_providers(
+    overrides: BindingMap | None = None,
+    wrappers: Sequence = (),
+) -> BindingMap:
+    """Build wrapped worker providers with caller overrides applied last."""
 
-    return {**build_default_providers(), **(overrides or {})}
+    providers = {**build_default_providers(), **(overrides or {})}
+    return build_handler_map(providers, wrappers)

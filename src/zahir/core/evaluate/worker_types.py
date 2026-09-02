@@ -13,6 +13,14 @@ type WorkerBindings = tuple[HandlerMap, BindingMap]
 
 
 @dataclass(frozen=True)
+class InterpreterWrappers:
+    """Separate wrappers for effect handlers and coeffect providers."""
+
+    handlers: Sequence
+    providers: Sequence
+
+
+@dataclass(frozen=True)
 class WorkerHandlerOptions:
     """Inputs used to build a worker handler map."""
 
