@@ -2,22 +2,34 @@
 
 import multiprocessing
 import os
+from datetime import UTC, datetime
 
 import pytest
 from tertius import JoinTimeoutError
 
 from tests.shared import free_ports, root_value
+from zahir import CurrentTime, JobContext, evaluate, join_worker, setup_remote
 from zahir.core.effects import await_all
-from zahir.core.evaluate import JobContext, evaluate, join_worker, setup_remote
 
 _SPAWN_CTX = multiprocessing.get_context("spawn")
+REMOTE_TIME = datetime(2030, 1, 1, tzinfo=UTC)
+
+
+def provide_remote_time(_coeffect: CurrentTime) -> datetime:
+    """Provide a fixed time inside the joined worker."""
+
+    return REMOTE_TIME
 
 
 def remote_leaf(ctx: JobContext, value: int):
     """Double the value and report which OS process executed it."""
 
-    yield from ()
-    return {"value": value * 2, "worker_os_pid": os.getpid()}
+    current_time = yield CurrentTime()
+    return {
+        "value": value * 2,
+        "worker_os_pid": os.getpid(),
+        "current_time": current_time,
+    }
 
 
 def remote_root(ctx: JobContext, values: tuple):
@@ -40,6 +52,7 @@ def _run_join_worker(data_port: int, control_port: int) -> None:
             data_port=data_port,
             control_port=control_port,
             scope=_SCOPE,
+            providers={CurrentTime.tag: provide_remote_time},
             recv_timeout_ms=5_000,
         )
     except Exception:  # noqa: BLE001
@@ -76,6 +89,7 @@ def test_remote_worker_executes_jobs_from_another_process():
     worker_os_pids = {result["worker_os_pid"] for result in results}
     assert worker_os_pids == {joiner_pid}, "all jobs should run in the joined worker process"
     assert os.getpid() not in worker_os_pids
+    assert {result["current_time"] for result in results} == {REMOTE_TIME}
 
 
 def test_join_worker_fails_fast_without_a_swarm():

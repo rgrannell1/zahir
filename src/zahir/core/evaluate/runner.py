@@ -6,7 +6,7 @@ Spawns overseer and workers, seeds root job, long-polls for completion.
 from collections.abc import Generator, Sequence
 from typing import Any
 
-from orbis import handle
+from orbis import BindingMap, handle
 from tertius import EEmit, ESpawn, Pid, Scope, SpawnMode, run
 
 from zahir.core.backends.memory import make_memory_storage_handlers
@@ -31,8 +31,9 @@ from zahir.core.exceptions import ZahirError
 
 type EvaluationInputs = tuple[str, tuple, Scope]
 
-# (handler_wrappers, overseer bag: storage+user, worker/root bag: user only)
-type RuntimeBindings = tuple[Sequence, HandlerMap, HandlerMap]
+# Wrappers, overseer handlers, worker handlers, and worker providers.
+type RuntimeBindings = tuple[Sequence, HandlerMap, HandlerMap, BindingMap]
+type EvaluationSetup = tuple[RuntimeBindings, Scope]
 
 
 def _poll_completion() -> Generator[Any, Any, None]:
@@ -86,7 +87,7 @@ def _evaluate_runner(
     """Run the root job and wait for completion."""
 
     fn_name, args, scope = inputs
-    handler_wrappers, overseer_handlers, handlers = bindings
+    handler_wrappers, overseer_handlers, handlers, providers = bindings
 
     # Only the overseer holds the storage backend; workers and the root carry
     # user handlers plus transport bindings.
@@ -96,7 +97,7 @@ def _evaluate_runner(
         bytes(overseer),
         scope,
         handler_wrappers,
-        handlers,
+        (handlers, providers),
     )
 
     yield from spawn_workers(runtime, worker_args)
@@ -110,16 +111,8 @@ def _evaluate_runner(
     yield from handle(_kickoff(fn_name, args), root_handlers)
 
 
-def evaluate(  # noqa: PLR0913
-    runtime: Runtime,
-    fn_name: str,
-    args: tuple,
-    scope: Scope,
-    *,
-    handler_wrappers: Sequence = (),
-    handlers: HandlerMap | None = None,
-) -> Generator[Any]:
-    """Entry point. Run a job and wait for completion."""
+def validate_evaluation(fn_name: str, scope: Scope, handlers: HandlerMap | None) -> None:
+    """Reject invalid evaluation inputs before the runtime starts."""
 
     if fn_name not in scope:
         raise KeyError(f"job {fn_name!r} not found in scope")
@@ -128,20 +121,49 @@ def evaluate(  # noqa: PLR0913
     if user_storage_tags:
         raise ZahirError(f"user handlers may not bind storage tags: {user_storage_tags}")
 
+
+def make_evaluation_setup(
+    scope: Scope,
+    handler_wrappers: Sequence,
+    handlers: HandlerMap | None,
+    providers: BindingMap | None,
+) -> EvaluationSetup:
+    """Build runtime handlers and add internal jobs to the runtime scope."""
+
+    user_handlers = handlers or {}
     memory_handlers = make_memory_storage_handlers(handler_wrappers)
     overseer_handlers = merge_handlers(
-        memory_handlers, build_handler_map(handlers or {}, handler_wrappers)
+        memory_handlers, build_handler_map(user_handlers, handler_wrappers)
     )
-    full_scope: Scope = {
-        "run_overseer": run_overseer,
-        "worker": worker,
-        **scope,
-    }
+    full_scope: Scope = {"run_overseer": run_overseer, "worker": worker, **scope}
+    bindings = (handler_wrappers, overseer_handlers, user_handlers, providers or {})
+    return bindings, full_scope
+
+
+def evaluate(  # noqa: PLR0913
+    runtime: Runtime,
+    fn_name: str,
+    args: tuple,
+    scope: Scope,
+    *,
+    handler_wrappers: Sequence = (),
+    handlers: HandlerMap | None = None,
+    providers: BindingMap | None = None,
+) -> Generator[Any]:
+    """Entry point. Run a job and wait for completion."""
+
+    validate_evaluation(fn_name, scope, handlers)
+    bindings, full_scope = make_evaluation_setup(
+        scope,
+        handler_wrappers,
+        handlers,
+        providers,
+    )
     yield from run(
         _evaluate_runner,
         runtime,
         (fn_name, args, scope),
-        (handler_wrappers, overseer_handlers, handlers or {}),
+        bindings,
         scope=full_scope,
         transport=runtime.transport,
     )

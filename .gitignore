@@ -15,3 +15,7 @@ build/*
 logs/
 .chainlit/
 *.annotations
+bugs.md
+llms.txt
+ocaml-proposal.md
+zahir.svg

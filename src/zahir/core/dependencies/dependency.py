@@ -70,8 +70,13 @@ def dependency(
 
         state, metadata = yield from condition_fn()
 
-        if state != DependencyState.UNSATISFIED:
-            return (yield from finish(label, (state, metadata)))
+        if state == DependencyState.SATISFIED:
+            result = (DependencyState.SATISFIED, metadata)
+            return (yield from finish(label, result))
+
+        if state == DependencyState.IMPOSSIBLE:
+            result = (DependencyState.IMPOSSIBLE, metadata)
+            return (yield from finish(label, result))
 
         yield EEmit(dependency_waiting_event(label))
         yield ESleep(ms=poll_ms)

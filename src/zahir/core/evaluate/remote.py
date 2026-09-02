@@ -9,6 +9,7 @@ runs the standard worker loop, pulling jobs until the swarm shuts down.
 from collections.abc import Generator, Sequence
 from typing import Any
 
+from orbis import BindingMap
 from tertius import CurveSecurity, ESleep, EWhereis, Pid, Scope, TcpTransport, join
 
 from zahir.core.commons.constants import (
@@ -24,6 +25,7 @@ from zahir.core.evaluate.remote_types import (
     RemoteWorkerOptions,
 )
 from zahir.core.evaluate.worker import worker
+from zahir.core.evaluate.worker_types import WorkerBindings
 from zahir.core.exceptions import OverseerNotFoundError
 
 
@@ -45,7 +47,7 @@ def resolve_overseer(timeout_ms: int) -> Generator[Any, Any, Pid]:
 def _joined_worker(
     scope: Scope,
     handler_wrappers: Sequence,
-    handlers: HandlerMap,
+    bindings: WorkerBindings,
     timeouts: tuple[int, int],
 ) -> Generator[Any, Any, None]:
     """Resolve the overseer by name, then run the standard worker loop against it."""
@@ -53,7 +55,11 @@ def _joined_worker(
     overseer_timeout_ms, max_silence_ms = timeouts
     overseer = yield from resolve_overseer(overseer_timeout_ms)
     yield from worker(
-        bytes(overseer), scope, handler_wrappers, handlers, max_silence_ms=max_silence_ms
+        bytes(overseer),
+        scope,
+        handler_wrappers,
+        bindings,
+        max_silence_ms=max_silence_ms,
     )
 
 
@@ -72,7 +78,7 @@ def run_remote_worker(options: RemoteWorkerOptions) -> None:
         _joined_worker,
         options.scope,
         options.handler_wrappers,
-        options.handlers,
+        (options.handlers, options.providers),
         (timeouts.overseer_ms, timeouts.receive_ms),
         transport=transport,
         recv_timeout_ms=timeouts.receive_ms,
@@ -88,6 +94,7 @@ def join_worker(  # noqa: PLR0913
     security: CurveSecurity | None = None,
     handler_wrappers: Sequence = (),
     handlers: HandlerMap | None = None,
+    providers: BindingMap | None = None,
     overseer_timeout_ms: int = OVERSEER_WHEREIS_TIMEOUT_MS,
     recv_timeout_ms: int = REMOTE_RECV_TIMEOUT_MS,
 ) -> None:
@@ -105,6 +112,7 @@ def join_worker(  # noqa: PLR0913
         scope=scope,
         handler_wrappers=handler_wrappers,
         handlers=handlers or {},
+        providers=providers or {},
         timeouts=RemoteTimeouts(overseer_timeout_ms, recv_timeout_ms),
     )
     run_remote_worker(options)

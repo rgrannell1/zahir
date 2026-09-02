@@ -3,6 +3,7 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from orbis import BindingMap
 from tertius import CurveSecurity, Scope
 
 from zahir.core.commons.zahir_types import HandlerMap
@@ -34,4 +35,5 @@ class RemoteWorkerOptions:
     scope: Scope
     handler_wrappers: Sequence
     handlers: HandlerMap
+    providers: BindingMap
     timeouts: RemoteTimeouts

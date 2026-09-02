@@ -1,10 +1,11 @@
 [project]
-name = "zahir2"
+name = "zahir"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "orbis",
     "pdoc>=16.0.0",
     "psutil>=7.2.2",
     "rich>=13.0.0",
@@ -21,7 +22,6 @@ bookman = { path = "../bookman", editable = true }
 dev = [
     "bookman>=0.5",
     "mypy>=1.20.2",
-    "orbis",
     "pyright>=1.1.408",
     "pytest",
     "pytest-cov>=7.1.0",
@@ -40,7 +40,7 @@ markers = ["local_only: test only runs on the local dev machine, skipped in CI"]
 
 [tool.pyright]
 # vulture_whitelist is not real code; attribute stubs marking dynamically-read names as used.
-exclude = ["vulture_whitelist.py", "**/__pycache__", ".venv", "docs"]
+exclude = ["vulture_whitelist.py", "**/__pycache__", ".venv", "build", "docs"]
 
 [tool.ruff]
 line-length = 100

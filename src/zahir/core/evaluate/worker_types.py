@@ -3,10 +3,13 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from orbis import BindingMap
 from tertius import Pid
 
 from zahir.core.commons.zahir_types import HandlerMap
 from zahir.core.evaluate.suspension import SuspensionTable, WorkerLocals
+
+type WorkerBindings = tuple[HandlerMap, BindingMap]
 
 
 @dataclass(frozen=True)

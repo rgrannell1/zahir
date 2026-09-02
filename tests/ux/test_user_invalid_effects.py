@@ -4,7 +4,7 @@ from tertius import EEmit, EReceive
 from tests.shared import user_events
 from zahir.core.effects import EStorageAcquire
 from zahir.core.evaluate import JobContext, evaluate, setup
-from zahir.core.exceptions import InvalidEffectError
+from zahir.core.exceptions import InvalidEffectError, ZahirError
 
 
 def job_yielding_non_effect(ctx: JobContext):
@@ -90,3 +90,21 @@ def test_missing_fn_name_raises_before_spawn():
 
     with pytest.raises(KeyError, match="not found in scope"):
         list(evaluate(setup(n_workers=1), "nonexistent", (), {}))
+
+
+def test_storage_handler_binding_raises_before_spawn():
+    """Proves evaluate rejects user handlers for internal storage effects."""
+
+    handlers = {EStorageAcquire.tag: job_yielding_storage_effect}
+    scope = {"job_yielding_storage_effect": job_yielding_storage_effect}
+
+    with pytest.raises(ZahirError, match="may not bind storage tags"):
+        list(
+            evaluate(
+                setup(n_workers=1),
+                "job_yielding_storage_effect",
+                (),
+                scope,
+                handlers=handlers,
+            )
+        )

@@ -6,9 +6,10 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Any
 
-from orbis import handle
+from orbis import Orbis
 from tertius import EEmit, ESelf, Pid, Scope
 
+from zahir.core.coeffects import build_providers
 from zahir.core.combinators import build_handler_map, merge_handlers
 from zahir.core.commons.clock import monotonic_deadline
 from zahir.core.commons.fp_types import Err, Ok
@@ -30,7 +31,7 @@ from zahir.core.evaluate.job_handlers import (
     make_job_handlers,
 )
 from zahir.core.evaluate.suspension import RunningJob, SuspensionTable, WorkerLocals
-from zahir.core.evaluate.worker_types import WorkerHandlerOptions
+from zahir.core.evaluate.worker_types import WorkerBindings, WorkerHandlerOptions
 from zahir.core.exceptions import JobError, JobTimeoutError, ZahirError
 from zahir.core.scope_proxy import ScopeProxy
 from zahir.core.telemetry import execute_start_event, format_job_id, record_execute_start
@@ -276,13 +277,14 @@ def worker(  # noqa: PLR0913
     overseer_pid_bytes: bytes,
     scope: Scope,
     handler_wrappers: Sequence,
-    handlers: HandlerMap,
+    bindings: WorkerBindings,
     *,
     max_silence_ms: int | None = None,
 ) -> Generator[Any, Any, None]:
     """zahir worker main loop"""
 
     overseer = Pid.from_bytes(overseer_pid_bytes)
+    handlers, providers = bindings
     ctx: JobContext = JobContext(
         fns=scope,
         scope=ScopeProxy(scope),
@@ -300,4 +302,5 @@ def worker(  # noqa: PLR0913
     )
     job_handlers, worker_handlers = build_worker_handler_maps(options)
     worker_body = _worker_body(suspension, locals_, job_handlers, overseer, ctx)
-    yield from handle(worker_body, worker_handlers)
+    runtime = Orbis(handlers=worker_handlers, providers=build_providers(providers))
+    yield from runtime(worker_body)
