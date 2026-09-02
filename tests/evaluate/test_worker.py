@@ -144,8 +144,14 @@ def test_build_job_zero_timeout_sets_immediate_deadline():
 
     ctx = JobContext(fns={"zero_job": zero_job}, scope=None)
     spec = JobSpec(fn_name="zero_job", timeout_ms=0)
-    job = _build_job(spec, ctx, _handlers())
+    effects, job = drain_to(
+        _build_job(spec, ctx, _handlers()),
+        MonotonicTime,
+        responses={MonotonicTime: 10.0},
+    )
 
+    assert len(effects) == 1
+    assert job.deadline == 10.0
     with pytest.raises(JobTimeoutError):
         runtime = Orbis(providers=build_default_providers())
         drain_to(runtime(job.eval_gen))
@@ -158,16 +164,17 @@ def test_idle_worker_times_out_expired_suspended_parent():
     """Proves an idle pass resumes an expired suspended parent by throwing JobTimeoutError."""
 
     suspension = SuspensionTable()
-    parent = make_deadlined_parent(deadline=time.monotonic() - 1.0)
+    parent = make_deadlined_parent(deadline=10.0)
     spec = EAwait(jobs=[JobSpec(fn_name="child")], scalar=True)
     list(suspension.suspend(spec, parent, b"me"))
 
-    gen = _handle_idle(suspension, None, b"me", _handlers())
-    next(gen)  # EGetJob
-    with pytest.raises(StopIteration) as exc:
-        gen.send(None)
+    effects, state = drain_to(
+        _handle_idle(suspension, None, b"me", _handlers()),
+        MonotonicTime,
+        responses={MonotonicTime: 11.0},
+    )
 
-    state = exc.value.value
+    assert len(effects) == 1
     assert isinstance(state, _Running)
     assert state.job.fn_name == "parent"
     assert isinstance(state.pending_throw, JobTimeoutError)
@@ -177,16 +184,18 @@ def test_idle_worker_leaves_live_suspended_parents_alone():
     """Proves an idle pass with no expired parents stays idle."""
 
     suspension = SuspensionTable()
-    parent = make_deadlined_parent(deadline=time.monotonic() + 60.0)
+    parent = make_deadlined_parent(deadline=10.0)
     spec = EAwait(jobs=[JobSpec(fn_name="child")], scalar=True)
     list(suspension.suspend(spec, parent, b"me"))
 
-    gen = _handle_idle(suspension, None, b"me", _handlers())
-    next(gen)  # EGetJob
-    with pytest.raises(StopIteration) as exc:
-        gen.send(None)
+    effects, state = drain_to(
+        _handle_idle(suspension, None, b"me", _handlers()),
+        MonotonicTime,
+        responses={MonotonicTime: 9.0},
+    )
 
-    assert isinstance(exc.value.value, _Idle)
+    assert len(effects) == 1
+    assert isinstance(state, _Idle)
 
 
 # evaluate_job — acquired tracking

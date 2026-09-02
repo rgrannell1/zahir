@@ -1,6 +1,5 @@
 """Worker process: fetches jobs from the overseer, drives them step by step, suspends on EAwait."""
 
-import time
 from collections.abc import Generator, Sequence
 from dataclasses import dataclass
 from functools import partial
@@ -9,9 +8,9 @@ from typing import Any
 from orbis import Orbis
 from tertius import EEmit, ESelf, Pid, Scope
 
-from zahir.core.coeffects import build_providers
+from zahir.core.coeffects import MonotonicTime, build_providers
 from zahir.core.combinators import build_handler_map, merge_handlers
-from zahir.core.commons.clock import monotonic_deadline
+from zahir.core.commons.clock import calculate_monotonic_deadline
 from zahir.core.commons.fp_types import Err, Ok
 from zahir.core.commons.generators import resume
 from zahir.core.commons.zahir_types import HandlerMap, JobContext, JobSpec, ResultItem
@@ -62,10 +61,15 @@ class _Running:
 type WorkerState = _Idle | _Running
 
 
-def _build_job(spec: JobSpec, ctx: Any, job_handlers: HandlerMap) -> RunningJob:
+def _build_job(
+    spec: JobSpec, ctx: Any, job_handlers: HandlerMap
+) -> Generator[Any, Any, RunningJob]:
     """Construct a RunningJob from a dequeued JobSpec."""
 
-    deadline = monotonic_deadline(spec.timeout_ms)
+    deadline = None
+    if spec.timeout_ms is not None:
+        current_time = yield MonotonicTime()
+        deadline = calculate_monotonic_deadline(current_time, spec.timeout_ms)
     job_call: Generator = ctx.fns[spec.fn_name](ctx, *spec.args, **spec.kwargs)
     eval_gen: Generator = evaluate_job(job_call, job_handlers, deadline)
 
@@ -136,13 +140,15 @@ def _handle_job_work_item(
         job_id = "root"
     record_execute_start(job_id)
     yield EEmit(execute_start_event(spec.fn_name, job_id))
-    return _Running(job=_build_job(spec, ctx, job_handlers))
+    job = yield from _build_job(spec, ctx, job_handlers)
+    return _Running(job=job)
 
 
-def _expire_or_idle(suspension: SuspensionTable) -> WorkerState:
+def _expire_or_idle(suspension: SuspensionTable) -> Generator[Any, Any, WorkerState]:
     """Fail one expired suspended parent by resuming it with JobTimeoutError, or stay idle."""
 
-    expired = suspension.pop_expired(time.monotonic())
+    current_time = yield MonotonicTime()
+    expired = suspension.pop_expired(current_time)
     if expired is None:
         return _Idle()
     return _Running(job=expired, pending_throw=JobTimeoutError())
@@ -163,7 +169,7 @@ def _handle_idle(
 
     match work:
         case None:
-            return _expire_or_idle(suspension)
+            return (yield from _expire_or_idle(suspension))
         case ResultItem():
             return _handle_result_work_item(suspension, work)
         case JobSpec():

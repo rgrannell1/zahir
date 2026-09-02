@@ -1,14 +1,10 @@
 """Monotonic-clock deadline arithmetic, immune to wall-clock steps."""
 
-import time
 
+def calculate_monotonic_deadline(current_time: float, timeout_ms: int) -> float:
+    """Add a timeout in ms to a monotonic-clock instant.
 
-def monotonic_deadline(timeout_ms: int | None) -> float | None:
-    """Convert a timeout in ms to a monotonic-clock instant.
-
-    timeout_ms=0 is a real (immediate) deadline; only None means no deadline.
+    timeout_ms=0 is a real immediate deadline.
     """
 
-    if timeout_ms is None:
-        return None
-    return time.monotonic() + timeout_ms / 1000
+    return current_time + timeout_ms / 1000

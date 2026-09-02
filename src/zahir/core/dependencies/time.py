@@ -2,11 +2,11 @@
 """Defines the dependency that waits for a wall-clock window."""
 
 from collections.abc import Generator
-from datetime import UTC, datetime
+from datetime import datetime
 from functools import partial
 from typing import Any
 
-from zahir.core.coeffects import CurrentTime
+from zahir.core.coeffects import CurrentTime, provide_current_time
 from zahir.core.commons.constants import DependencyState
 from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.dependencies.dependency import dependency
@@ -35,7 +35,8 @@ def time_condition(
 ) -> ConditionResult:
     """Evaluate a time window directly for compatibility with the public API."""
 
-    return classify_time_window(datetime.now(tz=UTC), before, after)
+    current_time = provide_current_time(CurrentTime())
+    return classify_time_window(current_time, before, after)
 
 
 def request_time_condition(
