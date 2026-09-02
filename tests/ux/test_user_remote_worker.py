@@ -8,7 +8,15 @@ import pytest
 from tertius import JoinTimeoutError
 
 from tests.shared import free_ports, root_value
-from zahir import CurrentTime, JobContext, evaluate, join_worker, setup_remote
+from zahir import (
+    CurrentTime,
+    FileExists,
+    JobContext,
+    ResourceUsage,
+    evaluate,
+    join_worker,
+    setup_remote,
+)
 from zahir.core.effects import await_all
 
 _SPAWN_CTX = multiprocessing.get_context("spawn")
@@ -21,14 +29,30 @@ def provide_remote_time(_coeffect: CurrentTime) -> datetime:
     return REMOTE_TIME
 
 
+def provide_remote_resource(_coeffect: ResourceUsage) -> float:
+    """Provide fixed resource usage inside the joined worker."""
+
+    return 42.0
+
+
+def provide_remote_file(_coeffect: FileExists) -> bool:
+    """Provide fixed file existence inside the joined worker."""
+
+    return True
+
+
 def remote_leaf(ctx: JobContext, value: int):
     """Double the value and report which OS process executed it."""
 
     current_time = yield CurrentTime()
+    file_exists = yield FileExists("/not/present/on/the/worker")
+    resource_usage = yield ResourceUsage("memory")
     return {
         "value": value * 2,
         "worker_os_pid": os.getpid(),
         "current_time": current_time,
+        "file_exists": file_exists,
+        "resource_usage": resource_usage,
     }
 
 
@@ -52,7 +76,11 @@ def _run_join_worker(data_port: int, control_port: int) -> None:
             data_port=data_port,
             control_port=control_port,
             scope=_SCOPE,
-            providers={CurrentTime.tag: provide_remote_time},
+            providers={
+                CurrentTime.tag: provide_remote_time,
+                FileExists.tag: provide_remote_file,
+                ResourceUsage.tag: provide_remote_resource,
+            },
             recv_timeout_ms=5_000,
         )
     except Exception:  # noqa: BLE001
@@ -90,6 +118,8 @@ def test_remote_worker_executes_jobs_from_another_process():
     assert worker_os_pids == {joiner_pid}, "all jobs should run in the joined worker process"
     assert os.getpid() not in worker_os_pids
     assert {result["current_time"] for result in results} == {REMOTE_TIME}
+    assert {result["file_exists"] for result in results} == {True}
+    assert {result["resource_usage"] for result in results} == {42.0}
 
 
 def test_join_worker_fails_fast_without_a_swarm():

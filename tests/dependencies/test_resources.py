@@ -1,10 +1,19 @@
 import time
+from typing import cast
 from unittest.mock import patch
 
+import pytest
 import time_machine
+from orbis import Orbis
 from tertius import EEmit, ESleep
 
 from tests.shared import NOW, drain_to
+from zahir.core.coeffects import (
+    ResourceType,
+    ResourceUsage,
+    build_default_providers,
+    provide_resource_usage,
+)
 from zahir.core.dependencies.resources import resource_dependency
 
 
@@ -16,12 +25,33 @@ def _high_usage(_resource):
     return 90.0
 
 
+def test_resource_dependency_requests_resource_usage():
+    """Proves the resource dependency obtains usage through a coeffect."""
+
+    assert isinstance(next(resource_dependency("cpu", max_percent=50.0)), ResourceUsage)
+
+
+def test_resource_provider_rejects_unknown_resource():
+    """Proves the provider rejects resource names outside its public type."""
+
+    resource = cast("ResourceType", "disk")
+    with pytest.raises(ValueError, match="unsupported resource"):
+        provide_resource_usage(ResourceUsage(resource))
+
+
+def interpret_resource_dependency(resource, max_percent, timeout=None):
+    """Apply the worker's default contextual providers to a resource dependency."""
+
+    runtime = Orbis(providers=build_default_providers())
+    return runtime(resource_dependency(resource, max_percent, timeout))
+
+
 @time_machine.travel(NOW, tick=False)
 def test_cpu_below_limit_emits_satisfied():
     """Proves cpu usage below max_percent emits satisfied."""
 
-    with patch("zahir.core.dependencies.resources._get_usage", _low_usage):
-        emit = next(resource_dependency("cpu", max_percent=50.0))
+    with patch("zahir.core.coeffects.provide_resource_usage", _low_usage):
+        emit = next(interpret_resource_dependency("cpu", max_percent=50.0))
     assert isinstance(emit, EEmit)
     assert emit.body[0] == "satisfied"
 
@@ -30,8 +60,8 @@ def test_cpu_below_limit_emits_satisfied():
 def test_memory_below_limit_emits_satisfied():
     """Proves memory usage below max_percent emits satisfied."""
 
-    with patch("zahir.core.dependencies.resources._get_usage", _low_usage):
-        emit = next(resource_dependency("memory", max_percent=50.0))
+    with patch("zahir.core.coeffects.provide_resource_usage", _low_usage):
+        emit = next(interpret_resource_dependency("memory", max_percent=50.0))
     assert emit.body[0] == "satisfied"
 
 
@@ -40,8 +70,8 @@ def test_usage_above_limit_yields_sleep():
     """Proves usage exceeding max_percent yields ESleep."""
 
     calls = iter([_high_usage, _low_usage])
-    with patch("zahir.core.dependencies.resources._get_usage", lambda r: next(calls)(r)):
-        effects, _ = drain_to(resource_dependency("cpu", max_percent=50.0))
+    with patch("zahir.core.coeffects.provide_resource_usage", lambda r: next(calls)(r)):
+        effects, _ = drain_to(interpret_resource_dependency("cpu", max_percent=50.0))
     assert any(isinstance(e, ESleep) for e in effects)
 
 
@@ -49,8 +79,8 @@ def test_usage_above_limit_yields_sleep():
 def test_usage_at_limit_emits_satisfied():
     """Proves usage exactly at max_percent is considered within limit."""
 
-    with patch("zahir.core.dependencies.resources._get_usage", lambda _: 50.0):
-        emit = next(resource_dependency("cpu", max_percent=50.0))
+    with patch("zahir.core.coeffects.provide_resource_usage", lambda _: 50.0):
+        emit = next(interpret_resource_dependency("cpu", max_percent=50.0))
     assert emit.body[0] == "satisfied"
 
 
@@ -58,8 +88,8 @@ def test_usage_at_limit_emits_satisfied():
 def test_satisfied_metadata_includes_resource_and_limit():
     """Proves the satisfied body contains the resource type and max_percent."""
 
-    with patch("zahir.core.dependencies.resources._get_usage", _low_usage):
-        emit = next(resource_dependency("cpu", max_percent=75.0))
+    with patch("zahir.core.coeffects.provide_resource_usage", _low_usage):
+        emit = next(interpret_resource_dependency("cpu", max_percent=75.0))
 
     assert emit.body[0] == "satisfied"
     assert emit.body[1]["resource"] == "cpu"
@@ -69,9 +99,9 @@ def test_satisfied_metadata_includes_resource_and_limit():
 def test_timeout_emits_impossible():
     """Proves exceeding timeout emits impossible."""
 
-    with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
+    with patch("zahir.core.coeffects.provide_resource_usage", _high_usage):
         with time_machine.travel(NOW, tick=False):
-            gen = resource_dependency("cpu", max_percent=50.0, timeout=1.0)
+            gen = interpret_resource_dependency("cpu", max_percent=50.0, timeout=1.0)
             next(gen)  # advance through one retry: EEmit(waiting)
             next(gen)  # advance through one retry: ESleep
 
@@ -85,9 +115,9 @@ def test_timeout_emits_impossible():
 def test_timeout_reason_includes_resource_and_duration():
     """Proves the impossible reason includes the resource type and timeout duration."""
 
-    with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
+    with patch("zahir.core.coeffects.provide_resource_usage", _high_usage):
         with time_machine.travel(NOW, tick=False):
-            gen = resource_dependency("memory", max_percent=50.0, timeout=30.0)
+            gen = interpret_resource_dependency("memory", max_percent=50.0, timeout=30.0)
             next(gen)  # advance through one retry: EEmit(waiting)
             next(gen)  # advance through one retry: ESleep
 
@@ -105,10 +135,10 @@ def test_high_then_low_usage_emits_satisfied():
     calls = iter([_high_usage, _low_usage])
 
     with patch(
-        "zahir.core.dependencies.resources._get_usage",
+        "zahir.core.coeffects.provide_resource_usage",
         lambda resource: next(calls)(resource),
     ), time_machine.travel(NOW, tick=False):
-        effects, _ = drain_to(resource_dependency("cpu", max_percent=50.0))
+        effects, _ = drain_to(interpret_resource_dependency("cpu", max_percent=50.0))
 
     assert any(isinstance(e, ESleep) for e in effects)
     emits = [e for e in effects if isinstance(e, EEmit)]
@@ -122,17 +152,18 @@ def test_high_then_low_usage_emits_satisfied():
 def test_satisfied_returns_tuple_as_generator_value():
     """Proves the generator returns the satisfied tuple as its StopIteration value."""
 
-    with patch("zahir.core.dependencies.resources._get_usage", _low_usage):
-        emits, return_value = drain_to(resource_dependency("cpu", max_percent=50.0), EEmit)
+    with patch("zahir.core.coeffects.provide_resource_usage", _low_usage):
+        dependency = interpret_resource_dependency("cpu", max_percent=50.0)
+        emits, return_value = drain_to(dependency, EEmit)
     assert return_value is emits[0].body
 
 
 def test_impossible_returns_tuple_as_generator_value():
     """Proves the generator returns the impossible tuple as its StopIteration value."""
 
-    with patch("zahir.core.dependencies.resources._get_usage", _high_usage):
+    with patch("zahir.core.coeffects.provide_resource_usage", _high_usage):
         with time_machine.travel(NOW, tick=False):
-            gen = resource_dependency("cpu", max_percent=50.0, timeout=1.0)
+            gen = interpret_resource_dependency("cpu", max_percent=50.0, timeout=1.0)
             next(gen)  # advance through one retry: EEmit(waiting)
             next(gen)  # advance through one retry: ESleep
 

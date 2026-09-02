@@ -2,24 +2,25 @@
 
 from collections.abc import Generator
 from functools import partial
-from typing import Any, Literal
+from typing import Any
 
-import psutil
-
-from zahir.core.combinators import lift
-from zahir.core.commons.constants import CPU_SAMPLE_INTERVAL_S, DependencyState
+from zahir.core.coeffects import ResourceType, ResourceUsage, provide_resource_usage
+from zahir.core.commons.constants import DependencyState
 from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.dependencies.dependency import dependency
 
-type ResourceType = Literal["cpu", "memory"]
 
+def classify_resource_usage(
+    resource: ResourceType,
+    max_percent: float,
+    usage_percent: float,
+) -> ConditionResult:
+    """Classify one resource usage observation against its limit."""
 
-def _get_usage(resource: ResourceType) -> float:
-    match resource:
-        case "cpu":
-            return psutil.cpu_percent(interval=CPU_SAMPLE_INTERVAL_S)
-        case "memory":
-            return psutil.virtual_memory().percent
+    metadata = {"resource": resource, "max_percent": max_percent}
+    if usage_percent <= max_percent:
+        return (DependencyState.SATISFIED, metadata)
+    return (DependencyState.UNSATISFIED, metadata)
 
 
 def resource_condition(
@@ -27,10 +28,18 @@ def resource_condition(
     max_percent: float,
 ) -> ConditionResult:
     """Returns satisfied if resource usage is within the limit, unsatisfied otherwise."""
-    metadata = {"resource": resource, "max_percent": max_percent}
-    if _get_usage(resource) <= max_percent:
-        return (DependencyState.SATISFIED, metadata)
-    return (DependencyState.UNSATISFIED, metadata)
+    usage_percent = provide_resource_usage(ResourceUsage(resource))
+    return classify_resource_usage(resource, max_percent, usage_percent)
+
+
+def request_resource_condition(
+    resource: ResourceType,
+    max_percent: float,
+) -> Generator[Any, Any, ConditionResult]:
+    """Classify resource usage supplied by the worker context."""
+
+    usage_percent = yield ResourceUsage(resource)
+    return classify_resource_usage(resource, max_percent, usage_percent)
 
 
 def resource_dependency(
@@ -41,7 +50,7 @@ def resource_dependency(
     timeout_ms = int(timeout * 1000) if timeout is not None else None
 
     return dependency(
-        partial(lift, resource_condition, resource, max_percent),
+        partial(request_resource_condition, resource, max_percent),
         timeout_ms=timeout_ms,
         label=f"{resource} resource",
     )

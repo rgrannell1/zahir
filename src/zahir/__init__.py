@@ -1,6 +1,6 @@
 # Public API surface for zahir.
 from zahir.core.backends.memory import make_memory_storage_handlers
-from zahir.core.coeffects import CurrentTime
+from zahir.core.coeffects import CurrentTime, FileExists, ResourceUsage
 from zahir.core.commons.fp_types import Err, Ok, Result
 from zahir.core.commons.zahir_types import JobContext, RootResult
 from zahir.core.dependencies import (
@@ -52,10 +52,12 @@ __all__ = [
     "EReleaseSlot",
     "ESetState",
     "Err",
+    "FileExists",
     "Impossible",
     "ImpossibleError",
     "JobContext",
     "Ok",
+    "ResourceUsage",
     "Result",
     "RootResult",
     "Satisfied",
