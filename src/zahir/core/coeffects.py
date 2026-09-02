@@ -1,6 +1,7 @@
 """Defines contextual requests and their default Zahir providers."""
 
 import pathlib
+import time
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -20,6 +21,13 @@ class CurrentTime(Coeffect[datetime]):
     """Requests the worker's current UTC wall-clock time."""
 
     tag: ClassVar[LiteralString] = "current_time"
+
+
+@dataclass(frozen=True)
+class MonotonicTime(Coeffect[float]):
+    """Requests the worker's current monotonic-clock value."""
+
+    tag: ClassVar[LiteralString] = "monotonic_time"
 
 
 @dataclass(frozen=True)
@@ -44,6 +52,12 @@ def provide_current_time(_coeffect: CurrentTime) -> datetime:
     return datetime.now(tz=UTC)
 
 
+def provide_monotonic_time(_coeffect: MonotonicTime) -> float:
+    """Provide the current monotonic-clock value."""
+
+    return time.monotonic()
+
+
 def provide_file_exists(coeffect: FileExists) -> bool:
     """Provide path existence from the worker filesystem."""
 
@@ -65,6 +79,7 @@ def build_default_providers() -> BindingMap:
 
     return {
         CurrentTime.tag: provide_current_time,
+        MonotonicTime.tag: provide_monotonic_time,
         FileExists.tag: provide_file_exists,
         ResourceUsage.tag: provide_resource_usage,
     }

@@ -2,11 +2,20 @@ import time
 from unittest.mock import patch
 
 import time_machine
+from orbis import Orbis
 from tertius import EEmit, ESleep
 
 from tests.shared import NOW, drain_to
+from zahir.core.coeffects import build_default_providers
 from zahir.core.dependencies.semaphore import semaphore_dependency
 from zahir.core.effects import EGetState
+
+
+def interpret_timed_semaphore(name: str, timeout_ms: int):
+    """Apply worker context to a timed semaphore dependency."""
+
+    runtime = Orbis(providers=build_default_providers())
+    return runtime(semaphore_dependency(name, timeout_ms=timeout_ms))
 
 
 @time_machine.travel(NOW, tick=False)
@@ -69,7 +78,7 @@ def test_timeout_emits_impossible():
     """Proves exceeding timeout_ms emits impossible on the next probe."""
 
     with time_machine.travel(NOW, tick=False):
-        gen = semaphore_dependency("db", timeout_ms=1000)
+        gen = interpret_timed_semaphore("db", 1000)
         next(gen)  # EGetState
         gen.send("unsatisfied")  # EEmit(waiting)
         next(gen)  # ESleep
@@ -85,7 +94,7 @@ def test_timeout_reason_includes_name_and_duration():
     """Proves the impossible reason includes the semaphore name and timeout duration."""
 
     with time_machine.travel(NOW, tick=False):
-        gen = semaphore_dependency("my-semaphore", timeout_ms=5000)
+        gen = interpret_timed_semaphore("my-semaphore", 5000)
         next(gen)
         gen.send("unsatisfied")  # EEmit(waiting)
         next(gen)  # ESleep
@@ -137,7 +146,7 @@ def test_impossible_timeout_returns_tuple_as_generator_value():
     """Proves the generator returns the impossible tuple as its StopIteration value on timeout."""
 
     with time_machine.travel(NOW, tick=False):
-        gen = semaphore_dependency("db", timeout_ms=1000)
+        gen = interpret_timed_semaphore("db", 1000)
         next(gen)
         gen.send("unsatisfied")  # EEmit(waiting)
         next(gen)  # ESleep

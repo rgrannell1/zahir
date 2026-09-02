@@ -1,11 +1,10 @@
 # Polling combinator: drives condition generators with retries, timeouts, Left/Right.
-import time
 from collections.abc import Callable, Generator
 from typing import Any
 
 from tertius import EEmit, ESleep
 
-from zahir.core.commons.clock import monotonic_deadline
+from zahir.core.coeffects import MonotonicTime
 from zahir.core.commons.constants import DEPENDENCY_DELAY_MS, DependencyState
 from zahir.core.commons.zahir_types import ConditionResult, DependencyResult
 from zahir.core.telemetry import dependency_satisfied_event, dependency_waiting_event
@@ -47,6 +46,24 @@ def make_timeout_result(label: str, timeout_ms: int | None) -> DependencyResult:
     return DependencyState.IMPOSSIBLE, {"reason": reason}
 
 
+def request_deadline(timeout_ms: int | None) -> Generator[Any, Any, float | None]:
+    """Request the monotonic deadline for a timeout."""
+
+    if timeout_ms is None:
+        return None
+    current_time = yield MonotonicTime()
+    return current_time + timeout_ms / 1000
+
+
+def is_deadline_expired(deadline: float | None) -> Generator[Any, Any, bool]:
+    """Request whether a monotonic deadline has passed."""
+
+    if deadline is None:
+        return False
+    current_time = yield MonotonicTime()
+    return current_time >= deadline
+
+
 def dependency(
     condition_fn: Callable[[], Generator[Any, Any, ConditionResult]],
     timeout_ms: int | None = None,
@@ -61,10 +78,10 @@ def dependency(
 
     Unsatisfied causes a retry after poll_ms; satisfied or impossible terminates the loop.
     """
-    timeout_at = monotonic_deadline(timeout_ms)
+    timeout_at = yield from request_deadline(timeout_ms)
 
     while True:
-        if timeout_at is not None and time.monotonic() >= timeout_at:
+        if (yield from is_deadline_expired(timeout_at)):
             result = make_timeout_result(label, timeout_ms)
             return (yield from finish(label, result))
 

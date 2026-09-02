@@ -2,9 +2,11 @@ import time
 from unittest.mock import patch
 
 import time_machine
+from orbis import Orbis
 from tertius import EEmit, ESleep
 
 from tests.shared import NOW, drain_to
+from zahir.core.coeffects import build_default_providers
 from zahir.core.dependencies.concurrency import concurrency_dependency
 from zahir.core.effects import EAcquire
 
@@ -67,11 +69,18 @@ def test_satisfied_metadata_includes_name_and_limit():
 # concurrency_dependency — timeout
 
 
+def interpret_timed_concurrency(timeout_ms: int):
+    """Apply worker context to a timed concurrency dependency."""
+
+    runtime = Orbis(providers=build_default_providers())
+    return runtime(concurrency_dependency("workers", limit=4, timeout_ms=timeout_ms))
+
+
 @time_machine.travel(NOW, tick=False)
 def test_timeout_yields_eimpossible():
     """Proves exceeding timeout_ms emits an impossible result."""
 
-    gen = concurrency_dependency("workers", limit=4, timeout_ms=1000)
+    gen = interpret_timed_concurrency(1000)
     next(gen)  # EAcquire
     gen.send(False)  # EEmit(waiting)
     next(gen)  # ESleep
@@ -86,7 +95,7 @@ def test_timeout_yields_eimpossible():
 def test_timeout_reason_includes_name_and_duration():
     """Proves the impossible reason includes the slot name and timeout duration."""
 
-    gen = concurrency_dependency("workers", limit=4, timeout_ms=5000)
+    gen = interpret_timed_concurrency(5000)
     next(gen)
     gen.send(False)  # EEmit(waiting)
     next(gen)  # ESleep
@@ -116,7 +125,7 @@ def test_satisfied_returns_tuple_as_generator_value():
 def test_impossible_returns_tuple_as_generator_value():
     """Proves the generator returns the impossible tuple as its StopIteration value."""
 
-    gen = concurrency_dependency("workers", limit=4, timeout_ms=1000)
+    gen = interpret_timed_concurrency(1000)
     next(gen)
     gen.send(False)  # EEmit(waiting)
     next(gen)  # ESleep

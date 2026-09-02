@@ -3,9 +3,11 @@ from datetime import timedelta
 from unittest.mock import patch
 
 import time_machine
+from orbis import Orbis
 from tertius import EEmit, ESleep
 
 from tests.shared import NOW, drain_to
+from zahir.core.coeffects import MonotonicTime, build_default_providers
 from zahir.core.commons.constants import DependencyState
 from zahir.core.commons.zahir_types import ConditionResult
 from zahir.core.dependencies.dependency import check, dependency
@@ -120,7 +122,8 @@ def test_wall_clock_step_does_not_expire_timeout():
         return (DependencyState.UNSATISFIED, None)
         yield
 
-    gen = dependency(_cond, timeout_ms=60_000)
+    runtime = Orbis(providers=build_default_providers())
+    gen = runtime(dependency(_cond, timeout_ms=60_000))
     next(gen)  # advance through one retry: EEmit(waiting)
     next(gen)  # advance through one retry: ESleep
 
@@ -138,7 +141,8 @@ def test_timeout_emits_impossible():
         return (DependencyState.UNSATISFIED, None)
         yield
 
-    gen = dependency(_cond, timeout_ms=1000)
+    runtime = Orbis(providers=build_default_providers())
+    gen = runtime(dependency(_cond, timeout_ms=1000))
     next(gen)  # advance through one retry: EEmit(waiting)
     next(gen)  # advance through one retry: ESleep
 
@@ -157,7 +161,8 @@ def test_timeout_label_appears_in_reason():
         return (DependencyState.UNSATISFIED, None)
         yield
 
-    gen = dependency(_cond, timeout_ms=500, label="my-condition")
+    runtime = Orbis(providers=build_default_providers())
+    gen = runtime(dependency(_cond, timeout_ms=500, label="my-condition"))
     next(gen)  # advance through one retry: EEmit(waiting)
     next(gen)  # advance through one retry: ESleep
 
@@ -165,6 +170,23 @@ def test_timeout_label_appears_in_reason():
         emits, _ = drain_to(gen, EEmit)
 
     assert "my-condition" in emits[0].body[1]["reason"]
+
+
+def test_timeout_uses_monotonic_time_context():
+    """Proves dependency deadlines use replaceable monotonic time context."""
+
+    def _cond():
+        return (DependencyState.UNSATISFIED, None)
+        yield
+
+    gen = dependency(_cond, timeout_ms=1000)
+    assert isinstance(next(gen), MonotonicTime)
+    assert isinstance(gen.send(10.0), MonotonicTime)
+    emit = gen.send(12.0)
+
+    assert isinstance(emit, EEmit)
+    assert emit.body[0] == "impossible"
+    assert "1000" in emit.body[1]["reason"]
 
 
 def test_zero_timeout_expires_immediately():
@@ -175,7 +197,8 @@ def test_zero_timeout_expires_immediately():
         return (DependencyState.SATISFIED, None)
         yield
 
-    gen = dependency(_cond, timeout_ms=0)
+    runtime = Orbis(providers=build_default_providers())
+    gen = runtime(dependency(_cond, timeout_ms=0))
     emits, _ = drain_to(gen, EEmit)
 
     assert emits[0].body[0] == "impossible"
